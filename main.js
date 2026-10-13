@@ -1438,6 +1438,7 @@ var TaskEditorModal = class extends import_obsidian.Modal {
   resolveResult;
   result = new Promise((resolve) => this.resolveResult = resolve);
   finished = false;
+  comp = new import_obsidian.Component();
   finish(value) {
     if (!this.finished) {
       this.finished = true;
@@ -1446,6 +1447,7 @@ var TaskEditorModal = class extends import_obsidian.Modal {
     }
   }
   onOpen() {
+    this.modalEl.addClass("ticktick-modal");
     const { contentEl } = this;
     contentEl.addClass("ticktick-task-editor-modal");
     const header = contentEl.createDiv({ cls: "ticktick-editor-header" });
@@ -1486,21 +1488,71 @@ var TaskEditorModal = class extends import_obsidian.Modal {
       input.setValue(reminderTime).onChange((value) => reminderTime = value);
       input.inputEl.dir = "ltr";
     });
-    new import_obsidian.Setting(fields).setName("\u{1F4CB} \u062A\u0648\u0636\u06CC\u062D\u0627\u062A").addTextArea((input) => {
-      input.setValue(description).onChange((value) => description = value);
-      input.inputEl.dir = "rtl";
-      input.inputEl.rows = 5;
-      input.inputEl.addClass("ticktick-input-full-width");
+    const descSection = fields.createDiv({ cls: "ticktick-desc-section" });
+    const descHeader = descSection.createDiv({ cls: "ticktick-desc-header" });
+    const descHeaderInfo = descHeader.createDiv({ cls: "ticktick-desc-header-info" });
+    descHeaderInfo.createSpan({ text: "\u{1F4CB} \u062A\u0648\u0636\u06CC\u062D\u0627\u062A (Markdown)", cls: "ticktick-desc-label" });
+    const tabsWrap = descHeader.createDiv({ cls: "ticktick-desc-tabs" });
+    const previewTabBtn = tabsWrap.createEl("button", {
+      cls: "ticktick-tab-btn",
+      text: "\u{1F441}\uFE0F \u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634"
     });
+    const editTabBtn = tabsWrap.createEl("button", {
+      cls: "ticktick-tab-btn",
+      text: "\u270F\uFE0F \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u062A\u0646"
+    });
+    const descContainer = descSection.createDiv({ cls: "ticktick-desc-container" });
+    const previewEl = descContainer.createDiv({ cls: "ticktick-desc-preview" });
+    const descTextarea = descContainer.createEl("textarea", {
+      cls: "ticktick-desc-textarea",
+      placeholder: "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A \u0648 \u06CC\u0627\u062F\u062F\u0627\u0634\u062A\u200C\u0647\u0627\u06CC \u062A\u0633\u06A9 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646... (\u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u06A9\u0627\u0645\u0644 \u0627\u0632 Markdown)"
+    });
+    descTextarea.value = description;
+    descTextarea.oninput = () => {
+      description = descTextarea.value;
+    };
+    const renderPreview = async () => {
+      previewEl.empty();
+      const content = description.trim() || "*\u0647\u0646\u0648\u0632 \u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0628\u0631\u0627\u06CC \u0646\u0648\u0634\u062A\u0646\u060C \u0631\u0648\u06CC \u062F\u06A9\u0645\u0647 \xAB\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u062A\u0646\xBB \u062F\u0631 \u0628\u0627\u0644\u0627 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F.*";
+      await import_obsidian.MarkdownRenderer.render(this.app, content, previewEl, "", this.comp);
+    };
+    const setTab = (tab) => {
+      if (tab === "preview") {
+        previewTabBtn.addClass("is-active");
+        editTabBtn.removeClass("is-active");
+        previewEl.removeClass("is-hidden");
+        descTextarea.addClass("is-hidden");
+        description = descTextarea.value;
+        void renderPreview();
+      } else {
+        editTabBtn.addClass("is-active");
+        previewTabBtn.removeClass("is-active");
+        previewEl.addClass("is-hidden");
+        descTextarea.removeClass("is-hidden");
+        descTextarea.focus();
+      }
+    };
+    previewTabBtn.onclick = (e) => {
+      e.preventDefault();
+      setTab("preview");
+    };
+    editTabBtn.onclick = (e) => {
+      e.preventDefault();
+      setTab("edit");
+    };
+    const initialTab = description.trim() ? "preview" : "edit";
+    setTab(initialTab);
     const actions = contentEl.createDiv({ cls: "ticktick-editor-actions" });
     actions.createEl("button", { text: "\u274C \u0627\u0646\u0635\u0631\u0627\u0641" }).addEventListener("click", () => this.finish(null));
     actions.createEl("button", { text: "\u{1F4BE} \u0630\u062E\u06CC\u0631\u0647", cls: "mod-cta" }).addEventListener("click", () => {
+      description = descTextarea.value;
       if (!title.trim() || !projectId) return new import_obsidian.Notice("\u0639\u0646\u0648\u0627\u0646 \u0648 \u067E\u0631\u0648\u0698\u0647 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646.");
       if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return new import_obsidian.Notice("\u062A\u0627\u0631\u06CC\u062E \u0628\u0627\u06CC\u062F \u0628\u0647 \u0634\u06A9\u0644 YYYY-MM-DD \u0628\u0627\u0634\u062F.");
       this.finish({ ...this.initial, title: title.trim(), desc: description.trim(), projectId, dueDate, reminderTime });
     });
   }
   onClose() {
+    this.comp.unload();
     this.contentEl.empty();
     if (!this.finished) {
       this.finished = true;

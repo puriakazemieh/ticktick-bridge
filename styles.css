@@ -1412,25 +1412,57 @@
  * states: default · hover · focus · active · disabled · loading · error · success
  * contrast: pass (uses Obsidian semantic variables)
  */
+/* Modal Dimensions & RTL */
+.modal.ticktick-modal {
+  width: min(780px, 94vw) !important;
+  max-width: 780px !important;
+  max-height: 88vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border-radius: 1.15rem !important;
+  overflow: hidden !important;
+  direction: rtl !important;
+  text-align: right !important;
+  padding: 0 !important;
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.48), 0 0 0 1px color-mix(in srgb, #fff 5%, transparent) !important;
+}
+
+.modal.ticktick-modal .modal-close-button {
+  top: 1.15rem !important;
+  left: 1.35rem !important;
+  right: auto !important;
+  z-index: 20 !important;
+  cursor: pointer !important;
+  border-radius: 0.5rem !important;
+  padding: 0.35rem !important;
+  color: var(--text-muted) !important;
+}
+
 .ticktick-task-editor-modal {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 88vh;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
   direction: rtl;
-  padding: 1.5rem;
 }
 
 /* ─── Decorative header ─── */
 .ticktick-editor-header {
   position: relative;
-  padding: 1.4rem 1.5rem 1rem;
-  margin: -1.5rem -1.5rem 0;
+  padding: 1.3rem 1.6rem 0.95rem;
   background: linear-gradient(145deg,
-    color-mix(in srgb, var(--interactive-accent) 16%, var(--background-primary)),
+    color-mix(in srgb, var(--interactive-accent) 18%, var(--background-primary)),
     color-mix(in srgb, var(--interactive-accent) 6%, var(--background-primary)));
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .ticktick-task-editor-modal h2 {
   margin: 0 0 0.15rem;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -1438,25 +1470,27 @@
 .ticktick-task-editor-subtitle {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   line-height: 1.5;
 }
 
 /* Gradient divider between header and fields */
 .ticktick-editor-divider {
   height: 2px;
-  margin: 0 -1.5rem;
   background: linear-gradient(to left,
     transparent,
     color-mix(in srgb, var(--interactive-accent) 55%, transparent) 20%,
     var(--interactive-accent) 50%,
     color-mix(in srgb, var(--interactive-accent) 55%, transparent) 80%,
     transparent);
+  flex-shrink: 0;
 }
 
 /* ─── Fields container ─── */
 .ticktick-editor-fields {
-  padding: 0.4rem 1.1rem 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0.6rem 1.6rem 1rem;
 }
 
 .ticktick-task-editor-modal .setting-item {
@@ -1481,6 +1515,126 @@
 }
 
 .ticktick-task-editor-modal .setting-item-control { flex: 1; min-width: 0; }
+
+/* Dedicated Description Section (Full-width, Markdown Preview & Edit) */
+.ticktick-desc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
+}
+
+.ticktick-desc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.ticktick-desc-label {
+  font-weight: var(--font-semibold);
+  font-size: 0.88rem;
+  color: var(--text-normal);
+}
+
+.ticktick-desc-tabs {
+  display: inline-flex;
+  background: color-mix(in srgb, var(--background-secondary-alt) 80%, transparent);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.ticktick-tab-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.32rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.ticktick-tab-btn:hover {
+  color: var(--text-normal);
+  background: color-mix(in srgb, var(--background-modifier-hover) 60%, transparent);
+}
+
+.ticktick-tab-btn.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--interactive-accent) 35%, transparent);
+}
+
+.ticktick-desc-container {
+  position: relative;
+  width: 100%;
+}
+
+.ticktick-desc-textarea {
+  width: 100% !important;
+  min-height: 190px !important;
+  max-height: 45vh !important;
+  resize: vertical !important;
+  line-height: 1.8 !important;
+  direction: rtl !important;
+  text-align: right !important;
+  font-family: var(--font-text, inherit) !important;
+  font-size: 0.95rem !important;
+  padding: 0.9rem 1.15rem !important;
+  background: var(--background-secondary) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  border-radius: 0.65rem !important;
+  box-sizing: border-box !important;
+}
+
+.ticktick-desc-preview {
+  min-height: 190px;
+  max-height: 45vh;
+  overflow-y: auto;
+  direction: rtl;
+  text-align: right;
+  padding: 1.15rem 1.35rem;
+  background: color-mix(in srgb, var(--background-secondary) 55%, var(--background-primary));
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0.65rem;
+  line-height: 1.9;
+  color: var(--text-normal);
+  font-size: 0.96rem;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* Markdown preview typography */
+.ticktick-desc-preview h1,
+.ticktick-desc-preview h2,
+.ticktick-desc-preview h3 {
+  color: var(--text-normal);
+  font-weight: 700;
+  margin-top: 1.1rem;
+  margin-bottom: 0.45rem;
+}
+
+.ticktick-desc-preview h1 { font-size: 1.3rem; border-bottom: 1px solid var(--background-modifier-border); padding-bottom: 0.35rem; }
+.ticktick-desc-preview h2 { font-size: 1.15rem; color: var(--interactive-accent); }
+.ticktick-desc-preview h3 { font-size: 1.02rem; }
+.ticktick-desc-preview p { margin: 0.4rem 0 0.6rem; }
+.ticktick-desc-preview ul, .ticktick-desc-preview ol { padding-right: 1.5rem; padding-left: 0; margin: 0.5rem 0; }
+.ticktick-desc-preview li { margin-bottom: 0.3rem; }
+.ticktick-desc-preview hr { border: none; height: 1px; background: color-mix(in srgb, var(--background-modifier-border) 80%, transparent); margin: 1.2rem 0; }
+.ticktick-desc-preview input[type="checkbox"] { margin-left: 0.45rem; cursor: pointer; accent-color: var(--interactive-accent); }
+.ticktick-desc-preview .task-list-item { list-style-type: none; display: flex; align-items: flex-start; }
+
+.is-hidden {
+  display: none !important;
+}
 
 /* Project picker button */
 .ticktick-task-editor-modal .ticktick-project-picker {

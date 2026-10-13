@@ -1,4 +1,4 @@
-import { App, ItemView, MarkdownRenderer, Menu, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf, requestUrl, setIcon } from "obsidian";
+import { App, Component, ItemView, MarkdownRenderer, Menu, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf, requestUrl, setIcon } from "obsidian";
 import { isHabitScheduledForDay, isScheduledForDay, jalaliDateKeyToGregorian, toDateKey, todayInZone } from "../core/date.js";
 import { TickTickClient } from "../core/ticktick-client.js";
 import { normalizeWebSessionCookie, parseWebHabitCheckins } from "../core/ticktick-web-habits.js";
@@ -1293,9 +1293,11 @@ class TaskEditorModal extends Modal {
   private resolveResult!: (value: TaskDraft | null) => void;
   private result = new Promise<TaskDraft | null>(resolve => this.resolveResult = resolve);
   private finished = false;
+  private comp = new Component();
   constructor(app: App, private projects: Array<{ id: string; name: string }>, private initial: TaskDraft) { super(app); }
   finish(value: TaskDraft | null) { if (!this.finished) { this.finished = true; this.resolveResult(value); this.close(); } }
   onOpen() {
+    this.modalEl.addClass("ticktick-modal");
     const { contentEl } = this;
     contentEl.addClass("ticktick-task-editor-modal");
 
@@ -1334,18 +1336,76 @@ class TaskEditorModal extends Modal {
 
     new Setting(fields).setName("📅 تاریخ").setDesc("با انتخاب تاریخ، تقویم سیستم باز می‌شود.").addText(input => { input.inputEl.type = "date"; input.setValue(dueDate).onChange(value => dueDate = value); input.inputEl.dir = "ltr"; });
     new Setting(fields).setName("⏰ یادآوری").setDesc("اختیاری؛ در ساعت انتخاب‌شده در همان روز یادآوری می‌شود.").addText(input => { input.inputEl.type = "time"; input.setValue(reminderTime).onChange(value => reminderTime = value); input.inputEl.dir = "ltr"; });
-    new Setting(fields).setName("📋 توضیحات").addTextArea(input => { input.setValue(description).onChange(value => description = value); input.inputEl.dir = "rtl"; input.inputEl.rows = 5; input.inputEl.addClass("ticktick-input-full-width"); });
+
+    // ─── Description Section (Full-width, Markdown Preview & Edit) ───
+    const descSection = fields.createDiv({ cls: "ticktick-desc-section" });
+    const descHeader = descSection.createDiv({ cls: "ticktick-desc-header" });
+    const descHeaderInfo = descHeader.createDiv({ cls: "ticktick-desc-header-info" });
+    descHeaderInfo.createSpan({ text: "📋 توضیحات (Markdown)", cls: "ticktick-desc-label" });
+
+    const tabsWrap = descHeader.createDiv({ cls: "ticktick-desc-tabs" });
+    const previewTabBtn = tabsWrap.createEl("button", {
+      cls: "ticktick-tab-btn",
+      text: "👁️ پیش‌نمایش"
+    });
+    const editTabBtn = tabsWrap.createEl("button", {
+      cls: "ticktick-tab-btn",
+      text: "✏️ ویرایش متن"
+    });
+
+    const descContainer = descSection.createDiv({ cls: "ticktick-desc-container" });
+    const previewEl = descContainer.createDiv({ cls: "ticktick-desc-preview" });
+    const descTextarea = descContainer.createEl("textarea", {
+      cls: "ticktick-desc-textarea",
+      placeholder: "توضیحات و یادداشت‌های تسک را وارد کن... (پشتیبانی کامل از Markdown)"
+    });
+    descTextarea.value = description;
+    descTextarea.oninput = () => { description = descTextarea.value; };
+
+    const renderPreview = async () => {
+      previewEl.empty();
+      const content = description.trim() || "*هنوز توضیحی برای این تسک ثبت نشده است. برای نوشتن، روی دکمه «ویرایش متن» در بالا کلیک کنید.*";
+      await MarkdownRenderer.render(this.app, content, previewEl, "", this.comp);
+    };
+
+    const setTab = (tab: "preview" | "edit") => {
+      if (tab === "preview") {
+        previewTabBtn.addClass("is-active");
+        editTabBtn.removeClass("is-active");
+        previewEl.removeClass("is-hidden");
+        descTextarea.addClass("is-hidden");
+        description = descTextarea.value;
+        void renderPreview();
+      } else {
+        editTabBtn.addClass("is-active");
+        previewTabBtn.removeClass("is-active");
+        previewEl.addClass("is-hidden");
+        descTextarea.removeClass("is-hidden");
+        descTextarea.focus();
+      }
+    };
+
+    previewTabBtn.onclick = (e) => { e.preventDefault(); setTab("preview"); };
+    editTabBtn.onclick = (e) => { e.preventDefault(); setTab("edit"); };
+
+    const initialTab = description.trim() ? "preview" : "edit";
+    setTab(initialTab);
 
     // ─── Action buttons ───
     const actions = contentEl.createDiv({ cls: "ticktick-editor-actions" });
     actions.createEl("button", { text: "❌ انصراف" }).addEventListener("click", () => this.finish(null));
     actions.createEl("button", { text: "💾 ذخیره", cls: "mod-cta" }).addEventListener("click", () => {
+      description = descTextarea.value;
       if (!title.trim() || !projectId) return new Notice("عنوان و پروژه را وارد کن.");
       if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return new Notice("تاریخ باید به شکل YYYY-MM-DD باشد.");
       this.finish({ ...this.initial, title: title.trim(), desc: description.trim(), projectId, dueDate, reminderTime });
     });
   }
-  onClose() { this.contentEl.empty(); if (!this.finished) { this.finished = true; this.resolveResult(null); } }
+  onClose() {
+    this.comp.unload();
+    this.contentEl.empty();
+    if (!this.finished) { this.finished = true; this.resolveResult(null); }
+  }
   openAndWait() { this.open(); return this.result; }
 }
 
