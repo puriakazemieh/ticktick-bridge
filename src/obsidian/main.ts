@@ -1,4 +1,4 @@
-import { App, ItemView, MarkdownRenderer, Menu, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf, requestUrl, setIcon } from "obsidian";
+import { App, ItemView, MarkdownRenderer, Menu, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf, requestUrl, setIcon } from "obsidian";
 import { isHabitScheduledForDay, isScheduledForDay, jalaliDateKeyToGregorian, toDateKey, todayInZone } from "../core/date.js";
 import { TickTickClient } from "../core/ticktick-client.js";
 import { normalizeWebSessionCookie, parseWebHabitCheckins } from "../core/ticktick-web-habits.js";
@@ -6,6 +6,13 @@ import { normalizeWebSessionCookie, parseWebHabitCheckins } from "../core/tickti
 const VIEW_TYPE = "ticktick-bridge-today";
 const HABIT_VIEW_TYPE = "ticktick-bridge-habits";
 type DashboardMode = "day" | "week" | "month" | "stats";
+
+function currentPlatformName() {
+  if (Platform.isWin) return "Windows";
+  if (Platform.isMacOS) return "macOS";
+  if (Platform.isLinux) return "Linux";
+  return "Unknown";
+}
 
 interface BridgeSettings {
   apiToken: string;
@@ -477,8 +484,8 @@ export default class TickTickBridgePlugin extends Plugin {
     const id = this.settings.webSessionDeviceId || crypto.randomUUID().replaceAll("-", "").slice(0, 24);
     return JSON.stringify({
       platform: "web",
-      os: "Windows 10",
-      device: navigator.userAgent,
+      os: currentPlatformName(),
+      device: currentPlatformName(),
       name: "",
       version: 6070,
       id,
@@ -503,7 +510,6 @@ export default class TickTickBridgePlugin extends Plugin {
         "x-device": this.webDeviceAgent(),
         "Content-Type": "application/json",
         "X-Requested-With": "XMLHttpRequest",
-        "User-Agent": navigator.userAgent,
         Origin: origin,
         Referer: `${origin}/signin`,
       },
@@ -559,7 +565,6 @@ export default class TickTickBridgePlugin extends Plugin {
           ...(token ? { t: token } : {}),
           "Content-Type": "application/json",
           "x-device": this.webDeviceAgent(),
-          "User-Agent": navigator.userAgent,
         },
         body: body === undefined ? undefined : JSON.stringify(body),
         throw: false,
@@ -606,13 +611,11 @@ export default class TickTickBridgePlugin extends Plugin {
   async openTodayView() {
     const leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: VIEW_TYPE, active: true });
-    this.app.workspace.revealLeaf(leaf);
   }
 
   async openHabitView() {
     const leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: HABIT_VIEW_TYPE, active: true });
-    this.app.workspace.revealLeaf(leaf);
   }
 
   async renderTodayBlock(element: HTMLElement, dayOverride?: string) {
@@ -1249,12 +1252,9 @@ async function addDescriptionToggle(plugin: Plugin, body: HTMLElement, actions: 
   const button = actions.createEl("button", { cls: "mod-icon", attr: { "aria-label": "توضیحات" } });
   setIcon(button, "file-text");
   const panel = body.createDiv({ cls: "ticktick-bridge-description" });
-  panel.style.display = "none";
-  await MarkdownRenderer.renderMarkdown(description || "توضیحی برای این تسک ثبت نشده است.", panel, "", plugin);
-  button.addEventListener("click", () => {
-    const closed = panel.style.display === "none";
-    panel.style.display = closed ? "block" : "none";
-  });
+  panel.addClass("is-hidden");
+  await MarkdownRenderer.render(plugin.app, description || "توضیحی برای این تسک ثبت نشده است.", panel, "", plugin);
+  button.addEventListener("click", () => panel.classList.toggle("is-hidden"));
 }
 
 function toTaskPayload(draft: TaskDraft, timeZone: string) {
@@ -1316,7 +1316,7 @@ class TaskEditorModal extends Modal {
     let dueDate = toDateKey(String(this.initial.dueDate ?? ""), String(this.initial.timeZone ?? "Asia/Tehran")) ?? "";
     let reminderTime = reminderTimeFromTask(this.initial);
 
-    new Setting(fields).setName("📝 عنوان").addText(input => { input.setValue(title).onChange(value => title = value); input.inputEl.dir = "rtl"; input.inputEl.style.width = "100%"; });
+    new Setting(fields).setName("📝 عنوان").addText(input => { input.setValue(title).onChange(value => title = value); input.inputEl.dir = "rtl"; input.inputEl.addClass("ticktick-input-full-width"); });
 
     const selectedProjectName = () => this.projects.find(project => project.id === projectId)?.name ?? "انتخاب پروژه";
     new Setting(fields).setName("📂 پروژه").setDesc("برای انتخاب پروژه کلیک کن.").addButton(button => {
@@ -1334,7 +1334,7 @@ class TaskEditorModal extends Modal {
 
     new Setting(fields).setName("📅 تاریخ").setDesc("با انتخاب تاریخ، تقویم سیستم باز می‌شود.").addText(input => { input.inputEl.type = "date"; input.setValue(dueDate).onChange(value => dueDate = value); input.inputEl.dir = "ltr"; });
     new Setting(fields).setName("⏰ یادآوری").setDesc("اختیاری؛ در ساعت انتخاب‌شده در همان روز یادآوری می‌شود.").addText(input => { input.inputEl.type = "time"; input.setValue(reminderTime).onChange(value => reminderTime = value); input.inputEl.dir = "ltr"; });
-    new Setting(fields).setName("📋 توضیحات").addTextArea(input => { input.setValue(description).onChange(value => description = value); input.inputEl.dir = "rtl"; input.inputEl.rows = 5; input.inputEl.style.width = "100%"; });
+    new Setting(fields).setName("📋 توضیحات").addTextArea(input => { input.setValue(description).onChange(value => description = value); input.inputEl.dir = "rtl"; input.inputEl.rows = 5; input.inputEl.addClass("ticktick-input-full-width"); });
 
     // ─── Action buttons ───
     const actions = contentEl.createDiv({ cls: "ticktick-editor-actions" });
@@ -1385,13 +1385,13 @@ class TickTickWebLoginModal extends Modal {
     let password = "";
     new Setting(this.contentEl).setName("ایمیل یا نام کاربری").addText(input => {
       input.inputEl.autocomplete = "username";
-      input.inputEl.style.width = "100%";
+      input.inputEl.addClass("ticktick-input-full-width");
       input.onChange(value => username = value);
     });
     new Setting(this.contentEl).setName("رمز عبور").addText(input => {
       input.inputEl.type = "password";
       input.inputEl.autocomplete = "current-password";
-      input.inputEl.style.width = "100%";
+      input.inputEl.addClass("ticktick-input-full-width");
       input.onChange(value => password = value);
     });
     const actions = this.contentEl.createDiv({ cls: "modal-button-container" });
@@ -1422,7 +1422,7 @@ class TickTickBridgeSettings extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "TickTick Bridge" });
+    new Setting(containerEl).setName("TickTick Bridge").setHeading();
     const cachedAt = this.plugin.cacheSnapshotTime();
     new Setting(containerEl).setName("نسخهٔ محلی داده‌ها").setDesc(cachedAt
       ? `آخرین دریافت: ${cachedAt} — پنل‌ها ابتدا از این نسخهٔ سریع نمایش داده می‌شوند.`
@@ -1471,7 +1471,7 @@ class TickTickBridgeSettings extends PluginSettingTab {
       }));
     new Setting(containerEl).setName("Cookie تکمیلی وب (اختیاری)").setDesc("فقط اگر اتصال خودکار جواب نداد، Cookie نشست وب TickTick را اینجا وارد کن. این مقدار مانند رمز عبور است.").addText(input => {
       input.inputEl.type = "password";
-      input.inputEl.style.width = "25rem";
+      input.inputEl.addClass("ticktick-input-cookie");
       input.setValue(this.plugin.settings.webSessionCookie).onChange(async value => { this.plugin.settings.webSessionCookie = normalizeWebSessionCookie(value); await this.plugin.saveSettings(); });
     });
     new Setting(containerEl).setName("بررسی اتصال وب عادت‌ها").setDesc("چک‌این‌های امروز را مستقیماً از سرویس وب TickTick می‌خواند.").addButton(button => button

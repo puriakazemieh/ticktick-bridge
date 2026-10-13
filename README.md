@@ -1,5 +1,23 @@
 # TickTick Bridge
 
+A standalone TickTick task bridge for your vault. It syncs TickTick projects,
+tasks, and habits without bundling any account token or personal data.
+
+## Installation
+
+Download `main.js`, `manifest.json`, and `styles.css` from the matching GitHub
+release and place them in `.obsidian/plugins/ticktick-bridge/`. Enable the
+plugin from Community plugins, then enter your own TickTick API token in its
+settings.
+
+## Usage
+
+Open the Today or Habits view from the ribbon or Command Palette. Add a
+`ticktick-today` or `ticktick-habits` code block to a note to render the
+corresponding dashboard inline.
+
+---
+
 هستهٔ مستقل برای اتصال امن Obsidian به TickTick، بدون وابستگی به TickTickSync.
 
 ## هدف

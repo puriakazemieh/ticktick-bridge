@@ -144,6 +144,18 @@
   border-radius: 0.5rem;
 }
 
+.ticktick-bridge-description.is-hidden {
+  display: none;
+}
+
+.ticktick-input-full-width {
+  width: 100%;
+}
+
+.ticktick-input-cookie {
+  width: min(25rem, 100%);
+}
+
 .ticktick-bridge-toolbar {
   display: flex;
   direction: rtl;

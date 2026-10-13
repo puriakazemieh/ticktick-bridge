@@ -259,6 +259,12 @@ function normalizeWebSessionCookie(value) {
 // src/obsidian/main.ts
 var VIEW_TYPE = "ticktick-bridge-today";
 var HABIT_VIEW_TYPE = "ticktick-bridge-habits";
+function currentPlatformName() {
+  if (import_obsidian.Platform.isWin) return "Windows";
+  if (import_obsidian.Platform.isMacOS) return "macOS";
+  if (import_obsidian.Platform.isLinux) return "Linux";
+  return "Unknown";
+}
 var DEFAULT_SETTINGS = {
   apiToken: "",
   webSessionToken: "",
@@ -684,8 +690,8 @@ var TickTickBridgePlugin = class extends import_obsidian.Plugin {
     const id = this.settings.webSessionDeviceId || crypto.randomUUID().replaceAll("-", "").slice(0, 24);
     return JSON.stringify({
       platform: "web",
-      os: "Windows 10",
-      device: navigator.userAgent,
+      os: currentPlatformName(),
+      device: currentPlatformName(),
       name: "",
       version: 6070,
       id,
@@ -709,7 +715,6 @@ var TickTickBridgePlugin = class extends import_obsidian.Plugin {
         "x-device": this.webDeviceAgent(),
         "Content-Type": "application/json",
         "X-Requested-With": "XMLHttpRequest",
-        "User-Agent": navigator.userAgent,
         Origin: origin,
         Referer: `${origin}/signin`
       },
@@ -764,8 +769,7 @@ var TickTickBridgePlugin = class extends import_obsidian.Plugin {
           Cookie: sessionCookie,
           ...token ? { t: token } : {},
           "Content-Type": "application/json",
-          "x-device": this.webDeviceAgent(),
-          "User-Agent": navigator.userAgent
+          "x-device": this.webDeviceAgent()
         },
         body: body === void 0 ? void 0 : JSON.stringify(body),
         throw: false
@@ -802,12 +806,10 @@ var TickTickBridgePlugin = class extends import_obsidian.Plugin {
   async openTodayView() {
     const leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: VIEW_TYPE, active: true });
-    this.app.workspace.revealLeaf(leaf);
   }
   async openHabitView() {
     const leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: HABIT_VIEW_TYPE, active: true });
-    this.app.workspace.revealLeaf(leaf);
   }
   async renderTodayBlock(element, dayOverride) {
     element.replaceChildren();
@@ -1394,12 +1396,9 @@ async function addDescriptionToggle(plugin, body, actions, task) {
   const button = actions.createEl("button", { cls: "mod-icon", attr: { "aria-label": "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A" } });
   (0, import_obsidian.setIcon)(button, "file-text");
   const panel = body.createDiv({ cls: "ticktick-bridge-description" });
-  panel.style.display = "none";
-  await import_obsidian.MarkdownRenderer.renderMarkdown(description || "\u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.", panel, "", plugin);
-  button.addEventListener("click", () => {
-    const closed = panel.style.display === "none";
-    panel.style.display = closed ? "block" : "none";
-  });
+  panel.addClass("is-hidden");
+  await import_obsidian.MarkdownRenderer.render(plugin.app, description || "\u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.", panel, "", plugin);
+  button.addEventListener("click", () => panel.classList.toggle("is-hidden"));
 }
 function toTaskPayload(draft, timeZone) {
   const { projectName, dueDate, reminderTime, reminders: _reminders, ...task } = draft;
@@ -1462,7 +1461,7 @@ var TaskEditorModal = class extends import_obsidian.Modal {
     new import_obsidian.Setting(fields).setName("\u{1F4DD} \u0639\u0646\u0648\u0627\u0646").addText((input) => {
       input.setValue(title).onChange((value) => title = value);
       input.inputEl.dir = "rtl";
-      input.inputEl.style.width = "100%";
+      input.inputEl.addClass("ticktick-input-full-width");
     });
     const selectedProjectName = () => this.projects.find((project) => project.id === projectId)?.name ?? "\u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0648\u0698\u0647";
     new import_obsidian.Setting(fields).setName("\u{1F4C2} \u067E\u0631\u0648\u0698\u0647").setDesc("\u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0648\u0698\u0647 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646.").addButton((button) => {
@@ -1491,7 +1490,7 @@ var TaskEditorModal = class extends import_obsidian.Modal {
       input.setValue(description).onChange((value) => description = value);
       input.inputEl.dir = "rtl";
       input.inputEl.rows = 5;
-      input.inputEl.style.width = "100%";
+      input.inputEl.addClass("ticktick-input-full-width");
     });
     const actions = contentEl.createDiv({ cls: "ticktick-editor-actions" });
     actions.createEl("button", { text: "\u274C \u0627\u0646\u0635\u0631\u0627\u0641" }).addEventListener("click", () => this.finish(null));
@@ -1566,13 +1565,13 @@ var TickTickWebLoginModal = class extends import_obsidian.Modal {
     let password = "";
     new import_obsidian.Setting(this.contentEl).setName("\u0627\u06CC\u0645\u06CC\u0644 \u06CC\u0627 \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC").addText((input) => {
       input.inputEl.autocomplete = "username";
-      input.inputEl.style.width = "100%";
+      input.inputEl.addClass("ticktick-input-full-width");
       input.onChange((value) => username = value);
     });
     new import_obsidian.Setting(this.contentEl).setName("\u0631\u0645\u0632 \u0639\u0628\u0648\u0631").addText((input) => {
       input.inputEl.type = "password";
       input.inputEl.autocomplete = "current-password";
-      input.inputEl.style.width = "100%";
+      input.inputEl.addClass("ticktick-input-full-width");
       input.onChange((value) => password = value);
     });
     const actions = this.contentEl.createDiv({ cls: "modal-button-container" });
@@ -1611,7 +1610,7 @@ var TickTickBridgeSettings = class extends import_obsidian.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "TickTick Bridge" });
+    new import_obsidian.Setting(containerEl).setName("TickTick Bridge").setHeading();
     const cachedAt = this.plugin.cacheSnapshotTime();
     new import_obsidian.Setting(containerEl).setName("\u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u062F\u0627\u062F\u0647\u200C\u0647\u0627").setDesc(cachedAt ? `\u0622\u062E\u0631\u06CC\u0646 \u062F\u0631\u06CC\u0627\u0641\u062A: ${cachedAt} \u2014 \u067E\u0646\u0644\u200C\u0647\u0627 \u0627\u0628\u062A\u062F\u0627 \u0627\u0632 \u0627\u06CC\u0646 \u0646\u0633\u062E\u0647\u0654 \u0633\u0631\u06CC\u0639 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F.` : "\u0647\u0646\u0648\u0632 \u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u06CC\u06A9\u200C\u0628\u0627\u0631 \xAB\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0627\u0644\u0622\u0646\xBB \u0631\u0627 \u0628\u0632\u0646.");
     if (this.plugin.cacheConflictCount()) new import_obsidian.Setting(containerEl).setName("\u062A\u062F\u0627\u062E\u0644\u200C\u0647\u0627\u06CC \u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0628\u0631\u0631\u0633\u06CC").setDesc(`${this.plugin.cacheConflictCount()} \u062A\u063A\u06CC\u06CC\u0631 \u0622\u0641\u0644\u0627\u06CC\u0646 \u062F\u0631 TickTick \u0642\u0627\u0628\u0644 \u0627\u0639\u0645\u0627\u0644 \u0646\u0628\u0648\u062F \u0648 \u0628\u0631\u0627\u06CC \u062C\u0644\u0648\u06AF\u06CC\u0631\u06CC \u0627\u0632 \u0628\u0627\u0632\u0646\u0648\u06CC\u0633\u06CC \u062F\u0627\u062F\u0647\u0654 \u062C\u062F\u06CC\u062F\u060C \u0646\u06AF\u0647 \u062F\u0627\u0634\u062A\u0647 \u0634\u062F\u0647 \u0627\u0633\u062A.`);
@@ -1663,7 +1662,7 @@ var TickTickBridgeSettings = class extends import_obsidian.PluginSettingTab {
     }));
     new import_obsidian.Setting(containerEl).setName("Cookie \u062A\u06A9\u0645\u06CC\u0644\u06CC \u0648\u0628 (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)").setDesc("\u0641\u0642\u0637 \u0627\u06AF\u0631 \u0627\u062A\u0635\u0627\u0644 \u062E\u0648\u062F\u06A9\u0627\u0631 \u062C\u0648\u0627\u0628 \u0646\u062F\u0627\u062F\u060C Cookie \u0646\u0634\u0633\u062A \u0648\u0628 TickTick \u0631\u0627 \u0627\u06CC\u0646\u062C\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646. \u0627\u06CC\u0646 \u0645\u0642\u062F\u0627\u0631 \u0645\u0627\u0646\u0646\u062F \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0627\u0633\u062A.").addText((input) => {
       input.inputEl.type = "password";
-      input.inputEl.style.width = "25rem";
+      input.inputEl.addClass("ticktick-input-cookie");
       input.setValue(this.plugin.settings.webSessionCookie).onChange(async (value) => {
         this.plugin.settings.webSessionCookie = normalizeWebSessionCookie(value);
         await this.plugin.saveSettings();
