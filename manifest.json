@@ -1,7 +1,7 @@
 {
   "id": "ticktick-bridge",
   "name": "TickTick Bridge",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "minAppVersion": "1.6.0",
   "description": "A standalone TickTick task bridge.",
   "author": "Puria",

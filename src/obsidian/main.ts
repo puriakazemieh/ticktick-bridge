@@ -957,7 +957,7 @@ class TodayTasksView extends ItemView {
         body.createSpan({ text: task.title });
         body.createEl("small", { text: task.projectName ? ` · ${task.projectName}` : "" });
         const actions = row.createDiv({ cls: "ticktick-bridge-actions" });
-        await addDescriptionToggle(this.plugin, body, actions, task);
+        await addDescriptionToggle(this.app, this, body, actions, task);
         const edit = actions.createEl("button", { cls: "mod-icon", attr: { "aria-label": "ویرایش" } });
         setIcon(edit, "pencil");
         const remove = actions.createEl("button", { cls: "mod-warning mod-icon", attr: { "aria-label": "حذف" } });
@@ -1247,13 +1247,13 @@ function persianMonthSegments(start: string, due: string) {
   return output;
 }
 
-async function addDescriptionToggle(plugin: Plugin, body: HTMLElement, actions: HTMLElement, task: TaskDraft) {
+async function addDescriptionToggle(app: App, component: Component, body: HTMLElement, actions: HTMLElement, task: TaskDraft) {
   const description = cleanTaskDescription(task.desc || task.content);
   const button = actions.createEl("button", { cls: "mod-icon", attr: { "aria-label": "توضیحات" } });
   setIcon(button, "file-text");
   const panel = body.createDiv({ cls: "ticktick-bridge-description" });
   panel.addClass("is-hidden");
-  await MarkdownRenderer.render(plugin.app, description || "توضیحی برای این تسک ثبت نشده است.", panel, "", plugin);
+  await MarkdownRenderer.render(app, description || "توضیحی برای این تسک ثبت نشده است.", panel, "", component);
   button.addEventListener("click", () => panel.classList.toggle("is-hidden"));
 }
 
@@ -1482,7 +1482,7 @@ class TickTickBridgeSettings extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new Setting(containerEl).setName("TickTick Bridge").setHeading();
+    new Setting(containerEl).setName("تنظیمات اتصال و همگام‌سازی").setHeading();
     const cachedAt = this.plugin.cacheSnapshotTime();
     new Setting(containerEl).setName("نسخهٔ محلی داده‌ها").setDesc(cachedAt
       ? `آخرین دریافت: ${cachedAt} — پنل‌ها ابتدا از این نسخهٔ سریع نمایش داده می‌شوند.`
