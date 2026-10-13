@@ -1,0 +1,20 @@
+{
+  "name": "@puria/ticktick-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "test": "node --test",
+    "check": "tsc --noEmit",
+    "build": "esbuild src/obsidian/main.ts --bundle --platform=browser --target=es2022 --external:obsidian --format=cjs --outfile=main.js",
+    "deploy": "node scripts/deploy.mjs",
+    "preview:projects": "node scripts/preview-project-sync.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.0",
+    "obsidian": "latest",
+    "typescript": "^5.8.0"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "ticktick-bridge",
+  "name": "TickTick Bridge",
+  "version": "0.1.0",
+  "minAppVersion": "1.6.0",
+  "description": "A standalone TickTick task bridge for Obsidian.",
+  "author": "Puria",
+  "isDesktopOnly": false
+}
