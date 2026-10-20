@@ -2,6 +2,7 @@ import { App, Component, ItemView, MarkdownRenderer, Menu, Modal, Notice, Platfo
 import { isHabitScheduledForDay, isScheduledForDay, jalaliDateKeyToGregorian, toDateKey, todayInZone } from "../core/date.js";
 import { TickTickClient } from "../core/ticktick-client.js";
 import { normalizeWebSessionCookie, parseWebHabitCheckins } from "../core/ticktick-web-habits.js";
+import { ManagedStorage } from "./managed-storage";
 
 const VIEW_TYPE = "ticktick-bridge-today";
 const HABIT_VIEW_TYPE = "ticktick-bridge-habits";
@@ -72,8 +73,11 @@ export default class TickTickBridgePlugin extends Plugin {
   private dashboardStates = new Map<HTMLElement, { day: string; mode: DashboardMode }>();
   private checkboxImportTimers = new Map<string, number>();
   private syncInProgress = false;
+  private managedStorage!: ManagedStorage;
+  private lastManagedReport = "هنوز گزارشی ثبت نشده است.";
 
   async onload() {
+    this.managedStorage = new ManagedStorage(this.app.vault.adapter as any);
     const savedSettings = await this.loadData();
     const legacySettings = (savedSettings ?? {}) as Record<string, unknown>;
     const {
@@ -118,7 +122,28 @@ export default class TickTickBridgePlugin extends Plugin {
     this.configureAutomaticSync();
   }
 
-  async saveSettings() { await this.saveData({ ...this.settings, cache: this.cache }); }
+  async createPrewriteSnapshot(purpose: string, payload: unknown) {
+    const path = await this.managedStorage.writeSnapshot(purpose, payload);
+    try { await this.managedStorage.pruneEligibleManagedBackups(); } catch { /* a completed save remains valid if retention cleanup fails */ }
+    return path;
+  }
+
+  async saveSettings() {
+    // This deliberately contains only public cache metadata; plugin settings and
+    // queued request bodies can contain TickTick credentials or private text.
+    await this.createPrewriteSnapshot("cache", publicCacheMetadata(this.cache));
+    await this.saveData({ ...this.settings, cache: this.cache });
+  }
+
+  async previewLegacyRootBackups() { return this.managedStorage.legacyRootBackups(); }
+  async migrateLegacyRootBackups() {
+    const result = await this.managedStorage.migrateLegacyRootBackups();
+    this.lastManagedReport = `انتقال ریشه: ${result.migrated.length} از ${result.sources.length} فایل.`;
+    try { await this.managedStorage.writeReport("legacy-migration", { sourceCount: result.sources.length, migratedCount: result.migrated.length }); } catch { /* migration is already recoverable */ }
+    return result;
+  }
+  managedStorageReport() { return this.lastManagedReport; }
+  async latestManagedReport() { return this.managedStorage.latestReport(); }
 
   private queueTaggedCheckboxImport(file: TFile) {
     const previous = this.checkboxImportTimers.get(file.path);
@@ -1488,6 +1513,29 @@ class TickTickBridgeSettings extends PluginSettingTab {
       ? `آخرین دریافت: ${cachedAt} — پنل‌ها ابتدا از این نسخهٔ سریع نمایش داده می‌شوند.`
       : "هنوز نسخهٔ محلی ساخته نشده است. یک‌بار «همگام‌سازی الآن» را بزن.");
     if (this.plugin.cacheConflictCount()) new Setting(containerEl).setName("تداخل‌های نیازمند بررسی").setDesc(`${this.plugin.cacheConflictCount()} تغییر آفلاین در TickTick قابل اعمال نبود و برای جلوگیری از بازنویسی دادهٔ جدید، نگه داشته شده است.`);
+    new Setting(containerEl).setName("فضای مدیریت‌شدهٔ TickTick").setDesc(`/.ticktick/ — نسخه‌های پشتیبان تا ۱۰ روز تقویمی UTC نگه داشته می‌شوند. آخرین گزارش: ${this.plugin.managedStorageReport()}`);
+    new Setting(containerEl).setName("آخرین گزارش مدیریت‌شده").setDesc("آخرین گزارش غیرمحرمانهٔ عملیات ذخیره‌شده در .ticktick/reports/ را نمایش می‌دهد.").addButton(button => button
+      .setButtonText("باز کردن گزارش آخر")
+      .onClick(async () => {
+        button.setDisabled(true);
+        try { new ManagedReportModal(this.app, await this.plugin.latestManagedReport()).open(); }
+        finally { button.setDisabled(false); }
+      }));
+    new Setting(containerEl).setName("انتقال پشتیبان‌های قدیمی ریشهٔ Vault").setDesc("فقط فایل‌های دقیق ticktick-backup-*.csv را پس از تأیید و بررسی طول بایت کپی می‌کند.").addButton(button => button
+      .setButtonText("Move legacy root backups")
+      .onClick(async () => {
+        button.setDisabled(true);
+        try {
+          const files = await this.plugin.previewLegacyRootBackups();
+          const size = files.reduce((total, file) => total + file.size, 0);
+          if (!files.length) { new Notice("پشتیبان قدیمی در ریشهٔ Vault پیدا نشد."); return; }
+          const confirmed = await new LegacyBackupMigrationModal(this.app, files.length, size).openAndWait();
+          if (!confirmed) return;
+          const result = await this.plugin.migrateLegacyRootBackups();
+          new Notice(`${result.migrated.length} از ${result.sources.length} پشتیبان قدیمی منتقل شد.`);
+          this.display();
+        } finally { button.setDisabled(false); }
+      }));
     new Setting(containerEl).setName("API Token").setDesc("توکن شخصی TickTick؛ فقط در تنظیمات افزونه نگهداری می‌شود.").addText(input => {
       input.inputEl.type = "password";
       input.setValue(this.plugin.settings.apiToken).onChange(async value => { this.plugin.settings.apiToken = value.trim(); await this.plugin.saveSettings(); });
@@ -1589,4 +1637,38 @@ class TickTickBridgeSettings extends PluginSettingTab {
     new Setting(containerEl).setName("Time zone").addText(input => input.setValue(this.plugin.settings.timeZone).onChange(async value => { this.plugin.settings.timeZone = value || "Asia/Tehran"; await this.plugin.saveSettings(); }));
     new Setting(containerEl).setName("Daily notes folder").addText(input => input.setValue(this.plugin.settings.dailyNoteFolder).onChange(async value => { this.plugin.settings.dailyNoteFolder = value; await this.plugin.saveSettings(); }));
   }
+}
+
+class LegacyBackupMigrationModal extends Modal {
+  private resolveResult!: (value: boolean) => void;
+  private result = new Promise<boolean>(resolve => this.resolveResult = resolve);
+  private finished = false;
+  constructor(app: App, private count: number, private size: number) { super(app); }
+  onOpen() {
+    this.contentEl.createEl("h2", { text: "انتقال پشتیبان‌های قدیمی" });
+    this.contentEl.createEl("p", { text: `${this.count} فایل با مجموع ${this.size.toLocaleString()} بایت پیدا شد. هر فایل ابتدا به .ticktick/backups/legacy-root/ کپی و طول بایت آن بررسی می‌شود؛ فقط سپس نسخهٔ ریشه حذف خواهد شد.` });
+    const actions = this.contentEl.createDiv({ cls: "modal-button-container" });
+    actions.createEl("button", { text: "انصراف" }).addEventListener("click", () => this.finish(false));
+    actions.createEl("button", { text: "انتقال", cls: "mod-warning" }).addEventListener("click", () => this.finish(true));
+  }
+  private finish(value: boolean) { if (this.finished) return; this.finished = true; this.resolveResult(value); this.close(); }
+  onClose() { this.contentEl.empty(); if (!this.finished) { this.finished = true; this.resolveResult(false); } }
+  openAndWait() { this.open(); return this.result; }
+}
+
+class ManagedReportModal extends Modal {
+  constructor(app: App, private latest: { path: string; report: unknown } | null) { super(app); }
+  onOpen() {
+    this.contentEl.createEl("h2", { text: "آخرین گزارش مدیریت‌شده" });
+    if (!this.latest) { this.contentEl.createEl("p", { text: "هنوز گزارشی در .ticktick/reports/ ثبت نشده است." }); return; }
+    this.contentEl.createEl("p", { text: this.latest.path });
+    this.contentEl.createEl("pre", { text: JSON.stringify(this.latest.report, null, 2) });
+  }
+  onClose() { this.contentEl.empty(); }
+}
+
+function publicCacheMetadata(cache: BridgeCache) {
+  const task = (item: any) => ({ id: item?.id, projectId: item?.projectId, title: item?.title, status: item?.status, dueDate: item?.dueDate, startDate: item?.startDate });
+  const habit = (item: any) => ({ id: item?.id, name: item?.name, status: item?.status, sectionId: item?.sectionId, sectionName: item?.sectionName });
+  return { savedAt: cache.savedAt, tasks: cache.tasks.map(task), habits: cache.habits.map(habit), pendingCount: cache.pending.length, conflictCount: cache.conflicts.length };
 }

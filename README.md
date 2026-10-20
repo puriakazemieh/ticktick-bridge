@@ -16,6 +16,26 @@ Open the Today or Habits view from the ribbon or Command Palette. Add a
 `ticktick-today` or `ticktick-habits` code block to a note to render the
 corresponding dashboard inline.
 
+## Managed local storage
+
+The plugin keeps recoverable, non-secret managed artifacts under
+`.ticktick/`: dated snapshots in `backups/YYYY-MM-DD/`, operation reports in
+`reports/`, and recoverable journals in `journal/`. `notes/` is reserved for
+future managed notes. Snapshot retention is exactly ten UTC calendar days
+(today plus the preceding nine); it never uses file modification time.
+
+To recover, copy a dated JSON snapshot out of `.ticktick/backups/` before
+inspecting or restoring its public task/habit metadata. Snapshots and reports
+never contain API tokens, web-session tokens, cookies, raw request headers, or
+passwords.
+
+The settings button **Move legacy root backups** previews only root-level
+`ticktick-backup-*.csv` files. After confirmation each is copied to the safe
+legacy variant `.ticktick/backups/legacy-root/`, byte length is checked, and
+only then is its root copy removed. A failed copy leaves the source in place.
+Future managed writers must use the storage service rather than write artifacts
+to the vault root.
+
 ---
 
 هستهٔ مستقل برای اتصال امن Obsidian به TickTick، بدون وابستگی به TickTickSync.
