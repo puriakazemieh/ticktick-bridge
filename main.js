@@ -2253,7 +2253,20 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   async loadTaskDetails(task) {
     const projectId = String(task?.projectId ?? "");
     if (!projectId || !task?.id) return task;
-    return this.client().getTask(projectId, String(task.id));
+    const client = this.client();
+    let direct = task;
+    try {
+      direct = await client.getTask(projectId, String(task.id));
+    } catch {
+    }
+    if (taskDescription(direct)) return direct;
+    try {
+      const project = await client.getProjectData(projectId);
+      const record = (project?.tasks ?? []).find((item) => String(item?.id) === String(task.id));
+      return record ? mergeTaskDetails(direct, record) : direct;
+    } catch {
+      return direct;
+    }
   }
   async editTaskFromSurface(task) {
     const current = await this.loadTaskDetails(task);

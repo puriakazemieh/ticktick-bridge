@@ -10,7 +10,7 @@ import { ProjectBoard } from "./project-board";
 import { HabitMigration } from "./habit-migration";
 import { NoteImport, NoteImportModal } from "./note-import";
 import { checklistSummary } from "../core/checklist.js";
-import { taskDescription } from "../core/task-description.js";
+import { mergeTaskDetails, taskDescription } from "../core/task-description.js";
 
 const VIEW_TYPE = "ticktick-bridge-today";
 const HABIT_VIEW_TYPE = "ticktick-bridge-habits";
@@ -582,7 +582,17 @@ export default class TickTickBridgePlugin extends Plugin {
   async loadTaskDetails(task: any) {
     const projectId = String(task?.projectId ?? "");
     if (!projectId || !task?.id) return task;
-    return this.client().getTask(projectId, String(task.id));
+    const client = this.client();
+    let direct = task;
+    try { direct = await client.getTask(projectId, String(task.id)); } catch { /* Notes may not support the task-detail route. */ }
+    if (taskDescription(direct)) return direct;
+    // Notes can be returned without their content by the single-task endpoint.
+    // The project document contains the full record in that case.
+    try {
+      const project = await client.getProjectData(projectId);
+      const record = (project?.tasks ?? []).find((item: any) => String(item?.id) === String(task.id));
+      return record ? mergeTaskDetails(direct, record) : direct;
+    } catch { return direct; }
   }
   async editTaskFromSurface(task: any) {
     const current = await this.loadTaskDetails(task);
