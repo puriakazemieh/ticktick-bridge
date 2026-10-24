@@ -1127,6 +1127,62 @@
   font-size: 0.64rem;
 }
 
+/* The standalone daily-habits view must withstand themes that position the
+   shared habit classes absolutely. Keep every line in a local grid. */
+.ticktick-today-habits-panel .ticktick-dashboard-habit-card {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 2.05rem !important;
+  grid-template-rows: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  column-gap: .6rem !important;
+  row-gap: .15rem !important;
+  min-height: 4.35rem !important;
+  padding: .6rem .7rem !important;
+  overflow: hidden !important;
+  direction: rtl !important;
+}
+.ticktick-today-habits-panel .ticktick-dashboard-habit-card .daily-habit-progress {
+  position: static !important;
+  inset: auto !important;
+  grid-column: 2 !important;
+  grid-row: 1 / 3 !important;
+  align-self: center !important;
+  justify-self: center !important;
+  transform: none !important;
+}
+.ticktick-today-habits-panel .ticktick-dashboard-habit-card .daily-habit-text {
+  position: static !important;
+  inset: auto !important;
+  display: grid !important;
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  align-self: center !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  transform: none !important;
+}
+.ticktick-today-habits-panel .ticktick-dashboard-habit-card .daily-habit-title,
+.ticktick-today-habits-panel .ticktick-dashboard-habit-card .ticktick-habit-source,
+.ticktick-today-habits-panel .ticktick-dashboard-habit-card .daily-habit-state {
+  position: static !important;
+  inset: auto !important;
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  color: var(--text-normal) !important;
+  text-align: right !important;
+  text-overflow: ellipsis !important;
+  transform: none !important;
+  unicode-bidi: plaintext !important;
+  white-space: nowrap !important;
+}
+.ticktick-today-habits-panel .ticktick-dashboard-habit-card .daily-habit-title { line-height: 1.3rem !important; font-size: .78rem !important; }
+.ticktick-today-habits-panel .ticktick-dashboard-habit-card .ticktick-habit-source,
+.ticktick-today-habits-panel .ticktick-dashboard-habit-card .daily-habit-state { color: var(--text-muted) !important; font-size: .67rem !important; line-height: 1rem !important; }
+.ticktick-today-habits-panel .ticktick-dashboard-habit-card .daily-habit-state { grid-column: 1 !important; grid-row: 2 !important; align-self: start !important; }
+
 @media (max-width: 420px) {
   .ticktick-today-habits-panel .ticktick-dashboard-cards { grid-template-columns: 1fr; }
 }
