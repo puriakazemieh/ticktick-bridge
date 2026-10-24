@@ -6,6 +6,7 @@
 
 ## Status
 
+- **Status**: Initial selective one-way import on `main` (2026-10-24). Refresh/conflict resolution awaits a documented NOTE read contract in a live disposable account.
 - **Priority**: P2
 - **Effort**: L
 - **Risk**: MED — incorrect identification could turn task content into unwanted files.
@@ -85,10 +86,10 @@ Document selector, storage locations, file schema, conflict behavior, and explic
 
 ## Done criteria
 
-- [ ] Only explicitly selected, positively identified TickTick Notes become Markdown files.
-- [ ] Imported user-facing files go to visible `TickTick Notes` (or user setting); metadata/reports go under `.ticktick/`.
-- [ ] Refresh never overwrites local changed managed content without a conflict choice.
-- [ ] `npm test`, `npm run check`, and `npm run build` pass.
+- [x] Only explicitly selected, positively identified TickTick Notes become Markdown files.
+- [x] Imported user-facing files go to visible `TickTick Notes` (or user setting); metadata/reports go under `.ticktick/`.
+- [ ] Refresh/conflict resolution awaits an explicitly characterized NOTE read contract.
+- [x] `npm test`, `npm run check`, and `npm run build` pass.
 
 ## STOP conditions
 

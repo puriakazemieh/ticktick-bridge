@@ -8,6 +8,9 @@ import { MarkdownConflictModal } from "./conflict-modal";
 import { PlanningCalendar } from "./planning-calendar";
 import { ProjectBoard } from "./project-board";
 import { HabitMigration } from "./habit-migration";
+import { NoteImport, NoteImportModal } from "./note-import";
+import { SyncControlModal } from "./sync-control-modal";
+import { checklistSummary } from "../core/checklist.js";
 
 const VIEW_TYPE = "ticktick-bridge-today";
 const HABIT_VIEW_TYPE = "ticktick-bridge-habits";
@@ -37,6 +40,8 @@ interface BridgeSettings {
   plannerFirstWeekday: number;
   plannerShowCompleted: boolean;
   localHabitFolder: string;
+  ticktickNotesFolder: string;
+  experimentalChecklistReadOnly: boolean;
   boardLastProjectId: string;
   boardCollapsedGroups: string[];
 }
@@ -67,6 +72,8 @@ const DEFAULT_SETTINGS: BridgeSettings = {
   plannerFirstWeekday: 1,
   plannerShowCompleted: false,
   localHabitFolder: "برنامه‌ریزی/Habits",
+  ticktickNotesFolder: "TickTick Notes",
+  experimentalChecklistReadOnly: true,
   boardLastProjectId: "",
   boardCollapsedGroups: [],
 };
@@ -93,6 +100,7 @@ export default class TickTickBridgePlugin extends Plugin {
   private managedStorage!: ManagedStorage;
   private markdownSync!: MarkdownSync;
   private habitMigration!: HabitMigration;
+  private noteImport!: NoteImport;
   private lastManagedReport = "هنوز گزارشی ثبت نشده است.";
 
   async onload() {
@@ -111,6 +119,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.markdownSync = new MarkdownSync(this.app, this.managedStorage, () => this.client(), () => this.settings, () => this.scheduledCheckboxProjectId());
     await this.markdownSync.initialize();
     this.habitMigration = new HabitMigration(this.app, this.managedStorage, () => this.settings.localHabitFolder);
+    this.noteImport = new NoteImport(this.app, this.managedStorage, () => this.settings.ticktickNotesFolder);
     if ("projectRoot" in legacySettings || "projectDependencies" in legacySettings || "projectTaskCatalog" in legacySettings) await this.saveSettings();
     // Remove any restored workspace leaf from the retired project-planning view.
     this.app.workspace.onLayoutReady(() => {
@@ -147,6 +156,8 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-today-habits", name: "Open today's TickTick habits", callback: () => this.openHabitView() });
     this.addCommand({ id: "review-local-habits", name: "Review local habits for TickTick migration", callback: () => this.reviewLocalHabits() });
     this.addCommand({ id: "migrate-local-habits", name: "Migrate selected local habits to TickTick", callback: () => this.migrateLocalHabits() });
+    this.addCommand({ id: "open-ticktick-sync-center", name: "Open TickTick sync center", callback: () => new SyncControlModal(this.app, this).open() });
+    this.addCommand({ id: "preview-ticktick-notes", name: "Preview TickTick Notes import", callback: () => this.previewTickTickNotes() });
     this.addCommand({ id: "open-weekly-planner", name: "Open TickTick weekly planner", callback: () => this.openPlannerView() });
     this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
@@ -230,6 +241,13 @@ export default class TickTickBridgePlugin extends Plugin {
     return rows;
   }
   async migrateLocalHabits() { return this.habitMigration.apply(); }
+  async previewTickTickNotes() {
+    const rows = this.noteImport.preview(this.cache.tasks);
+    if (rows.length) new NoteImportModal(this.app, this.noteImport, this.cache.tasks).open();
+    else new Notice("Note قابل‌انتقال با kind: NOTE در cache پیدا نشد.");
+    return rows;
+  }
+  async importSelectedTickTickNotes(rows: Array<{ note: any; path: string; selected?: boolean }>) { return this.noteImport.apply(rows); }
 
   plannerHost() {
     return {
@@ -335,8 +353,14 @@ export default class TickTickBridgePlugin extends Plugin {
     const menu = new Menu();
     menu.addItem(item => item.setTitle("تسک‌های امروز").setIcon("check-square").onClick(() => void this.openTodayView()));
     menu.addItem(item => item.setTitle("عادت‌های امروز").setIcon("activity").onClick(() => void this.openHabitView()));
+    menu.addItem(item => item.setTitle("تقویم و برنامهٔ هفتگی").setIcon("calendar-days").onClick(() => void this.openPlannerView()));
+    menu.addItem(item => item.setTitle("برد پروژه‌ها").setIcon("kanban-square").onClick(() => void this.openProjectBoardView()));
     menu.addSeparator();
-    menu.addItem(item => item.setTitle("همگام‌سازی TickTick").setIcon("arrow-down-up").onClick(() => void this.syncNow()));
+    menu.addItem(item => item.setTitle("مرکز همگام‌سازی و تعارض‌ها").setIcon("arrow-down-up").onClick(() => new SyncControlModal(this.app, this).open()));
+    menu.addItem(item => item.setTitle("پیش‌نمایش عادت‌های محلی").setIcon("activity").onClick(() => void this.reviewLocalHabits()));
+    menu.addItem(item => item.setTitle("پیش‌نمایش انتقال TickTick Notes").setIcon("file-down").onClick(() => void this.previewTickTickNotes()));
+    menu.addItem(item => item.setTitle("Checklistهای task (فقط‌خواندنی)").setIcon("list-checks").onClick(() => { new Notice("Checklistها داخل کارت task نمایش داده می‌شوند. ویرایش تا تأیید API رسمی TickTick غیرفعال است."); void this.openTodayView(); }));
+    menu.addItem(item => item.setTitle("آخرین گزارش و backup").setIcon("shield-check").onClick(async () => new ManagedReportModal(this.app, await this.latestManagedReport()).open()));
     menu.showAtMouseEvent(event);
   }
 
@@ -785,6 +809,7 @@ export default class TickTickBridgePlugin extends Plugin {
         const check = row.createEl("input", { cls: "daily-task-checkbox", type: "checkbox", attr: { "aria-label": `انجام ${title}` } });
         const body = row.createDiv({ cls: "daily-task-main" });
         body.createSpan({ cls: "daily-task-title", text: title });
+        appendChecklistSummary(body, task, this.settings.experimentalChecklistReadOnly);
         const description = body.createDiv({ cls: "daily-task-description is-hidden" });
         await MarkdownRenderer.renderMarkdown(cleanTaskDescription(task.desc || task.content) || "توضیحی برای این تسک ثبت نشده است.", description, "", this);
         const due = toDateKey(task.dueDate, task.timeZone || this.settings.timeZone) ?? "";
@@ -1096,6 +1121,7 @@ class TodayTasksView extends ItemView {
         const check = row.createEl("input", { type: "checkbox" });
         const body = row.createDiv({ cls: "ticktick-bridge-task-body" });
         body.createSpan({ text: task.title });
+        appendChecklistSummary(body, task, this.plugin.settings.experimentalChecklistReadOnly);
         body.createEl("small", { text: task.projectName ? ` · ${task.projectName}` : "" });
         const actions = row.createDiv({ cls: "ticktick-bridge-actions" });
         await addDescriptionToggle(this.app, this, body, actions, task);
@@ -1203,6 +1229,14 @@ type TaskDraft = {
   repeatFlag?: string;
   [key: string]: unknown;
 };
+
+function appendChecklistSummary(parent: HTMLElement, task: any, enabled: boolean) {
+  const summary = checklistSummary(task.items);
+  if (!summary.total) return;
+  const detail = parent.createEl("details", { cls: "ticktick-checklist-readonly" });
+  detail.createEl("summary", { text: `Checklist: ${summary.completed}/${summary.total}${enabled ? " · فقط خواندنی" : " · غیرفعال"}` });
+  for (const item of (task.items ?? [])) detail.createEl("div", { text: `${Number(item.status ?? 0) !== 0 ? "☑" : "☐"} ${String(item.title ?? item.content ?? "")}` });
+}
 
 function formatTaskDate(dueDate: string, today: string) {
   if (!dueDate) return "بدون تاریخ";
@@ -1653,6 +1687,7 @@ class TickTickBridgeSettings extends PluginSettingTab {
     new Setting(containerEl).setName("نسخهٔ محلی داده‌ها").setDesc(cachedAt
       ? `آخرین دریافت: ${cachedAt} — پنل‌ها ابتدا از این نسخهٔ سریع نمایش داده می‌شوند.`
       : "هنوز نسخهٔ محلی ساخته نشده است. یک‌بار «همگام‌سازی الآن» را بزن.");
+    new Setting(containerEl).setName("مرکز سادهٔ همگام‌سازی").setDesc("یک نقطه برای sync عادی، preview/apply Markdown و حل تعارض‌ها.").addButton(button => button.setButtonText("باز کردن مرکز Sync").setCta().onClick(() => new SyncControlModal(this.app, this.plugin).open()));
     if (this.plugin.cacheConflictCount()) new Setting(containerEl).setName("تداخل‌های نیازمند بررسی").setDesc(`${this.plugin.cacheConflictCount()} تغییر آفلاین در TickTick قابل اعمال نبود و برای جلوگیری از بازنویسی دادهٔ جدید، نگه داشته شده است.`);
     new Setting(containerEl).setName("فضای مدیریت‌شدهٔ TickTick").setDesc(`/.ticktick/ — نسخه‌های پشتیبان تا ۱۰ روز تقویمی UTC نگه داشته می‌شوند. آخرین گزارش: ${this.plugin.managedStorageReport()}`);
     new Setting(containerEl).setName("آخرین گزارش مدیریت‌شده").setDesc("آخرین گزارش غیرمحرمانهٔ عملیات ذخیره‌شده در .ticktick/reports/ را نمایش می‌دهد.").addButton(button => button
@@ -1693,6 +1728,8 @@ class TickTickBridgeSettings extends PluginSettingTab {
       button.setDisabled(true);
       try { await this.plugin.applyMarkdownSync(); } finally { button.setDisabled(false); }
     }));
+    new Setting(containerEl).setName("Checklist و Subtask آزمایشی").setDesc("فعلاً فقط خواندنی است؛ API رسمی برای ویرایش امن child item تأیید نشده و هیچ checkboxای در این بخش چیزی را تغییر نمی‌دهد.").addToggle(toggle => toggle.setValue(this.plugin.settings.experimentalChecklistReadOnly).setDisabled(true));
+    new Setting(containerEl).setName("انتقال TickTick Notes").setDesc("فقط Noteهای دارای kind: NOTE را پس از انتخاب شما در فولدر قابل‌مشاهده وارد می‌کند؛ یک‌طرفه و بدون overwrite.").addText(input => input.setValue(this.plugin.settings.ticktickNotesFolder).onChange(async value => { this.plugin.settings.ticktickNotesFolder = value.trim().replace(/^\/+|\/+$/g, "") || "TickTick Notes"; await this.plugin.saveSettings(); })).addButton(button => button.setButtonText("انتخاب Noteها").onClick(() => void this.plugin.previewTickTickNotes()));
     new Setting(containerEl).setName("ورود مستقل برای عادت‌ها").setDesc("مستقیم وارد TickTick می‌شود و نشست لازم را در خود Bridge نگه می‌دارد. نام کاربری و رمز ذخیره نمی‌شوند.").addButton(button => button
       .setButtonText("ورود به TickTick")
       .setCta()

@@ -1,0 +1,4 @@
+export function normalizeChecklist(items) {
+  return (Array.isArray(items) ? items : []).map((item, index) => ({ id: item?.id ? String(item.id) : null, title: String(item?.title ?? item?.content ?? "").trim(), completed: item?.completed !== undefined ? Boolean(item.completed) : Number(item?.status ?? 0) !== 0, sortOrder: Number(item?.sortOrder ?? index), unknown: Object.fromEntries(Object.entries(item ?? {}).filter(([key]) => !["id", "title", "content", "status", "sortOrder", "completed", "completedTime", "startDate", "dueDate", "isAllDay", "timeZone"].includes(key))) })).sort((a, b) => a.sortOrder - b.sortOrder);
+}
+export function checklistSummary(items) { const normalized = normalizeChecklist(items); return { total: normalized.length, completed: normalized.filter(item => item.completed).length }; }

@@ -6,6 +6,7 @@
 
 ## Status
 
+- **Status**: Read-only implementation on `main` (2026-10-24). Write operations remain blocked pending a disposable-project verification of the official child-item API.
 - **Priority**: P2
 - **Effort**: L
 - **Risk**: HIGH — remote checklist APIs may replace child IDs during an update.
@@ -87,10 +88,10 @@ Add an "Experimental checklist editing" setting with a clear warning, capability
 
 ## Done criteria
 
-- [ ] Checklist display is safe and read-only by default.
-- [ ] No edit is visible until the user opts in and the capability says it is supported.
-- [ ] Every change has snapshot, journal, fresh-read, and recoverable report.
-- [ ] `npm test`, `npm run check`, and `npm run build` pass.
+- [x] Checklist display is safe and read-only by default.
+- [x] No edit is visible until the user opts in and the capability says it is supported.
+- [ ] Write operations are blocked pending API characterization.
+- [x] `npm test`, `npm run check`, and `npm run build` pass.
 
 ## STOP conditions
 

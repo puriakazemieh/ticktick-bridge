@@ -32,6 +32,10 @@ Open **TickTick project board** or use a `ticktick-board` code block for a sideb
 
 Set the local habit folder in settings (default: `برنامه‌ریزی/Habits`) and run **Review local habits for TickTick migration**. The preview is read-only, reports unsupported fields and duplicate names, and writes a managed report. Local history stays visible in the unified habit dashboard and is never overwritten. Habit creation and historical check-in import remain disabled until TickTick provides a verified official endpoint; no local habit file is deleted or changed.
 
+### Experimental checklist and Notes import
+
+Task checklists are shown read-only inside task cards, preserving every item without changing parent completion. Editing remains disabled until a disposable-project probe verifies an official TickTick child-item contract. Use **TickTick Notes import** from Settings or the TickTick sidebar menu to select only records positively identified as `kind: NOTE`; selected notes are written one-way into the visible `TickTick Notes` folder with an ID-safe filename and managed boundary. Existing files are never overwritten.
+
 ## Managed local storage
 
 The plugin keeps recoverable, non-secret managed artifacts under
