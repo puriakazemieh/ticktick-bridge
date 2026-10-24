@@ -19,9 +19,11 @@
 .ticktick-planner-controls button, .ticktick-planner-filters button { font-size: .78rem; padding: .28rem .65rem; border-radius: 999px; }
 .ticktick-planner-controls button.is-active, .ticktick-planner-filters button.is-active { background: var(--interactive-accent); color: var(--text-on-accent); }
 .ticktick-planner-nav { display: flex; gap: .35rem; align-items: center; margin-inline-start: auto; }
-.ticktick-planner-days { display: grid; gap: .45rem; }
-.ticktick-planner-days-7 { grid-template-columns: repeat(7, minmax(8rem, 1fr)); overflow-x: auto; }
-.ticktick-planner-days-1 { grid-template-columns: minmax(0, 1fr); }
+.ticktick-planner-days { display: block; overflow-x: auto; }
+.ticktick-planner-days-headers, .ticktick-planner-day-columns { display: grid; grid-template-columns: repeat(7, minmax(8rem, 1fr)); gap: .45rem; min-width: 56rem; }
+.ticktick-planner-days-headers { margin-bottom: .28rem; }.ticktick-planner-day-columns { align-items: stretch; }
+.ticktick-planner-days-1 .ticktick-planner-days-headers, .ticktick-planner-days-1 .ticktick-planner-day-columns { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.ticktick-planner-day-header { display: flex; flex-direction: column; align-items: flex-start; gap: .18rem; min-width: 0; padding: .3rem .55rem; border: 1px solid var(--tt-line); border-radius: .55rem; background: color-mix(in srgb, var(--background-primary) 90%, var(--background-secondary)); }.ticktick-planner-day-header > strong { font-size: .8rem; font-weight: 700; }
 .ticktick-planner-day, .ticktick-planner-month-cell { min-height: 8rem; padding: .55rem; border: 1px solid var(--background-modifier-border); border-radius: .55rem; background: var(--background-secondary); }
 .ticktick-planner-day { display: flex; flex-direction: column; gap: .35rem; }
 .ticktick-planner-counter { color: var(--text-muted); font-size: .7rem; }

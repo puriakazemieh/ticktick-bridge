@@ -1304,14 +1304,20 @@ var PlanningCalendar = class {
   renderDays(root, days, tasks) {
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
     const showRangeBars = days.length > 1;
-    if (showRangeBars) this.renderRangeLanes(grid, days, tasks, "ticktick-planner-range-lanes");
+    const headers = grid.createDiv({ cls: "ticktick-planner-days-headers" });
     for (const day of days) {
-      const column = grid.createDiv({ cls: "ticktick-planner-day", attr: { "data-day": day } });
-      column.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", month: "numeric", day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`)) });
+      const header = headers.createDiv({ cls: "ticktick-planner-day-header", attr: { "data-day": day } });
+      header.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", month: "numeric", day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`)) });
       const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
-      column.createSpan({ cls: "ticktick-planner-counter", text: `${items.length} \u062A\u0633\u06A9` });
-      const add = column.createEl("button", { cls: "ticktick-planner-add", text: "+ \u0627\u0641\u0632\u0648\u062F\u0646", attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062F\u0631 ${day}` } });
+      header.createSpan({ cls: "ticktick-planner-counter", text: `${items.length} \u062A\u0633\u06A9` });
+      const add = header.createEl("button", { cls: "ticktick-planner-add", text: "+ \u0627\u0641\u0632\u0648\u062F\u0646", attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062F\u0631 ${day}` } });
       add.addEventListener("click", () => void this.addTask(day));
+    }
+    if (showRangeBars) this.renderRangeLanes(grid, days, tasks, "ticktick-planner-range-lanes");
+    const columns = grid.createDiv({ cls: "ticktick-planner-day-columns" });
+    for (const day of days) {
+      const column = columns.createDiv({ cls: "ticktick-planner-day", attr: { "data-day": day } });
+      const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
       column.addEventListener("dragover", (event) => event.preventDefault());
       column.addEventListener("drop", (event) => {
         event.preventDefault();
