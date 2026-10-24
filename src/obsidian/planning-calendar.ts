@@ -155,6 +155,9 @@ export class PlanningCalendar {
       const priority = taskPriority(task.priority);
       const bar = lanes.createDiv({ cls: `ticktick-planner-range-task priority-${priority.value}`, attr: { title: `بازهٔ ${range.start} تا ${range.end} · برای جزئیات کلیک کن` } });
       bar.style.gridColumn = `${first + 1} / ${last + 2}`;
+      const projectColor = String(task.projectColor ?? "").trim();
+      const tone = /^#[0-9a-f]{3,8}$/i.test(projectColor) ? projectColor : priority.value === 5 ? "var(--color-red)" : priority.value === 3 ? "var(--color-orange)" : priority.value === 1 ? "var(--color-blue)" : "var(--interactive-accent)";
+      bar.style.setProperty("--ticktick-range-tone", tone);
       const check = bar.createEl("input", { type: "checkbox", attr: { "aria-label": `تکمیل ${task.title}` } }); check.checked = Number(task.status ?? 0) !== 0; check.disabled = check.checked;
       const title = bar.createEl("button", { text: String(task.title ?? "بدون عنوان"), attr: { type: "button", "aria-label": `جزئیات ${task.title}` } });
       title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, { complete: () => this.completeTask(task), load: item => this.host.load(item), edit: item => this.host.edit(item), changed: async () => { await this.host.refresh(); await this.render(); } }).open());

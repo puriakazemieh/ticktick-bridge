@@ -18,9 +18,9 @@ export function monthRange(day, firstWeekday = 6) {
   return Array.from({ length: 42 }, (_, index) => shiftCalendarDay(start, index));
 }
 function taskDay(task, timeZone) { return toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone); }
-/** A non-recurring multi-day task can be painted as one continuous calendar bar. */
+/** A task with distinct start/end dates can be painted as one continuous calendar bar.
+ * TickTick keeps this visual span even when the task also has a repeat rule. */
 export function taskDateRange(task, timeZone = "Asia/Tehran") {
-  if (task?.repeatFlag) return null;
   const start = toDateKey(task?.startDate, task?.timeZone || timeZone);
   const end = toDateKey(task?.dueDate, task?.timeZone || timeZone);
   return start && end && start < end ? { start, end } : null;

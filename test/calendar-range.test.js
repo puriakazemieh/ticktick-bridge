@@ -31,7 +31,7 @@ test("calendar expands date ranges and recurring occurrences without duplicating
   assert.equal(taskOccursOnCalendarDay(weekly, "2026-10-25"), false);
   assert.equal(taskOccursOnCalendarDay(dated, "2026-10-25"), false);
   assert.deepEqual(taskDateRange(ranged), { start: "2026-10-24", end: "2026-10-27" });
-  assert.equal(taskDateRange(weekly), null);
+  assert.deepEqual(taskDateRange({ ...weekly, startDate: "2026-10-24", dueDate: "2026-10-27" }), { start: "2026-10-24", end: "2026-10-27" });
 });
 
 test("calendar display sorting supports TickTick order, priority, time, and title", () => {

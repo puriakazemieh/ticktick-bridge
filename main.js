@@ -913,7 +913,6 @@ function taskDay(task, timeZone) {
   return toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone);
 }
 function taskDateRange(task, timeZone = "Asia/Tehran") {
-  if (task?.repeatFlag) return null;
   const start = toDateKey(task?.startDate, task?.timeZone || timeZone);
   const end = toDateKey(task?.dueDate, task?.timeZone || timeZone);
   return start && end && start < end ? { start, end } : null;
@@ -1381,6 +1380,9 @@ var PlanningCalendar = class {
       const priority = taskPriority(task.priority);
       const bar = lanes.createDiv({ cls: `ticktick-planner-range-task priority-${priority.value}`, attr: { title: `\u0628\u0627\u0632\u0647\u0654 ${range.start} \u062A\u0627 ${range.end} \xB7 \u0628\u0631\u0627\u06CC \u062C\u0632\u0626\u06CC\u0627\u062A \u06A9\u0644\u06CC\u06A9 \u06A9\u0646` } });
       bar.style.gridColumn = `${first + 1} / ${last + 2}`;
+      const projectColor = String(task.projectColor ?? "").trim();
+      const tone = /^#[0-9a-f]{3,8}$/i.test(projectColor) ? projectColor : priority.value === 5 ? "var(--color-red)" : priority.value === 3 ? "var(--color-orange)" : priority.value === 1 ? "var(--color-blue)" : "var(--interactive-accent)";
+      bar.style.setProperty("--ticktick-range-tone", tone);
       const check = bar.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
       check.checked = Number(task.status ?? 0) !== 0;
       check.disabled = check.checked;
