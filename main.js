@@ -1369,15 +1369,20 @@ var PlanningCalendar = class {
     for (let index = 0; index < days.length; index += 7) {
       const weekDays = days.slice(index, index + 7);
       const week = grid.createDiv({ cls: "ticktick-planner-month-week" });
+      const headers = week.createDiv({ cls: "ticktick-planner-month-headers" });
+      for (const day of weekDays) {
+        const header = headers.createDiv({ cls: `ticktick-planner-month-header${day.slice(0, 7) === this.day.slice(0, 7) ? "" : " is-outside"}`, attr: { "data-day": day } });
+        header.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`)) });
+        const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
+        header.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
+        const add = header.createEl("button", { cls: "ticktick-planner-add", text: "+", attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062F\u0631 ${day}` } });
+        add.addEventListener("click", () => void this.addTask(day));
+      }
       this.renderRangeLanes(week, weekDays, tasks, "ticktick-planner-month-range-lanes");
       const cells = week.createDiv({ cls: "ticktick-planner-month-cells" });
       for (const day of weekDays) {
         const cell = cells.createDiv({ cls: `ticktick-planner-month-cell${day.slice(0, 7) === this.day.slice(0, 7) ? "" : " is-outside"}`, attr: { "data-day": day } });
-        cell.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`)) });
         const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
-        cell.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
-        const add = cell.createEl("button", { cls: "ticktick-planner-add", text: "+", attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062F\u0631 ${day}` } });
-        add.addEventListener("click", () => void this.addTask(day));
         cell.addEventListener("dragover", (event) => event.preventDefault());
         cell.addEventListener("drop", (event) => {
           event.preventDefault();
