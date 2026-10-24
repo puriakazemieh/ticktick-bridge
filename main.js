@@ -3909,51 +3909,110 @@ var TickTickControlView = class extends import_obsidian8.ItemView {
     this.contentEl.empty();
     this.contentEl.addClass("ticktick-control-page");
     const nav = this.contentEl.createDiv({ cls: "ticktick-control-nav" });
-    const choices = [["sync", "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC"], ["habits", "\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0645\u062D\u0644\u06CC"], ["notes", "TickTick Notes"], ["checklists", "Checklist"], ["reports", "\u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627"]];
-    for (const [screen, label] of choices) {
-      const button = nav.createEl("button", { text: label, cls: this.screen === screen ? "is-active" : "" });
+    const choices = [
+      ["sync", "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC", "arrow-down-up"],
+      ["habits", "\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0645\u062D\u0644\u06CC", "activity"],
+      ["notes", "TickTick Notes", "file-text"],
+      ["checklists", "Checklist", "list-checks"],
+      ["reports", "\u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627", "bar-chart-2"]
+    ];
+    for (const [screen, label, iconName] of choices) {
+      const button = nav.createEl("button", {
+        cls: `ticktick-control-tab ${this.screen === screen ? "is-active" : ""}`,
+        attr: { type: "button" }
+      });
+      const icon = button.createSpan({ cls: "ticktick-tab-icon" });
+      (0, import_obsidian8.setIcon)(icon, iconName);
+      button.createSpan({ text: label });
       button.addEventListener("click", () => {
         this.screen = screen;
         void this.render();
       });
     }
-    const body = this.contentEl.createDiv({ cls: "ticktick-control-body" });
+    const card = this.contentEl.createDiv({ cls: "ticktick-control-card" });
     if (this.screen === "sync") {
-      body.createEl("h2", { text: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0648 \u062A\u0639\u0627\u0631\u0636\u200C\u0647\u0627" });
-      body.createEl("p", { text: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0645\u0644 \u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627 \u0648 \u0631\u06A9\u0648\u0631\u062F\u0647\u0627 \u0631\u0627 \u0628\u062F\u0648\u0646 \u0641\u06CC\u0644\u062A\u0631 \u062A\u0627\u0631\u06CC\u062E \u062F\u0631\u06CC\u0627\u0641\u062A \u0648 \u0645\u062D\u0644\u06CC cache \u0645\u06CC\u200C\u06A9\u0646\u062F. Preview \u0647\u06CC\u0686 \u062A\u063A\u06CC\u06CC\u0631\u06CC \u0646\u0645\u06CC\u200C\u0646\u0648\u06CC\u0633\u062F\u061B Apply \u0641\u0642\u0637 \u067E\u0633 \u0627\u0632 \u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u0645\u0627 \u0627\u062C\u0631\u0627 \u0645\u06CC\u200C\u0634\u0648\u062F." });
-      this.button(body, "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0645\u0644 TickTick", async () => this.plugin.syncNow(), true);
-      this.button(body, "Preview Markdown", async () => this.plugin.previewMarkdownSync());
-      this.button(body, "Apply Preview", async () => this.plugin.applyMarkdownSync());
-      this.button(body, "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u062A\u0639\u0627\u0631\u0636\u200C\u0647\u0627", async () => this.plugin.openMarkdownSyncConflicts());
+      const header = card.createDiv({ cls: "ticktick-control-header" });
+      const hIcon = header.createSpan({ cls: "ticktick-header-icon" });
+      (0, import_obsidian8.setIcon)(hIcon, "arrow-down-up");
+      header.createEl("h2", { text: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0648 \u062A\u0639\u0627\u0631\u0636\u200C\u0647\u0627" });
+      card.createEl("p", {
+        cls: "ticktick-control-desc",
+        text: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0645\u0644 \u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627 \u0648 \u0631\u06A9\u0648\u0631\u062F\u0647\u0627 \u0631\u0627 \u0628\u062F\u0648\u0646 \u0641\u06CC\u0644\u062A\u0631 \u062A\u0627\u0631\u06CC\u062E \u062F\u0631\u06CC\u0627\u0641\u062A \u0648 \u0645\u062D\u0644\u06CC cache \u0645\u06CC\u200C\u06A9\u0646\u062F. Preview \u0647\u06CC\u0686 \u062A\u063A\u06CC\u06CC\u0631\u06CC \u0646\u0645\u06CC\u200C\u0646\u0648\u06CC\u0633\u062F\u061B Apply \u0641\u0642\u0637 \u067E\u0633 \u0627\u0632 \u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u0645\u0627 \u0627\u062C\u0631\u0627 \u0645\u06CC\u200C\u0634\u0648\u062F."
+      });
+      const actions = card.createDiv({ cls: "ticktick-control-actions" });
+      this.button(actions, "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0645\u0644 TickTick", "refresh-cw", async () => this.plugin.syncNow(), true);
+      this.button(actions, "Preview Markdown", "file-search", async () => this.plugin.previewMarkdownSync());
+      this.button(actions, "Apply Preview", "upload-cloud", async () => this.plugin.applyMarkdownSync());
+      this.button(actions, "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u062A\u0639\u0627\u0631\u0636\u200C\u0647\u0627", "git-pull-request", async () => this.plugin.openMarkdownSyncConflicts(), false, true);
     } else if (this.screen === "habits") {
-      body.createEl("h2", { text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0645\u062D\u0644\u06CC" });
-      body.createEl("p", { text: "\u0627\u06CC\u0646 \u0628\u0631\u0631\u0633\u06CC \u0641\u0642\u0637\u200C\u062E\u0648\u0627\u0646\u062F\u0646\u06CC \u0627\u0633\u062A\u061B \u0641\u0627\u06CC\u0644\u200C\u0647\u0627\u06CC \u0645\u062D\u0644\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u06CC\u0627 \u062D\u0630\u0641 \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F." });
-      this.button(body, "\u0645\u0631\u0648\u0631 \u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0645\u062D\u0644\u06CC", async () => this.plugin.reviewLocalHabits());
+      const header = card.createDiv({ cls: "ticktick-control-header" });
+      const hIcon = header.createSpan({ cls: "ticktick-header-icon" });
+      (0, import_obsidian8.setIcon)(hIcon, "activity");
+      header.createEl("h2", { text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0645\u062D\u0644\u06CC" });
+      card.createEl("p", {
+        cls: "ticktick-control-desc",
+        text: "\u0627\u06CC\u0646 \u0628\u0631\u0631\u0633\u06CC \u0641\u0642\u0637\u200C\u062E\u0648\u0627\u0646\u062F\u0646\u06CC \u0627\u0633\u062A\u061B \u0641\u0627\u06CC\u0644\u200C\u0647\u0627\u06CC \u0645\u062D\u0644\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u06CC\u0627 \u062D\u0630\u0641 \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F \u0648 \u0648\u0636\u0639\u06CC\u062A \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u062F\u0631 \u0648\u0627\u0644\u062A \u0627\u0628\u0632\u06CC\u062F\u06CC\u0627\u0646 \u0628\u0631\u0631\u0633\u06CC \u0645\u06CC\u200C\u0634\u0648\u062F."
+      });
+      const actions = card.createDiv({ cls: "ticktick-control-actions" });
+      this.button(actions, "\u0645\u0631\u0648\u0631 \u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0645\u062D\u0644\u06CC", "activity", async () => this.plugin.reviewLocalHabits(), true);
     } else if (this.screen === "notes") {
-      body.createEl("h2", { text: "\u0627\u0646\u062A\u0642\u0627\u0644 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC TickTick Notes" });
-      body.createEl("p", { text: "\u0641\u0642\u0637 Note\u0647\u0627\u06CC \u062F\u0627\u0631\u0627\u06CC kind: NOTE \u067E\u0633 \u0627\u0632 \u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u0645\u0627 \u0648\u0627\u0631\u062F \u0641\u0648\u0644\u062F\u0631 TickTick Notes \u0645\u06CC\u200C\u0634\u0648\u0646\u062F\u061B \u0641\u0627\u06CC\u0644 \u0645\u0648\u062C\u0648\u062F overwrite \u0646\u0645\u06CC\u200C\u0634\u0648\u062F." });
-      this.button(body, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0648 \u0627\u0646\u062A\u0642\u0627\u0644 Note\u0647\u0627", async () => this.plugin.previewTickTickNotes(), true);
+      const header = card.createDiv({ cls: "ticktick-control-header" });
+      const hIcon = header.createSpan({ cls: "ticktick-header-icon" });
+      (0, import_obsidian8.setIcon)(hIcon, "file-text");
+      header.createEl("h2", { text: "\u0627\u0646\u062A\u0642\u0627\u0644 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC TickTick Notes" });
+      card.createEl("p", {
+        cls: "ticktick-control-desc",
+        text: "\u0641\u0642\u0637 Note\u0647\u0627\u06CC \u062F\u0627\u0631\u0627\u06CC kind: NOTE \u067E\u0633 \u0627\u0632 \u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u0645\u0627 \u0648\u0627\u0631\u062F \u0641\u0648\u0644\u062F\u0631 TickTick Notes \u0645\u06CC\u200C\u0634\u0648\u0646\u062F\u061B \u0641\u0627\u06CC\u0644\u200C\u0647\u0627\u06CC \u0645\u0648\u062C\u0648\u062F overwrite \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F."
+      });
+      const actions = card.createDiv({ cls: "ticktick-control-actions" });
+      this.button(actions, "\u0627\u0646\u062A\u062E\u0627\u0628 \u0648 \u0627\u0646\u062A\u0642\u0627\u0644 Note\u0647\u0627", "file-text", async () => this.plugin.previewTickTickNotes(), true);
     } else if (this.screen === "checklists") {
-      body.createEl("h2", { text: "Checklist \u0648 Subtask" });
-      body.createEl("p", { text: "Checklist\u0647\u0627 \u062F\u0631 \u06A9\u0627\u0631\u062A task \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F \u0627\u0645\u0627 \u0641\u0639\u0644\u0627\u064B \u0641\u0642\u0637\u200C\u062E\u0648\u0627\u0646\u062F\u0646\u06CC\u200C\u0627\u0646\u062F\u061B \u0648\u06CC\u0631\u0627\u06CC\u0634 child item \u062A\u0627 \u062A\u0623\u06CC\u06CC\u062F \u0631\u0633\u0645\u06CC API TickTick \u0641\u0639\u0627\u0644 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F." });
-      this.button(body, "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632", async () => this.plugin.openTodayView());
+      const header = card.createDiv({ cls: "ticktick-control-header" });
+      const hIcon = header.createSpan({ cls: "ticktick-header-icon" });
+      (0, import_obsidian8.setIcon)(hIcon, "list-checks");
+      header.createEl("h2", { text: "Checklist \u0648 Subtask" });
+      card.createEl("p", {
+        cls: "ticktick-control-desc",
+        text: "Checklist\u0647\u0627 \u062F\u0631 \u06A9\u0627\u0631\u062A task \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F \u0627\u0645\u0627 \u0641\u0639\u0644\u0627\u064B \u0641\u0642\u0637\u200C\u062E\u0648\u0627\u0646\u062F\u0646\u06CC\u200C\u0627\u0646\u062F\u061B \u0648\u06CC\u0631\u0627\u06CC\u0634 child item \u062A\u0627 \u062A\u0623\u06CC\u06CC\u062F \u0631\u0633\u0645\u06CC API TickTick \u0641\u0639\u0627\u0644 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F."
+      });
+      const actions = card.createDiv({ cls: "ticktick-control-actions" });
+      this.button(actions, "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632", "calendar-check", async () => this.plugin.openTodayView(), true);
     } else {
-      body.createEl("h2", { text: "\u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627 \u0648 backup" });
+      const header = card.createDiv({ cls: "ticktick-control-header" });
+      const hIcon = header.createSpan({ cls: "ticktick-header-icon" });
+      (0, import_obsidian8.setIcon)(hIcon, "bar-chart-2");
+      header.createEl("h2", { text: "\u06AF\u0632\u0627\u0631\u0634\u200C\u0647\u0627 \u0648 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u200C\u06AF\u06CC\u0631\u06CC" });
       const latest = await this.plugin.latestManagedReport();
-      body.createEl("p", { text: latest?.path ?? "\u0647\u0646\u0648\u0632 \u06AF\u0632\u0627\u0631\u0634\u06CC \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F." });
-      if (latest) body.createEl("pre", { text: JSON.stringify(latest.report, null, 2) });
+      if (latest?.path) {
+        const badgeRow = card.createDiv({ cls: "ticktick-report-badge-row" });
+        badgeRow.createSpan({ cls: "ticktick-report-badge", text: `\u0622\u062E\u0631\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634: ${latest.path}` });
+      } else {
+        card.createEl("p", { cls: "ticktick-control-desc", text: "\u0647\u0646\u0648\u0632 \u06AF\u0632\u0627\u0631\u0634\u06CC \u0627\u06CC\u062C\u0627\u062F \u0646\u0634\u062F\u0647 \u0627\u0633\u062A." });
+      }
+      if (latest?.report) {
+        const pre = card.createEl("pre", { cls: "ticktick-report-pre" });
+        pre.setText(JSON.stringify(latest.report, null, 2));
+      }
     }
   }
-  button(parent, label, action, cta = false) {
-    const button = parent.createEl("button", { text: label, cls: cta ? "mod-cta" : "" });
+  button(parent, label, iconName, action, cta = false, danger = false) {
+    const button = parent.createEl("button", {
+      cls: `ticktick-control-btn ${cta ? "mod-cta" : ""} ${danger ? "mod-danger" : ""}`,
+      attr: { type: "button" }
+    });
+    const btnIcon = button.createSpan({ cls: "ticktick-btn-icon" });
+    (0, import_obsidian8.setIcon)(btnIcon, iconName);
+    button.createSpan({ text: label });
     button.addEventListener("click", async () => {
       button.disabled = true;
+      btnIcon.addClass("is-spinning");
       try {
         await action();
       } catch (error) {
         new import_obsidian8.Notice(error instanceof Error ? error.message : "\u0639\u0645\u0644\u06CC\u0627\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
       } finally {
         button.disabled = false;
+        btnIcon.removeClass("is-spinning");
       }
     });
   }
