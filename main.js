@@ -916,6 +916,15 @@ function checklistSummary(items) {
   return { total: normalized.length, completed: normalized.filter((item) => item.completed).length };
 }
 
+// src/obsidian/task-priority.ts
+function taskPriority(input) {
+  const value = Number(input ?? 0);
+  if (value >= 5) return { value: 5, label: "\u0628\u0627\u0644\u0627", icon: "\u{1F534}", className: "is-high" };
+  if (value >= 3) return { value: 3, label: "\u0645\u062A\u0648\u0633\u0637", icon: "\u{1F7E0}", className: "is-medium" };
+  if (value >= 1) return { value: 1, label: "\u06A9\u0645", icon: "\u{1F535}", className: "is-low" };
+  return { value: 0, label: "\u0628\u062F\u0648\u0646 \u0627\u0648\u0644\u0648\u06CC\u062A", icon: "\u26AA", className: "is-none" };
+}
+
 // src/obsidian/task-details-modal.ts
 var TaskDetailsModal = class extends import_obsidian3.Modal {
   constructor(app, task, actions = {}) {
@@ -944,7 +953,8 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
     this.contentEl.empty();
     this.titleEl.setText(String(this.task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"));
     const meta = this.contentEl.createDiv({ cls: "ticktick-task-details-meta" });
-    for (const value of [this.task.projectName, this.task.dueDate ? `\u{1F4C5} ${String(this.task.dueDate).slice(0, 10)}` : "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", `\u0627\u0648\u0644\u0648\u06CC\u062A P${Number(this.task.priority ?? 0)}`, this.task.repeatFlag ? "\u{1F501} \u062A\u06A9\u0631\u0627\u0631" : ""]) if (value) meta.createSpan({ text: String(value) });
+    const priority = taskPriority(this.task.priority);
+    for (const value of [this.task.projectName, this.task.dueDate ? `\u{1F4C5} ${String(this.task.dueDate).slice(0, 10)}` : "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", `${priority.icon} \u0627\u0648\u0644\u0648\u06CC\u062A ${priority.label}`, this.task.repeatFlag ? "\u{1F501} \u062A\u06A9\u0631\u0627\u0631" : ""]) if (value) meta.createSpan({ text: String(value) });
     const description = String(this.task.desc ?? this.task.content ?? "").trim();
     const descriptionBox = this.contentEl.createDiv({ cls: "ticktick-task-details-description" });
     descriptionBox.createEl("strong", { text: "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A" });
@@ -1191,7 +1201,8 @@ var PlanningCalendar = class {
   }
   renderTask(parent, task) {
     const bound = this.host.binding(task);
-    const card = parent.createDiv({ cls: `ticktick-planner-task priority-${Number(task.priority ?? 0)}${bound ? " is-bound" : ""}`, attr: { title: bound ? "\u0628\u0631\u0627\u06CC \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0628\u06A9\u0634" : "\u0628\u0631\u0627\u06CC \u062F\u06CC\u062F\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A \u06A9\u0644\u06CC\u06A9 \u06A9\u0646" } });
+    const priority = taskPriority(task.priority);
+    const card = parent.createDiv({ cls: `ticktick-planner-task priority-${priority.value}${bound ? " is-bound" : ""}`, attr: { title: `${bound ? "\u0628\u0631\u0627\u06CC \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0628\u06A9\u0634" : "\u0628\u0631\u0627\u06CC \u062F\u06CC\u062F\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A \u06A9\u0644\u06CC\u06A9 \u06A9\u0646"} \xB7 \u0627\u0648\u0644\u0648\u06CC\u062A: ${priority.label}` } });
     const check = card.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
     check.checked = Number(task.status ?? 0) !== 0;
     check.disabled = check.checked;
@@ -1338,8 +1349,9 @@ var ProjectBoard = class {
     const check = top.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
     check.checked = Number(task.status ?? 0) !== 0;
     check.disabled = !bound || check.checked;
+    const priority = taskPriority(task.priority);
     top.createSpan({ text: task.title });
-    top.createSpan({ cls: "ticktick-project-priority", text: `P${Number(task.priority ?? 0)}` });
+    top.createSpan({ cls: `ticktick-project-priority ${priority.className}`, text: `${priority.icon} ${priority.label}`, attr: { title: `\u0627\u0648\u0644\u0648\u06CC\u062A: ${priority.label}` } });
     if (task.desc || task.content) card.createEl("small", { text: String(task.desc ?? task.content).slice(0, 100) });
     const meta = card.createDiv({ cls: "ticktick-project-card-meta" });
     if (task.dueDate) meta.createSpan({ text: `\u{1F4C5} ${String(task.dueDate).slice(0, 10)}` });

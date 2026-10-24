@@ -2,6 +2,7 @@ import { App, Modal, Notice } from "obsidian";
 import { monthRange, shiftCalendarDay, tasksForCalendarDay, weekRange } from "../core/calendar-range.js";
 import { todayInZone } from "../core/date.js";
 import { TaskDetailsModal } from "./task-details-modal";
+import { taskPriority } from "./task-priority";
 
 type PlannerHost = { app: App; timeZone: string; firstWeekday: number; showCompleted: boolean; tasks: () => any[]; refresh: () => Promise<void>; reschedule: (task: any, day: string) => Promise<any>; complete: (task: any) => Promise<any>; binding: (task: any) => any; load: (task: any) => Promise<any>; edit: (task: any) => Promise<any> };
 type Mode = "day" | "week" | "month";
@@ -109,7 +110,7 @@ export class PlanningCalendar {
     }
   }
   private renderTask(parent: HTMLElement, task: any) {
-    const bound = this.host.binding(task); const card = parent.createDiv({ cls: `ticktick-planner-task priority-${Number(task.priority ?? 0)}${bound ? " is-bound" : ""}`, attr: { title: bound ? "برای جابه‌جایی بکش" : "برای دیدن جزئیات کلیک کن" } });
+    const bound = this.host.binding(task); const priority = taskPriority(task.priority); const card = parent.createDiv({ cls: `ticktick-planner-task priority-${priority.value}${bound ? " is-bound" : ""}`, attr: { title: `${bound ? "برای جابه‌جایی بکش" : "برای دیدن جزئیات کلیک کن"} · اولویت: ${priority.label}` } });
     const check = card.createEl("input", { type: "checkbox", attr: { "aria-label": `تکمیل ${task.title}` } }); check.checked = Number(task.status ?? 0) !== 0; check.disabled = check.checked;
     const title = card.createEl("button", { text: String(task.title ?? "بدون عنوان"), attr: { type: "button", "aria-label": `جزئیات ${task.title}` } }); title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, { complete: () => this.completeTask(task), load: item => this.host.load(item), edit: item => this.host.edit(item), changed: async () => { await this.host.refresh(); await this.render(); } }).open());
     check.addEventListener("click", event => event.stopPropagation()); check.addEventListener("change", () => void this.completeTask(task, check));

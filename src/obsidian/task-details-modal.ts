@@ -1,5 +1,6 @@
 import { App, Modal, Notice } from "obsidian";
 import { checklistSummary, normalizeChecklist } from "../core/checklist.js";
+import { taskPriority } from "./task-priority";
 
 type TaskActions = {
   complete?: () => Promise<void>;
@@ -32,7 +33,8 @@ export class TaskDetailsModal extends Modal {
     this.contentEl.empty();
     this.titleEl.setText(String(this.task.title ?? "بدون عنوان"));
     const meta = this.contentEl.createDiv({ cls: "ticktick-task-details-meta" });
-    for (const value of [this.task.projectName, this.task.dueDate ? `📅 ${String(this.task.dueDate).slice(0, 10)}` : "بدون تاریخ", `اولویت P${Number(this.task.priority ?? 0)}`, this.task.repeatFlag ? "🔁 تکرار" : ""]) if (value) meta.createSpan({ text: String(value) });
+    const priority = taskPriority(this.task.priority);
+    for (const value of [this.task.projectName, this.task.dueDate ? `📅 ${String(this.task.dueDate).slice(0, 10)}` : "بدون تاریخ", `${priority.icon} اولویت ${priority.label}`, this.task.repeatFlag ? "🔁 تکرار" : ""]) if (value) meta.createSpan({ text: String(value) });
     const description = String(this.task.desc ?? this.task.content ?? "").trim();
     const descriptionBox = this.contentEl.createDiv({ cls: "ticktick-task-details-description" });
     descriptionBox.createEl("strong", { text: "توضیحات" });
