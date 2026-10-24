@@ -1197,6 +1197,60 @@ var ProjectBoard = class {
   }
 };
 
+// src/core/local-habit.js
+function scalar(value) {
+  const text = String(value ?? "").trim();
+  if (/^(true|false)$/i.test(text)) return /^true$/i.test(text);
+  if (/^-?\d+(?:\.\d+)?$/.test(text)) return Number(text);
+  return text.replace(/^['"]|['"]$/g, "");
+}
+function frontmatter(markdown) {
+  const match = String(markdown).match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) return { data: {}, body: String(markdown), valid: false };
+  const data = {};
+  for (const line of match[1].split(/\r?\n/)) {
+    const pair = line.match(/^([\w-]+):\s*(.*)$/);
+    if (pair) data[pair[1]] = scalar(pair[2]);
+  }
+  return { data, body: String(markdown).slice(match[0].length), valid: true };
+}
+function historyFrom(body) {
+  return [...String(body).matchAll(/^\s*-\s*\[([ xX])\]\s*(\d{4}-\d{2}-\d{2})(?:\s*[:—-]\s*(\d+))?/gm)].map((match) => ({ date: match[2], value: match[3] ? Number(match[3]) : match[1].toLowerCase() === "x" ? 1 : 0, completed: match[1].toLowerCase() === "x" }));
+}
+function parseLocalHabit(markdown, path) {
+  const { data, body, valid } = frontmatter(markdown);
+  const name = String(data.name ?? data.title ?? "").trim();
+  const cadence = String(data.cadence ?? data.frequency ?? data.repeat ?? "daily").toLowerCase();
+  const supported = ["daily", "weekly"].includes(cadence);
+  const goal = Math.max(1, Number(data.goal ?? data.target ?? 1));
+  const days = String(data.days ?? data.weekdays ?? "").split(",").map((day) => day.trim()).filter(Boolean);
+  const needsMapping = !valid || !name || !supported || cadence === "weekly" && !days.length;
+  return { id: `local:${path}`, sourcePath: path, source: "local", name: name || path.split("/").pop()?.replace(/\.md$/i, "") || "\u0628\u062F\u0648\u0646 \u0646\u0627\u0645", cadence, goal, unit: String(data.unit ?? ""), sectionName: String(data.section ?? data.group ?? "\u0628\u062F\u0648\u0646 \u062F\u0633\u062A\u0647"), days, exclusions: String(data.exclusions ?? "").split(",").map((value) => value.trim()).filter(Boolean), history: historyFrom(body), needsMapping, unsupported: Object.keys(data).filter((key) => !["name", "title", "cadence", "frequency", "repeat", "goal", "target", "unit", "section", "group", "days", "weekdays", "exclusions"].includes(key)) };
+}
+
+// src/obsidian/habit-migration.ts
+var HabitMigration = class {
+  constructor(app, storage, folder) {
+    this.app = app;
+    this.storage = storage;
+    this.folder = folder;
+  }
+  async localHabits() {
+    const prefix = this.folder().replace(/^\/+|\/+$/g, "");
+    const files = this.app.vault.getMarkdownFiles().filter((file) => file.path.startsWith(`${prefix}/`) && !file.path.startsWith(".ticktick/"));
+    return Promise.all(files.map(async (file) => parseLocalHabit(await this.app.vault.read(file), file.path)));
+  }
+  async preview(remoteHabits = []) {
+    const habits = await this.localHabits();
+    const rows = habits.map((habit) => ({ ...habit, selected: false, duplicate: remoteHabits.filter((remote) => String(remote.name ?? "").trim() === habit.name).map((remote) => remote.id), remotePayload: { name: habit.name, goal: habit.goal, unit: habit.unit, sectionName: habit.sectionName, cadence: habit.cadence }, loss: ["\u062A\u0627\u0631\u06CC\u062E\u0686\u0647\u0654 \u0645\u062D\u0644\u06CC \u0641\u0642\u0637 \u062E\u0648\u0627\u0646\u062F\u0646\u06CC \u0645\u06CC\u200C\u0645\u0627\u0646\u062F\u061B import \u062A\u0627\u0631\u06CC\u062E\u0686\u0647 \u0628\u0647 TickTick \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u06CC \u0646\u0645\u06CC\u200C\u0634\u0648\u062F.", ...habit.needsMapping ? ["\u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0646\u06AF\u0627\u0634\u062A \u062F\u0633\u062A\u06CC"] : []] }));
+    await this.storage.writeReport("habit-migration-preview", { sourceCount: rows.length, needsMapping: rows.filter((row) => row.needsMapping).length, duplicateCount: rows.filter((row) => row.duplicate.length).length, remoteCreation: "blocked-unverified-official-api" });
+    return rows;
+  }
+  async apply() {
+    throw new Error("\u0627\u06CC\u062C\u0627\u062F Habit \u062A\u0627 \u0632\u0645\u0627\u0646 \u062A\u0623\u06CC\u06CC\u062F endpoint \u0631\u0633\u0645\u06CC TickTick \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062A. \u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0648 \u062A\u0627\u0631\u06CC\u062E\u0686\u0647\u0654 \u0645\u062D\u0644\u06CC \u0628\u062F\u0648\u0646 \u062A\u063A\u06CC\u06CC\u0631 \u0628\u0627\u0642\u06CC \u0645\u06CC\u200C\u0645\u0627\u0646\u0646\u062F.");
+  }
+};
+
 // src/obsidian/main.ts
 var VIEW_TYPE = "ticktick-bridge-today";
 var HABIT_VIEW_TYPE = "ticktick-bridge-habits";
@@ -1222,6 +1276,7 @@ var DEFAULT_SETTINGS = {
   showRibbonIcons: false,
   plannerFirstWeekday: 1,
   plannerShowCompleted: false,
+  localHabitFolder: "\u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC/Habits",
   boardLastProjectId: "",
   boardCollapsedGroups: []
 };
@@ -1246,6 +1301,7 @@ var TickTickBridgePlugin = class extends import_obsidian5.Plugin {
   syncInProgress = false;
   managedStorage;
   markdownSync;
+  habitMigration;
   lastManagedReport = "\u0647\u0646\u0648\u0632 \u06AF\u0632\u0627\u0631\u0634\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.";
   async onload() {
     this.managedStorage = new ManagedStorage(this.app.vault.adapter);
@@ -1262,6 +1318,7 @@ var TickTickBridgePlugin = class extends import_obsidian5.Plugin {
     this.cache = normalizeCache(savedCache);
     this.markdownSync = new MarkdownSync(this.app, this.managedStorage, () => this.client(), () => this.settings, () => this.scheduledCheckboxProjectId());
     await this.markdownSync.initialize();
+    this.habitMigration = new HabitMigration(this.app, this.managedStorage, () => this.settings.localHabitFolder);
     if ("projectRoot" in legacySettings || "projectDependencies" in legacySettings || "projectTaskCatalog" in legacySettings) await this.saveSettings();
     this.app.workspace.onLayoutReady(() => {
       this.app.workspace.getLeavesOfType("ticktick-bridge-projects").forEach((leaf) => leaf.detach());
@@ -1295,6 +1352,8 @@ var TickTickBridgePlugin = class extends import_obsidian5.Plugin {
     this.configureRibbonIcons();
     this.addCommand({ id: "open-today-tasks", name: "Open today's TickTick tasks", callback: () => this.openTodayView() });
     this.addCommand({ id: "open-today-habits", name: "Open today's TickTick habits", callback: () => this.openHabitView() });
+    this.addCommand({ id: "review-local-habits", name: "Review local habits for TickTick migration", callback: () => this.reviewLocalHabits() });
+    this.addCommand({ id: "migrate-local-habits", name: "Migrate selected local habits to TickTick", callback: () => this.migrateLocalHabits() });
     this.addCommand({ id: "open-weekly-planner", name: "Open TickTick weekly planner", callback: () => this.openPlannerView() });
     this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
@@ -1377,6 +1436,14 @@ var TickTickBridgePlugin = class extends import_obsidian5.Plugin {
     const result = await this.markdownSync.repairLegacyBindings();
     new import_obsidian5.Notice(`\u0627\u0633\u06A9\u0646 binding \u0642\u062F\u06CC\u0645\u06CC \u062A\u0645\u0627\u0645 \u0634\u062F\u061B ${result.quarantine} \u0645\u0648\u0631\u062F \u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0628\u0631\u0631\u0633\u06CC \u062F\u0633\u062A\u06CC \u0627\u0633\u062A.`);
     return result;
+  }
+  async reviewLocalHabits() {
+    const rows = await this.habitMigration.preview(this.cache.habits);
+    new import_obsidian5.Notice(`\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0645\u062D\u0644\u06CC: ${rows.length} \u0645\u0648\u0631\u062F\u061B ${rows.filter((row) => row.needsMapping).length} \u0645\u0648\u0631\u062F \u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0646\u06AF\u0627\u0634\u062A \u062F\u0633\u062A\u06CC \u0627\u0633\u062A. \u0647\u06CC\u0686 \u062F\u0627\u062F\u0647\u200C\u0627\u06CC \u062A\u063A\u06CC\u06CC\u0631 \u0646\u06A9\u0631\u062F.`);
+    return rows;
+  }
+  async migrateLocalHabits() {
+    return this.habitMigration.apply();
   }
   plannerHost() {
     return {
@@ -1990,6 +2057,11 @@ var TickTickBridgePlugin = class extends import_obsidian5.Plugin {
         });
         return { ...habit, checkin, ...history ? { history } : {} };
       });
+      const localHabits = (await this.habitMigration.localHabits()).map((habit) => {
+        const checkin = habit.history.find((entry) => entry.date === day);
+        return { ...habit, id: habit.id, source: "local", repeatRule: habit.cadence === "weekly" ? "RRULE:FREQ=WEEKLY" : "RRULE:FREQ=DAILY", checkin: checkin ? { value: checkin.value, goal: habit.goal, status: checkin.completed ? 2 : 0 } : null };
+      });
+      habits = [...habits, ...localHabits];
       if (dashboard && state?.mode === "day") habits = habits.filter((habit) => habit.history?.some((entry) => entry.date === day));
       if (dashboard) {
         const controls = root.createDiv({ cls: "ticktick-dashboard-controls" });
@@ -2051,12 +2123,15 @@ var TickTickBridgePlugin = class extends import_obsidian5.Plugin {
           return map[group] || "var(--interactive-accent)";
         };
         const card = cardHost.createEl("button", { cls: `daily-habit-card${dashboard ? " ticktick-dashboard-habit-card" : ""}${completed ? " is-done" : ""}`, attr: { type: "button", "aria-label": `\u062B\u0628\u062A \u0639\u0627\u062F\u062A ${habit.name}` } });
+        const localOnly = habit.source === "local";
+        if (localOnly) card.addClass("ticktick-local-habit");
         card.style.setProperty("--card-tone", habitGroupTone(habitDashboardSection(habit)));
         const icon = card.createDiv({ cls: "daily-habit-progress" });
         icon.style.setProperty("--ticktick-progress", `${Math.round(progress * 360)}deg`);
         icon.createDiv({ cls: "daily-habit-icon", text: habitIcon(habit.iconRes ?? habit.icon) });
         const text = card.createDiv({ cls: "daily-habit-text" });
         text.createDiv({ cls: "daily-habit-title", text: habit.name });
+        text.createDiv({ cls: "ticktick-habit-source", text: localOnly ? `\u0645\u062D\u0644\u06CC \xB7 ${habit.sourcePath}` : "TickTick" });
         const historyComplete = (habit.history ?? []).filter((entry) => entry.completed).length;
         const streak = habitStreak(habit.history ?? []);
         const progressLabel = goal > 1 ? `${currentValue}/${goal} ${habit.unit ?? ""}`.trim() : completed ? "\u0627\u0646\u062C\u0627\u0645 \u0634\u062F" : "\u0628\u0631\u0627\u06CC \u062B\u0628\u062A \u0628\u0632\u0646";
@@ -2070,6 +2145,10 @@ var TickTickBridgePlugin = class extends import_obsidian5.Plugin {
           }
         }
         card.addEventListener("click", async () => {
+          if (localOnly) {
+            new import_obsidian5.Notice("\u0639\u0627\u062F\u062A \u0645\u062D\u0644\u06CC \u0641\u0642\u0637 \u062E\u0648\u0627\u0646\u062F\u0646\u06CC \u0627\u0633\u062A\u061B writeback \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u062E\u0627\u0645\u0648\u0634 \u0627\u0633\u062A.");
+            return;
+          }
           card.disabled = true;
           try {
             const nextValue = completed ? 0 : Math.min(goal, currentValue + step);
@@ -2914,6 +2993,17 @@ var TickTickBridgeSettings = class extends import_obsidian5.PluginSettingTab {
     })).addToggle((toggle) => toggle.setValue(this.plugin.settings.plannerShowCompleted).setTooltip("\u0646\u0645\u0627\u06CC\u0634 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647 \u062F\u0631 \u062A\u0642\u0648\u06CC\u0645").onChange(async (value) => {
       this.plugin.settings.plannerShowCompleted = value;
       await this.plugin.saveSettings();
+    }));
+    new import_obsidian5.Setting(containerEl).setName("\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0645\u062D\u0644\u06CC").setDesc("\u0645\u0646\u0628\u0639 \u0641\u0642\u0637\u200C\u062E\u0648\u0627\u0646\u062F\u0646\u06CC \u0628\u0631\u0627\u06CC \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u0648 \u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0645\u0647\u0627\u062C\u0631\u062A\u061B \u0641\u0627\u06CC\u0644\u200C\u0647\u0627 \u0647\u0631\u06AF\u0632 \u062E\u0648\u062F\u06A9\u0627\u0631 \u062A\u063A\u06CC\u06CC\u0631 \u06CC\u0627 \u062D\u0630\u0641 \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F.").addText((input) => input.setValue(this.plugin.settings.localHabitFolder).onChange(async (value) => {
+      this.plugin.settings.localHabitFolder = value.trim().replace(/^\/+|\/+$/g, "");
+      await this.plugin.saveSettings();
+    })).addButton((button) => button.setButtonText("\u0645\u0631\u0648\u0631 \u0639\u0627\u062F\u062A\u200C\u0647\u0627").onClick(async () => {
+      button.setDisabled(true);
+      try {
+        await this.plugin.reviewLocalHabits();
+      } finally {
+        button.setDisabled(false);
+      }
     }));
     new import_obsidian5.Setting(containerEl).setName("\u0622\u06CC\u06A9\u0648\u0646\u200C\u0647\u0627\u06CC \u0627\u0636\u0627\u0641\u06CC \u0646\u0648\u0627\u0631 \u06A9\u0646\u0627\u0631\u06CC").setDesc("\u0622\u06CC\u06A9\u0648\u0646 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0647\u0645\u06CC\u0634\u0647 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F. \u0628\u0627 \u0631\u0648\u0634\u0646\u200C\u06A9\u0631\u062F\u0646 \u0627\u06CC\u0646 \u06AF\u0632\u06CC\u0646\u0647\u060C \u0645\u06CC\u0627\u0646\u0628\u0631 \u062A\u0633\u06A9\u200C\u0647\u0627 \u0648 \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0647\u0645 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F.").addToggle((toggle) => toggle.setValue(this.plugin.settings.showRibbonIcons).onChange(async (value) => {
       this.plugin.settings.showRibbonIcons = value;

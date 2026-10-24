@@ -6,6 +6,7 @@
 
 ## Status
 
+- **Status**: Partially implemented on `main` (2026-10-24). Local parsing, read-only preview, and source-aware dashboard cards are complete. Remote creation and historical import are blocked pending a verified official TickTick Habit-create contract.
 - **Priority**: P2
 - **Effort**: M
 - **Risk**: MED — historical check-ins and cadence mapping can be lossy.
@@ -88,10 +89,10 @@ Behind a separate default-off setting, allow checking a local card to update onl
 
 ## Done criteria
 
-- [ ] Migration is previewed, selected, snapshot-backed, and does not delete local files.
-- [ ] Dashboard clearly distinguishes Local, TickTick, and Linked records.
-- [ ] Unsupported local data is reported rather than guessed or dropped.
-- [ ] `npm test`, `npm run check`, and `npm run build` pass.
+- [ ] Selected remote migration is intentionally blocked pending a verified official API contract; preview does not delete or change local files.
+- [x] Dashboard clearly distinguishes Local and TickTick records; linking awaits safe remote creation.
+- [x] Unsupported local data is reported rather than guessed or dropped.
+- [x] `npm test`, `npm run check`, and `npm run build` pass.
 
 ## STOP conditions
 

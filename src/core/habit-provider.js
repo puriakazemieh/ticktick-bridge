@@ -14,6 +14,6 @@ export class LocalHabitProvider extends HabitProvider {
   }
 
   async listForDay(day) {
-    return (await this.listHabits()).map(habit => ({ ...habit, day }));
+    return (await this.listHabits()).map(habit => ({ ...habit, source: "local", day }));
   }
 }

@@ -245,6 +245,9 @@
   font-size: 1.1rem;
 }
 
+.ticktick-local-habit { outline: 1px dashed var(--text-muted); }
+.ticktick-habit-source { color: var(--text-muted); font-size: .65rem; margin-top: .12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Keep the progress/icon on the right in the daily panel regardless of the
    active Obsidian theme's LTR/RTL rules. */
 .daily-habit-list:not(.ticktick-dashboard-habits) .daily-habit-cards {

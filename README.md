@@ -28,6 +28,10 @@ Open **TickTick weekly planner** or add a `ticktick-planner` code block to a not
 
 Open **TickTick project board** or use a `ticktick-board` code block for a sidebar of documented TickTick lists and a horizontal kanban board. A returned folder/group is used as a display filter; unavailable group metadata falls back to a flat list. List projects without remote columns show a display-only `Tasks` column. Card order and cross-column/project dragging are intentionally read-only until the official API behavior is characterized. Completing a card is available only when its Markdown binding has been verified and uses the safe sync path.
 
+### Local habits
+
+Set the local habit folder in settings (default: `برنامه‌ریزی/Habits`) and run **Review local habits for TickTick migration**. The preview is read-only, reports unsupported fields and duplicate names, and writes a managed report. Local history stays visible in the unified habit dashboard and is never overwritten. Habit creation and historical check-in import remain disabled until TickTick provides a verified official endpoint; no local habit file is deleted or changed.
+
 ## Managed local storage
 
 The plugin keeps recoverable, non-secret managed artifacts under
