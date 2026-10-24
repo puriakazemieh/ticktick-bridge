@@ -712,11 +712,16 @@ export class PlanningCalendar {
   }
 
   private renderRangeLanes(parent: HTMLElement, days: string[], tasks: any[], cls: string) {
-    const lanes = parent.createDiv({ cls });
-    for (const task of tasks) {
-      if (Number(task.status ?? 0) !== 0 && !this.host.showCompleted) continue;
+    const rangeTasks = tasks.filter(task => {
+      if (Number(task.status ?? 0) !== 0 && !this.host.showCompleted) return false;
       const range = taskDateRange(task, this.host.timeZone);
-      if (!range || range.end < days[0] || range.start > days.at(-1)!) continue;
+      return range && range.end >= days[0] && range.start <= days.at(-1)!;
+    });
+    if (!rangeTasks.length) return;
+
+    const lanes = parent.createDiv({ cls });
+    for (const task of rangeTasks) {
+      const range = taskDateRange(task, this.host.timeZone)!;
       const first = Math.max(0, days.findIndex(day => day >= range.start));
       const last = Math.max(first, (() => {
         const index = days.findIndex(day => day > range.end);
