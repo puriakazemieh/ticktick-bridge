@@ -116,6 +116,9 @@ export default class TickTickBridgePlugin extends Plugin {
       ...activeSettings
     } = legacySettings;
     this.settings = { ...DEFAULT_SETTINGS, ...activeSettings };
+    // This Persian planner is intentionally Saturday-first. Older installs
+    // persisted Monday as their legacy default, so migrate them once.
+    if (this.settings.plannerFirstWeekday !== 6) this.settings.plannerFirstWeekday = 6;
     this.cache = normalizeCache(savedCache);
     this.markdownSync = new MarkdownSync(this.app, this.managedStorage, () => this.client(), () => this.settings, () => this.scheduledCheckboxProjectId());
     await this.markdownSync.initialize();
@@ -255,7 +258,7 @@ export default class TickTickBridgePlugin extends Plugin {
     return {
       app: this.app,
       timeZone: this.settings.timeZone,
-      firstWeekday: this.settings.plannerFirstWeekday,
+      firstWeekday: 6,
       showCompleted: this.settings.plannerShowCompleted,
       tasks: () => this.cache.tasks,
       refresh: async () => { await this.syncNow({ quiet: true }); },
@@ -1877,13 +1880,7 @@ class TickTickBridgeSettings extends PluginSettingTab {
         button.setDisabled(true);
         try { await this.plugin.syncNow(); } finally { button.setDisabled(false); }
       }));
-    new Setting(containerEl).setName("تقویم برنامه‌ریزی").setDesc("هفته و شبکهٔ ماه از شنبه شروع می‌شوند و تسک تکمیل‌شده به‌صورت پیش‌فرض پنهان است.").addDropdown(dropdown => dropdown
-      .addOption("6", "شنبه")
-      .addOption("1", "دوشنبه")
-      .addOption("0", "یکشنبه")
-      .setValue(String(this.plugin.settings.plannerFirstWeekday))
-      .onChange(async value => { this.plugin.settings.plannerFirstWeekday = Number(value); await this.plugin.saveSettings(); }))
-      .addToggle(toggle => toggle.setValue(this.plugin.settings.plannerShowCompleted).setTooltip("نمایش تسک‌های تکمیل‌شده در تقویم").onChange(async value => { this.plugin.settings.plannerShowCompleted = value; await this.plugin.saveSettings(); }));
+    new Setting(containerEl).setName("تقویم برنامه‌ریزی").setDesc("هفته و شبکهٔ ماه همیشه از شنبه شروع می‌شوند و تسک تکمیل‌شده به‌صورت پیش‌فرض پنهان است.").addToggle(toggle => toggle.setValue(this.plugin.settings.plannerShowCompleted).setTooltip("نمایش تسک‌های تکمیل‌شده در تقویم").onChange(async value => { this.plugin.settings.plannerShowCompleted = value; await this.plugin.saveSettings(); }));
     new Setting(containerEl).setName("عادت‌های محلی").setDesc("منبع فقط‌خواندنی برای داشبورد و پیش‌نمایش مهاجرت؛ فایل‌ها هرگز خودکار تغییر یا حذف نمی‌شوند.").addText(input => input
       .setValue(this.plugin.settings.localHabitFolder)
       .onChange(async value => { this.plugin.settings.localHabitFolder = value.trim().replace(/^\/+|\/+$/g, ""); await this.plugin.saveSettings(); }))
