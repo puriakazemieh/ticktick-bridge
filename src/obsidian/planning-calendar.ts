@@ -78,7 +78,7 @@ export class PlanningCalendar {
     const sort = controls.createEl("select", { attr: { "aria-label": "مرتب‌سازی تسک‌ها" } });
     for (const [value, label] of [["ticktick", "ترتیب TickTick"], ["time", "ساعت"], ["priority", "اولویت"], ["title", "عنوان"]]) sort.createEl("option", { value, text: `مرتب‌سازی: ${label}` });
     sort.value = this.sortMode; sort.addEventListener("change", () => { this.sortMode = sort.value; void this.render(); });
-    this.renderFilters(controls);
+    this.renderFilters(root);
     const tasks = this.filteredTasks();
     if (!tasks.length) root.createDiv({ cls: "ticktick-planner-empty", text: "تسکی برای این فیلتر نیست؛ از دکمهٔ «افزودن تسک» استفاده کن." });
     if (this.mode === "month") this.renderMonth(root, tasks); else this.renderDays(root, this.mode === "week" ? weekRange(this.day, this.host.firstWeekday) : [this.day], tasks);
