@@ -20,6 +20,10 @@ corresponding dashboard inline.
 
 Use **Preview Markdown ↔ TickTick sync** before **Apply Markdown ↔ TickTick sync**. A tagged task is bound only after TickTick returns its task and project IDs, using a hidden public marker such as `<!-- ticktick-bridge:task id=… project=… v=1 -->`. Preview performs no writes. Conflicts, ambiguous creates, missing remote tasks, and duplicate bindings are quarantined for review; the plugin never retries an ambiguous create automatically.
 
+### Weekly planner
+
+Open **TickTick weekly planner** or add a `ticktick-planner` code block to a note. The planner has day, week, and 42-cell month views, uses the configured timezone for placement, and reads the cached task list until you request a refresh. Dragging is enabled only for a task with a verified Markdown binding. Every move asks for confirmation, re-reads the TickTick task, creates a `.ticktick` snapshot/report, and preserves multi-day duration. Recurring task occurrences are deliberately not moved by drag-and-drop; edit the series in TickTick instead.
+
 ## Managed local storage
 
 The plugin keeps recoverable, non-secret managed artifacts under

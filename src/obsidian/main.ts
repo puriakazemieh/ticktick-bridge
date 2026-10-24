@@ -5,9 +5,11 @@ import { normalizeWebSessionCookie, parseWebHabitCheckins } from "../core/tickti
 import { ManagedStorage } from "./managed-storage";
 import { MarkdownSync } from "./markdown-sync";
 import { MarkdownConflictModal } from "./conflict-modal";
+import { PlanningCalendar } from "./planning-calendar";
 
 const VIEW_TYPE = "ticktick-bridge-today";
 const HABIT_VIEW_TYPE = "ticktick-bridge-habits";
+const PLANNER_VIEW_TYPE = "ticktick-bridge-planner";
 type DashboardMode = "day" | "week" | "month" | "stats";
 
 function currentPlatformName() {
@@ -29,6 +31,8 @@ interface BridgeSettings {
   checkboxImportTag: string;
   scheduledCheckboxProjectId: string;
   showRibbonIcons: boolean;
+  plannerFirstWeekday: number;
+  plannerShowCompleted: boolean;
 }
 
 type CachedHabitCheckin = { stamp: number; value: number; goal: number; status: number };
@@ -54,6 +58,8 @@ const DEFAULT_SETTINGS: BridgeSettings = {
   checkboxImportTag: "ticktick",
   scheduledCheckboxProjectId: "",
   showRibbonIcons: false,
+  plannerFirstWeekday: 1,
+  plannerShowCompleted: false,
 };
 
 export default class TickTickBridgePlugin extends Plugin {
@@ -93,6 +99,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.settings = { ...DEFAULT_SETTINGS, ...activeSettings };
     this.cache = normalizeCache(savedCache);
     this.markdownSync = new MarkdownSync(this.app, this.managedStorage, () => this.client(), () => this.settings, () => this.scheduledCheckboxProjectId());
+    await this.markdownSync.initialize();
     if ("projectRoot" in legacySettings || "projectDependencies" in legacySettings || "projectTaskCatalog" in legacySettings) await this.saveSettings();
     // Remove any restored workspace leaf from the retired project-planning view.
     this.app.workspace.onLayoutReady(() => {
@@ -101,6 +108,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addSettingTab(new TickTickBridgeSettings(this.app, this));
     this.registerView(VIEW_TYPE, leaf => new TodayTasksView(leaf, this));
     this.registerView(HABIT_VIEW_TYPE, leaf => new TodayHabitsView(leaf, this));
+    this.registerView(PLANNER_VIEW_TYPE, leaf => new PlanningView(leaf, this));
     this.registerMarkdownCodeBlockProcessor("ticktick-today", async (_source, element, context) => {
       const day = dailyNoteDateFromPath(context.sourcePath);
       this.taskBlocks.set(element, day);
@@ -113,11 +121,16 @@ export default class TickTickBridgePlugin extends Plugin {
       await this.renderHabitBlock(element, dashboard, day);
     });
     this.registerMarkdownCodeBlockProcessor("ticktick-recurring", async (_source, element) => this.renderRecurringBlock(element));
+    this.registerMarkdownCodeBlockProcessor("ticktick-planner", async (_source, element) => {
+      const planner = new PlanningCalendar(element, this.plannerHost());
+      await planner.render();
+    });
     this.configurePanelMenuRibbonIcon();
     this.configureSyncRibbonIcon();
     this.configureRibbonIcons();
     this.addCommand({ id: "open-today-tasks", name: "Open today's TickTick tasks", callback: () => this.openTodayView() });
     this.addCommand({ id: "open-today-habits", name: "Open today's TickTick habits", callback: () => this.openHabitView() });
+    this.addCommand({ id: "open-weekly-planner", name: "Open TickTick weekly planner", callback: () => this.openPlannerView() });
     this.addCommand({ id: "sync-now", name: "Sync TickTick now", callback: () => this.syncNow() });
     this.addCommand({ id: "preview-markdown-sync", name: "Preview Markdown ↔ TickTick sync", callback: () => this.previewMarkdownSync() });
     this.addCommand({ id: "apply-markdown-sync", name: "Apply Markdown ↔ TickTick sync preview", callback: () => this.applyMarkdownSync() });
@@ -190,6 +203,19 @@ export default class TickTickBridgePlugin extends Plugin {
     const result = await this.markdownSync.repairLegacyBindings();
     new Notice(`اسکن binding قدیمی تمام شد؛ ${result.quarantine} مورد نیازمند بررسی دستی است.`);
     return result;
+  }
+
+  plannerHost() {
+    return {
+      app: this.app,
+      timeZone: this.settings.timeZone,
+      firstWeekday: this.settings.plannerFirstWeekday,
+      showCompleted: this.settings.plannerShowCompleted,
+      tasks: () => this.cache.tasks,
+      refresh: async () => { await this.syncNow({ quiet: true }); },
+      reschedule: async (task: any, day: string) => this.markdownSync.rescheduleBoundTask(String(task.id), day),
+      binding: (task: any) => this.markdownSync.bindingForTask(String(task.id)),
+    };
   }
 
   private async importTaggedCheckboxes(file: TFile, quiet = false) {
@@ -674,6 +700,11 @@ export default class TickTickBridgePlugin extends Plugin {
     await leaf.setViewState({ type: HABIT_VIEW_TYPE, active: true });
   }
 
+  async openPlannerView() {
+    const leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf("tab");
+    await leaf.setViewState({ type: PLANNER_VIEW_TYPE, active: true });
+  }
+
   async renderTodayBlock(element: HTMLElement, dayOverride?: string) {
     element.replaceChildren();
     const root = element.createDiv({ cls: "daily-tasks-output ticktick-task-grid" });
@@ -1080,6 +1111,19 @@ class TodayHabitsView extends ItemView {
     });
     const panel = contentEl.createDiv({ cls: "ticktick-bridge-habit-panel" });
     await this.plugin.renderHabitBlock(panel, true);
+  }
+}
+
+class PlanningView extends ItemView {
+  constructor(leaf: WorkspaceLeaf, private plugin: TickTickBridgePlugin) { super(leaf); }
+  getViewType() { return PLANNER_VIEW_TYPE; }
+  getDisplayText() { return "برنامه‌ریزی TickTick"; }
+  getIcon() { return "calendar-days"; }
+  async onOpen() { await this.render(); }
+  async render() {
+    this.contentEl.empty();
+    this.contentEl.addClass("ticktick-planner-panel");
+    await new PlanningCalendar(this.contentEl, this.plugin.plannerHost()).render();
   }
 }
 
@@ -1661,6 +1705,13 @@ class TickTickBridgeSettings extends PluginSettingTab {
         button.setDisabled(true);
         try { await this.plugin.syncNow(); } finally { button.setDisabled(false); }
       }));
+    new Setting(containerEl).setName("تقویم برنامه‌ریزی").setDesc("هفته از دوشنبه شروع می‌شود و تسک تکمیل‌شده به‌صورت پیش‌فرض پنهان است.").addDropdown(dropdown => dropdown
+      .addOption("1", "دوشنبه")
+      .addOption("6", "شنبه")
+      .addOption("0", "یکشنبه")
+      .setValue(String(this.plugin.settings.plannerFirstWeekday))
+      .onChange(async value => { this.plugin.settings.plannerFirstWeekday = Number(value); await this.plugin.saveSettings(); }))
+      .addToggle(toggle => toggle.setValue(this.plugin.settings.plannerShowCompleted).setTooltip("نمایش تسک‌های تکمیل‌شده در تقویم").onChange(async value => { this.plugin.settings.plannerShowCompleted = value; await this.plugin.saveSettings(); }));
     new Setting(containerEl).setName("آیکون‌های اضافی نوار کناری").setDesc("آیکون همگام‌سازی همیشه نمایش داده می‌شود. با روشن‌کردن این گزینه، میانبر تسک‌ها و عادت‌ها هم نمایش داده می‌شوند.").addToggle(toggle => toggle
       .setValue(this.plugin.settings.showRibbonIcons)
       .onChange(async value => {

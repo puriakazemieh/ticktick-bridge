@@ -6,6 +6,7 @@
 
 ## Status
 
+- **Status**: Complete on `main` (2026-10-24)
 - **Priority**: P1
 - **Effort**: L
 - **Risk**: MED — drag interactions change dates/times and can introduce timezone errors.
@@ -90,10 +91,10 @@ Include per-day counters (open/overdue/completed if enabled), priority color wit
 
 ## Done criteria
 
-- [ ] Week, month, and inline planner render cached tasks with timezone-correct day placement.
-- [ ] A date move is confirmable, snapshot-backed, and uses the Plan 002 write path.
-- [ ] Planner opens without changing any task until the user confirms a write.
-- [ ] `npm test`, `npm run check`, and `npm run build` pass.
+- [x] Week, month, and inline planner render cached tasks with timezone-correct day placement.
+- [x] A date move is confirmable, snapshot-backed, and uses the Plan 002 write path.
+- [x] Planner opens without changing any task until the user confirms a write.
+- [x] `npm test`, `npm run check`, and `npm run build` pass.
 
 ## STOP conditions
 

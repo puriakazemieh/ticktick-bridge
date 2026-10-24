@@ -18,6 +18,7 @@ export class MarkdownSync {
   private loaded = false;
   private previewActions: Action[] = [];
   constructor(private app: App, private storage: ManagedStorage, private getClient: () => any, private getSettings: () => SyncSettings, private projectForNewTask: () => Promise<string>) {}
+  async initialize() { await this.load(); }
   private async load() {
     if (this.loaded) return;
     const saved = await this.storage.readJournal(STATE_ID);
@@ -98,6 +99,28 @@ export class MarkdownSync {
     }
   }
   async conflicts() { await this.load(); return this.state.conflicts; }
+  bindingForTask(taskId: string) {
+    const entry = Object.entries(this.state.bindings).find(([key]) => key.endsWith(`:${taskId}`));
+    return entry ? { key: entry[0], ...entry[1] } : null;
+  }
+  async rescheduleBoundTask(taskId: string, targetDay: string) {
+    await this.load();
+    const binding = this.bindingForTask(taskId);
+    if (!binding?.projectId) throw new Error("این task به یک خط Markdown تأییدشده متصل نیست.");
+    await this.storage.writeSnapshot("calendar-reschedule", { taskId, projectId: binding.projectId, targetDay });
+    const remote = await this.getClient().getTask(binding.projectId, taskId);
+    if (!remote?.id) throw new Error("وظیفهٔ TickTick پیش از جابه‌جایی دوباره خوانده نشد.");
+    if (remote.repeatFlag) throw new Error("برای تسک تکرارشونده، سری را از ویرایشگر TickTick تغییر بده؛ occurrence محلی ساخته نمی‌شود.");
+    const oldStart = String(remote.startDate ?? "").slice(0, 10); const oldDue = String(remote.dueDate ?? "").slice(0, 10);
+    const duration = oldStart && oldDue ? Math.max(0, Math.round((Date.parse(`${oldDue}T12:00:00Z`) - Date.parse(`${oldStart}T12:00:00Z`)) / 86400000)) : 0;
+    const dueDate = duration ? new Date(`${targetDay}T12:00:00Z`) : null;
+    if (dueDate) dueDate.setUTCDate(dueDate.getUTCDate() + duration);
+    const next = { ...remote, startDate: `${targetDay}T00:00:00+03:30`, dueDate: `${(dueDate ? dueDate.toISOString().slice(0, 10) : targetDay)}T00:00:00+03:30`, isAllDay: true };
+    await this.getClient().updateTask(next);
+    this.state.bindings[binding.key] = { ...binding, baseline: normalizedTask(next) };
+    await this.save(); await this.storage.writeReport("calendar-reschedule", { taskId, projectId: binding.projectId, oldStart, oldDue, targetDay });
+    return next;
+  }
   async resolve(conflict: Action, choice: "local" | "remote" | "merge" | "unbind" | "skip") {
     await this.load();
     if (choice === "unbind") {

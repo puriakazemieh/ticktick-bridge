@@ -9,9 +9,28 @@
 
 .ticktick-bridge-inline,
 .ticktick-bridge-habit-panel,
-.ticktick-today-tasks-panel {
+.ticktick-today-tasks-panel,
+.ticktick-planner-panel {
   direction: rtl;
 }
+
+.ticktick-planner-root { direction: rtl; display: grid; gap: .65rem; }
+.ticktick-planner-controls, .ticktick-planner-filters { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+.ticktick-planner-controls button, .ticktick-planner-filters button { font-size: .78rem; padding: .28rem .65rem; border-radius: 999px; }
+.ticktick-planner-controls button.is-active, .ticktick-planner-filters button.is-active { background: var(--interactive-accent); color: var(--text-on-accent); }
+.ticktick-planner-nav { display: flex; gap: .35rem; align-items: center; margin-inline-start: auto; }
+.ticktick-planner-days { display: grid; gap: .45rem; }
+.ticktick-planner-days-7 { grid-template-columns: repeat(7, minmax(8rem, 1fr)); overflow-x: auto; }
+.ticktick-planner-days-1 { grid-template-columns: minmax(0, 1fr); }
+.ticktick-planner-day, .ticktick-planner-month-cell { min-height: 8rem; padding: .55rem; border: 1px solid var(--background-modifier-border); border-radius: .55rem; background: var(--background-secondary); }
+.ticktick-planner-day { display: flex; flex-direction: column; gap: .35rem; }
+.ticktick-planner-counter { color: var(--text-muted); font-size: .7rem; }
+.ticktick-planner-task { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; font-size: .72rem; padding: .28rem .4rem; border-inline-start: 3px solid var(--interactive-accent); background: var(--background-primary); }
+.ticktick-planner-task.priority-5 { border-color: var(--color-red); }.ticktick-planner-task.priority-3 { border-color: var(--color-orange); }.ticktick-planner-task.priority-1 { border-color: var(--color-blue); }
+.ticktick-planner-task.is-bound { cursor: grab; }.ticktick-planner-task:not(.is-bound) { opacity: .72; }
+.ticktick-planner-month { display: grid; grid-template-columns: repeat(7, minmax(6rem, 1fr)); gap: .35rem; overflow-x: auto; }
+.ticktick-planner-month-cell { min-height: 7rem; }.ticktick-planner-month-cell.is-outside { opacity: .5; }.ticktick-planner-overflow { font-size: .7rem; color: var(--text-muted); }
+.ticktick-planner-empty { padding: 1rem; color: var(--text-muted); text-align: center; }
 
 .ticktick-panel-header {
   display: flex;
