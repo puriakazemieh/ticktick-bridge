@@ -2,7 +2,7 @@ import { App, Notice } from "obsidian";
 import { boardColumns, sidebarTree } from "../core/project-board.js";
 import { TaskDetailsModal } from "./task-details-modal";
 
-type Host = { app: App; projects: () => Promise<any[]>; tasks: () => any[]; board: (project: any) => Promise<any>; refresh: () => Promise<void>; complete: (task: any) => Promise<void>; binding: (task: any) => any; showCompleted: () => boolean; preferences: () => { selected: string; collapsed: string[] }; savePreferences: (value: { selected: string; collapsed: string[] }) => Promise<void> };
+type Host = { app: App; projects: () => Promise<any[]>; tasks: () => any[]; board: (project: any) => Promise<any>; refresh: () => Promise<void>; complete: (task: any) => Promise<any>; binding: (task: any) => any; load: (task: any) => Promise<any>; edit: (task: any) => Promise<any>; showCompleted: () => boolean; preferences: () => { selected: string; collapsed: string[] }; savePreferences: (value: { selected: string; collapsed: string[] }) => Promise<void> };
 
 export class ProjectBoard {
   private selected = ""; private collapsed = new Set<string>(); private initialized = false;
@@ -39,7 +39,7 @@ export class ProjectBoard {
     top.createSpan({ text: task.title }); top.createSpan({ cls: "ticktick-project-priority", text: `P${Number(task.priority ?? 0)}` });
     if (task.desc || task.content) card.createEl("small", { text: String(task.desc ?? task.content).slice(0, 100) });
     const meta = card.createDiv({ cls: "ticktick-project-card-meta" }); if (task.dueDate) meta.createSpan({ text: `📅 ${String(task.dueDate).slice(0, 10)}` }); if (task.repeatFlag) meta.createSpan({ text: "🔁 تکرار" }); for (const tag of task.tags ?? []) meta.createSpan({ text: `#${tag}` }); if (bound) meta.createSpan({ text: "↗ Markdown" });
-    const details = () => new TaskDetailsModal(this.host.app, task, async () => { await this.host.complete(task); await this.render(); }).open();
+    const details = () => new TaskDetailsModal(this.host.app, task, { complete: async () => { await this.host.complete(task); }, load: item => this.host.load(item), edit: item => this.host.edit(item), changed: async () => { await this.host.refresh(); await this.render(); } }).open();
     card.addEventListener("click", details); card.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); details(); } });
     check.addEventListener("click", event => event.stopPropagation()); check.addEventListener("change", async () => { check.disabled = true; try { await this.host.complete(task); new Notice("تسک با مسیر امن Markdown sync تکمیل شد."); await this.render(); } catch (error) { check.checked = false; check.disabled = false; new Notice(error instanceof Error ? error.message : "تکمیل ناموفق بود."); } });
   }

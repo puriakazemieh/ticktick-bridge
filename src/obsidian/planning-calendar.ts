@@ -3,7 +3,7 @@ import { monthRange, shiftCalendarDay, tasksForCalendarDay, weekRange } from "..
 import { todayInZone } from "../core/date.js";
 import { TaskDetailsModal } from "./task-details-modal";
 
-type PlannerHost = { app: App; timeZone: string; firstWeekday: number; showCompleted: boolean; tasks: () => any[]; refresh: () => Promise<void>; reschedule: (task: any, day: string) => Promise<any>; complete: (task: any) => Promise<any>; binding: (task: any) => any };
+type PlannerHost = { app: App; timeZone: string; firstWeekday: number; showCompleted: boolean; tasks: () => any[]; refresh: () => Promise<void>; reschedule: (task: any, day: string) => Promise<any>; complete: (task: any) => Promise<any>; binding: (task: any) => any; load: (task: any) => Promise<any>; edit: (task: any) => Promise<any> };
 type Mode = "day" | "week" | "month";
 
 class RescheduleModal extends Modal {
@@ -22,8 +22,8 @@ class RescheduleModal extends Modal {
 }
 
 class TaskOverflowModal extends Modal {
-  constructor(app: App, private tasks: any[], private complete: (task: any) => Promise<any>) { super(app); }
-  onOpen() { this.titleEl.setText("تسک‌های این روز"); for (const task of this.tasks) { const button = this.contentEl.createEl("button", { cls: "ticktick-overflow-task", text: String(task.title ?? "بدون عنوان") }); button.addEventListener("click", () => new TaskDetailsModal(this.app, task, () => this.complete(task)).open()); } }
+  constructor(app: App, private tasks: any[], private complete: (task: any) => Promise<any>, private load: (task: any) => Promise<any>, private edit: (task: any) => Promise<any>, private changed: () => Promise<void>) { super(app); }
+  onOpen() { this.titleEl.setText("تسک‌های این روز"); for (const task of this.tasks) { const button = this.contentEl.createEl("button", { cls: "ticktick-overflow-task", text: String(task.title ?? "بدون عنوان") }); button.addEventListener("click", () => new TaskDetailsModal(this.app, task, { complete: () => this.complete(task), load: this.load, edit: this.edit, changed: this.changed }).open()); } }
   onClose() { this.contentEl.empty(); }
 }
 
@@ -82,13 +82,13 @@ export class PlanningCalendar {
       const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted); cell.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
       cell.addEventListener("dragover", event => event.preventDefault()); cell.addEventListener("drop", event => { event.preventDefault(); const id = event.dataTransfer?.getData("text/ticktick-task"); const task = tasks.find(item => String(item.id) === id); if (task) void this.dropTask(task, day); });
       for (const task of items.slice(0, 3)) this.renderTask(cell, task);
-      if (items.length > 3) { const more = cell.createEl("button", { cls: "ticktick-planner-overflow", text: `+${items.length - 3}`, attr: { type: "button", "aria-label": "نمایش همهٔ تسک‌های روز" } }); more.addEventListener("click", () => new TaskOverflowModal(this.host.app, items, task => this.completeTask(task)).open()); }
+      if (items.length > 3) { const more = cell.createEl("button", { cls: "ticktick-planner-overflow", text: `+${items.length - 3}`, attr: { type: "button", "aria-label": "نمایش همهٔ تسک‌های روز" } }); more.addEventListener("click", () => new TaskOverflowModal(this.host.app, items, task => this.completeTask(task), task => this.host.load(task), task => this.host.edit(task), async () => { await this.host.refresh(); await this.render(); }).open()); }
     }
   }
   private renderTask(parent: HTMLElement, task: any) {
     const bound = this.host.binding(task); const card = parent.createDiv({ cls: `ticktick-planner-task priority-${Number(task.priority ?? 0)}${bound ? " is-bound" : ""}`, attr: { title: bound ? "برای جابه‌جایی بکش" : "برای دیدن جزئیات کلیک کن" } });
     const check = card.createEl("input", { type: "checkbox", attr: { "aria-label": `تکمیل ${task.title}` } }); check.checked = Number(task.status ?? 0) !== 0; check.disabled = check.checked;
-    const title = card.createEl("button", { text: String(task.title ?? "بدون عنوان"), attr: { type: "button", "aria-label": `جزئیات ${task.title}` } }); title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, () => this.completeTask(task)).open());
+    const title = card.createEl("button", { text: String(task.title ?? "بدون عنوان"), attr: { type: "button", "aria-label": `جزئیات ${task.title}` } }); title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, { complete: () => this.completeTask(task), load: item => this.host.load(item), edit: item => this.host.edit(item), changed: async () => { await this.host.refresh(); await this.render(); } }).open());
     check.addEventListener("click", event => event.stopPropagation()); check.addEventListener("change", () => void this.completeTask(task, check));
     card.draggable = Boolean(bound); card.addEventListener("dragstart", event => { if (bound) event.dataTransfer?.setData("text/ticktick-task", String(task.id)); });
   }

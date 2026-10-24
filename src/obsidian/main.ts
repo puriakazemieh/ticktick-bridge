@@ -262,6 +262,8 @@ export default class TickTickBridgePlugin extends Plugin {
       reschedule: async (task: any, day: string) => this.markdownSync.rescheduleBoundTask(String(task.id), day),
       complete: async (task: any) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task: any) => this.markdownSync.bindingForTask(String(task.id)),
+      load: async (task: any) => this.loadTaskDetails(task),
+      edit: async (task: any) => this.editTaskFromSurface(task),
     };
   }
 
@@ -272,8 +274,10 @@ export default class TickTickBridgePlugin extends Plugin {
       tasks: () => this.cache.tasks,
       board: (project: any) => this.client().projectBoard(project),
       refresh: async () => { await this.syncNow({ quiet: true }); },
-      complete: async (task: any) => this.markdownSync.completeBoundTask(String(task.id)),
+      complete: async (task: any) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task: any) => this.markdownSync.bindingForTask(String(task.id)),
+      load: async (task: any) => this.loadTaskDetails(task),
+      edit: async (task: any) => this.editTaskFromSurface(task),
       showCompleted: () => this.settings.plannerShowCompleted,
       preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups }),
       savePreferences: async (value: { selected: string; collapsed: string[] }) => { this.settings.boardLastProjectId = value.selected; this.settings.boardCollapsedGroups = value.collapsed; await this.saveSettings(); },
@@ -560,6 +564,20 @@ export default class TickTickBridgePlugin extends Plugin {
   async completeTask(task: any) { return this.runMutation("complete", task); }
   async deleteTask(task: any) { return this.runMutation("delete", task); }
   async checkInHabit(habitId: string, day: string, checkin: any) { return this.runMutation("habit", { habitId, day, checkin }); }
+  async loadTaskDetails(task: any) {
+    const projectId = String(task?.projectId ?? "");
+    if (!projectId || !task?.id) return task;
+    return this.client().getTask(projectId, String(task.id));
+  }
+  async editTaskFromSurface(task: any) {
+    const current = await this.loadTaskDetails(task);
+    const projects = await this.client().listProjects();
+    const draft = await openTaskEditor(this.app, projects, current);
+    if (!draft) return null;
+    const payload = toTaskPayload({ ...current, ...draft }, this.settings.timeZone);
+    await this.updateTask(payload);
+    return { ...current, ...payload };
+  }
 
   private cachedTasksForDay(day: string) {
     return this.cache.tasks.filter(task => isScheduledForDay(task, day));
