@@ -146,8 +146,9 @@ export class PlanningCalendar {
         header.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
         const add = header.createEl("button", { cls: "ticktick-planner-add", text: "+", attr: { type: "button", "aria-label": `افزودن تسک در ${day}` } }); add.addEventListener("click", () => void this.addTask(day));
       }
-      this.renderRangeLanes(week, weekDays, tasks, "ticktick-planner-month-range-lanes");
-      const cells = week.createDiv({ cls: "ticktick-planner-month-cells" });
+      const body = week.createDiv({ cls: "ticktick-planner-month-body" });
+      this.renderRangeLanes(body, weekDays, tasks, "ticktick-planner-month-range-lanes");
+      const cells = body.createDiv({ cls: "ticktick-planner-month-cells" });
       for (const day of weekDays) {
       const cell = cells.createDiv({ cls: `ticktick-planner-month-cell${day.slice(0, 7) === this.day.slice(0, 7) ? "" : " is-outside"}`, attr: { "data-day": day } });
       const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
