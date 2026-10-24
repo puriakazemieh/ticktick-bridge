@@ -181,6 +181,9 @@ export default class TickTickBridgePlugin extends Plugin {
       if (file instanceof TFile && file.extension === "md") this.queueTaggedCheckboxImport(file);
     }));
     this.configureAutomaticSync();
+    // Build the complete local mirror after Obsidian has finished opening.
+    // The UI can then stay entirely local between background syncs.
+    this.app.workspace.onLayoutReady(() => void this.syncNow({ quiet: true }));
   }
 
   async createPrewriteSnapshot(purpose: string, payload: unknown) {
@@ -440,7 +443,10 @@ export default class TickTickBridgePlugin extends Plugin {
         const view = leaf.view as unknown as { render?: () => Promise<void> | void };
         if (typeof view.render === "function") await view.render();
       }
-      if (!quiet) new Notice(`TickTick همگام شد: ${tasks.length} تسک و ${habits.length} عادت امروز.`);
+      if (!quiet) {
+        const notes = this.cache.tasks.filter(task => String(task.kind ?? "").toUpperCase() === "NOTE").length;
+        new Notice(`همگام‌سازی کامل شد: ${this.cache.projects.length} لیست، ${this.cache.tasks.length} رکورد (${notes} Note) و ${habits.length} عادت امروز.`);
+      }
     } catch (error) {
       if (!quiet) new Notice(error instanceof Error ? error.message : "همگام‌سازی TickTick ناموفق بود.");
     } finally {
@@ -1309,8 +1315,8 @@ class TickTickControlView extends ItemView {
     for (const [screen, label] of choices) { const button = nav.createEl("button", { text: label, cls: this.screen === screen ? "is-active" : "" }); button.addEventListener("click", () => { this.screen = screen; void this.render(); }); }
     const body = this.contentEl.createDiv({ cls: "ticktick-control-body" });
     if (this.screen === "sync") {
-      body.createEl("h2", { text: "همگام‌سازی و تعارض‌ها" }); body.createEl("p", { text: "Preview هیچ تغییری نمی‌نویسد؛ Apply فقط پس از انتخاب شما اجرا می‌شود." });
-      this.button(body, "همگام‌سازی عادی", async () => this.plugin.syncNow()); this.button(body, "Preview Markdown", async () => this.plugin.previewMarkdownSync()); this.button(body, "Apply Preview", async () => this.plugin.applyMarkdownSync(), true); this.button(body, "باز کردن تعارض‌ها", async () => this.plugin.openMarkdownSyncConflicts());
+      body.createEl("h2", { text: "همگام‌سازی و تعارض‌ها" }); body.createEl("p", { text: "همگام‌سازی کامل همهٔ لیست‌ها و رکوردها را بدون فیلتر تاریخ دریافت و محلی cache می‌کند. Preview هیچ تغییری نمی‌نویسد؛ Apply فقط پس از انتخاب شما اجرا می‌شود." });
+      this.button(body, "همگام‌سازی کامل TickTick", async () => this.plugin.syncNow(), true); this.button(body, "Preview Markdown", async () => this.plugin.previewMarkdownSync()); this.button(body, "Apply Preview", async () => this.plugin.applyMarkdownSync()); this.button(body, "باز کردن تعارض‌ها", async () => this.plugin.openMarkdownSyncConflicts());
     } else if (this.screen === "habits") {
       body.createEl("h2", { text: "عادت‌های محلی" }); body.createEl("p", { text: "این بررسی فقط‌خواندنی است؛ فایل‌های محلی تغییر یا حذف نمی‌شوند." }); this.button(body, "مرور عادت‌های محلی", async () => this.plugin.reviewLocalHabits());
     } else if (this.screen === "notes") {

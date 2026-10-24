@@ -1865,6 +1865,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       if (file instanceof import_obsidian8.TFile && file.extension === "md") this.queueTaggedCheckboxImport(file);
     }));
     this.configureAutomaticSync();
+    this.app.workspace.onLayoutReady(() => void this.syncNow({ quiet: true }));
   }
   async createPrewriteSnapshot(purpose, payload) {
     const path = await this.managedStorage.writeSnapshot(purpose, payload);
@@ -2128,7 +2129,10 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
         const view = leaf.view;
         if (typeof view.render === "function") await view.render();
       }
-      if (!quiet) new import_obsidian8.Notice(`TickTick \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F: ${tasks.length} \u062A\u0633\u06A9 \u0648 ${habits.length} \u0639\u0627\u062F\u062A \u0627\u0645\u0631\u0648\u0632.`);
+      if (!quiet) {
+        const notes = this.cache.tasks.filter((task) => String(task.kind ?? "").toUpperCase() === "NOTE").length;
+        new import_obsidian8.Notice(`\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0645\u0644 \u0634\u062F: ${this.cache.projects.length} \u0644\u06CC\u0633\u062A\u060C ${this.cache.tasks.length} \u0631\u06A9\u0648\u0631\u062F (${notes} Note) \u0648 ${habits.length} \u0639\u0627\u062F\u062A \u0627\u0645\u0631\u0648\u0632.`);
+      }
     } catch (error) {
       if (!quiet) new import_obsidian8.Notice(error instanceof Error ? error.message : "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC TickTick \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
     } finally {
@@ -3043,10 +3047,10 @@ var TickTickControlView = class extends import_obsidian8.ItemView {
     const body = this.contentEl.createDiv({ cls: "ticktick-control-body" });
     if (this.screen === "sync") {
       body.createEl("h2", { text: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0648 \u062A\u0639\u0627\u0631\u0636\u200C\u0647\u0627" });
-      body.createEl("p", { text: "Preview \u0647\u06CC\u0686 \u062A\u063A\u06CC\u06CC\u0631\u06CC \u0646\u0645\u06CC\u200C\u0646\u0648\u06CC\u0633\u062F\u061B Apply \u0641\u0642\u0637 \u067E\u0633 \u0627\u0632 \u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u0645\u0627 \u0627\u062C\u0631\u0627 \u0645\u06CC\u200C\u0634\u0648\u062F." });
-      this.button(body, "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0639\u0627\u062F\u06CC", async () => this.plugin.syncNow());
+      body.createEl("p", { text: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0645\u0644 \u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627 \u0648 \u0631\u06A9\u0648\u0631\u062F\u0647\u0627 \u0631\u0627 \u0628\u062F\u0648\u0646 \u0641\u06CC\u0644\u062A\u0631 \u062A\u0627\u0631\u06CC\u062E \u062F\u0631\u06CC\u0627\u0641\u062A \u0648 \u0645\u062D\u0644\u06CC cache \u0645\u06CC\u200C\u06A9\u0646\u062F. Preview \u0647\u06CC\u0686 \u062A\u063A\u06CC\u06CC\u0631\u06CC \u0646\u0645\u06CC\u200C\u0646\u0648\u06CC\u0633\u062F\u061B Apply \u0641\u0642\u0637 \u067E\u0633 \u0627\u0632 \u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u0645\u0627 \u0627\u062C\u0631\u0627 \u0645\u06CC\u200C\u0634\u0648\u062F." });
+      this.button(body, "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0645\u0644 TickTick", async () => this.plugin.syncNow(), true);
       this.button(body, "Preview Markdown", async () => this.plugin.previewMarkdownSync());
-      this.button(body, "Apply Preview", async () => this.plugin.applyMarkdownSync(), true);
+      this.button(body, "Apply Preview", async () => this.plugin.applyMarkdownSync());
       this.button(body, "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u062A\u0639\u0627\u0631\u0636\u200C\u0647\u0627", async () => this.plugin.openMarkdownSyncConflicts());
     } else if (this.screen === "habits") {
       body.createEl("h2", { text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0645\u062D\u0644\u06CC" });
