@@ -1,7 +1,8 @@
-import { Notice } from "obsidian";
+import { App, Notice } from "obsidian";
 import { boardColumns, sidebarTree } from "../core/project-board.js";
+import { TaskDetailsModal } from "./task-details-modal";
 
-type Host = { projects: () => Promise<any[]>; tasks: () => any[]; board: (project: any) => Promise<any>; refresh: () => Promise<void>; complete: (task: any) => Promise<void>; binding: (task: any) => any; showCompleted: () => boolean; preferences: () => { selected: string; collapsed: string[] }; savePreferences: (value: { selected: string; collapsed: string[] }) => Promise<void> };
+type Host = { app: App; projects: () => Promise<any[]>; tasks: () => any[]; board: (project: any) => Promise<any>; refresh: () => Promise<void>; complete: (task: any) => Promise<void>; binding: (task: any) => any; showCompleted: () => boolean; preferences: () => { selected: string; collapsed: string[] }; savePreferences: (value: { selected: string; collapsed: string[] }) => Promise<void> };
 
 export class ProjectBoard {
   private selected = ""; private collapsed = new Set<string>(); private initialized = false;
@@ -33,11 +34,13 @@ export class ProjectBoard {
   }
   private async persistAndRender() { await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed] }); await this.render(); }
   private card(parent: HTMLElement, task: any) {
-    const bound = this.host.binding(task); const card = parent.createDiv({ cls: "ticktick-project-card" }); card.draggable = false; card.setAttribute("title", "ترتیب کارت‌ها در نسخهٔ اول فقط خواندنی است");
+    const bound = this.host.binding(task); const card = parent.createDiv({ cls: "ticktick-project-card", attr: { role: "button", tabindex: "0", "aria-label": `جزئیات ${task.title}` } }); card.draggable = false; card.setAttribute("title", "برای دیدن جزئیات کلیک کن؛ ترتیب کارت‌ها در نسخهٔ اول فقط خواندنی است");
     const top = card.createDiv({ cls: "ticktick-project-card-top" }); const check = top.createEl("input", { type: "checkbox", attr: { "aria-label": `تکمیل ${task.title}` } }); check.checked = Number(task.status ?? 0) !== 0; check.disabled = !bound || check.checked;
     top.createSpan({ text: task.title }); top.createSpan({ cls: "ticktick-project-priority", text: `P${Number(task.priority ?? 0)}` });
     if (task.desc || task.content) card.createEl("small", { text: String(task.desc ?? task.content).slice(0, 100) });
     const meta = card.createDiv({ cls: "ticktick-project-card-meta" }); if (task.dueDate) meta.createSpan({ text: `📅 ${String(task.dueDate).slice(0, 10)}` }); if (task.repeatFlag) meta.createSpan({ text: "🔁 تکرار" }); for (const tag of task.tags ?? []) meta.createSpan({ text: `#${tag}` }); if (bound) meta.createSpan({ text: "↗ Markdown" });
-    check.addEventListener("change", async () => { check.disabled = true; try { await this.host.complete(task); new Notice("تسک با مسیر امن Markdown sync تکمیل شد."); } catch (error) { check.checked = false; check.disabled = false; new Notice(error instanceof Error ? error.message : "تکمیل ناموفق بود."); } });
+    const details = () => new TaskDetailsModal(this.host.app, task, async () => { await this.host.complete(task); await this.render(); }).open();
+    card.addEventListener("click", details); card.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); details(); } });
+    check.addEventListener("click", event => event.stopPropagation()); check.addEventListener("change", async () => { check.disabled = true; try { await this.host.complete(task); new Notice("تسک با مسیر امن Markdown sync تکمیل شد."); await this.render(); } catch (error) { check.checked = false; check.disabled = false; new Notice(error instanceof Error ? error.message : "تکمیل ناموفق بود."); } });
   }
 }

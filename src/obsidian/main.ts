@@ -260,12 +260,14 @@ export default class TickTickBridgePlugin extends Plugin {
       tasks: () => this.cache.tasks,
       refresh: async () => { await this.syncNow({ quiet: true }); },
       reschedule: async (task: any, day: string) => this.markdownSync.rescheduleBoundTask(String(task.id), day),
+      complete: async (task: any) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task: any) => this.markdownSync.bindingForTask(String(task.id)),
     };
   }
 
   projectBoardHost() {
     return {
+      app: this.app,
       projects: () => this.client().listProjects(),
       tasks: () => this.cache.tasks,
       board: (project: any) => this.client().projectBoard(project),

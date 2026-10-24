@@ -1,8 +1,9 @@
 import { App, Modal, Notice } from "obsidian";
 import { monthRange, shiftCalendarDay, tasksForCalendarDay, weekRange } from "../core/calendar-range.js";
 import { todayInZone } from "../core/date.js";
+import { TaskDetailsModal } from "./task-details-modal";
 
-type PlannerHost = { app: App; timeZone: string; firstWeekday: number; showCompleted: boolean; tasks: () => any[]; refresh: () => Promise<void>; reschedule: (task: any, day: string) => Promise<any>; binding: (task: any) => any };
+type PlannerHost = { app: App; timeZone: string; firstWeekday: number; showCompleted: boolean; tasks: () => any[]; refresh: () => Promise<void>; reschedule: (task: any, day: string) => Promise<any>; complete: (task: any) => Promise<any>; binding: (task: any) => any };
 type Mode = "day" | "week" | "month";
 
 class RescheduleModal extends Modal {
@@ -17,6 +18,12 @@ class RescheduleModal extends Modal {
     actions.createEl("button", { text: "لغو" }).addEventListener("click", () => { this.resolveAnswer(false); this.close(); });
     actions.createEl("button", { text: "انتقال", cls: "mod-cta" }).addEventListener("click", () => { this.resolveAnswer(true); this.close(); });
   }
+  onClose() { this.contentEl.empty(); }
+}
+
+class TaskOverflowModal extends Modal {
+  constructor(app: App, private tasks: any[], private complete: (task: any) => Promise<any>) { super(app); }
+  onOpen() { this.titleEl.setText("تسک‌های این روز"); for (const task of this.tasks) { const button = this.contentEl.createEl("button", { cls: "ticktick-overflow-task", text: String(task.title ?? "بدون عنوان") }); button.addEventListener("click", () => new TaskDetailsModal(this.app, task, () => this.complete(task)).open()); } }
   onClose() { this.contentEl.empty(); }
 }
 
@@ -75,13 +82,17 @@ export class PlanningCalendar {
       const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted); cell.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
       cell.addEventListener("dragover", event => event.preventDefault()); cell.addEventListener("drop", event => { event.preventDefault(); const id = event.dataTransfer?.getData("text/ticktick-task"); const task = tasks.find(item => String(item.id) === id); if (task) void this.dropTask(task, day); });
       for (const task of items.slice(0, 3)) this.renderTask(cell, task);
-      if (items.length > 3) cell.createSpan({ cls: "ticktick-planner-overflow", text: `+${items.length - 3}` });
+      if (items.length > 3) { const more = cell.createEl("button", { cls: "ticktick-planner-overflow", text: `+${items.length - 3}`, attr: { type: "button", "aria-label": "نمایش همهٔ تسک‌های روز" } }); more.addEventListener("click", () => new TaskOverflowModal(this.host.app, items, task => this.completeTask(task)).open()); }
     }
   }
   private renderTask(parent: HTMLElement, task: any) {
-    const bound = this.host.binding(task); const card = parent.createEl("button", { cls: `ticktick-planner-task priority-${Number(task.priority ?? 0)}${bound ? " is-bound" : ""}`, text: String(task.title ?? "بدون عنوان"), attr: { type: "button", title: bound ? "برای جابه‌جایی بکش" : "برای جابه‌جایی ابتدا task را با Markdown sync bind کن" } });
+    const bound = this.host.binding(task); const card = parent.createDiv({ cls: `ticktick-planner-task priority-${Number(task.priority ?? 0)}${bound ? " is-bound" : ""}`, attr: { title: bound ? "برای جابه‌جایی بکش" : "برای دیدن جزئیات کلیک کن" } });
+    const check = card.createEl("input", { type: "checkbox", attr: { "aria-label": `تکمیل ${task.title}` } }); check.checked = Number(task.status ?? 0) !== 0; check.disabled = check.checked;
+    const title = card.createEl("button", { text: String(task.title ?? "بدون عنوان"), attr: { type: "button", "aria-label": `جزئیات ${task.title}` } }); title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, () => this.completeTask(task)).open());
+    check.addEventListener("click", event => event.stopPropagation()); check.addEventListener("change", () => void this.completeTask(task, check));
     card.draggable = Boolean(bound); card.addEventListener("dragstart", event => { if (bound) event.dataTransfer?.setData("text/ticktick-task", String(task.id)); });
   }
+  private async completeTask(task: any, checkbox?: HTMLInputElement) { try { await this.host.complete(task); new Notice("تسک تکمیل و همگام شد."); await this.host.refresh(); await this.render(); } catch (error) { if (checkbox) { checkbox.checked = false; checkbox.disabled = false; } new Notice(error instanceof Error ? error.message : "تکمیل ناموفق بود."); } }
   private async dropTask(task: any, target: string) {
     if (!this.host.binding(task)) { new Notice("فقط taskهای bind‌شده به Markdown قابل جابه‌جایی هستند."); return; }
     if (!await new RescheduleModal(this.host.app, task, target).openAndWait()) return;
