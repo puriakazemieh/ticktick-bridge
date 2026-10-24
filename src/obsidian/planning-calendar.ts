@@ -1,5 +1,5 @@
 import { App, Modal, Notice } from "obsidian";
-import { monthRange, shiftCalendarDay, taskDateRange, tasksForCalendarDay, weekRange } from "../core/calendar-range.js";
+import { isSamePersianMonth, persianMonthRange, shiftCalendarDay, shiftPersianMonth, taskDateRange, tasksForCalendarDay, weekRange } from "../core/calendar-range.js";
 import { todayInZone } from "../core/date.js";
 import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
@@ -88,12 +88,12 @@ export class PlanningCalendar {
       button.addEventListener("click", () => { this.mode = mode; void this.render(); });
     }
     const nav = controls.createDiv({ cls: "ticktick-planner-nav" });
-    const step = this.mode === "month" ? 28 : this.mode === "week" ? 7 : 1;
+    const step = this.mode === "week" ? 7 : 1;
     const previous = nav.createEl("button", { text: "‹", attr: { "aria-label": "قبلی" } });
-    previous.addEventListener("click", () => { this.day = shiftCalendarDay(this.day, -step); void this.render(); });
+    previous.addEventListener("click", () => { this.day = this.mode === "month" ? shiftPersianMonth(this.day, -1) : shiftCalendarDay(this.day, -step); void this.render(); });
     const today = nav.createEl("button", { text: "امروز" }); today.addEventListener("click", () => { this.day = todayInZone(this.host.timeZone); void this.render(); });
-    nav.createEl("span", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { year: "numeric", month: "long", day: "numeric" }).format(new Date(`${this.day}T12:00:00Z`)) });
-    const next = nav.createEl("button", { text: "›", attr: { "aria-label": "بعدی" } }); next.addEventListener("click", () => { this.day = shiftCalendarDay(this.day, step); void this.render(); });
+    nav.createEl("span", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", this.mode === "month" ? { year: "numeric", month: "long" } : { year: "numeric", month: "long", day: "numeric" }).format(new Date(`${this.day}T12:00:00Z`)) });
+    const next = nav.createEl("button", { text: "›", attr: { "aria-label": "بعدی" } }); next.addEventListener("click", () => { this.day = this.mode === "month" ? shiftPersianMonth(this.day, 1) : shiftCalendarDay(this.day, step); void this.render(); });
     const add = controls.createEl("button", { text: "+ افزودن تسک" }); add.addEventListener("click", () => void this.addTask(this.day));
     const refresh = controls.createEl("button", { text: "همگام‌سازی" }); refresh.addEventListener("click", async () => { refresh.disabled = true; try { await this.host.refresh(); await this.render(); } catch (error) { new Notice(error instanceof Error ? error.message : "همگام‌سازی ناموفق بود."); } });
     this.renderFilters(root);
@@ -141,13 +141,13 @@ export class PlanningCalendar {
   }
   private renderMonth(root: HTMLElement, tasks: any[]) {
     const grid = root.createDiv({ cls: "ticktick-planner-month" });
-    const days = monthRange(this.day, this.host.firstWeekday);
+    const days = persianMonthRange(this.day, this.host.firstWeekday);
     for (let index = 0; index < days.length; index += 7) {
       const weekDays = days.slice(index, index + 7);
       const week = grid.createDiv({ cls: "ticktick-planner-month-week" });
       const headers = week.createDiv({ cls: "ticktick-planner-month-headers" });
       for (const day of weekDays) {
-        const header = headers.createDiv({ cls: `ticktick-planner-month-header${day.slice(0, 7) === this.day.slice(0, 7) ? "" : " is-outside"}`, attr: { "data-day": day } });
+        const header = headers.createDiv({ cls: `ticktick-planner-month-header${isSamePersianMonth(day, this.day) ? "" : " is-outside"}`, attr: { "data-day": day } });
         header.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(new Date(`${day}T12:00:00Z`)) });
         const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
         header.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
@@ -157,7 +157,7 @@ export class PlanningCalendar {
       this.renderRangeLanes(body, weekDays, tasks, "ticktick-planner-month-range-lanes");
       const cells = body.createDiv({ cls: "ticktick-planner-month-cells" });
       for (const day of weekDays) {
-      const cell = cells.createDiv({ cls: `ticktick-planner-month-cell${day.slice(0, 7) === this.day.slice(0, 7) ? "" : " is-outside"}`, attr: { "data-day": day } });
+      const cell = cells.createDiv({ cls: `ticktick-planner-month-cell${isSamePersianMonth(day, this.day) ? "" : " is-outside"}`, attr: { "data-day": day } });
       const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
       cell.addEventListener("dragover", event => event.preventDefault()); cell.addEventListener("drop", event => { event.preventDefault(); const id = event.dataTransfer?.getData("text/ticktick-task"); const task = tasks.find(item => String(item.id) === id); if (task) void this.dropTask(task, day); });
       const cards = items.filter(item => !taskDateRange(item, this.host.timeZone));

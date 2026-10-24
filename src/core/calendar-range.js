@@ -1,4 +1,4 @@
-import { toDateKey } from "./date.js";
+import { jalaliDateKeyToGregorian, toDateKey } from "./date.js";
 
 export function shiftCalendarDay(day, amount) {
   const date = new Date(`${day}T12:00:00.000Z`);
@@ -16,6 +16,41 @@ export function monthRange(day, firstWeekday = 6) {
   const offset = (weekdayIndex(monthStart) - firstWeekday + 7) % 7;
   const start = shiftCalendarDay(monthStart, -offset);
   return Array.from({ length: 42 }, (_, index) => shiftCalendarDay(start, index));
+}
+function persianParts(day) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US-u-ca-persian", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(new Date(`${day}T12:00:00Z`)).filter(part => part.type !== "literal").map(part => [part.type, Number(part.value)]));
+  return { year: parts.year, month: parts.month, day: parts.day };
+}
+function pad(value) { return String(value).padStart(2, "0"); }
+function persianMonthStart(year, month) { return jalaliDateKeyToGregorian(`${year}-${pad(month)}-01`); }
+function shiftedPersianMonth(year, month, amount) {
+  const index = (year * 12) + (month - 1) + amount;
+  return { year: Math.floor(index / 12), month: (index % 12) + 1 };
+}
+export function isSamePersianMonth(day, referenceDay) {
+  const left = persianParts(day); const right = persianParts(referenceDay);
+  return left.year === right.year && left.month === right.month;
+}
+export function persianMonthRange(day, firstWeekday = 6) {
+  const current = persianParts(day); const monthStart = persianMonthStart(current.year, current.month);
+  if (!monthStart) return monthRange(day, firstWeekday);
+  const next = shiftedPersianMonth(current.year, current.month, 1);
+  const nextStart = persianMonthStart(next.year, next.month);
+  const last = nextStart ? shiftCalendarDay(nextStart, -1) : shiftCalendarDay(monthStart, 30);
+  const offset = (weekdayIndex(monthStart) - firstWeekday + 7) % 7;
+  const start = shiftCalendarDay(monthStart, -offset);
+  const needed = Math.ceil((dayNumber(last) - dayNumber(start) + 1) / 7) * 7;
+  return Array.from({ length: Math.max(35, needed) }, (_, index) => shiftCalendarDay(start, index));
+}
+export function shiftPersianMonth(day, amount) {
+  const current = persianParts(day); const target = shiftedPersianMonth(current.year, current.month, amount);
+  const start = persianMonthStart(target.year, target.month);
+  const following = shiftedPersianMonth(target.year, target.month, 1);
+  const nextStart = persianMonthStart(following.year, following.month);
+  if (!start || !nextStart) return shiftCalendarDay(day, amount * 30);
+  const length = dayNumber(nextStart) - dayNumber(start);
+  return shiftCalendarDay(start, Math.min(current.day, length) - 1);
 }
 function taskDay(task, timeZone) { return toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone); }
 /** A task with distinct start/end dates can be painted as one continuous calendar bar.

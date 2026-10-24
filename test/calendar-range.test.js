@@ -1,11 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { monthRange, planningBuckets, taskDateRange, taskOccursOnCalendarDay, tasksForCalendarDay, weekRange } from "../src/core/calendar-range.js";
+import { isSamePersianMonth, monthRange, persianMonthRange, planningBuckets, shiftPersianMonth, taskDateRange, taskOccursOnCalendarDay, tasksForCalendarDay, weekRange } from "../src/core/calendar-range.js";
 
 test("calendar ranges begin on configurable weekday and month always has 42 cells", () => {
   assert.deepEqual(weekRange("2026-03-21", 1), ["2026-03-16", "2026-03-17", "2026-03-18", "2026-03-19", "2026-03-20", "2026-03-21", "2026-03-22"]);
   const month = monthRange("2026-03-21", 1);
   assert.equal(month.length, 42); assert.equal(month[0], "2026-02-23");
+});
+test("Persian month range starts at the first Jalali day and shifts by Jalali months", () => {
+  const month = persianMonthRange("2026-10-24", 6);
+  assert.equal(isSamePersianMonth("2026-10-24", month.find(day => new Intl.DateTimeFormat("en-US-u-ca-persian", { timeZone: "UTC", day: "numeric" }).format(new Date(`${day}T12:00:00Z`)) === "1")), true);
+  assert.equal(isSamePersianMonth("2026-10-24", shiftPersianMonth("2026-10-24", 1)), false);
 });
 test("calendar separates all-day, timed, overdue, recurring, and completed tasks", () => {
   const tasks = [
