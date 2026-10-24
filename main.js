@@ -36,12 +36,24 @@ function normalizeProjectData(document = {}, fallbackProject = {}) {
 }
 function sidebarTree(projects, tasks = []) {
   const groups = /* @__PURE__ */ new Map();
-  for (const project of projects ?? []) {
+  for (const [index, project] of (projects ?? []).entries()) {
     const group = String(project.groupName ?? project.folderName ?? "");
     if (!groups.has(group)) groups.set(group, []);
-    groups.get(group).push({ ...project, openCount: tasks.filter((task) => String(task.projectId) === String(project.id) && Number(task.status ?? 0) === 0).length });
+    groups.get(group).push({ ...project, sidebarIndex: index, openCount: tasks.filter((task) => String(task.projectId) === String(project.id) && Number(task.status ?? 0) === 0).length });
   }
-  return [...groups.entries()].map(([name, items]) => ({ name, projects: items.sort((a, b) => String(a.name).localeCompare(String(b.name), "fa")) }));
+  const key = (value) => String(value ?? "").replace(/ي/g, "\u06CC").replace(/ك/g, "\u06A9").replace(/[\s‌]+/g, "").trim();
+  const groupRank = (name) => ({ "": 0, "\u06A9\u0627\u0631": 10, "\u0644\u06CC\u0633\u062A\u0647\u0627": 20 })[key(name)] ?? 50;
+  const projectRank = (name) => ({ "\u0627\u0642\u062F\u0627\u0645": 0, "\u0634\u062E\u0635\u06CC": 1, "\u0628\u0631\u0646\u0627\u0645\u0647\u0631\u06CC\u0632\u06CC": 10, "\u0645\u062F\u06CC\u0631\u06CC\u062A\u0645\u0627\u0644\u06CC": 11, "\u0641\u0631\u0648\u0634\u06AF\u0627\u0647": 12, "\u062A\u0648\u0633\u0646\u062A\u06A9\u0648": 13, "\u0634\u0627\u06CC\u062F\u06CC\u0647\u0631\u0648\u0632\u06CC": 20, "\u0622\u0631\u0634\u06CC\u0648": 21 })[key(name)] ?? 100;
+  const remoteOrder = (project) => Number(project.sortOrder ?? project.order ?? Number.NaN);
+  const compareProjects = (left, right) => {
+    const rank = projectRank(left.name) - projectRank(right.name);
+    if (rank) return rank;
+    const leftOrder = remoteOrder(left);
+    const rightOrder = remoteOrder(right);
+    if (Number.isFinite(leftOrder) && Number.isFinite(rightOrder) && leftOrder !== rightOrder) return leftOrder - rightOrder;
+    return left.sidebarIndex - right.sidebarIndex;
+  };
+  return [...groups.entries()].map(([name, items], index) => ({ name, index, projects: items.sort(compareProjects) })).sort((left, right) => groupRank(left.name) - groupRank(right.name) || left.index - right.index).map(({ name, projects: projects2 }) => ({ name, projects: projects2 }));
 }
 function boardColumns(data, showCompleted = false) {
   const columns = data.columns.length ? data.columns : [{ id: "", name: "Tasks", synthetic: true, sortOrder: 0 }];

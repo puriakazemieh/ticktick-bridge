@@ -7,12 +7,26 @@ export function normalizeProjectData(document = {}, fallbackProject = {}) {
 }
 export function sidebarTree(projects, tasks = []) {
   const groups = new Map();
-  for (const project of projects ?? []) {
+  for (const [index, project] of (projects ?? []).entries()) {
     const group = String(project.groupName ?? project.folderName ?? "");
     if (!groups.has(group)) groups.set(group, []);
-    groups.get(group).push({ ...project, openCount: tasks.filter(task => String(task.projectId) === String(project.id) && Number(task.status ?? 0) === 0).length });
+    groups.get(group).push({ ...project, sidebarIndex: index, openCount: tasks.filter(task => String(task.projectId) === String(project.id) && Number(task.status ?? 0) === 0).length });
   }
-  return [...groups.entries()].map(([name, items]) => ({ name, projects: items.sort((a, b) => String(a.name).localeCompare(String(b.name), "fa")) }));
+  const key = (value) => String(value ?? "").replace(/ي/g, "ی").replace(/ك/g, "ک").replace(/[\s‌]+/g, "").trim();
+  const groupRank = (name) => ({ "": 0, "کار": 10, "لیستها": 20 }[key(name)] ?? 50);
+  const projectRank = (name) => ({ "اقدام": 0, "شخصی": 1, "برنامهریزی": 10, "مدیریتمالی": 11, "فروشگاه": 12, "توسنتکو": 13, "شایدیهروزی": 20, "آرشیو": 21 }[key(name)] ?? 100);
+  const remoteOrder = (project) => Number(project.sortOrder ?? project.order ?? Number.NaN);
+  const compareProjects = (left, right) => {
+    const rank = projectRank(left.name) - projectRank(right.name);
+    if (rank) return rank;
+    const leftOrder = remoteOrder(left); const rightOrder = remoteOrder(right);
+    if (Number.isFinite(leftOrder) && Number.isFinite(rightOrder) && leftOrder !== rightOrder) return leftOrder - rightOrder;
+    return left.sidebarIndex - right.sidebarIndex;
+  };
+  return [...groups.entries()]
+    .map(([name, items], index) => ({ name, index, projects: items.sort(compareProjects) }))
+    .sort((left, right) => groupRank(left.name) - groupRank(right.name) || left.index - right.index)
+    .map(({ name, projects }) => ({ name, projects }));
 }
 const groupName = priority => ({ 5: "High", 3: "Medium", 1: "Low" }[Number(priority)] ?? "No priority");
 export function boardColumns(data, showCompleted = false) {
