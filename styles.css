@@ -248,6 +248,7 @@
 .ticktick-local-habit { outline: 1px dashed var(--text-muted); }
 .ticktick-habit-source { color: var(--text-muted); font-size: .65rem; margin-top: .12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ticktick-checklist-readonly { margin-top: .35rem; color: var(--text-muted); font-size: .72rem; }.ticktick-checklist-readonly summary { cursor: pointer; }.ticktick-checklist-readonly div { padding: .12rem .25rem; }
+.ticktick-control-page { direction: rtl; padding: 1rem; max-width: 72rem; margin: 0 auto; }.ticktick-control-nav { display: flex; flex-wrap: wrap; gap: .45rem; border-bottom: 1px solid var(--background-modifier-border); padding-bottom: .75rem; }.ticktick-control-nav button.is-active { background: var(--interactive-accent); color: var(--text-on-accent); }.ticktick-control-body { padding: 1.25rem 0; }.ticktick-control-body > button { margin-inline-end: .5rem; margin-block: .35rem; }.ticktick-control-body pre { max-height: 28rem; overflow: auto; padding: 1rem; background: var(--background-secondary); }
 
 /* Keep the progress/icon on the right in the daily panel regardless of the
    active Obsidian theme's LTR/RTL rules. */

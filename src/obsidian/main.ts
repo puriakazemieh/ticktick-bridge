@@ -9,14 +9,15 @@ import { PlanningCalendar } from "./planning-calendar";
 import { ProjectBoard } from "./project-board";
 import { HabitMigration } from "./habit-migration";
 import { NoteImport, NoteImportModal } from "./note-import";
-import { SyncControlModal } from "./sync-control-modal";
 import { checklistSummary } from "../core/checklist.js";
 
 const VIEW_TYPE = "ticktick-bridge-today";
 const HABIT_VIEW_TYPE = "ticktick-bridge-habits";
 const PLANNER_VIEW_TYPE = "ticktick-bridge-planner";
 const PROJECT_BOARD_VIEW_TYPE = "ticktick-bridge-project-board";
+const CONTROL_VIEW_TYPE = "ticktick-bridge-control";
 type DashboardMode = "day" | "week" | "month" | "stats";
+type ControlScreen = "sync" | "habits" | "notes" | "checklists" | "reports";
 
 function currentPlatformName() {
   if (Platform.isWin) return "Windows";
@@ -130,6 +131,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.registerView(HABIT_VIEW_TYPE, leaf => new TodayHabitsView(leaf, this));
     this.registerView(PLANNER_VIEW_TYPE, leaf => new PlanningView(leaf, this));
     this.registerView(PROJECT_BOARD_VIEW_TYPE, leaf => new ProjectBoardView(leaf, this));
+    this.registerView(CONTROL_VIEW_TYPE, leaf => new TickTickControlView(leaf, this));
     this.registerMarkdownCodeBlockProcessor("ticktick-today", async (_source, element, context) => {
       const day = dailyNoteDateFromPath(context.sourcePath);
       this.taskBlocks.set(element, day);
@@ -156,8 +158,8 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-today-habits", name: "Open today's TickTick habits", callback: () => this.openHabitView() });
     this.addCommand({ id: "review-local-habits", name: "Review local habits for TickTick migration", callback: () => this.reviewLocalHabits() });
     this.addCommand({ id: "migrate-local-habits", name: "Migrate selected local habits to TickTick", callback: () => this.migrateLocalHabits() });
-    this.addCommand({ id: "open-ticktick-sync-center", name: "Open TickTick sync center", callback: () => new SyncControlModal(this.app, this).open() });
-    this.addCommand({ id: "preview-ticktick-notes", name: "Preview TickTick Notes import", callback: () => this.previewTickTickNotes() });
+    this.addCommand({ id: "open-ticktick-sync-center", name: "Open TickTick sync center", callback: () => this.openControlPage("sync") });
+    this.addCommand({ id: "preview-ticktick-notes", name: "Preview TickTick Notes import", callback: () => this.openControlPage("notes") });
     this.addCommand({ id: "open-weekly-planner", name: "Open TickTick weekly planner", callback: () => this.openPlannerView() });
     this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
@@ -356,11 +358,11 @@ export default class TickTickBridgePlugin extends Plugin {
     menu.addItem(item => item.setTitle("تقویم و برنامهٔ هفتگی").setIcon("calendar-days").onClick(() => void this.openPlannerView()));
     menu.addItem(item => item.setTitle("برد پروژه‌ها").setIcon("kanban-square").onClick(() => void this.openProjectBoardView()));
     menu.addSeparator();
-    menu.addItem(item => item.setTitle("مرکز همگام‌سازی و تعارض‌ها").setIcon("arrow-down-up").onClick(() => new SyncControlModal(this.app, this).open()));
-    menu.addItem(item => item.setTitle("پیش‌نمایش عادت‌های محلی").setIcon("activity").onClick(() => void this.reviewLocalHabits()));
-    menu.addItem(item => item.setTitle("پیش‌نمایش انتقال TickTick Notes").setIcon("file-down").onClick(() => void this.previewTickTickNotes()));
-    menu.addItem(item => item.setTitle("Checklistهای task (فقط‌خواندنی)").setIcon("list-checks").onClick(() => { new Notice("Checklistها داخل کارت task نمایش داده می‌شوند. ویرایش تا تأیید API رسمی TickTick غیرفعال است."); void this.openTodayView(); }));
-    menu.addItem(item => item.setTitle("آخرین گزارش و backup").setIcon("shield-check").onClick(async () => new ManagedReportModal(this.app, await this.latestManagedReport()).open()));
+    menu.addItem(item => item.setTitle("مرکز همگام‌سازی و تعارض‌ها").setIcon("arrow-down-up").onClick(() => void this.openControlPage("sync")));
+    menu.addItem(item => item.setTitle("پیش‌نمایش عادت‌های محلی").setIcon("activity").onClick(() => void this.openControlPage("habits")));
+    menu.addItem(item => item.setTitle("پیش‌نمایش انتقال TickTick Notes").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
+    menu.addItem(item => item.setTitle("Checklistهای task (فقط‌خواندنی)").setIcon("list-checks").onClick(() => void this.openControlPage("checklists")));
+    menu.addItem(item => item.setTitle("آخرین گزارش و backup").setIcon("shield-check").onClick(() => void this.openControlPage("reports")));
     menu.showAtMouseEvent(event);
   }
 
@@ -755,23 +757,28 @@ export default class TickTickBridgePlugin extends Plugin {
   }
 
   async openTodayView() {
-    const leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf("tab");
+    const leaf = this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: VIEW_TYPE, active: true });
   }
 
   async openHabitView() {
-    const leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf("tab");
+    const leaf = this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: HABIT_VIEW_TYPE, active: true });
   }
 
   async openPlannerView() {
-    const leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf("tab");
+    const leaf = this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: PLANNER_VIEW_TYPE, active: true });
   }
 
   async openProjectBoardView() {
-    const leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf("tab");
+    const leaf = this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: PROJECT_BOARD_VIEW_TYPE, active: true });
+  }
+
+  async openControlPage(screen: ControlScreen) {
+    const leaf = this.app.workspace.getLeaf("tab");
+    await leaf.setViewState({ type: CONTROL_VIEW_TYPE, active: true, state: { screen } });
   }
 
   async renderTodayBlock(element: HTMLElement, dayOverride?: string) {
@@ -1217,6 +1224,37 @@ class ProjectBoardView extends ItemView {
     this.contentEl.empty(); this.contentEl.addClass("ticktick-project-board-panel");
     await new ProjectBoard(this.contentEl, this.plugin.projectBoardHost()).render();
   }
+}
+
+class TickTickControlView extends ItemView {
+  private screen: ControlScreen = "sync";
+  constructor(leaf: WorkspaceLeaf, private plugin: TickTickBridgePlugin) { super(leaf); }
+  getViewType() { return CONTROL_VIEW_TYPE; }
+  getDisplayText() { return "مرکز کنترل TickTick"; }
+  getIcon() { return "sliders-horizontal"; }
+  getState() { return { screen: this.screen }; }
+  async setState(state: { screen?: ControlScreen }) { this.screen = state?.screen ?? "sync"; await this.render(); }
+  async onOpen() { await this.render(); }
+  async render() {
+    this.contentEl.empty(); this.contentEl.addClass("ticktick-control-page");
+    const nav = this.contentEl.createDiv({ cls: "ticktick-control-nav" });
+    const choices: Array<[ControlScreen, string]> = [["sync", "همگام‌سازی"], ["habits", "عادت‌های محلی"], ["notes", "TickTick Notes"], ["checklists", "Checklist"], ["reports", "گزارش‌ها"]];
+    for (const [screen, label] of choices) { const button = nav.createEl("button", { text: label, cls: this.screen === screen ? "is-active" : "" }); button.addEventListener("click", () => { this.screen = screen; void this.render(); }); }
+    const body = this.contentEl.createDiv({ cls: "ticktick-control-body" });
+    if (this.screen === "sync") {
+      body.createEl("h2", { text: "همگام‌سازی و تعارض‌ها" }); body.createEl("p", { text: "Preview هیچ تغییری نمی‌نویسد؛ Apply فقط پس از انتخاب شما اجرا می‌شود." });
+      this.button(body, "همگام‌سازی عادی", async () => this.plugin.syncNow()); this.button(body, "Preview Markdown", async () => this.plugin.previewMarkdownSync()); this.button(body, "Apply Preview", async () => this.plugin.applyMarkdownSync(), true); this.button(body, "باز کردن تعارض‌ها", async () => this.plugin.openMarkdownSyncConflicts());
+    } else if (this.screen === "habits") {
+      body.createEl("h2", { text: "عادت‌های محلی" }); body.createEl("p", { text: "این بررسی فقط‌خواندنی است؛ فایل‌های محلی تغییر یا حذف نمی‌شوند." }); this.button(body, "مرور عادت‌های محلی", async () => this.plugin.reviewLocalHabits());
+    } else if (this.screen === "notes") {
+      body.createEl("h2", { text: "انتقال انتخابی TickTick Notes" }); body.createEl("p", { text: "فقط Noteهای دارای kind: NOTE پس از انتخاب شما وارد فولدر TickTick Notes می‌شوند؛ فایل موجود overwrite نمی‌شود." }); this.button(body, "انتخاب و انتقال Noteها", async () => this.plugin.previewTickTickNotes(), true);
+    } else if (this.screen === "checklists") {
+      body.createEl("h2", { text: "Checklist و Subtask" }); body.createEl("p", { text: "Checklistها در کارت task نمایش داده می‌شوند اما فعلاً فقط‌خواندنی‌اند؛ ویرایش child item تا تأیید رسمی API TickTick فعال نمی‌شود." }); this.button(body, "باز کردن تسک‌های امروز", async () => this.plugin.openTodayView());
+    } else {
+      body.createEl("h2", { text: "گزارش‌ها و backup" }); const latest = await this.plugin.latestManagedReport(); body.createEl("p", { text: latest?.path ?? "هنوز گزارشی وجود ندارد." }); if (latest) body.createEl("pre", { text: JSON.stringify(latest.report, null, 2) });
+    }
+  }
+  private button(parent: HTMLElement, label: string, action: () => Promise<any>, cta = false) { const button = parent.createEl("button", { text: label, cls: cta ? "mod-cta" : "" }); button.addEventListener("click", async () => { button.disabled = true; try { await action(); } catch (error) { new Notice(error instanceof Error ? error.message : "عملیات ناموفق بود."); } finally { button.disabled = false; } }); }
 }
 
 type TaskDraft = {
@@ -1687,7 +1725,7 @@ class TickTickBridgeSettings extends PluginSettingTab {
     new Setting(containerEl).setName("نسخهٔ محلی داده‌ها").setDesc(cachedAt
       ? `آخرین دریافت: ${cachedAt} — پنل‌ها ابتدا از این نسخهٔ سریع نمایش داده می‌شوند.`
       : "هنوز نسخهٔ محلی ساخته نشده است. یک‌بار «همگام‌سازی الآن» را بزن.");
-    new Setting(containerEl).setName("مرکز سادهٔ همگام‌سازی").setDesc("یک نقطه برای sync عادی، preview/apply Markdown و حل تعارض‌ها.").addButton(button => button.setButtonText("باز کردن مرکز Sync").setCta().onClick(() => new SyncControlModal(this.app, this.plugin).open()));
+    new Setting(containerEl).setName("مرکز سادهٔ همگام‌سازی").setDesc("یک صفحهٔ کامل برای sync عادی، preview/apply Markdown و حل تعارض‌ها.").addButton(button => button.setButtonText("باز کردن مرکز Sync").setCta().onClick(() => void this.plugin.openControlPage("sync")));
     if (this.plugin.cacheConflictCount()) new Setting(containerEl).setName("تداخل‌های نیازمند بررسی").setDesc(`${this.plugin.cacheConflictCount()} تغییر آفلاین در TickTick قابل اعمال نبود و برای جلوگیری از بازنویسی دادهٔ جدید، نگه داشته شده است.`);
     new Setting(containerEl).setName("فضای مدیریت‌شدهٔ TickTick").setDesc(`/.ticktick/ — نسخه‌های پشتیبان تا ۱۰ روز تقویمی UTC نگه داشته می‌شوند. آخرین گزارش: ${this.plugin.managedStorageReport()}`);
     new Setting(containerEl).setName("آخرین گزارش مدیریت‌شده").setDesc("آخرین گزارش غیرمحرمانهٔ عملیات ذخیره‌شده در .ticktick/reports/ را نمایش می‌دهد.").addButton(button => button
