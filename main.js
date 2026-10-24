@@ -2425,6 +2425,7 @@ var ProjectBoard = class {
       const data = await this.host.board(project);
       const columns = main.createDiv({ cls: "ticktick-project-columns" });
       enhanceHorizontalScroll(columns);
+      scrollToStart(columns);
       for (const column of boardColumns(data, this.host.showCompleted())) {
         const shell = columns.createDiv({ cls: "ticktick-project-column" });
         const colHeader = shell.createDiv({ cls: "ticktick-column-header" });

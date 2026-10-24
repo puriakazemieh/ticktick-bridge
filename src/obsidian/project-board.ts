@@ -6,7 +6,7 @@ import { ProjectEditorModal } from "./project-editor-modal";
 import { taskDescription } from "../core/task-description.js";
 import { formatPersianDate } from "../core/persian-date.js";
 import { sortPlanningTasks } from "../core/calendar-range.js";
-import { enhanceHorizontalScroll } from "./horizontal-scroll";
+import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
 
 type Host = {
   app: App;
@@ -304,6 +304,7 @@ export class ProjectBoard {
       const data = await this.host.board(project);
       const columns = main.createDiv({ cls: "ticktick-project-columns" });
       enhanceHorizontalScroll(columns);
+      scrollToStart(columns);
 
       for (const column of boardColumns(data, this.host.showCompleted())) {
         const shell = columns.createDiv({ cls: "ticktick-project-column" });

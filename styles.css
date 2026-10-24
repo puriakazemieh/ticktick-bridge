@@ -359,6 +359,7 @@
   padding-bottom: 0.85rem;
   min-height: 25rem;
   align-items: flex-start;
+  direction: rtl !important;
 }
 
 .ticktick-project-column {
@@ -2623,17 +2624,8 @@
 
 /* Horizontal calendar/board surfaces: RTL scroll physics starting on Saturday (far right)
    for week and month views, visible Windows scrollbar, and smooth touch/mouse drag panning. */
-.ticktick-planner-days, .ticktick-planner-month {
+.ticktick-planner-days, .ticktick-planner-month, .ticktick-project-columns {
   direction: rtl !important;
-  scrollbar-gutter: stable both-edges;
-  scrollbar-color: var(--interactive-accent) var(--background-secondary);
-  scrollbar-width: auto;
-  touch-action: pan-x pan-y;
-  overscroll-behavior-inline: contain;
-  -webkit-overflow-scrolling: touch;
-}
-.ticktick-project-columns {
-  direction: ltr;
   scrollbar-gutter: stable both-edges;
   scrollbar-color: var(--interactive-accent) var(--background-secondary);
   scrollbar-width: auto;
