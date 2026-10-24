@@ -46,6 +46,13 @@ export class TickTickClient {
 
   listProjects() { return this.request("/project"); }
   getProject(projectId) { return this.request(`/project/${encodeURIComponent(projectId)}`); }
+  createProject(project) { return this.request("/project", { method: "POST", body: project }); }
+  updateProject(project) {
+    if (!project?.id) throw new Error("Project id is required for update.");
+    const body = Object.fromEntries(Object.entries({ name: project.name, color: project.color, sortOrder: project.sortOrder, viewMode: project.viewMode, kind: project.kind }).filter(([, value]) => value !== undefined && value !== null));
+    return this.request(`/project/${encodeURIComponent(project.id)}`, { method: "POST", body });
+  }
+  deleteProject(projectId) { return this.request(`/project/${encodeURIComponent(projectId)}`, { method: "DELETE" }); }
   getProjectData(projectId) { return this.request(`/project/${encodeURIComponent(projectId)}/data`); }
   async projectBoard(project) {
     const data = await this.getProjectData(project.id);

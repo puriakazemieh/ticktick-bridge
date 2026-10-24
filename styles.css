@@ -38,6 +38,7 @@
 .ticktick-project-rail button.is-selected { background: var(--background-modifier-hover); color: var(--text-accent); }.ticktick-project-group { font-weight: 700; margin-top: .5rem; }
 .ticktick-project-dot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--project-color); }.ticktick-project-count { color: var(--text-muted); font-size: .72rem; }
 .ticktick-project-main { min-width: 0; }.ticktick-project-columns { display: flex; gap: .65rem; overflow-x: auto; padding-block: .5rem; }
+.ticktick-project-toolbar { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: .8rem; }.ticktick-project-toolbar button { min-height: 2rem; }.ticktick-project-editor-modal .modal-content { direction: rtl; }
 .ticktick-project-column { flex: 0 0 min(18rem, 80vw); min-height: 12rem; padding: .6rem; border-radius: .65rem; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); }
 .ticktick-project-column > small { display: block; margin: .25rem 0 .6rem; color: var(--text-muted); font-size: .68rem; }.ticktick-project-column h4 { font-size: .72rem; color: var(--text-muted); margin: .65rem 0 .3rem; }
 .ticktick-project-card { padding: .5rem; margin: .35rem 0; border-radius: .5rem; background: var(--background-primary); border: 1px solid var(--background-modifier-border); }.ticktick-project-card-top { display: flex; gap: .4rem; align-items: start; }.ticktick-project-card-top > span:nth-child(2) { flex: 1; }

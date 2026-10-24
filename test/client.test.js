@@ -18,6 +18,19 @@ test("single task reads use the official project task endpoint", async () => {
   assert.equal(calls[0].url, "https://api.ticktick.com/open/v1/project/project%201/task/task%201");
 });
 
+test("project management uses the documented project endpoints", async () => {
+  const calls = [];
+  const client = new TickTickClient({ token: "test", transport: async (url, init) => { calls.push({ url, init }); return { status: 200, text: "{}" }; } });
+  await client.createProject({ name: "کار" });
+  await client.updateProject({ id: "project 1", name: "کار تازه" });
+  await client.deleteProject("project 1");
+  assert.equal(calls[0].url, "https://api.ticktick.com/open/v1/project");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[1].url, "https://api.ticktick.com/open/v1/project/project%201");
+  assert.equal(JSON.parse(calls[1].init.body).id, undefined);
+  assert.equal(calls[2].init.method, "DELETE");
+});
+
 test("habit check-in uses the official habit endpoint and date stamp", async () => {
   const calls = [];
   const client = new TickTickClient({ token: "test", transport: async (url, init) => { calls.push({ url, init }); return { status: 201, text: "" }; } });

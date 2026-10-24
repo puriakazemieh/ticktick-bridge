@@ -271,6 +271,9 @@ export default class TickTickBridgePlugin extends Plugin {
     return {
       app: this.app,
       projects: () => this.client().listProjects(),
+      createProject: (project: any) => this.client().createProject(project),
+      updateProject: (project: any) => this.client().updateProject(project),
+      deleteProject: (projectId: string) => this.client().deleteProject(projectId),
       tasks: () => this.cache.tasks,
       board: (project: any) => this.client().projectBoard(project),
       refresh: async () => { await this.syncNow({ quiet: true }); },
