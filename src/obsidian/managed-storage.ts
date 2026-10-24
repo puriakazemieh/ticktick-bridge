@@ -1,10 +1,10 @@
-import { backupPath, journalPath, managedRoot, publicManagedMetadata, reportPath, selectExpiredBackups } from "../core/managed-storage.js";
+import { backupPath, journalPath, managedRoot, privateCachePath, publicManagedMetadata, reportPath, selectExpiredBackups } from "../core/managed-storage.js";
 
 type VaultAdapter = { exists(path: string): Promise<boolean>; mkdir(path: string): Promise<void>; read(path: string): Promise<string>; write(path: string, data: string): Promise<void>; rename?(from: string, to: string): Promise<void>; remove(path: string): Promise<void>; list(path: string): Promise<{ files: string[]; folders: string[] }>; stat(path: string): Promise<{ size: number } | null> };
 export class ManagedStorage {
   private adapter: VaultAdapter;
   constructor(adapter: VaultAdapter) { this.adapter = adapter; }
-  private managedPath(path: string, area?: "backups" | "reports" | "journal") {
+  private managedPath(path: string, area?: "backups" | "reports" | "journal" | "cache") {
     const value = String(path);
     const prefix = `${managedRoot()}/`;
     const expected = area ? `${managedRoot()}/${area}/` : prefix;
@@ -16,10 +16,10 @@ export class ManagedStorage {
     let current = "";
     for (const piece of pieces) { current = current ? `${current}/${piece}` : piece; if (!await this.adapter.exists(current)) await this.adapter.mkdir(current); }
   }
-  private async writeJson(path: string, value: unknown) {
+  private async writeJson(path: string, value: unknown, preservePrivateContent = false) {
     path = this.managedPath(path);
     await this.ensure(path.split("/").slice(0, -1).join("/"));
-    const serialized = JSON.stringify(publicManagedMetadata(value));
+    const serialized = JSON.stringify(preservePrivateContent ? value : publicManagedMetadata(value));
     const temporary = `${path}.tmp-${Date.now()}`;
     await this.adapter.write(temporary, serialized);
     try {
@@ -54,6 +54,14 @@ export class ManagedStorage {
     const path = backupPath(capturedAt, purpose);
     await this.writeJson(path, { schemaVersion: 1, capturedAt: capturedAt.toISOString(), purpose, metadata: publicManagedMetadata(payload) });
     return path;
+  }
+  /** Private runtime cache: hidden from ordinary reports/snapshots and written
+   * atomically. It intentionally never enters the ten-day backup history. */
+  async writePrivateCache(cache: unknown) { await this.writeJson(privateCachePath(), cache, true); }
+  async readPrivateCache() {
+    const path = this.managedPath(privateCachePath(), "cache");
+    if (!await this.adapter.exists(path)) return null;
+    try { return JSON.parse(await this.adapter.read(path)); } catch { return null; }
   }
   async readSnapshot(path: string) {
     path = this.managedPath(path, "backups");

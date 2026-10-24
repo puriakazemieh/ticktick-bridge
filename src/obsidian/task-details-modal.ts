@@ -14,7 +14,10 @@ export class TaskDetailsModal extends Modal {
   constructor(app: App, private task: any, private actions: TaskActions = {}) { super(app); }
   onOpen() {
     this.modalEl.addClass("ticktick-task-details-modal");
-    void this.loadAndRender();
+    // Full descriptions live in the local cache, so opening a task never
+    // waits on the network. A read is only needed for an incomplete record.
+    this.render();
+    if (this.actions.load && !taskDescription(this.task)) void this.loadAndRender();
   }
   private async loadAndRender() {
     this.contentEl.empty();

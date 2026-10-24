@@ -11,6 +11,7 @@ import { HabitMigration } from "./habit-migration";
 import { NoteImport, NoteImportModal } from "./note-import";
 import { checklistSummary } from "../core/checklist.js";
 import { mergeTaskDetails, taskDescription } from "../core/task-description.js";
+import { normalizeProjectData } from "../core/project-board.js";
 
 const VIEW_TYPE = "ticktick-bridge-today";
 const HABIT_VIEW_TYPE = "ticktick-bridge-habits";
@@ -52,6 +53,8 @@ type CachedHabitCheckin = { stamp: number; value: number; goal: number; status: 
 type BridgeCache = {
   savedAt: string;
   tasks: any[];
+  projects: any[];
+  projectBoards: Record<string, any>;
   habits: any[];
   habitCheckins: Record<string, CachedHabitCheckin[]>;
   pending: PendingMutation[];
@@ -82,7 +85,7 @@ const DEFAULT_SETTINGS: BridgeSettings = {
 
 export default class TickTickBridgePlugin extends Plugin {
   settings: BridgeSettings = DEFAULT_SETTINGS;
-  private cache: BridgeCache = { savedAt: "", tasks: [], habits: [], habitCheckins: {}, pending: [], conflicts: [] };
+  private cache: BridgeCache = { savedAt: "", tasks: [], projects: [], projectBoards: {}, habits: [], habitCheckins: {}, pending: [], conflicts: [] };
   private habitCheckinCache = new Map<string, { status: number; value: number; goal: number }>();
   private syncTimer: number | null = null;
   private ribbonIcons: HTMLElement[] = [];
@@ -120,12 +123,13 @@ export default class TickTickBridgePlugin extends Plugin {
     // This Persian planner is intentionally Saturday-first. Older installs
     // persisted Monday as their legacy default, so migrate them once.
     if (this.settings.plannerFirstWeekday !== 6) this.settings.plannerFirstWeekday = 6;
-    this.cache = normalizeCache(savedCache);
+    const privateCache = await this.managedStorage.readPrivateCache();
+    this.cache = normalizeCache(privateCache ?? savedCache);
     this.markdownSync = new MarkdownSync(this.app, this.managedStorage, () => this.client(), () => this.settings, () => this.scheduledCheckboxProjectId());
     await this.markdownSync.initialize();
     this.habitMigration = new HabitMigration(this.app, this.managedStorage, () => this.settings.localHabitFolder);
     this.noteImport = new NoteImport(this.app, this.managedStorage, () => this.settings.ticktickNotesFolder);
-    if ("projectRoot" in legacySettings || "projectDependencies" in legacySettings || "projectTaskCatalog" in legacySettings) await this.saveSettings();
+    if (!privateCache || "projectRoot" in legacySettings || "projectDependencies" in legacySettings || "projectTaskCatalog" in legacySettings) await this.saveSettings();
     // Remove any restored workspace leaf from the retired project-planning view.
     this.app.workspace.onLayoutReady(() => {
       this.app.workspace.getLeavesOfType("ticktick-bridge-projects").forEach(leaf => leaf.detach());
@@ -188,8 +192,9 @@ export default class TickTickBridgePlugin extends Plugin {
   async saveSettings() {
     // This deliberately contains only public cache metadata; plugin settings and
     // queued request bodies can contain TickTick credentials or private text.
+    await this.managedStorage.writePrivateCache(this.cache);
     await this.createPrewriteSnapshot("cache", publicCacheMetadata(this.cache));
-    await this.saveData({ ...this.settings, cache: this.cache });
+    await this.saveData({ ...this.settings, cache: publicCacheMetadata(this.cache) });
   }
 
   async previewLegacyRootBackups() { return this.managedStorage.legacyRootBackups(); }
@@ -275,13 +280,13 @@ export default class TickTickBridgePlugin extends Plugin {
   projectBoardHost() {
     return {
       app: this.app,
-      projects: () => this.client().listProjects(),
+      projects: async () => this.cache.projects.length ? this.cache.projects : this.client().listProjects(),
       createProject: (project: any) => this.client().createProject(project),
       updateProject: (project: any) => this.client().updateProject(project),
       deleteProject: (projectId: string) => this.client().deleteProject(projectId),
       createTask: (initial: any) => this.createTaskFromSurface(initial),
       tasks: () => this.cache.tasks,
-      board: (project: any) => this.client().projectBoard(project),
+      board: async (project: any) => this.cache.projectBoards[String(project.id)] ?? this.client().projectBoard(project),
       refresh: async () => { await this.syncNow({ quiet: true }); },
       complete: async (task: any) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task: any) => this.markdownSync.bindingForTask(String(task.id)),
@@ -470,8 +475,21 @@ export default class TickTickBridgePlugin extends Plugin {
 
   private async refreshCacheFromTickTick(today: string) {
     const client = this.client();
-    const [webTasks, habits, sections] = await Promise.all([this.webOpenTasks(), client.listHabits(), client.listHabitSections()]);
-    const tasks = webTasks ?? await client.listOpenTasks();
+    const [projects, webTasks, habits, sections] = await Promise.all([client.listProjects(), this.webOpenTasks(), client.listHabits(), client.listHabitSections()]);
+    const documents = await Promise.all(projects.map((project: any) => client.getProjectData(project.id)));
+    const projectBoards: Record<string, any> = {};
+    const taskIndex = new Map<string, any>();
+    for (let index = 0; index < projects.length; index++) {
+      const board = normalizeProjectData(documents[index], projects[index]);
+      projectBoards[String(board.project.id)] = board;
+      for (const task of board.tasks) taskIndex.set(`${task.projectId}:${task.id}`, task);
+    }
+    for (const task of webTasks ?? []) {
+      const projectId = String(task.projectId ?? ""); const key = `${projectId}:${task.id}`;
+      const prior = taskIndex.get(key);
+      taskIndex.set(key, prior ? mergeTaskDetails(prior, task) : task);
+    }
+    const tasks = [...taskIndex.values()];
     const activeHabits = habits.filter((habit: { status?: number }) => habit.status === undefined || habit.status === 0);
     const fromDay = shiftIsoDay(today, -90);
     const officialDocuments = activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit: { id: string }) => habit.id), fromDay, today) : [];
@@ -488,6 +506,8 @@ export default class TickTickBridgePlugin extends Plugin {
     this.cache = {
       savedAt: new Date().toISOString(),
       tasks,
+      projects,
+      projectBoards,
       habits: activeHabits.map((habit: any) => ({ ...habit, sectionName: sectionNames.get(habit.sectionId) ?? "بدون دسته" })),
       habitCheckins: checkins,
       pending: this.cache.pending,
@@ -580,6 +600,8 @@ export default class TickTickBridgePlugin extends Plugin {
     return this.createTask(toTaskPayload(draft, this.settings.timeZone));
   }
   async loadTaskDetails(task: any) {
+    const cached = this.cache.tasks.find(item => String(item?.id) === String(task?.id) && String(item?.projectId ?? "") === String(task?.projectId ?? ""));
+    if (cached && taskDescription(cached)) return mergeTaskDetails(task, cached);
     const projectId = String(task?.projectId ?? "");
     if (!projectId || !task?.id) return task;
     const client = this.client();
@@ -1463,10 +1485,12 @@ function shiftIsoDay(day: string, amount: number) {
 
 function normalizeCache(value: unknown): BridgeCache {
   const candidate = value as Partial<BridgeCache> | null;
-  if (!candidate || typeof candidate !== "object") return { savedAt: "", tasks: [], habits: [], habitCheckins: {}, pending: [], conflicts: [] };
+  if (!candidate || typeof candidate !== "object") return { savedAt: "", tasks: [], projects: [], projectBoards: {}, habits: [], habitCheckins: {}, pending: [], conflicts: [] };
   return {
     savedAt: typeof candidate.savedAt === "string" ? candidate.savedAt : "",
     tasks: Array.isArray(candidate.tasks) ? candidate.tasks : [],
+    projects: Array.isArray(candidate.projects) ? candidate.projects : [],
+    projectBoards: candidate.projectBoards && typeof candidate.projectBoards === "object" ? candidate.projectBoards : {},
     habits: Array.isArray(candidate.habits) ? candidate.habits : [],
     habitCheckins: candidate.habitCheckins && typeof candidate.habitCheckins === "object" ? candidate.habitCheckins : {},
     pending: Array.isArray(candidate.pending) ? candidate.pending : [],

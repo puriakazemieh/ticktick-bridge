@@ -67,6 +67,17 @@ test("report serialization redacts nested private task text", async () => {
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 
+test("private runtime cache preserves task text outside reports and backups", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ticktick-managed-storage-"));
+  try {
+    const files = new Map(); const storage = new (loadManagedStorage(directory))(memoryAdapter(files));
+    await storage.writePrivateCache({ tasks: [{ id: "1", content: "private task text" }] });
+    assert.deepEqual(await storage.readPrivateCache(), { tasks: [{ id: "1", content: "private task text" }] });
+    assert.equal([...files.keys()].some(path => path.startsWith(".ticktick/backups/")), false);
+    assert.equal([...files.keys()].some(path => path.startsWith(".ticktick/reports/")), false);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
 test("latest report is selected and read from the managed reports folder", async () => {
   const directory = mkdtempSync(join(tmpdir(), "ticktick-managed-storage-"));
   try {

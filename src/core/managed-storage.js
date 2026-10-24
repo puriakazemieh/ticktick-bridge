@@ -21,6 +21,7 @@ export function reportPath(capturedAt, operation) {
   return `${ROOT}/reports/${safeTimestamp(capturedAt)}-${safeSegment(operation, "operation")}.json`;
 }
 export function journalPath(operationId) { return `${ROOT}/journal/${safeSegment(operationId, "operation")}.json`; }
+export function privateCachePath() { return `${ROOT}/cache/full-cache.json`; }
 
 export function publicManagedMetadata(value) {
   if (Array.isArray(value)) return value.map(publicManagedMetadata);

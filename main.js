@@ -358,6 +358,9 @@ function reportPath(capturedAt, operation) {
 function journalPath(operationId) {
   return `${ROOT}/journal/${safeSegment(operationId, "operation")}.json`;
 }
+function privateCachePath() {
+  return `${ROOT}/cache/full-cache.json`;
+}
 function publicManagedMetadata(value) {
   if (Array.isArray(value)) return value.map(publicManagedMetadata);
   if (!value || typeof value !== "object") return value;
@@ -402,10 +405,10 @@ var ManagedStorage = class {
       if (!await this.adapter.exists(current)) await this.adapter.mkdir(current);
     }
   }
-  async writeJson(path, value) {
+  async writeJson(path, value, preservePrivateContent = false) {
     path = this.managedPath(path);
     await this.ensure(path.split("/").slice(0, -1).join("/"));
-    const serialized = JSON.stringify(publicManagedMetadata(value));
+    const serialized = JSON.stringify(preservePrivateContent ? value : publicManagedMetadata(value));
     const temporary = `${path}.tmp-${Date.now()}`;
     await this.adapter.write(temporary, serialized);
     try {
@@ -442,6 +445,20 @@ var ManagedStorage = class {
     const path = backupPath(capturedAt, purpose);
     await this.writeJson(path, { schemaVersion: 1, capturedAt: capturedAt.toISOString(), purpose, metadata: publicManagedMetadata(payload) });
     return path;
+  }
+  /** Private runtime cache: hidden from ordinary reports/snapshots and written
+   * atomically. It intentionally never enters the ten-day backup history. */
+  async writePrivateCache(cache) {
+    await this.writeJson(privateCachePath(), cache, true);
+  }
+  async readPrivateCache() {
+    const path = this.managedPath(privateCachePath(), "cache");
+    if (!await this.adapter.exists(path)) return null;
+    try {
+      return JSON.parse(await this.adapter.read(path));
+    } catch {
+      return null;
+    }
   }
   async readSnapshot(path) {
     path = this.managedPath(path, "backups");
@@ -975,7 +992,8 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
   }
   onOpen() {
     this.modalEl.addClass("ticktick-task-details-modal");
-    void this.loadAndRender();
+    this.render();
+    if (this.actions.load && !taskDescription(this.task)) void this.loadAndRender();
   }
   async loadAndRender() {
     this.contentEl.empty();
@@ -1718,6 +1736,7 @@ var NoteImportModal = class extends import_obsidian7.Modal {
 };
 
 // src/obsidian/main.ts
+init_project_board();
 var VIEW_TYPE = "ticktick-bridge-today";
 var HABIT_VIEW_TYPE = "ticktick-bridge-habits";
 var PLANNER_VIEW_TYPE = "ticktick-bridge-planner";
@@ -1751,7 +1770,7 @@ var DEFAULT_SETTINGS = {
 };
 var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   settings = DEFAULT_SETTINGS;
-  cache = { savedAt: "", tasks: [], habits: [], habitCheckins: {}, pending: [], conflicts: [] };
+  cache = { savedAt: "", tasks: [], projects: [], projectBoards: {}, habits: [], habitCheckins: {}, pending: [], conflicts: [] };
   habitCheckinCache = /* @__PURE__ */ new Map();
   syncTimer = null;
   ribbonIcons = [];
@@ -1786,12 +1805,13 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     } = legacySettings;
     this.settings = { ...DEFAULT_SETTINGS, ...activeSettings };
     if (this.settings.plannerFirstWeekday !== 6) this.settings.plannerFirstWeekday = 6;
-    this.cache = normalizeCache(savedCache);
+    const privateCache = await this.managedStorage.readPrivateCache();
+    this.cache = normalizeCache(privateCache ?? savedCache);
     this.markdownSync = new MarkdownSync(this.app, this.managedStorage, () => this.client(), () => this.settings, () => this.scheduledCheckboxProjectId());
     await this.markdownSync.initialize();
     this.habitMigration = new HabitMigration(this.app, this.managedStorage, () => this.settings.localHabitFolder);
     this.noteImport = new NoteImport(this.app, this.managedStorage, () => this.settings.ticktickNotesFolder);
-    if ("projectRoot" in legacySettings || "projectDependencies" in legacySettings || "projectTaskCatalog" in legacySettings) await this.saveSettings();
+    if (!privateCache || "projectRoot" in legacySettings || "projectDependencies" in legacySettings || "projectTaskCatalog" in legacySettings) await this.saveSettings();
     this.app.workspace.onLayoutReady(() => {
       this.app.workspace.getLeavesOfType("ticktick-bridge-projects").forEach((leaf) => leaf.detach());
     });
@@ -1852,8 +1872,9 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     return path;
   }
   async saveSettings() {
+    await this.managedStorage.writePrivateCache(this.cache);
     await this.createPrewriteSnapshot("cache", publicCacheMetadata(this.cache));
-    await this.saveData({ ...this.settings, cache: this.cache });
+    await this.saveData({ ...this.settings, cache: publicCacheMetadata(this.cache) });
   }
   async previewLegacyRootBackups() {
     return this.managedStorage.legacyRootBackups();
@@ -1950,13 +1971,13 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   projectBoardHost() {
     return {
       app: this.app,
-      projects: () => this.client().listProjects(),
+      projects: async () => this.cache.projects.length ? this.cache.projects : this.client().listProjects(),
       createProject: (project) => this.client().createProject(project),
       updateProject: (project) => this.client().updateProject(project),
       deleteProject: (projectId) => this.client().deleteProject(projectId),
       createTask: (initial) => this.createTaskFromSurface(initial),
       tasks: () => this.cache.tasks,
-      board: (project) => this.client().projectBoard(project),
+      board: async (project) => this.cache.projectBoards[String(project.id)] ?? this.client().projectBoard(project),
       refresh: async () => {
         await this.syncNow({ quiet: true });
       },
@@ -2137,8 +2158,22 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   }
   async refreshCacheFromTickTick(today) {
     const client = this.client();
-    const [webTasks, habits, sections] = await Promise.all([this.webOpenTasks(), client.listHabits(), client.listHabitSections()]);
-    const tasks = webTasks ?? await client.listOpenTasks();
+    const [projects, webTasks, habits, sections] = await Promise.all([client.listProjects(), this.webOpenTasks(), client.listHabits(), client.listHabitSections()]);
+    const documents = await Promise.all(projects.map((project) => client.getProjectData(project.id)));
+    const projectBoards = {};
+    const taskIndex = /* @__PURE__ */ new Map();
+    for (let index = 0; index < projects.length; index++) {
+      const board = normalizeProjectData(documents[index], projects[index]);
+      projectBoards[String(board.project.id)] = board;
+      for (const task of board.tasks) taskIndex.set(`${task.projectId}:${task.id}`, task);
+    }
+    for (const task of webTasks ?? []) {
+      const projectId = String(task.projectId ?? "");
+      const key = `${projectId}:${task.id}`;
+      const prior = taskIndex.get(key);
+      taskIndex.set(key, prior ? mergeTaskDetails(prior, task) : task);
+    }
+    const tasks = [...taskIndex.values()];
     const activeHabits = habits.filter((habit) => habit.status === void 0 || habit.status === 0);
     const fromDay = shiftIsoDay(today, -90);
     const officialDocuments = activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit) => habit.id), fromDay, today) : [];
@@ -2154,6 +2189,8 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     this.cache = {
       savedAt: (/* @__PURE__ */ new Date()).toISOString(),
       tasks,
+      projects,
+      projectBoards,
       habits: activeHabits.map((habit) => ({ ...habit, sectionName: sectionNames.get(habit.sectionId) ?? "\u0628\u062F\u0648\u0646 \u062F\u0633\u062A\u0647" })),
       habitCheckins: checkins,
       pending: this.cache.pending,
@@ -2251,6 +2288,8 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     return this.createTask(toTaskPayload(draft, this.settings.timeZone));
   }
   async loadTaskDetails(task) {
+    const cached = this.cache.tasks.find((item) => String(item?.id) === String(task?.id) && String(item?.projectId ?? "") === String(task?.projectId ?? ""));
+    if (cached && taskDescription(cached)) return mergeTaskDetails(task, cached);
     const projectId = String(task?.projectId ?? "");
     if (!projectId || !task?.id) return task;
     const client = this.client();
@@ -3157,10 +3196,12 @@ function shiftIsoDay(day, amount) {
 }
 function normalizeCache(value) {
   const candidate = value;
-  if (!candidate || typeof candidate !== "object") return { savedAt: "", tasks: [], habits: [], habitCheckins: {}, pending: [], conflicts: [] };
+  if (!candidate || typeof candidate !== "object") return { savedAt: "", tasks: [], projects: [], projectBoards: {}, habits: [], habitCheckins: {}, pending: [], conflicts: [] };
   return {
     savedAt: typeof candidate.savedAt === "string" ? candidate.savedAt : "",
     tasks: Array.isArray(candidate.tasks) ? candidate.tasks : [],
+    projects: Array.isArray(candidate.projects) ? candidate.projects : [],
+    projectBoards: candidate.projectBoards && typeof candidate.projectBoards === "object" ? candidate.projectBoards : {},
     habits: Array.isArray(candidate.habits) ? candidate.habits : [],
     habitCheckins: candidate.habitCheckins && typeof candidate.habitCheckins === "object" ? candidate.habitCheckins : {},
     pending: Array.isArray(candidate.pending) ? candidate.pending : [],
