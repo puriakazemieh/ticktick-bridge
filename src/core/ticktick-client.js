@@ -47,6 +47,11 @@ export class TickTickClient {
   listProjects() { return this.request("/project"); }
   getProject(projectId) { return this.request(`/project/${encodeURIComponent(projectId)}`); }
   getProjectData(projectId) { return this.request(`/project/${encodeURIComponent(projectId)}/data`); }
+  async projectBoard(project) {
+    const data = await this.getProjectData(project.id);
+    const { normalizeProjectData } = await import("./project-board.js");
+    return normalizeProjectData(data, project);
+  }
   getTask(projectId, taskId) { return this.request(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(taskId)}`); }
   createTask(task) { return this.request("/task", { method: "POST", body: task }); }
   updateTask(task) {

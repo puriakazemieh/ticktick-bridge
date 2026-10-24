@@ -6,6 +6,7 @@
 
 ## Status
 
+- **Status**: Complete on `main` (2026-10-24)
 - **Priority**: P1
 - **Effort**: L
 - **Risk**: MED — moving cards can alter project/column/order assignments.
@@ -89,11 +90,11 @@ Implement keyboard focus, visible selected state, aria labels for counts/colors,
 
 ## Done criteria
 
-- [ ] Project/list sidebar resembles the requested hierarchy and works when no remote folder metadata exists.
-- [ ] Each project is rendered as real TickTick columns or a single display-only `Tasks` column.
-- [ ] Cards expose all requested core information without color-only meaning.
-- [ ] Cross-column/project writes are disabled unless officially characterized and routed through Plan 002.
-- [ ] `npm test`, `npm run check`, and `npm run build` pass.
+- [x] Project/list sidebar resembles the requested hierarchy and works when no remote folder metadata exists.
+- [x] Each project is rendered as real TickTick columns or a single display-only `Tasks` column.
+- [x] Cards expose all requested core information without color-only meaning.
+- [x] Cross-column/project writes are disabled unless officially characterized and routed through Plan 002.
+- [x] `npm test`, `npm run check`, and `npm run build` pass.
 
 ## STOP conditions
 

@@ -32,6 +32,19 @@
 .ticktick-planner-month-cell { min-height: 7rem; }.ticktick-planner-month-cell.is-outside { opacity: .5; }.ticktick-planner-overflow { font-size: .7rem; color: var(--text-muted); }
 .ticktick-planner-empty { padding: 1rem; color: var(--text-muted); text-align: center; }
 
+.ticktick-project-board-root { display: grid; grid-template-columns: minmax(10rem, 15rem) minmax(0, 1fr); gap: .75rem; direction: rtl; }
+.ticktick-project-rail { display: flex; flex-direction: column; gap: .25rem; padding: .5rem; border-inline-end: 1px solid var(--background-modifier-border); }
+.ticktick-project-rail button { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .4rem; text-align: right; background: transparent; box-shadow: none; }
+.ticktick-project-rail button.is-selected { background: var(--background-modifier-hover); color: var(--text-accent); }.ticktick-project-group { font-weight: 700; margin-top: .5rem; }
+.ticktick-project-dot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--project-color); }.ticktick-project-count { color: var(--text-muted); font-size: .72rem; }
+.ticktick-project-main { min-width: 0; }.ticktick-project-columns { display: flex; gap: .65rem; overflow-x: auto; padding-block: .5rem; }
+.ticktick-project-column { flex: 0 0 min(18rem, 80vw); min-height: 12rem; padding: .6rem; border-radius: .65rem; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); }
+.ticktick-project-column > small { display: block; margin: .25rem 0 .6rem; color: var(--text-muted); font-size: .68rem; }.ticktick-project-column h4 { font-size: .72rem; color: var(--text-muted); margin: .65rem 0 .3rem; }
+.ticktick-project-card { padding: .5rem; margin: .35rem 0; border-radius: .5rem; background: var(--background-primary); border: 1px solid var(--background-modifier-border); }.ticktick-project-card-top { display: flex; gap: .4rem; align-items: start; }.ticktick-project-card-top > span:nth-child(2) { flex: 1; }
+.ticktick-project-priority { font-size: .68rem; color: var(--text-muted); border: 1px solid currentColor; padding: 0 .25rem; border-radius: 999px; }.ticktick-project-card small { display: block; color: var(--text-muted); margin-top: .35rem; }
+.ticktick-project-card-meta { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .4rem; color: var(--text-faint); font-size: .67rem; }
+@media (max-width: 700px) { .ticktick-project-board-root { grid-template-columns: 1fr; }.ticktick-project-rail { border-inline-end: 0; border-bottom: 1px solid var(--background-modifier-border); max-height: 12rem; overflow: auto; } }
+
 .ticktick-panel-header {
   display: flex;
   align-items: center;

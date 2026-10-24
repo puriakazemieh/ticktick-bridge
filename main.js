@@ -3,6 +3,9 @@ var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
@@ -17,13 +20,52 @@ var __copyProps = (to, from, except, desc) => {
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
+// src/core/project-board.js
+var project_board_exports = {};
+__export(project_board_exports, {
+  boardColumns: () => boardColumns,
+  normalizeProjectData: () => normalizeProjectData,
+  sidebarTree: () => sidebarTree
+});
+function normalizeProjectData(document = {}, fallbackProject = {}) {
+  const project = { ...fallbackProject, ...document.project ?? {}, id: document.project?.id ?? fallbackProject.id ?? document.projectId, name: document.project?.name ?? fallbackProject.name ?? "\u0628\u062F\u0648\u0646 \u0646\u0627\u0645" };
+  const columns = (document.columns ?? []).map((column, index) => ({ id: String(column.id ?? ""), name: String(column.name ?? `\u0633\u062A\u0648\u0646 ${index + 1}`), sortOrder: Number(column.sortOrder ?? index) }));
+  const names = new Map(columns.map((column) => [column.id, column.name]));
+  const tasks = (document.tasks ?? []).map((task) => ({ ...task, projectId: task.projectId ?? project.id, projectName: project.name, projectColor: project.color, columnId: task.columnId ?? "", columnName: names.get(String(task.columnId ?? "")) ?? "Tasks" }));
+  return { project, columns, tasks };
+}
+function sidebarTree(projects, tasks = []) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const project of projects ?? []) {
+    const group = String(project.groupName ?? project.folderName ?? "");
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group).push({ ...project, openCount: tasks.filter((task) => String(task.projectId) === String(project.id) && Number(task.status ?? 0) === 0).length });
+  }
+  return [...groups.entries()].map(([name, items]) => ({ name, projects: items.sort((a, b) => String(a.name).localeCompare(String(b.name), "fa")) }));
+}
+function boardColumns(data, showCompleted = false) {
+  const columns = data.columns.length ? data.columns : [{ id: "", name: "Tasks", synthetic: true, sortOrder: 0 }];
+  return columns.map((column) => {
+    const matching = data.tasks.filter((task) => String(task.columnId ?? "") === String(column.id) && (showCompleted || Number(task.status ?? 0) === 0));
+    const groups = ["High", "Medium", "Low", "No priority", ...showCompleted ? ["Completed"] : []].map((name) => ({ name, tasks: matching.filter((task) => Number(task.status ?? 0) !== 0 ? name === "Completed" : groupName(task.priority) === name).sort((a, b) => Number(a.sortOrder ?? a.order ?? 0) - Number(b.sortOrder ?? b.order ?? 0) || String(a.title).localeCompare(String(b.title), "fa")) })).filter((group) => group.tasks.length);
+    return { ...column, count: matching.length, groups };
+  });
+}
+var groupName;
+var init_project_board = __esm({
+  "src/core/project-board.js"() {
+    "use strict";
+    groupName = (priority) => ({ 5: "High", 3: "Medium", 1: "Low" })[Number(priority)] ?? "No priority";
+  }
+});
+
 // src/obsidian/main.ts
 var main_exports = {};
 __export(main_exports, {
   default: () => TickTickBridgePlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // src/core/date.js
 function toDateKey(value, timeZone = "Asia/Tehran") {
@@ -141,6 +183,11 @@ var TickTickClient = class {
   }
   getProjectData(projectId) {
     return this.request(`/project/${encodeURIComponent(projectId)}/data`);
+  }
+  async projectBoard(project) {
+    const data = await this.getProjectData(project.id);
+    const { normalizeProjectData: normalizeProjectData2 } = await Promise.resolve().then(() => (init_project_board(), project_board_exports));
+    return normalizeProjectData2(data, project);
   }
   getTask(projectId, taskId) {
     return this.request(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(taskId)}`);
@@ -714,6 +761,18 @@ var MarkdownSync = class {
     await this.storage.writeReport("calendar-reschedule", { taskId, projectId: binding.projectId, oldStart, oldDue, targetDay });
     return next;
   }
+  async completeBoundTask(taskId) {
+    await this.load();
+    const binding = this.bindingForTask(taskId);
+    if (!binding?.projectId) throw new Error("\u0627\u06CC\u0646 task \u0628\u0647 \u06CC\u06A9 \u062E\u0637 Markdown \u062A\u0623\u06CC\u06CC\u062F\u0634\u062F\u0647 \u0645\u062A\u0635\u0644 \u0646\u06CC\u0633\u062A.");
+    await this.storage.writeSnapshot("board-complete", { taskId, projectId: binding.projectId });
+    const remote = await this.getClient().getTask(binding.projectId, taskId);
+    if (!remote?.id) throw new Error("\u0648\u0638\u06CC\u0641\u0647\u0654 TickTick \u067E\u06CC\u0634 \u0627\u0632 \u062A\u06A9\u0645\u06CC\u0644 \u062F\u0648\u0628\u0627\u0631\u0647 \u062E\u0648\u0627\u0646\u062F\u0647 \u0646\u0634\u062F.");
+    await this.getClient().completeTask(binding.projectId, taskId);
+    this.state.bindings[binding.key] = { ...binding, baseline: normalizedTask({ ...remote, completed: true }) };
+    await this.save();
+    await this.storage.writeReport("board-complete", { taskId, projectId: binding.projectId });
+  }
   async resolve(conflict, choice) {
     await this.load();
     if (choice === "unbind") {
@@ -1016,14 +1075,137 @@ var PlanningCalendar = class {
   }
 };
 
+// src/obsidian/project-board.ts
+var import_obsidian4 = require("obsidian");
+init_project_board();
+var ProjectBoard = class {
+  constructor(element, host) {
+    this.element = element;
+    this.host = host;
+  }
+  selected = "";
+  collapsed = /* @__PURE__ */ new Set();
+  initialized = false;
+  async render() {
+    if (!this.initialized) {
+      const saved = this.host.preferences();
+      this.selected = saved.selected;
+      this.collapsed = new Set(saved.collapsed);
+      this.initialized = true;
+    }
+    this.element.empty();
+    this.element.addClass("ticktick-project-board");
+    const root = this.element.createDiv({ cls: "ticktick-project-board-root" });
+    try {
+      const projects = await this.host.projects();
+      if (!this.selected && projects[0]) this.selected = String(projects[0].id);
+      const rail = root.createDiv({ cls: "ticktick-project-rail" });
+      rail.createEl("strong", { text: "\u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
+      const all = rail.createEl("button", { cls: !this.selected ? "is-selected" : "", text: `\u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627 \xB7 ${this.host.tasks().length}` });
+      all.addEventListener("click", () => {
+        this.selected = "";
+        void this.persistAndRender();
+      });
+      for (const group of sidebarTree(projects, this.host.tasks())) {
+        const key = group.name || "flat";
+        const heading = rail.createEl("button", { cls: "ticktick-project-group", text: group.name || "\u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
+        heading.addEventListener("click", () => {
+          this.collapsed.has(key) ? this.collapsed.delete(key) : this.collapsed.add(key);
+          void this.persistAndRender();
+        });
+        if (this.collapsed.has(key)) continue;
+        for (const project2 of group.projects) {
+          const row = rail.createEl("button", { cls: `ticktick-project-row${this.selected === String(project2.id) ? " is-selected" : ""}`, attr: { "aria-label": `${project2.name}\u060C ${project2.openCount} \u062A\u0633\u06A9 \u0628\u0627\u0632` } });
+          row.createSpan({ cls: "ticktick-project-dot" }).style.setProperty("--project-color", project2.color ?? "var(--interactive-accent)");
+          row.createSpan({ text: project2.name });
+          row.createSpan({ cls: "ticktick-project-count", text: String(project2.openCount) });
+          row.addEventListener("click", () => {
+            this.selected = String(project2.id);
+            void this.persistAndRender();
+          });
+        }
+      }
+      const main = root.createDiv({ cls: "ticktick-project-main" });
+      const refresh = main.createEl("button", { text: "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC" });
+      refresh.addEventListener("click", async () => {
+        refresh.disabled = true;
+        try {
+          await this.host.refresh();
+          await this.render();
+        } catch (error) {
+          new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+        }
+      });
+      const project = projects.find((item) => String(item.id) === this.selected);
+      if (!project) {
+        main.createEl("p", { text: "\u06CC\u06A9 \u0644\u06CC\u0633\u062A \u0631\u0627 \u0627\u0632 \u0646\u0648\u0627\u0631 \u06A9\u0646\u0627\u0631\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646." });
+        return;
+      }
+      const data = await this.host.board(project);
+      main.createEl("h2", { text: project.name });
+      const columns = main.createDiv({ cls: "ticktick-project-columns" });
+      for (const column of boardColumns(data, this.host.showCompleted())) {
+        const shell = columns.createDiv({ cls: "ticktick-project-column" });
+        shell.createEl("strong", { text: `${column.name} \xB7 ${column.count}` });
+        shell.createEl("small", { text: column.synthetic ? "\u0633\u062A\u0648\u0646 \u0646\u0645\u0627\u06CC\u0634\u06CC\u061B \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062A" : "\u062A\u0631\u062A\u06CC\u0628 \u0648 \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0633\u062A\u0648\u0646 \u062F\u0631 \u0646\u0633\u062E\u0647\u0654 \u0627\u0648\u0644 \u0641\u0642\u0637 \u062E\u0648\u0627\u0646\u062F\u0646\u06CC \u0627\u0633\u062A" });
+        shell.addEventListener("dragover", (event) => event.preventDefault());
+        shell.addEventListener("drop", (event) => {
+          event.preventDefault();
+          new import_obsidian4.Notice("\u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0628\u06CC\u0646 \u0633\u062A\u0648\u0646\u200C\u0647\u0627 \u062A\u0627 \u062A\u0623\u06CC\u06CC\u062F \u0631\u0633\u0645\u06CC API TickTick \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062A.");
+        });
+        for (const group of column.groups) {
+          shell.createEl("h4", { text: group.name });
+          for (const task of group.tasks) this.card(shell, task);
+        }
+      }
+    } catch (error) {
+      root.createEl("p", { text: error instanceof Error ? error.message : "\u062F\u0627\u062F\u0647\u0654 \u067E\u0631\u0648\u0698\u0647 \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0646\u06CC\u0633\u062A." });
+    }
+  }
+  async persistAndRender() {
+    await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed] });
+    await this.render();
+  }
+  card(parent, task) {
+    const bound = this.host.binding(task);
+    const card = parent.createDiv({ cls: "ticktick-project-card" });
+    card.draggable = false;
+    card.setAttribute("title", "\u062A\u0631\u062A\u06CC\u0628 \u06A9\u0627\u0631\u062A\u200C\u0647\u0627 \u062F\u0631 \u0646\u0633\u062E\u0647\u0654 \u0627\u0648\u0644 \u0641\u0642\u0637 \u062E\u0648\u0627\u0646\u062F\u0646\u06CC \u0627\u0633\u062A");
+    const top = card.createDiv({ cls: "ticktick-project-card-top" });
+    const check = top.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
+    check.checked = Number(task.status ?? 0) !== 0;
+    check.disabled = !bound || check.checked;
+    top.createSpan({ text: task.title });
+    top.createSpan({ cls: "ticktick-project-priority", text: `P${Number(task.priority ?? 0)}` });
+    if (task.desc || task.content) card.createEl("small", { text: String(task.desc ?? task.content).slice(0, 100) });
+    const meta = card.createDiv({ cls: "ticktick-project-card-meta" });
+    if (task.dueDate) meta.createSpan({ text: `\u{1F4C5} ${String(task.dueDate).slice(0, 10)}` });
+    if (task.repeatFlag) meta.createSpan({ text: "\u{1F501} \u062A\u06A9\u0631\u0627\u0631" });
+    for (const tag of task.tags ?? []) meta.createSpan({ text: `#${tag}` });
+    if (bound) meta.createSpan({ text: "\u2197 Markdown" });
+    check.addEventListener("change", async () => {
+      check.disabled = true;
+      try {
+        await this.host.complete(task);
+        new import_obsidian4.Notice("\u062A\u0633\u06A9 \u0628\u0627 \u0645\u0633\u06CC\u0631 \u0627\u0645\u0646 Markdown sync \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F.");
+      } catch (error) {
+        check.checked = false;
+        check.disabled = false;
+        new import_obsidian4.Notice(error instanceof Error ? error.message : "\u062A\u06A9\u0645\u06CC\u0644 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+      }
+    });
+  }
+};
+
 // src/obsidian/main.ts
 var VIEW_TYPE = "ticktick-bridge-today";
 var HABIT_VIEW_TYPE = "ticktick-bridge-habits";
 var PLANNER_VIEW_TYPE = "ticktick-bridge-planner";
+var PROJECT_BOARD_VIEW_TYPE = "ticktick-bridge-project-board";
 function currentPlatformName() {
-  if (import_obsidian4.Platform.isWin) return "Windows";
-  if (import_obsidian4.Platform.isMacOS) return "macOS";
-  if (import_obsidian4.Platform.isLinux) return "Linux";
+  if (import_obsidian5.Platform.isWin) return "Windows";
+  if (import_obsidian5.Platform.isMacOS) return "macOS";
+  if (import_obsidian5.Platform.isLinux) return "Linux";
   return "Unknown";
 }
 var DEFAULT_SETTINGS = {
@@ -1039,9 +1221,11 @@ var DEFAULT_SETTINGS = {
   scheduledCheckboxProjectId: "",
   showRibbonIcons: false,
   plannerFirstWeekday: 1,
-  plannerShowCompleted: false
+  plannerShowCompleted: false,
+  boardLastProjectId: "",
+  boardCollapsedGroups: []
 };
-var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
+var TickTickBridgePlugin = class extends import_obsidian5.Plugin {
   settings = DEFAULT_SETTINGS;
   cache = { savedAt: "", tasks: [], habits: [], habitCheckins: {}, pending: [], conflicts: [] };
   habitCheckinCache = /* @__PURE__ */ new Map();
@@ -1086,6 +1270,7 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
     this.registerView(VIEW_TYPE, (leaf) => new TodayTasksView(leaf, this));
     this.registerView(HABIT_VIEW_TYPE, (leaf) => new TodayHabitsView(leaf, this));
     this.registerView(PLANNER_VIEW_TYPE, (leaf) => new PlanningView(leaf, this));
+    this.registerView(PROJECT_BOARD_VIEW_TYPE, (leaf) => new ProjectBoardView(leaf, this));
     this.registerMarkdownCodeBlockProcessor("ticktick-today", async (_source, element, context) => {
       const day = dailyNoteDateFromPath(context.sourcePath);
       this.taskBlocks.set(element, day);
@@ -1102,12 +1287,17 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
       const planner = new PlanningCalendar(element, this.plannerHost());
       await planner.render();
     });
+    this.registerMarkdownCodeBlockProcessor("ticktick-board", async (_source, element) => {
+      await new ProjectBoard(element, this.projectBoardHost()).render();
+    });
     this.configurePanelMenuRibbonIcon();
     this.configureSyncRibbonIcon();
     this.configureRibbonIcons();
     this.addCommand({ id: "open-today-tasks", name: "Open today's TickTick tasks", callback: () => this.openTodayView() });
     this.addCommand({ id: "open-today-habits", name: "Open today's TickTick habits", callback: () => this.openHabitView() });
     this.addCommand({ id: "open-weekly-planner", name: "Open TickTick weekly planner", callback: () => this.openPlannerView() });
+    this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
+    this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
     this.addCommand({ id: "sync-now", name: "Sync TickTick now", callback: () => this.syncNow() });
     this.addCommand({ id: "preview-markdown-sync", name: "Preview Markdown \u2194 TickTick sync", callback: () => this.previewMarkdownSync() });
     this.addCommand({ id: "apply-markdown-sync", name: "Apply Markdown \u2194 TickTick sync preview", callback: () => this.applyMarkdownSync() });
@@ -1115,7 +1305,7 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
     this.addCommand({ id: "repair-markdown-bindings", name: "Repair legacy Markdown bindings", callback: () => this.repairMarkdownBindings() });
     this.addCommand({ id: "import-ticktick-checkboxes", name: "Preview #ticktick checkboxes", callback: () => this.previewMarkdownSync() });
     this.registerEvent(this.app.vault.on("modify", (file) => {
-      if (file instanceof import_obsidian4.TFile && file.extension === "md") this.queueTaggedCheckboxImport(file);
+      if (file instanceof import_obsidian5.TFile && file.extension === "md") this.queueTaggedCheckboxImport(file);
     }));
     this.configureAutomaticSync();
   }
@@ -1162,30 +1352,30 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
   }
   async previewMarkdownSync(quiet = false, files) {
     const result = await this.markdownSync.preview(files);
-    if (!quiet) new import_obsidian4.Notice(`\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 Markdown sync: \u0627\u06CC\u062C\u0627\u062F ${result.create}\u060C \u0627\u0631\u0633\u0627\u0644 ${result.push}\u060C \u062F\u0631\u06CC\u0627\u0641\u062A ${result.pull}\u060C \u062A\u0639\u0627\u0631\u0636 ${result.conflict}\u060C \u0642\u0631\u0646\u0637\u06CC\u0646\u0647 ${result.quarantine}.`);
+    if (!quiet) new import_obsidian5.Notice(`\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 Markdown sync: \u0627\u06CC\u062C\u0627\u062F ${result.create}\u060C \u0627\u0631\u0633\u0627\u0644 ${result.push}\u060C \u062F\u0631\u06CC\u0627\u0641\u062A ${result.pull}\u060C \u062A\u0639\u0627\u0631\u0636 ${result.conflict}\u060C \u0642\u0631\u0646\u0637\u06CC\u0646\u0647 ${result.quarantine}.`);
     return result;
   }
   async applyMarkdownSync() {
     const result = await this.markdownSync.apply();
-    new import_obsidian4.Notice(`\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0627\u0639\u0645\u0627\u0644 \u0634\u062F: ${result.applied} \u062A\u063A\u06CC\u06CC\u0631. \u062A\u0639\u0627\u0631\u0636/\u0642\u0631\u0646\u0637\u06CC\u0646\u0647: ${result.conflict + result.quarantine}.`);
+    new import_obsidian5.Notice(`\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0627\u0639\u0645\u0627\u0644 \u0634\u062F: ${result.applied} \u062A\u063A\u06CC\u06CC\u0631. \u062A\u0639\u0627\u0631\u0636/\u0642\u0631\u0646\u0637\u06CC\u0646\u0647: ${result.conflict + result.quarantine}.`);
     return result;
   }
   async openMarkdownSyncConflicts() {
     const conflicts = await this.markdownSync.conflicts();
     if (conflicts.length) {
       if (!conflicts[0].diff?.conflicts?.length) {
-        new import_obsidian4.Notice(`${conflicts[0].message} \u2014 \u0627\u06CC\u0646 \u0645\u0648\u0631\u062F \u0642\u0631\u0646\u0637\u06CC\u0646\u0647 \u0634\u062F\u0647 \u0648 \u062F\u0631 \u06AF\u0632\u0627\u0631\u0634 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F\u0647 \u0627\u0633\u062A.`);
+        new import_obsidian5.Notice(`${conflicts[0].message} \u2014 \u0627\u06CC\u0646 \u0645\u0648\u0631\u062F \u0642\u0631\u0646\u0637\u06CC\u0646\u0647 \u0634\u062F\u0647 \u0648 \u062F\u0631 \u06AF\u0632\u0627\u0631\u0634 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F\u0647 \u0627\u0633\u062A.`);
         return conflicts;
       }
       const choice = await new MarkdownConflictModal(this.app, conflicts[0]).openAndWait();
       await this.markdownSync.resolve(conflicts[0], choice);
-      new import_obsidian4.Notice("\u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u0645\u0627 \u062B\u0628\u062A \u0634\u062F\u061B \u06AF\u0632\u0627\u0631\u0634 \u062F\u0631 /.ticktick/reports/ \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
-    } else new import_obsidian4.Notice("\u062A\u0639\u0627\u0631\u0636 Markdown sync \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F.");
+      new import_obsidian5.Notice("\u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u0645\u0627 \u062B\u0628\u062A \u0634\u062F\u061B \u06AF\u0632\u0627\u0631\u0634 \u062F\u0631 /.ticktick/reports/ \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
+    } else new import_obsidian5.Notice("\u062A\u0639\u0627\u0631\u0636 Markdown sync \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F.");
     return conflicts;
   }
   async repairMarkdownBindings() {
     const result = await this.markdownSync.repairLegacyBindings();
-    new import_obsidian4.Notice(`\u0627\u0633\u06A9\u0646 binding \u0642\u062F\u06CC\u0645\u06CC \u062A\u0645\u0627\u0645 \u0634\u062F\u061B ${result.quarantine} \u0645\u0648\u0631\u062F \u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0628\u0631\u0631\u0633\u06CC \u062F\u0633\u062A\u06CC \u0627\u0633\u062A.`);
+    new import_obsidian5.Notice(`\u0627\u0633\u06A9\u0646 binding \u0642\u062F\u06CC\u0645\u06CC \u062A\u0645\u0627\u0645 \u0634\u062F\u061B ${result.quarantine} \u0645\u0648\u0631\u062F \u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0628\u0631\u0631\u0633\u06CC \u062F\u0633\u062A\u06CC \u0627\u0633\u062A.`);
     return result;
   }
   plannerHost() {
@@ -1200,6 +1390,25 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
       },
       reschedule: async (task, day) => this.markdownSync.rescheduleBoundTask(String(task.id), day),
       binding: (task) => this.markdownSync.bindingForTask(String(task.id))
+    };
+  }
+  projectBoardHost() {
+    return {
+      projects: () => this.client().listProjects(),
+      tasks: () => this.cache.tasks,
+      board: (project) => this.client().projectBoard(project),
+      refresh: async () => {
+        await this.syncNow({ quiet: true });
+      },
+      complete: async (task) => this.markdownSync.completeBoundTask(String(task.id)),
+      binding: (task) => this.markdownSync.bindingForTask(String(task.id)),
+      showCompleted: () => this.settings.plannerShowCompleted,
+      preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups }),
+      savePreferences: async (value) => {
+        this.settings.boardLastProjectId = value.selected;
+        this.settings.boardCollapsedGroups = value.collapsed;
+        await this.saveSettings();
+      }
     };
   }
   async importTaggedCheckboxes(file, quiet = false) {
@@ -1226,7 +1435,7 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
       imported++;
     }
     if (changed) await this.app.vault.modify(file, lines.join("\n"));
-    if (imported && !quiet) new import_obsidian4.Notice(`${imported} \u0686\u06A9\u200C\u0628\u0627\u06A9\u0633 \u0628\u0647 TickTick \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.`);
+    if (imported && !quiet) new import_obsidian5.Notice(`${imported} \u0686\u06A9\u200C\u0628\u0627\u06A9\u0633 \u0628\u0647 TickTick \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.`);
     return imported;
   }
   async scheduledCheckboxProjectId() {
@@ -1270,7 +1479,7 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
     this.panelMenuRibbonIcon.addClass("ticktick-bridge-panel-menu-ribbon");
   }
   showPanelMenu(event) {
-    const menu = new import_obsidian4.Menu();
+    const menu = new import_obsidian5.Menu();
     menu.addItem((item) => item.setTitle("\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632").setIcon("check-square").onClick(() => void this.openTodayView()));
     menu.addItem((item) => item.setTitle("\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632").setIcon("activity").onClick(() => void this.openHabitView()));
     menu.addSeparator();
@@ -1279,7 +1488,7 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
   }
   setSyncRibbonState(syncing) {
     if (!this.syncRibbonIcon) return;
-    (0, import_obsidian4.setIcon)(this.syncRibbonIcon, syncing ? "loader-circle" : "arrow-down-up");
+    (0, import_obsidian5.setIcon)(this.syncRibbonIcon, syncing ? "loader-circle" : "arrow-down-up");
     this.syncRibbonIcon.toggleClass("is-syncing", syncing);
     this.syncRibbonIcon.setAttribute("aria-label", syncing ? "TickTick Bridge: \u062F\u0631 \u062D\u0627\u0644 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC\u2026" : "TickTick Bridge: \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0628\u0627 TickTick");
   }
@@ -1327,9 +1536,9 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
         const view = leaf.view;
         if (typeof view.render === "function") await view.render();
       }
-      if (!quiet) new import_obsidian4.Notice(`TickTick \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F: ${tasks.length} \u062A\u0633\u06A9 \u0648 ${habits.length} \u0639\u0627\u062F\u062A \u0627\u0645\u0631\u0648\u0632.`);
+      if (!quiet) new import_obsidian5.Notice(`TickTick \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F: ${tasks.length} \u062A\u0633\u06A9 \u0648 ${habits.length} \u0639\u0627\u062F\u062A \u0627\u0645\u0631\u0648\u0632.`);
     } catch (error) {
-      if (!quiet) new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC TickTick \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+      if (!quiet) new import_obsidian5.Notice(error instanceof Error ? error.message : "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC TickTick \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
     } finally {
       this.setSyncRibbonState(false);
       this.syncInProgress = false;
@@ -1408,7 +1617,7 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
       this.cache.pending.push(operation);
       applyLocal();
       await this.saveSettings();
-      new import_obsidian4.Notice("\u0622\u0641\u0644\u0627\u06CC\u0646 \u0647\u0633\u062A\u06CC\u061B \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0631 \u0635\u0641 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
+      new import_obsidian5.Notice("\u0622\u0641\u0644\u0627\u06CC\u0646 \u0647\u0633\u062A\u06CC\u061B \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0631 \u0635\u0641 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
       return { queued: true };
     }
     try {
@@ -1422,7 +1631,7 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
       this.cache.pending.push(operation);
       applyLocal();
       await this.saveSettings();
-      new import_obsidian4.Notice("\u0627\u062A\u0635\u0627\u0644 TickTick \u0628\u0631\u0642\u0631\u0627\u0631 \u0646\u06CC\u0633\u062A\u061B \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0631 \u0635\u0641 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
+      new import_obsidian5.Notice("\u0627\u062A\u0635\u0627\u0644 TickTick \u0628\u0631\u0642\u0631\u0627\u0631 \u0646\u06CC\u0633\u062A\u061B \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0631 \u0635\u0641 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
       return { queued: true };
     }
   }
@@ -1442,7 +1651,7 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
         const status = Number(error?.status ?? 0);
         if (status > 0 && status < 500) {
           this.cache.conflicts.push(operation);
-          new import_obsidian4.Notice("\u06CC\u06A9 \u062A\u063A\u06CC\u06CC\u0631 \u0622\u0641\u0644\u0627\u06CC\u0646 \u0628\u0627 \u0646\u0633\u062E\u0647\u0654 TickTick \u062A\u062F\u0627\u062E\u0644 \u062F\u0627\u0634\u062A \u0648 \u0627\u0631\u0633\u0627\u0644 \u0646\u0634\u062F.");
+          new import_obsidian5.Notice("\u06CC\u06A9 \u062A\u063A\u06CC\u06CC\u0631 \u0622\u0641\u0644\u0627\u06CC\u0646 \u0628\u0627 \u0646\u0633\u062E\u0647\u0654 TickTick \u062A\u062F\u0627\u062E\u0644 \u062F\u0627\u0634\u062A \u0648 \u0627\u0631\u0633\u0627\u0644 \u0646\u0634\u062F.");
         } else {
           remaining.push(...this.cache.pending.slice(index));
           break;
@@ -1500,7 +1709,7 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
     return new TickTickClient({
       token: this.settings.apiToken,
       transport: async (url, init) => {
-        const response = await (0, import_obsidian4.requestUrl)({ url, method: init.method, headers: init.headers, body: init.body, throw: false });
+        const response = await (0, import_obsidian5.requestUrl)({ url, method: init.method, headers: init.headers, body: init.body, throw: false });
         return { status: response.status, text: response.text };
       }
     });
@@ -1552,7 +1761,7 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
     const deviceId = this.settings.webSessionDeviceId || crypto.randomUUID().replaceAll("-", "").slice(0, 24);
     this.settings.webSessionDeviceId = deviceId;
     const origin = "https://ticktick.com";
-    const response = await (0, import_obsidian4.requestUrl)({
+    const response = await (0, import_obsidian5.requestUrl)({
       url: `${origin}/api/v2/user/signon?wc=true&remember=true`,
       method: "POST",
       headers: {
@@ -1581,7 +1790,7 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
     const afterDay = shiftIsoDay(day, -Math.max(1, historyDays));
     const sessionCookie = token ? `t=${token};${cookie ? ` ${cookie}` : ""}` : cookie;
     try {
-      const response = await (0, import_obsidian4.requestUrl)({
+      const response = await (0, import_obsidian5.requestUrl)({
         url: "https://api.ticktick.com/api/v2/habitCheckins/query",
         method: "POST",
         headers: {
@@ -1607,7 +1816,7 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
     if (!token && !cookie) return null;
     const sessionCookie = token ? `t=${token};${cookie ? ` ${cookie}` : ""}` : cookie;
     try {
-      const response = await (0, import_obsidian4.requestUrl)({
+      const response = await (0, import_obsidian5.requestUrl)({
         url: `https://api.ticktick.com/api/v2/${path.replace(/^\//, "")}`,
         method,
         headers: {
@@ -1660,6 +1869,10 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
     const leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: PLANNER_VIEW_TYPE, active: true });
   }
+  async openProjectBoardView() {
+    const leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf("tab");
+    await leaf.setViewState({ type: PROJECT_BOARD_VIEW_TYPE, active: true });
+  }
   async renderTodayBlock(element, dayOverride) {
     element.replaceChildren();
     const root = element.createDiv({ cls: "daily-tasks-output ticktick-task-grid" });
@@ -1675,10 +1888,10 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
           const draft = await openTaskEditor(this.app, projects, { dueDate: day });
           if (!draft) return;
           await this.createTask(toTaskPayload(draft, this.settings.timeZone));
-          new import_obsidian4.Notice("\u062A\u0633\u06A9 \u0628\u0647 TickTick \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.");
+          new import_obsidian5.Notice("\u062A\u0633\u06A9 \u0628\u0647 TickTick \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.");
           await this.renderTodayBlock(element, dayOverride);
         } catch (error) {
-          new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+          new import_obsidian5.Notice(error instanceof Error ? error.message : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
         } finally {
           addButton.disabled = false;
         }
@@ -1696,17 +1909,17 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
         const body = row.createDiv({ cls: "daily-task-main" });
         body.createSpan({ cls: "daily-task-title", text: title });
         const description = body.createDiv({ cls: "daily-task-description is-hidden" });
-        await import_obsidian4.MarkdownRenderer.renderMarkdown(cleanTaskDescription(task.desc || task.content) || "\u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.", description, "", this);
+        await import_obsidian5.MarkdownRenderer.renderMarkdown(cleanTaskDescription(task.desc || task.content) || "\u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.", description, "", this);
         const due = toDateKey(task.dueDate, task.timeZone || this.settings.timeZone) ?? "";
         const start = toDateKey(task.startDate, task.timeZone || this.settings.timeZone) ?? "";
         row.createSpan({ cls: `daily-task-date${due && due < day ? " is-overdue" : ""}`, text: formatTaskSchedule(start, due, day) });
         const actions = row.createDiv({ cls: "daily-task-actions" });
         const descriptionButton = actions.createEl("button", { cls: "daily-task-action mod-icon", attr: { "aria-label": "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A" } });
-        (0, import_obsidian4.setIcon)(descriptionButton, "file-text");
+        (0, import_obsidian5.setIcon)(descriptionButton, "file-text");
         const edit = actions.createEl("button", { cls: "daily-task-action mod-icon", attr: { "aria-label": "\u0648\u06CC\u0631\u0627\u06CC\u0634" } });
-        (0, import_obsidian4.setIcon)(edit, "pencil");
+        (0, import_obsidian5.setIcon)(edit, "pencil");
         const remove = actions.createEl("button", { cls: "daily-task-action is-danger mod-icon", attr: { "aria-label": "\u062D\u0630\u0641" } });
-        (0, import_obsidian4.setIcon)(remove, "trash-2");
+        (0, import_obsidian5.setIcon)(remove, "trash-2");
         descriptionButton.addEventListener("click", () => {
           const hidden = description.hasClass("is-hidden");
           description.toggleClass("is-hidden", !hidden);
@@ -1715,12 +1928,12 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
           check.disabled = true;
           try {
             await this.completeTask(task);
-            new import_obsidian4.Notice("\u0646\u0648\u0628\u062A \u062A\u0633\u06A9 \u062F\u0631 TickTick \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F.");
+            new import_obsidian5.Notice("\u0646\u0648\u0628\u062A \u062A\u0633\u06A9 \u062F\u0631 TickTick \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F.");
             await this.renderTodayBlock(element, dayOverride);
           } catch (error) {
             check.checked = false;
             check.disabled = false;
-            new import_obsidian4.Notice(error instanceof Error ? error.message : "\u062A\u06A9\u0645\u06CC\u0644 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+            new import_obsidian5.Notice(error instanceof Error ? error.message : "\u062A\u06A9\u0645\u06CC\u0644 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
           }
         });
         edit.addEventListener("click", async () => {
@@ -1729,20 +1942,20 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
             const draft = await openTaskEditor(this.app, projects, task);
             if (!draft) return;
             await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
-            new import_obsidian4.Notice("\u062A\u0633\u06A9 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
+            new import_obsidian5.Notice("\u062A\u0633\u06A9 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
             await this.renderTodayBlock(element, dayOverride);
           } catch (error) {
-            new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+            new import_obsidian5.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
           }
         });
         remove.addEventListener("click", async () => {
           if (!await confirmDelete(this.app, title)) return;
           try {
             await this.deleteTask(task);
-            new import_obsidian4.Notice("\u062A\u0633\u06A9 \u0627\u0632 TickTick \u062D\u0630\u0641 \u0634\u062F.");
+            new import_obsidian5.Notice("\u062A\u0633\u06A9 \u0627\u0632 TickTick \u062D\u0630\u0641 \u0634\u062F.");
             await this.renderTodayBlock(element, dayOverride);
           } catch (error) {
-            new import_obsidian4.Notice(error instanceof Error ? error.message : "\u062D\u0630\u0641 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+            new import_obsidian5.Notice(error instanceof Error ? error.message : "\u062D\u0630\u0641 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
           }
         });
       }
@@ -1866,11 +2079,11 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
               goal,
               status: nextStatus
             });
-            new import_obsidian4.Notice(completed ? "\u062B\u0628\u062A \u0627\u0645\u0631\u0648\u0632 \u0639\u0627\u062F\u062A \u062F\u0631 TickTick \u0628\u0631\u062F\u0627\u0634\u062A\u0647 \u0634\u062F." : nextStatus === 2 ? "\u0639\u0627\u062F\u062A \u062F\u0631 TickTick \u06A9\u0627\u0645\u0644 \u0634\u062F." : `\u06CC\u06A9 \u0645\u0631\u062D\u0644\u0647 \u062B\u0628\u062A \u0634\u062F: ${nextValue}/${goal}`);
+            new import_obsidian5.Notice(completed ? "\u062B\u0628\u062A \u0627\u0645\u0631\u0648\u0632 \u0639\u0627\u062F\u062A \u062F\u0631 TickTick \u0628\u0631\u062F\u0627\u0634\u062A\u0647 \u0634\u062F." : nextStatus === 2 ? "\u0639\u0627\u062F\u062A \u062F\u0631 TickTick \u06A9\u0627\u0645\u0644 \u0634\u062F." : `\u06CC\u06A9 \u0645\u0631\u062D\u0644\u0647 \u062B\u0628\u062A \u0634\u062F: ${nextValue}/${goal}`);
             await this.renderHabitBlock(element, dashboard, dayOverride);
           } catch (error) {
             card.disabled = false;
-            new import_obsidian4.Notice(error instanceof Error ? error.message : "\u062B\u0628\u062A \u0639\u0627\u062F\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+            new import_obsidian5.Notice(error instanceof Error ? error.message : "\u062B\u0628\u062A \u0639\u0627\u062F\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
           }
         });
       }
@@ -1926,10 +2139,10 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
               const draft = await openTaskEditor(this.app, projects, task);
               if (!draft) return;
               await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
-              new import_obsidian4.Notice("\u062A\u0633\u06A9 \u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
+              new import_obsidian5.Notice("\u062A\u0633\u06A9 \u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
               await this.renderRecurringBlock(element);
             } catch (error) {
-              new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+              new import_obsidian5.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
             } finally {
               card.disabled = false;
             }
@@ -1941,7 +2154,7 @@ var TickTickBridgePlugin = class extends import_obsidian4.Plugin {
     }
   }
 };
-var TodayTasksView = class extends import_obsidian4.ItemView {
+var TodayTasksView = class extends import_obsidian5.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -1985,10 +2198,10 @@ var TodayTasksView = class extends import_obsidian4.ItemView {
           const draft = await openTaskEditor(this.app, projects, { dueDate: day });
           if (!draft) return;
           await this.plugin.createTask(toTaskPayload(draft, this.plugin.settings.timeZone));
-          new import_obsidian4.Notice("\u062A\u0633\u06A9 \u0628\u0647 TickTick \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.");
+          new import_obsidian5.Notice("\u062A\u0633\u06A9 \u0628\u0647 TickTick \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.");
           await this.render();
         } catch (error) {
-          new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+          new import_obsidian5.Notice(error instanceof Error ? error.message : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
         } finally {
           addButton.disabled = false;
         }
@@ -2004,19 +2217,19 @@ var TodayTasksView = class extends import_obsidian4.ItemView {
         const actions = row.createDiv({ cls: "ticktick-bridge-actions" });
         await addDescriptionToggle(this.app, this, body, actions, task);
         const edit = actions.createEl("button", { cls: "mod-icon", attr: { "aria-label": "\u0648\u06CC\u0631\u0627\u06CC\u0634" } });
-        (0, import_obsidian4.setIcon)(edit, "pencil");
+        (0, import_obsidian5.setIcon)(edit, "pencil");
         const remove = actions.createEl("button", { cls: "mod-warning mod-icon", attr: { "aria-label": "\u062D\u0630\u0641" } });
-        (0, import_obsidian4.setIcon)(remove, "trash-2");
+        (0, import_obsidian5.setIcon)(remove, "trash-2");
         check.addEventListener("change", async () => {
           check.disabled = true;
           try {
             await this.plugin.completeTask(task);
-            new import_obsidian4.Notice("\u0646\u0648\u0628\u062A \u062A\u0633\u06A9 \u062F\u0631 TickTick \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F.");
+            new import_obsidian5.Notice("\u0646\u0648\u0628\u062A \u062A\u0633\u06A9 \u062F\u0631 TickTick \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F.");
             await this.render();
           } catch (error) {
             check.checked = false;
             check.disabled = false;
-            new import_obsidian4.Notice(error instanceof Error ? error.message : "\u062A\u06A9\u0645\u06CC\u0644 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+            new import_obsidian5.Notice(error instanceof Error ? error.message : "\u062A\u06A9\u0645\u06CC\u0644 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
           }
         });
         edit.addEventListener("click", async () => {
@@ -2025,10 +2238,10 @@ var TodayTasksView = class extends import_obsidian4.ItemView {
             const draft = await openTaskEditor(this.app, projects, task);
             if (!draft) return;
             await this.plugin.updateTask(toTaskPayload({ ...task, ...draft }, this.plugin.settings.timeZone));
-            new import_obsidian4.Notice("\u062A\u0633\u06A9 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
+            new import_obsidian5.Notice("\u062A\u0633\u06A9 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
             await this.render();
           } catch (error) {
-            new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+            new import_obsidian5.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
           }
         });
         remove.addEventListener("click", async () => {
@@ -2036,10 +2249,10 @@ var TodayTasksView = class extends import_obsidian4.ItemView {
           if (!accepted) return;
           try {
             await this.plugin.deleteTask(task);
-            new import_obsidian4.Notice("\u062A\u0633\u06A9 \u0627\u0632 TickTick \u062D\u0630\u0641 \u0634\u062F.");
+            new import_obsidian5.Notice("\u062A\u0633\u06A9 \u0627\u0632 TickTick \u062D\u0630\u0641 \u0634\u062F.");
             await this.render();
           } catch (error) {
-            new import_obsidian4.Notice(error instanceof Error ? error.message : "\u062D\u0630\u0641 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+            new import_obsidian5.Notice(error instanceof Error ? error.message : "\u062D\u0630\u0641 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
           }
         });
       }
@@ -2048,7 +2261,7 @@ var TodayTasksView = class extends import_obsidian4.ItemView {
     }
   }
 };
-var TodayHabitsView = class extends import_obsidian4.ItemView {
+var TodayHabitsView = class extends import_obsidian5.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -2083,7 +2296,7 @@ var TodayHabitsView = class extends import_obsidian4.ItemView {
     await this.plugin.renderHabitBlock(panel, true);
   }
 };
-var PlanningView = class extends import_obsidian4.ItemView {
+var PlanningView = class extends import_obsidian5.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -2104,6 +2317,29 @@ var PlanningView = class extends import_obsidian4.ItemView {
     this.contentEl.empty();
     this.contentEl.addClass("ticktick-planner-panel");
     await new PlanningCalendar(this.contentEl, this.plugin.plannerHost()).render();
+  }
+};
+var ProjectBoardView = class extends import_obsidian5.ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.plugin = plugin;
+  }
+  getViewType() {
+    return PROJECT_BOARD_VIEW_TYPE;
+  }
+  getDisplayText() {
+    return "\u0628\u0631\u062F \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627\u06CC TickTick";
+  }
+  getIcon() {
+    return "kanban-square";
+  }
+  async onOpen() {
+    await this.render();
+  }
+  async render() {
+    this.contentEl.empty();
+    this.contentEl.addClass("ticktick-project-board-panel");
+    await new ProjectBoard(this.contentEl, this.plugin.projectBoardHost()).render();
   }
 };
 function formatTaskDate(dueDate, today) {
@@ -2266,10 +2502,10 @@ function dailyNoteDateFromPath(path) {
 async function addDescriptionToggle(app, component, body, actions, task) {
   const description = cleanTaskDescription(task.desc || task.content);
   const button = actions.createEl("button", { cls: "mod-icon", attr: { "aria-label": "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A" } });
-  (0, import_obsidian4.setIcon)(button, "file-text");
+  (0, import_obsidian5.setIcon)(button, "file-text");
   const panel = body.createDiv({ cls: "ticktick-bridge-description" });
   panel.addClass("is-hidden");
-  await import_obsidian4.MarkdownRenderer.render(app, description || "\u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.", panel, "", component);
+  await import_obsidian5.MarkdownRenderer.render(app, description || "\u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.", panel, "", component);
   button.addEventListener("click", () => panel.classList.toggle("is-hidden"));
 }
 function toTaskPayload(draft, timeZone) {
@@ -2301,7 +2537,7 @@ function reminderTimeFromTask(task) {
   }
   return "";
 }
-var TaskEditorModal = class extends import_obsidian4.Modal {
+var TaskEditorModal = class extends import_obsidian5.Modal {
   constructor(app, projects, initial) {
     super(app);
     this.projects = projects;
@@ -2310,7 +2546,7 @@ var TaskEditorModal = class extends import_obsidian4.Modal {
   resolveResult;
   result = new Promise((resolve) => this.resolveResult = resolve);
   finished = false;
-  comp = new import_obsidian4.Component();
+  comp = new import_obsidian5.Component();
   finish(value) {
     if (!this.finished) {
       this.finished = true;
@@ -2332,17 +2568,17 @@ var TaskEditorModal = class extends import_obsidian4.Modal {
     let projectId = String(this.initial.projectId ?? this.projects[0]?.id ?? "");
     let dueDate = toDateKey(String(this.initial.dueDate ?? ""), String(this.initial.timeZone ?? "Asia/Tehran")) ?? "";
     let reminderTime = reminderTimeFromTask(this.initial);
-    new import_obsidian4.Setting(fields2).setName("\u{1F4DD} \u0639\u0646\u0648\u0627\u0646").addText((input) => {
+    new import_obsidian5.Setting(fields2).setName("\u{1F4DD} \u0639\u0646\u0648\u0627\u0646").addText((input) => {
       input.setValue(title).onChange((value) => title = value);
       input.inputEl.dir = "rtl";
       input.inputEl.addClass("ticktick-input-full-width");
     });
     const selectedProjectName = () => this.projects.find((project) => project.id === projectId)?.name ?? "\u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0648\u0698\u0647";
-    new import_obsidian4.Setting(fields2).setName("\u{1F4C2} \u067E\u0631\u0648\u0698\u0647").setDesc("\u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0648\u0698\u0647 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646.").addButton((button) => {
+    new import_obsidian5.Setting(fields2).setName("\u{1F4C2} \u067E\u0631\u0648\u0698\u0647").setDesc("\u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0648\u0698\u0647 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646.").addButton((button) => {
       button.setButtonText(selectedProjectName());
       button.buttonEl.addClass("ticktick-project-picker");
       button.buttonEl.addEventListener("click", (event) => {
-        const menu = new import_obsidian4.Menu();
+        const menu = new import_obsidian5.Menu();
         this.projects.forEach((project) => menu.addItem((item) => item.setTitle(project.name).setChecked(project.id === projectId).onClick(() => {
           projectId = project.id;
           button.setButtonText(selectedProjectName());
@@ -2350,12 +2586,12 @@ var TaskEditorModal = class extends import_obsidian4.Modal {
         menu.showAtMouseEvent(event);
       });
     });
-    new import_obsidian4.Setting(fields2).setName("\u{1F4C5} \u062A\u0627\u0631\u06CC\u062E").setDesc("\u0628\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u062A\u0627\u0631\u06CC\u062E\u060C \u062A\u0642\u0648\u06CC\u0645 \u0633\u06CC\u0633\u062A\u0645 \u0628\u0627\u0632 \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((input) => {
+    new import_obsidian5.Setting(fields2).setName("\u{1F4C5} \u062A\u0627\u0631\u06CC\u062E").setDesc("\u0628\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u062A\u0627\u0631\u06CC\u062E\u060C \u062A\u0642\u0648\u06CC\u0645 \u0633\u06CC\u0633\u062A\u0645 \u0628\u0627\u0632 \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((input) => {
       input.inputEl.type = "date";
       input.setValue(dueDate).onChange((value) => dueDate = value);
       input.inputEl.dir = "ltr";
     });
-    new import_obsidian4.Setting(fields2).setName("\u23F0 \u06CC\u0627\u062F\u0622\u0648\u0631\u06CC").setDesc("\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC\u061B \u062F\u0631 \u0633\u0627\u0639\u062A \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u062F\u0631 \u0647\u0645\u0627\u0646 \u0631\u0648\u0632 \u06CC\u0627\u062F\u0622\u0648\u0631\u06CC \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((input) => {
+    new import_obsidian5.Setting(fields2).setName("\u23F0 \u06CC\u0627\u062F\u0622\u0648\u0631\u06CC").setDesc("\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC\u061B \u062F\u0631 \u0633\u0627\u0639\u062A \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u062F\u0631 \u0647\u0645\u0627\u0646 \u0631\u0648\u0632 \u06CC\u0627\u062F\u0622\u0648\u0631\u06CC \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((input) => {
       input.inputEl.type = "time";
       input.setValue(reminderTime).onChange((value) => reminderTime = value);
       input.inputEl.dir = "ltr";
@@ -2386,7 +2622,7 @@ var TaskEditorModal = class extends import_obsidian4.Modal {
     const renderPreview = async () => {
       previewEl.empty();
       const content = description.trim() || "*\u0647\u0646\u0648\u0632 \u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0628\u0631\u0627\u06CC \u0646\u0648\u0634\u062A\u0646\u060C \u0631\u0648\u06CC \u062F\u06A9\u0645\u0647 \xAB\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u062A\u0646\xBB \u062F\u0631 \u0628\u0627\u0644\u0627 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F.*";
-      await import_obsidian4.MarkdownRenderer.render(this.app, content, previewEl, "", this.comp);
+      await import_obsidian5.MarkdownRenderer.render(this.app, content, previewEl, "", this.comp);
     };
     const setTab = (tab) => {
       if (tab === "preview") {
@@ -2418,8 +2654,8 @@ var TaskEditorModal = class extends import_obsidian4.Modal {
     actions.createEl("button", { text: "\u274C \u0627\u0646\u0635\u0631\u0627\u0641" }).addEventListener("click", () => this.finish(null));
     actions.createEl("button", { text: "\u{1F4BE} \u0630\u062E\u06CC\u0631\u0647", cls: "mod-cta" }).addEventListener("click", () => {
       description = descTextarea.value;
-      if (!title.trim() || !projectId) return new import_obsidian4.Notice("\u0639\u0646\u0648\u0627\u0646 \u0648 \u067E\u0631\u0648\u0698\u0647 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646.");
-      if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return new import_obsidian4.Notice("\u062A\u0627\u0631\u06CC\u062E \u0628\u0627\u06CC\u062F \u0628\u0647 \u0634\u06A9\u0644 YYYY-MM-DD \u0628\u0627\u0634\u062F.");
+      if (!title.trim() || !projectId) return new import_obsidian5.Notice("\u0639\u0646\u0648\u0627\u0646 \u0648 \u067E\u0631\u0648\u0698\u0647 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646.");
+      if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return new import_obsidian5.Notice("\u062A\u0627\u0631\u06CC\u062E \u0628\u0627\u06CC\u062F \u0628\u0647 \u0634\u06A9\u0644 YYYY-MM-DD \u0628\u0627\u0634\u062F.");
       this.finish({ ...this.initial, title: title.trim(), desc: description.trim(), projectId, dueDate, reminderTime });
     });
   }
@@ -2436,7 +2672,7 @@ var TaskEditorModal = class extends import_obsidian4.Modal {
     return this.result;
   }
 };
-var DeleteConfirmationModal = class extends import_obsidian4.Modal {
+var DeleteConfirmationModal = class extends import_obsidian5.Modal {
   constructor(app, title) {
     super(app);
     this.title = title;
@@ -2477,7 +2713,7 @@ function openTaskEditor(app, projects, initial) {
 function confirmDelete(app, title) {
   return new DeleteConfirmationModal(app, title).openAndWait();
 }
-var TickTickWebLoginModal = class extends import_obsidian4.Modal {
+var TickTickWebLoginModal = class extends import_obsidian5.Modal {
   resolveResult;
   result = new Promise((resolve) => this.resolveResult = resolve);
   submitted = false;
@@ -2487,12 +2723,12 @@ var TickTickWebLoginModal = class extends import_obsidian4.Modal {
     this.contentEl.createEl("p", { text: "\u0631\u0645\u0632 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u062F\u0631\u06CC\u0627\u0641\u062A \u0646\u0634\u0633\u062A TickTick \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F \u0648 \u062F\u0631 Obsidian \u0630\u062E\u06CC\u0631\u0647 \u0646\u062E\u0648\u0627\u0647\u062F \u0634\u062F." });
     let username = "";
     let password = "";
-    new import_obsidian4.Setting(this.contentEl).setName("\u0627\u06CC\u0645\u06CC\u0644 \u06CC\u0627 \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC").addText((input) => {
+    new import_obsidian5.Setting(this.contentEl).setName("\u0627\u06CC\u0645\u06CC\u0644 \u06CC\u0627 \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC").addText((input) => {
       input.inputEl.autocomplete = "username";
       input.inputEl.addClass("ticktick-input-full-width");
       input.onChange((value) => username = value);
     });
-    new import_obsidian4.Setting(this.contentEl).setName("\u0631\u0645\u0632 \u0639\u0628\u0648\u0631").addText((input) => {
+    new import_obsidian5.Setting(this.contentEl).setName("\u0631\u0645\u0632 \u0639\u0628\u0648\u0631").addText((input) => {
       input.inputEl.type = "password";
       input.inputEl.autocomplete = "current-password";
       input.inputEl.addClass("ticktick-input-full-width");
@@ -2502,7 +2738,7 @@ var TickTickWebLoginModal = class extends import_obsidian4.Modal {
     actions.createEl("button", { text: "\u0627\u0646\u0635\u0631\u0627\u0641" }).addEventListener("click", () => this.finish(null));
     actions.createEl("button", { text: "\u0648\u0631\u0648\u062F \u0648 \u0627\u062A\u0635\u0627\u0644", cls: "mod-cta" }).addEventListener("click", () => {
       if (!username.trim() || !password) {
-        new import_obsidian4.Notice("\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0648 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646.");
+        new import_obsidian5.Notice("\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0648 \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646.");
         return;
       }
       this.finish({ username, password });
@@ -2526,7 +2762,7 @@ var TickTickWebLoginModal = class extends import_obsidian4.Modal {
     return this.result;
   }
 };
-var TickTickBridgeSettings = class extends import_obsidian4.PluginSettingTab {
+var TickTickBridgeSettings = class extends import_obsidian5.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -2534,12 +2770,12 @@ var TickTickBridgeSettings = class extends import_obsidian4.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian4.Setting(containerEl).setName("\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u062A\u0635\u0627\u0644 \u0648 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC").setHeading();
+    new import_obsidian5.Setting(containerEl).setName("\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u062A\u0635\u0627\u0644 \u0648 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC").setHeading();
     const cachedAt = this.plugin.cacheSnapshotTime();
-    new import_obsidian4.Setting(containerEl).setName("\u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u062F\u0627\u062F\u0647\u200C\u0647\u0627").setDesc(cachedAt ? `\u0622\u062E\u0631\u06CC\u0646 \u062F\u0631\u06CC\u0627\u0641\u062A: ${cachedAt} \u2014 \u067E\u0646\u0644\u200C\u0647\u0627 \u0627\u0628\u062A\u062F\u0627 \u0627\u0632 \u0627\u06CC\u0646 \u0646\u0633\u062E\u0647\u0654 \u0633\u0631\u06CC\u0639 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F.` : "\u0647\u0646\u0648\u0632 \u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u06CC\u06A9\u200C\u0628\u0627\u0631 \xAB\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0627\u0644\u0622\u0646\xBB \u0631\u0627 \u0628\u0632\u0646.");
-    if (this.plugin.cacheConflictCount()) new import_obsidian4.Setting(containerEl).setName("\u062A\u062F\u0627\u062E\u0644\u200C\u0647\u0627\u06CC \u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0628\u0631\u0631\u0633\u06CC").setDesc(`${this.plugin.cacheConflictCount()} \u062A\u063A\u06CC\u06CC\u0631 \u0622\u0641\u0644\u0627\u06CC\u0646 \u062F\u0631 TickTick \u0642\u0627\u0628\u0644 \u0627\u0639\u0645\u0627\u0644 \u0646\u0628\u0648\u062F \u0648 \u0628\u0631\u0627\u06CC \u062C\u0644\u0648\u06AF\u06CC\u0631\u06CC \u0627\u0632 \u0628\u0627\u0632\u0646\u0648\u06CC\u0633\u06CC \u062F\u0627\u062F\u0647\u0654 \u062C\u062F\u06CC\u062F\u060C \u0646\u06AF\u0647 \u062F\u0627\u0634\u062A\u0647 \u0634\u062F\u0647 \u0627\u0633\u062A.`);
-    new import_obsidian4.Setting(containerEl).setName("\u0641\u0636\u0627\u06CC \u0645\u062F\u06CC\u0631\u06CC\u062A\u200C\u0634\u062F\u0647\u0654 TickTick").setDesc(`/.ticktick/ \u2014 \u0646\u0633\u062E\u0647\u200C\u0647\u0627\u06CC \u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u062A\u0627 \u06F1\u06F0 \u0631\u0648\u0632 \u062A\u0642\u0648\u06CC\u0645\u06CC UTC \u0646\u06AF\u0647 \u062F\u0627\u0634\u062A\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u0622\u062E\u0631\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634: ${this.plugin.managedStorageReport()}`);
-    new import_obsidian4.Setting(containerEl).setName("\u0622\u062E\u0631\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0645\u062F\u06CC\u0631\u06CC\u062A\u200C\u0634\u062F\u0647").setDesc("\u0622\u062E\u0631\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634 \u063A\u06CC\u0631\u0645\u062D\u0631\u0645\u0627\u0646\u0647\u0654 \u0639\u0645\u0644\u06CC\u0627\u062A \u0630\u062E\u06CC\u0631\u0647\u200C\u0634\u062F\u0647 \u062F\u0631 .ticktick/reports/ \u0631\u0627 \u0646\u0645\u0627\u06CC\u0634 \u0645\u06CC\u200C\u062F\u0647\u062F.").addButton((button) => button.setButtonText("\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0622\u062E\u0631").onClick(async () => {
+    new import_obsidian5.Setting(containerEl).setName("\u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u062F\u0627\u062F\u0647\u200C\u0647\u0627").setDesc(cachedAt ? `\u0622\u062E\u0631\u06CC\u0646 \u062F\u0631\u06CC\u0627\u0641\u062A: ${cachedAt} \u2014 \u067E\u0646\u0644\u200C\u0647\u0627 \u0627\u0628\u062A\u062F\u0627 \u0627\u0632 \u0627\u06CC\u0646 \u0646\u0633\u062E\u0647\u0654 \u0633\u0631\u06CC\u0639 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F.` : "\u0647\u0646\u0648\u0632 \u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u06CC\u06A9\u200C\u0628\u0627\u0631 \xAB\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0627\u0644\u0622\u0646\xBB \u0631\u0627 \u0628\u0632\u0646.");
+    if (this.plugin.cacheConflictCount()) new import_obsidian5.Setting(containerEl).setName("\u062A\u062F\u0627\u062E\u0644\u200C\u0647\u0627\u06CC \u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0628\u0631\u0631\u0633\u06CC").setDesc(`${this.plugin.cacheConflictCount()} \u062A\u063A\u06CC\u06CC\u0631 \u0622\u0641\u0644\u0627\u06CC\u0646 \u062F\u0631 TickTick \u0642\u0627\u0628\u0644 \u0627\u0639\u0645\u0627\u0644 \u0646\u0628\u0648\u062F \u0648 \u0628\u0631\u0627\u06CC \u062C\u0644\u0648\u06AF\u06CC\u0631\u06CC \u0627\u0632 \u0628\u0627\u0632\u0646\u0648\u06CC\u0633\u06CC \u062F\u0627\u062F\u0647\u0654 \u062C\u062F\u06CC\u062F\u060C \u0646\u06AF\u0647 \u062F\u0627\u0634\u062A\u0647 \u0634\u062F\u0647 \u0627\u0633\u062A.`);
+    new import_obsidian5.Setting(containerEl).setName("\u0641\u0636\u0627\u06CC \u0645\u062F\u06CC\u0631\u06CC\u062A\u200C\u0634\u062F\u0647\u0654 TickTick").setDesc(`/.ticktick/ \u2014 \u0646\u0633\u062E\u0647\u200C\u0647\u0627\u06CC \u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u062A\u0627 \u06F1\u06F0 \u0631\u0648\u0632 \u062A\u0642\u0648\u06CC\u0645\u06CC UTC \u0646\u06AF\u0647 \u062F\u0627\u0634\u062A\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F. \u0622\u062E\u0631\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634: ${this.plugin.managedStorageReport()}`);
+    new import_obsidian5.Setting(containerEl).setName("\u0622\u062E\u0631\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0645\u062F\u06CC\u0631\u06CC\u062A\u200C\u0634\u062F\u0647").setDesc("\u0622\u062E\u0631\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634 \u063A\u06CC\u0631\u0645\u062D\u0631\u0645\u0627\u0646\u0647\u0654 \u0639\u0645\u0644\u06CC\u0627\u062A \u0630\u062E\u06CC\u0631\u0647\u200C\u0634\u062F\u0647 \u062F\u0631 .ticktick/reports/ \u0631\u0627 \u0646\u0645\u0627\u06CC\u0634 \u0645\u06CC\u200C\u062F\u0647\u062F.").addButton((button) => button.setButtonText("\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0622\u062E\u0631").onClick(async () => {
       button.setDisabled(true);
       try {
         new ManagedReportModal(this.app, await this.plugin.latestManagedReport()).open();
@@ -2547,32 +2783,32 @@ var TickTickBridgeSettings = class extends import_obsidian4.PluginSettingTab {
         button.setDisabled(false);
       }
     }));
-    new import_obsidian4.Setting(containerEl).setName("\u0627\u0646\u062A\u0642\u0627\u0644 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u200C\u0647\u0627\u06CC \u0642\u062F\u06CC\u0645\u06CC \u0631\u06CC\u0634\u0647\u0654 Vault").setDesc("\u0641\u0642\u0637 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627\u06CC \u062F\u0642\u06CC\u0642 ticktick-backup-*.csv \u0631\u0627 \u067E\u0633 \u0627\u0632 \u062A\u0623\u06CC\u06CC\u062F \u0648 \u0628\u0631\u0631\u0633\u06CC \u0637\u0648\u0644 \u0628\u0627\u06CC\u062A \u06A9\u067E\u06CC \u0645\u06CC\u200C\u06A9\u0646\u062F.").addButton((button) => button.setButtonText("Move legacy root backups").onClick(async () => {
+    new import_obsidian5.Setting(containerEl).setName("\u0627\u0646\u062A\u0642\u0627\u0644 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u200C\u0647\u0627\u06CC \u0642\u062F\u06CC\u0645\u06CC \u0631\u06CC\u0634\u0647\u0654 Vault").setDesc("\u0641\u0642\u0637 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627\u06CC \u062F\u0642\u06CC\u0642 ticktick-backup-*.csv \u0631\u0627 \u067E\u0633 \u0627\u0632 \u062A\u0623\u06CC\u06CC\u062F \u0648 \u0628\u0631\u0631\u0633\u06CC \u0637\u0648\u0644 \u0628\u0627\u06CC\u062A \u06A9\u067E\u06CC \u0645\u06CC\u200C\u06A9\u0646\u062F.").addButton((button) => button.setButtonText("Move legacy root backups").onClick(async () => {
       button.setDisabled(true);
       try {
         const files = await this.plugin.previewLegacyRootBackups();
         const size = files.reduce((total, file) => total + file.size, 0);
         if (!files.length) {
-          new import_obsidian4.Notice("\u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u0642\u062F\u06CC\u0645\u06CC \u062F\u0631 \u0631\u06CC\u0634\u0647\u0654 Vault \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F.");
+          new import_obsidian5.Notice("\u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u0642\u062F\u06CC\u0645\u06CC \u062F\u0631 \u0631\u06CC\u0634\u0647\u0654 Vault \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F.");
           return;
         }
         const confirmed = await new LegacyBackupMigrationModal(this.app, files.length, size).openAndWait();
         if (!confirmed) return;
         const result = await this.plugin.migrateLegacyRootBackups();
-        new import_obsidian4.Notice(`${result.migrated.length} \u0627\u0632 ${result.sources.length} \u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u0642\u062F\u06CC\u0645\u06CC \u0645\u0646\u062A\u0642\u0644 \u0634\u062F.`);
+        new import_obsidian5.Notice(`${result.migrated.length} \u0627\u0632 ${result.sources.length} \u067E\u0634\u062A\u06CC\u0628\u0627\u0646 \u0642\u062F\u06CC\u0645\u06CC \u0645\u0646\u062A\u0642\u0644 \u0634\u062F.`);
         this.display();
       } finally {
         button.setDisabled(false);
       }
     }));
-    new import_obsidian4.Setting(containerEl).setName("API Token").setDesc("\u062A\u0648\u06A9\u0646 \u0634\u062E\u0635\u06CC TickTick\u061B \u0641\u0642\u0637 \u062F\u0631 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u0641\u0632\u0648\u0646\u0647 \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((input) => {
+    new import_obsidian5.Setting(containerEl).setName("API Token").setDesc("\u062A\u0648\u06A9\u0646 \u0634\u062E\u0635\u06CC TickTick\u061B \u0641\u0642\u0637 \u062F\u0631 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u0641\u0632\u0648\u0646\u0647 \u0646\u06AF\u0647\u062F\u0627\u0631\u06CC \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((input) => {
       input.inputEl.type = "password";
       input.setValue(this.plugin.settings.apiToken).onChange(async (value) => {
         this.plugin.settings.apiToken = value.trim();
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian4.Setting(containerEl).setName("\u062A\u06AF \u0686\u06A9\u200C\u0628\u0627\u06A9\u0633 TickTick").setDesc("\u0686\u06A9\u200C\u0628\u0627\u06A9\u0633\u200C\u0647\u0627\u06CC \u062F\u0627\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u06AF \u0627\u0628\u062A\u062F\u0627 \u0641\u0642\u0637 \u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F\u061B \u0633\u067E\u0633 \u0628\u0627 \u0641\u0631\u0645\u0627\u0646 \u0627\u0639\u0645\u0627\u0644\u060C binding \u0627\u0645\u0646 TickTick \u0645\u06CC\u200C\u06AF\u06CC\u0631\u0646\u062F.").addText((input) => {
+    new import_obsidian5.Setting(containerEl).setName("\u062A\u06AF \u0686\u06A9\u200C\u0628\u0627\u06A9\u0633 TickTick").setDesc("\u0686\u06A9\u200C\u0628\u0627\u06A9\u0633\u200C\u0647\u0627\u06CC \u062F\u0627\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u06AF \u0627\u0628\u062A\u062F\u0627 \u0641\u0642\u0637 \u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F\u061B \u0633\u067E\u0633 \u0628\u0627 \u0641\u0631\u0645\u0627\u0646 \u0627\u0639\u0645\u0627\u0644\u060C binding \u0627\u0645\u0646 TickTick \u0645\u06CC\u200C\u06AF\u06CC\u0631\u0646\u062F.").addText((input) => {
       input.setValue(this.plugin.settings.checkboxImportTag).onChange(async (value) => {
         this.plugin.settings.checkboxImportTag = value.trim().replace(/^#/, "") || "ticktick";
         await this.plugin.saveSettings();
@@ -2592,33 +2828,33 @@ var TickTickBridgeSettings = class extends import_obsidian4.PluginSettingTab {
         button.setDisabled(false);
       }
     }));
-    new import_obsidian4.Setting(containerEl).setName("\u0648\u0631\u0648\u062F \u0645\u0633\u062A\u0642\u0644 \u0628\u0631\u0627\u06CC \u0639\u0627\u062F\u062A\u200C\u0647\u0627").setDesc("\u0645\u0633\u062A\u0642\u06CC\u0645 \u0648\u0627\u0631\u062F TickTick \u0645\u06CC\u200C\u0634\u0648\u062F \u0648 \u0646\u0634\u0633\u062A \u0644\u0627\u0632\u0645 \u0631\u0627 \u062F\u0631 \u062E\u0648\u062F Bridge \u0646\u06AF\u0647 \u0645\u06CC\u200C\u062F\u0627\u0631\u062F. \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0648 \u0631\u0645\u0632 \u0630\u062E\u06CC\u0631\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F.").addButton((button) => button.setButtonText("\u0648\u0631\u0648\u062F \u0628\u0647 TickTick").setCta().onClick(async () => {
+    new import_obsidian5.Setting(containerEl).setName("\u0648\u0631\u0648\u062F \u0645\u0633\u062A\u0642\u0644 \u0628\u0631\u0627\u06CC \u0639\u0627\u062F\u062A\u200C\u0647\u0627").setDesc("\u0645\u0633\u062A\u0642\u06CC\u0645 \u0648\u0627\u0631\u062F TickTick \u0645\u06CC\u200C\u0634\u0648\u062F \u0648 \u0646\u0634\u0633\u062A \u0644\u0627\u0632\u0645 \u0631\u0627 \u062F\u0631 \u062E\u0648\u062F Bridge \u0646\u06AF\u0647 \u0645\u06CC\u200C\u062F\u0627\u0631\u062F. \u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC \u0648 \u0631\u0645\u0632 \u0630\u062E\u06CC\u0631\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u0646\u062F.").addButton((button) => button.setButtonText("\u0648\u0631\u0648\u062F \u0628\u0647 TickTick").setCta().onClick(async () => {
       const credentials = await new TickTickWebLoginModal(this.app).openAndWait();
       if (!credentials) return;
       button.setDisabled(true);
       try {
         await this.plugin.loginToTickTickWeb(credentials.username, credentials.password);
-        new import_obsidian4.Notice("\u0648\u0631\u0648\u062F \u0645\u0633\u062A\u0642\u0644 TickTick \u0627\u0646\u062C\u0627\u0645 \u0634\u062F. \u062D\u0627\u0644\u0627 \u0627\u062A\u0635\u0627\u0644 \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u06CC\u0627 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0646.");
+        new import_obsidian5.Notice("\u0648\u0631\u0648\u062F \u0645\u0633\u062A\u0642\u0644 TickTick \u0627\u0646\u062C\u0627\u0645 \u0634\u062F. \u062D\u0627\u0644\u0627 \u0627\u062A\u0635\u0627\u0644 \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u06CC\u0627 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0646.");
         this.display();
       } catch (error) {
-        new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0648\u0631\u0648\u062F \u0628\u0647 TickTick \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+        new import_obsidian5.Notice(error instanceof Error ? error.message : "\u0648\u0631\u0648\u062F \u0628\u0647 TickTick \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
       } finally {
         button.setDisabled(false);
       }
     }));
-    new import_obsidian4.Setting(containerEl).setName("\u0627\u062A\u0635\u0627\u0644 \u0622\u0633\u0627\u0646 \u0627\u0632 TickTickSync").setDesc("\u0646\u0634\u0633\u062A \u0641\u0639\u0627\u0644 TickTickSync \u0631\u0627 \u0648\u0627\u0631\u062F \u0645\u06CC\u200C\u06A9\u0646\u062F \u062A\u0627 \u0686\u06A9\u200C\u0627\u06CC\u0646 \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0641\u0648\u0631\u06CC \u0648 \u062F\u0642\u06CC\u0642 \u062E\u0648\u0627\u0646\u062F\u0647 \u0634\u0648\u0646\u062F. \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u062E\u0648\u0627\u0646\u062F\u0647\u060C \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u06CC\u0627 \u0630\u062E\u06CC\u0631\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F.").addButton((button) => button.setButtonText("\u0648\u0627\u0631\u062F \u06A9\u0631\u062F\u0646 \u0627\u062A\u0635\u0627\u0644 TickTickSync").setCta().onClick(async () => {
+    new import_obsidian5.Setting(containerEl).setName("\u0627\u062A\u0635\u0627\u0644 \u0622\u0633\u0627\u0646 \u0627\u0632 TickTickSync").setDesc("\u0646\u0634\u0633\u062A \u0641\u0639\u0627\u0644 TickTickSync \u0631\u0627 \u0648\u0627\u0631\u062F \u0645\u06CC\u200C\u06A9\u0646\u062F \u062A\u0627 \u0686\u06A9\u200C\u0627\u06CC\u0646 \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0641\u0648\u0631\u06CC \u0648 \u062F\u0642\u06CC\u0642 \u062E\u0648\u0627\u0646\u062F\u0647 \u0634\u0648\u0646\u062F. \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u062E\u0648\u0627\u0646\u062F\u0647\u060C \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u06CC\u0627 \u0630\u062E\u06CC\u0631\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F.").addButton((button) => button.setButtonText("\u0648\u0627\u0631\u062F \u06A9\u0631\u062F\u0646 \u0627\u062A\u0635\u0627\u0644 TickTickSync").setCta().onClick(async () => {
       button.setDisabled(true);
       try {
         const result = await this.plugin.importTickTickSyncSession();
-        new import_obsidian4.Notice(result.hasCookie ? "\u0627\u062A\u0635\u0627\u0644 TickTickSync \u0648\u0627\u0631\u062F \u0634\u062F." : "\u0627\u062A\u0635\u0627\u0644 TickTickSync \u0648\u0627\u0631\u062F \u0634\u062F\u061B \u062F\u0631 \u0635\u0648\u0631\u062A \u062E\u0637\u0627 \u06CC\u06A9\u200C\u0628\u0627\u0631 \u0627\u0641\u0632\u0648\u0646\u0647\u0654 \u0642\u062F\u06CC\u0645\u06CC \u0631\u0627 \u0628\u0627\u0632 \u06A9\u0646 \u0648 \u062F\u0648\u0628\u0627\u0631\u0647 \u0627\u0645\u062A\u062D\u0627\u0646 \u06A9\u0646.");
+        new import_obsidian5.Notice(result.hasCookie ? "\u0627\u062A\u0635\u0627\u0644 TickTickSync \u0648\u0627\u0631\u062F \u0634\u062F." : "\u0627\u062A\u0635\u0627\u0644 TickTickSync \u0648\u0627\u0631\u062F \u0634\u062F\u061B \u062F\u0631 \u0635\u0648\u0631\u062A \u062E\u0637\u0627 \u06CC\u06A9\u200C\u0628\u0627\u0631 \u0627\u0641\u0632\u0648\u0646\u0647\u0654 \u0642\u062F\u06CC\u0645\u06CC \u0631\u0627 \u0628\u0627\u0632 \u06A9\u0646 \u0648 \u062F\u0648\u0628\u0627\u0631\u0647 \u0627\u0645\u062A\u062D\u0627\u0646 \u06A9\u0646.");
         this.display();
       } catch (error) {
-        new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0648\u0627\u0631\u062F \u06A9\u0631\u062F\u0646 \u0627\u062A\u0635\u0627\u0644 TickTickSync \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+        new import_obsidian5.Notice(error instanceof Error ? error.message : "\u0648\u0627\u0631\u062F \u06A9\u0631\u062F\u0646 \u0627\u062A\u0635\u0627\u0644 TickTickSync \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
       } finally {
         button.setDisabled(false);
       }
     }));
-    new import_obsidian4.Setting(containerEl).setName("Cookie \u062A\u06A9\u0645\u06CC\u0644\u06CC \u0648\u0628 (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)").setDesc("\u0641\u0642\u0637 \u0627\u06AF\u0631 \u0627\u062A\u0635\u0627\u0644 \u062E\u0648\u062F\u06A9\u0627\u0631 \u062C\u0648\u0627\u0628 \u0646\u062F\u0627\u062F\u060C Cookie \u0646\u0634\u0633\u062A \u0648\u0628 TickTick \u0631\u0627 \u0627\u06CC\u0646\u062C\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646. \u0627\u06CC\u0646 \u0645\u0642\u062F\u0627\u0631 \u0645\u0627\u0646\u0646\u062F \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0627\u0633\u062A.").addText((input) => {
+    new import_obsidian5.Setting(containerEl).setName("Cookie \u062A\u06A9\u0645\u06CC\u0644\u06CC \u0648\u0628 (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC)").setDesc("\u0641\u0642\u0637 \u0627\u06AF\u0631 \u0627\u062A\u0635\u0627\u0644 \u062E\u0648\u062F\u06A9\u0627\u0631 \u062C\u0648\u0627\u0628 \u0646\u062F\u0627\u062F\u060C Cookie \u0646\u0634\u0633\u062A \u0648\u0628 TickTick \u0631\u0627 \u0627\u06CC\u0646\u062C\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646. \u0627\u06CC\u0646 \u0645\u0642\u062F\u0627\u0631 \u0645\u0627\u0646\u0646\u062F \u0631\u0645\u0632 \u0639\u0628\u0648\u0631 \u0627\u0633\u062A.").addText((input) => {
       input.inputEl.type = "password";
       input.inputEl.addClass("ticktick-input-cookie");
       input.setValue(this.plugin.settings.webSessionCookie).onChange(async (value) => {
@@ -2626,33 +2862,33 @@ var TickTickBridgeSettings = class extends import_obsidian4.PluginSettingTab {
         await this.plugin.saveSettings();
       });
     });
-    new import_obsidian4.Setting(containerEl).setName("\u0628\u0631\u0631\u0633\u06CC \u0627\u062A\u0635\u0627\u0644 \u0648\u0628 \u0639\u0627\u062F\u062A\u200C\u0647\u0627").setDesc("\u0686\u06A9\u200C\u0627\u06CC\u0646\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632 \u0631\u0627 \u0645\u0633\u062A\u0642\u06CC\u0645\u0627\u064B \u0627\u0632 \u0633\u0631\u0648\u06CC\u0633 \u0648\u0628 TickTick \u0645\u06CC\u200C\u062E\u0648\u0627\u0646\u062F.").addButton((button) => button.setButtonText("\u0627\u062A\u0635\u0627\u0644 \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646").onClick(async () => {
+    new import_obsidian5.Setting(containerEl).setName("\u0628\u0631\u0631\u0633\u06CC \u0627\u062A\u0635\u0627\u0644 \u0648\u0628 \u0639\u0627\u062F\u062A\u200C\u0647\u0627").setDesc("\u0686\u06A9\u200C\u0627\u06CC\u0646\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632 \u0631\u0627 \u0645\u0633\u062A\u0642\u06CC\u0645\u0627\u064B \u0627\u0632 \u0633\u0631\u0648\u06CC\u0633 \u0648\u0628 TickTick \u0645\u06CC\u200C\u062E\u0648\u0627\u0646\u062F.").addButton((button) => button.setButtonText("\u0627\u062A\u0635\u0627\u0644 \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646").onClick(async () => {
       button.setDisabled(true);
       try {
         const habits = await this.plugin.client().listHabits();
         const checkins = await this.plugin.webHabitCheckins(habits.map((habit) => habit.id), todayInZone(this.plugin.settings.timeZone));
         if (!checkins) throw new Error("\u0646\u0634\u0633\u062A \u0648\u0628 \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A \u06CC\u0627 TickTick \u067E\u0627\u0633\u062E \u0646\u062F\u0627\u062F.");
         const count = [...checkins.values()].flat().filter((entry) => entry.status === 2).length;
-        new import_obsidian4.Notice(`\u0627\u062A\u0635\u0627\u0644 \u0648\u0628 \u0628\u0631\u0642\u0631\u0627\u0631 \u0627\u0633\u062A: ${count} \u0686\u06A9\u200C\u0627\u06CC\u0646 \u0627\u0645\u0631\u0648\u0632 \u062E\u0648\u0627\u0646\u062F\u0647 \u0634\u062F.`);
+        new import_obsidian5.Notice(`\u0627\u062A\u0635\u0627\u0644 \u0648\u0628 \u0628\u0631\u0642\u0631\u0627\u0631 \u0627\u0633\u062A: ${count} \u0686\u06A9\u200C\u0627\u06CC\u0646 \u0627\u0645\u0631\u0648\u0632 \u062E\u0648\u0627\u0646\u062F\u0647 \u0634\u062F.`);
       } catch (error) {
-        new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0627\u062A\u0635\u0627\u0644 \u0648\u0628 \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+        new import_obsidian5.Notice(error instanceof Error ? error.message : "\u0627\u062A\u0635\u0627\u0644 \u0648\u0628 \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
       } finally {
         button.setDisabled(false);
       }
     }));
-    new import_obsidian4.Setting(containerEl).setName("\u0628\u0631\u0631\u0633\u06CC \u0627\u062A\u0635\u0627\u0644").setDesc("\u0628\u0627 \u062A\u0648\u06A9\u0646 \u0648\u0627\u0631\u062F\u0634\u062F\u0647\u060C \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627 \u0648 \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0631\u0627 \u0627\u0632 TickTick \u0645\u06CC\u200C\u062E\u0648\u0627\u0646\u062F.").addButton((button) => button.setButtonText("\u0627\u062A\u0635\u0627\u0644 \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646").onClick(async () => {
+    new import_obsidian5.Setting(containerEl).setName("\u0628\u0631\u0631\u0633\u06CC \u0627\u062A\u0635\u0627\u0644").setDesc("\u0628\u0627 \u062A\u0648\u06A9\u0646 \u0648\u0627\u0631\u062F\u0634\u062F\u0647\u060C \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627 \u0648 \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0631\u0627 \u0627\u0632 TickTick \u0645\u06CC\u200C\u062E\u0648\u0627\u0646\u062F.").addButton((button) => button.setButtonText("\u0627\u062A\u0635\u0627\u0644 \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646").onClick(async () => {
       button.setDisabled(true);
       try {
         const client = this.plugin.client();
         const [projects, habits] = await Promise.all([client.listProjects(), client.listHabits()]);
-        new import_obsidian4.Notice(`\u0627\u062A\u0635\u0627\u0644 \u0628\u0631\u0642\u0631\u0627\u0631 \u0627\u0633\u062A: ${projects.length} \u067E\u0631\u0648\u0698\u0647 \u0648 ${habits.length} \u0639\u0627\u062F\u062A \u067E\u06CC\u062F\u0627 \u0634\u062F.`);
+        new import_obsidian5.Notice(`\u0627\u062A\u0635\u0627\u0644 \u0628\u0631\u0642\u0631\u0627\u0631 \u0627\u0633\u062A: ${projects.length} \u067E\u0631\u0648\u0698\u0647 \u0648 ${habits.length} \u0639\u0627\u062F\u062A \u067E\u06CC\u062F\u0627 \u0634\u062F.`);
       } catch (error) {
-        new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0627\u062A\u0635\u0627\u0644 \u0628\u0647 TickTick \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+        new import_obsidian5.Notice(error instanceof Error ? error.message : "\u0627\u062A\u0635\u0627\u0644 \u0628\u0647 TickTick \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
       } finally {
         button.setDisabled(false);
       }
     }));
-    new import_obsidian4.Setting(containerEl).setName("\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631").setDesc("\u0641\u0627\u0635\u0644\u0647\u0654 \u0632\u0645\u0627\u0646\u06CC \u0628\u0631 \u062D\u0633\u0628 \u062B\u0627\u0646\u06CC\u0647 (\u062D\u062F\u0627\u0642\u0644 \u06F3\u06F0 \u062B\u0627\u0646\u06CC\u0647). \u0635\u0641\u0631 \u06CC\u0639\u0646\u06CC \u062E\u0627\u0645\u0648\u0634. \u0646\u0645\u0627\u06CC\u0634 \u0627\u0632 \u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u0641\u0648\u0631\u06CC \u0627\u0633\u062A \u0648 \u0627\u06CC\u0646 \u0632\u0645\u0627\u0646 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC \u0622\u0646 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((input) => {
+    new import_obsidian5.Setting(containerEl).setName("\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631").setDesc("\u0641\u0627\u0635\u0644\u0647\u0654 \u0632\u0645\u0627\u0646\u06CC \u0628\u0631 \u062D\u0633\u0628 \u062B\u0627\u0646\u06CC\u0647 (\u062D\u062F\u0627\u0642\u0644 \u06F3\u06F0 \u062B\u0627\u0646\u06CC\u0647). \u0635\u0641\u0631 \u06CC\u0639\u0646\u06CC \u062E\u0627\u0645\u0648\u0634. \u0646\u0645\u0627\u06CC\u0634 \u0627\u0632 \u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u0641\u0648\u0631\u06CC \u0627\u0633\u062A \u0648 \u0627\u06CC\u0646 \u0632\u0645\u0627\u0646 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC \u0622\u0646 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((input) => {
       input.inputEl.type = "number";
       input.inputEl.min = "0";
       input.setValue(String(this.plugin.settings.syncIntervalSeconds || this.plugin.settings.syncIntervalMinutes * 60)).onChange(async (value) => {
@@ -2664,7 +2900,7 @@ var TickTickBridgeSettings = class extends import_obsidian4.PluginSettingTab {
         this.plugin.configureAutomaticSync();
       });
     });
-    new import_obsidian4.Setting(containerEl).setName("\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u062F\u0633\u062A\u06CC").setDesc("\u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627\u060C \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0648 \u062A\u0627\u0631\u06CC\u062E\u0686\u0647\u0654 \u06F9\u06F0 \u0631\u0648\u0632 \u0627\u062E\u06CC\u0631 \u0631\u0627 \u0647\u0645\u06CC\u0646 \u062D\u0627\u0644\u0627 \u0627\u0632 TickTick \u062A\u0627\u0632\u0647 \u0645\u06CC\u200C\u06A9\u0646\u062F.").addButton((button) => button.setButtonText("\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0627\u0644\u0622\u0646").onClick(async () => {
+    new import_obsidian5.Setting(containerEl).setName("\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u062F\u0633\u062A\u06CC").setDesc("\u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627\u060C \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0648 \u062A\u0627\u0631\u06CC\u062E\u0686\u0647\u0654 \u06F9\u06F0 \u0631\u0648\u0632 \u0627\u062E\u06CC\u0631 \u0631\u0627 \u0647\u0645\u06CC\u0646 \u062D\u0627\u0644\u0627 \u0627\u0632 TickTick \u062A\u0627\u0632\u0647 \u0645\u06CC\u200C\u06A9\u0646\u062F.").addButton((button) => button.setButtonText("\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0627\u0644\u0622\u0646").onClick(async () => {
       button.setDisabled(true);
       try {
         await this.plugin.syncNow();
@@ -2672,29 +2908,29 @@ var TickTickBridgeSettings = class extends import_obsidian4.PluginSettingTab {
         button.setDisabled(false);
       }
     }));
-    new import_obsidian4.Setting(containerEl).setName("\u062A\u0642\u0648\u06CC\u0645 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC").setDesc("\u0647\u0641\u062A\u0647 \u0627\u0632 \u062F\u0648\u0634\u0646\u0628\u0647 \u0634\u0631\u0648\u0639 \u0645\u06CC\u200C\u0634\u0648\u062F \u0648 \u062A\u0633\u06A9 \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u067E\u0646\u0647\u0627\u0646 \u0627\u0633\u062A.").addDropdown((dropdown) => dropdown.addOption("1", "\u062F\u0648\u0634\u0646\u0628\u0647").addOption("6", "\u0634\u0646\u0628\u0647").addOption("0", "\u06CC\u06A9\u0634\u0646\u0628\u0647").setValue(String(this.plugin.settings.plannerFirstWeekday)).onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName("\u062A\u0642\u0648\u06CC\u0645 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC").setDesc("\u0647\u0641\u062A\u0647 \u0627\u0632 \u062F\u0648\u0634\u0646\u0628\u0647 \u0634\u0631\u0648\u0639 \u0645\u06CC\u200C\u0634\u0648\u062F \u0648 \u062A\u0633\u06A9 \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u067E\u0646\u0647\u0627\u0646 \u0627\u0633\u062A.").addDropdown((dropdown) => dropdown.addOption("1", "\u062F\u0648\u0634\u0646\u0628\u0647").addOption("6", "\u0634\u0646\u0628\u0647").addOption("0", "\u06CC\u06A9\u0634\u0646\u0628\u0647").setValue(String(this.plugin.settings.plannerFirstWeekday)).onChange(async (value) => {
       this.plugin.settings.plannerFirstWeekday = Number(value);
       await this.plugin.saveSettings();
     })).addToggle((toggle) => toggle.setValue(this.plugin.settings.plannerShowCompleted).setTooltip("\u0646\u0645\u0627\u06CC\u0634 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647 \u062F\u0631 \u062A\u0642\u0648\u06CC\u0645").onChange(async (value) => {
       this.plugin.settings.plannerShowCompleted = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("\u0622\u06CC\u06A9\u0648\u0646\u200C\u0647\u0627\u06CC \u0627\u0636\u0627\u0641\u06CC \u0646\u0648\u0627\u0631 \u06A9\u0646\u0627\u0631\u06CC").setDesc("\u0622\u06CC\u06A9\u0648\u0646 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0647\u0645\u06CC\u0634\u0647 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F. \u0628\u0627 \u0631\u0648\u0634\u0646\u200C\u06A9\u0631\u062F\u0646 \u0627\u06CC\u0646 \u06AF\u0632\u06CC\u0646\u0647\u060C \u0645\u06CC\u0627\u0646\u0628\u0631 \u062A\u0633\u06A9\u200C\u0647\u0627 \u0648 \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0647\u0645 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F.").addToggle((toggle) => toggle.setValue(this.plugin.settings.showRibbonIcons).onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName("\u0622\u06CC\u06A9\u0648\u0646\u200C\u0647\u0627\u06CC \u0627\u0636\u0627\u0641\u06CC \u0646\u0648\u0627\u0631 \u06A9\u0646\u0627\u0631\u06CC").setDesc("\u0622\u06CC\u06A9\u0648\u0646 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0647\u0645\u06CC\u0634\u0647 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F. \u0628\u0627 \u0631\u0648\u0634\u0646\u200C\u06A9\u0631\u062F\u0646 \u0627\u06CC\u0646 \u06AF\u0632\u06CC\u0646\u0647\u060C \u0645\u06CC\u0627\u0646\u0628\u0631 \u062A\u0633\u06A9\u200C\u0647\u0627 \u0648 \u0639\u0627\u062F\u062A\u200C\u0647\u0627 \u0647\u0645 \u0646\u0645\u0627\u06CC\u0634 \u062F\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F.").addToggle((toggle) => toggle.setValue(this.plugin.settings.showRibbonIcons).onChange(async (value) => {
       this.plugin.settings.showRibbonIcons = value;
       await this.plugin.saveSettings();
       this.plugin.configureRibbonIcons();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Time zone").addText((input) => input.setValue(this.plugin.settings.timeZone).onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName("Time zone").addText((input) => input.setValue(this.plugin.settings.timeZone).onChange(async (value) => {
       this.plugin.settings.timeZone = value || "Asia/Tehran";
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Daily notes folder").addText((input) => input.setValue(this.plugin.settings.dailyNoteFolder).onChange(async (value) => {
+    new import_obsidian5.Setting(containerEl).setName("Daily notes folder").addText((input) => input.setValue(this.plugin.settings.dailyNoteFolder).onChange(async (value) => {
       this.plugin.settings.dailyNoteFolder = value;
       await this.plugin.saveSettings();
     }));
   }
 };
-var LegacyBackupMigrationModal = class extends import_obsidian4.Modal {
+var LegacyBackupMigrationModal = class extends import_obsidian5.Modal {
   constructor(app, count, size) {
     super(app);
     this.count = count;
@@ -2728,7 +2964,7 @@ var LegacyBackupMigrationModal = class extends import_obsidian4.Modal {
     return this.result;
   }
 };
-var ManagedReportModal = class extends import_obsidian4.Modal {
+var ManagedReportModal = class extends import_obsidian5.Modal {
   constructor(app, latest) {
     super(app);
     this.latest = latest;

@@ -121,6 +121,17 @@ export class MarkdownSync {
     await this.save(); await this.storage.writeReport("calendar-reschedule", { taskId, projectId: binding.projectId, oldStart, oldDue, targetDay });
     return next;
   }
+  async completeBoundTask(taskId: string) {
+    await this.load();
+    const binding = this.bindingForTask(taskId);
+    if (!binding?.projectId) throw new Error("این task به یک خط Markdown تأییدشده متصل نیست.");
+    await this.storage.writeSnapshot("board-complete", { taskId, projectId: binding.projectId });
+    const remote = await this.getClient().getTask(binding.projectId, taskId);
+    if (!remote?.id) throw new Error("وظیفهٔ TickTick پیش از تکمیل دوباره خوانده نشد.");
+    await this.getClient().completeTask(binding.projectId, taskId);
+    this.state.bindings[binding.key] = { ...binding, baseline: normalizedTask({ ...remote, completed: true }) };
+    await this.save(); await this.storage.writeReport("board-complete", { taskId, projectId: binding.projectId });
+  }
   async resolve(conflict: Action, choice: "local" | "remote" | "merge" | "unbind" | "skip") {
     await this.load();
     if (choice === "unbind") {
