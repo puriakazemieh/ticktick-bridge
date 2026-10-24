@@ -360,6 +360,96 @@
 .ticktick-dashboard-habit-card .daily-habit-text { min-width: 0; overflow: hidden; }.ticktick-dashboard-habit-card .daily-habit-title, .ticktick-dashboard-habit-card .daily-habit-state, .ticktick-dashboard-habit-card .ticktick-habit-source { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ticktick-dashboard-habit-card .daily-habit-title { line-height: 1.35; }.ticktick-dashboard-habit-card .daily-habit-state { line-height: 1.3; }
 
+/* A few Vault themes style the generic daily-habit classes with absolute
+   positioning. Dashboard cards need a self-contained grid instead: keeping
+   every text node in normal flow prevents mixed RTL/LTR titles from being
+   painted over the card border. */
+.ticktick-dashboard-habits .ticktick-dashboard-cards {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)) !important;
+  gap: 0.65rem !important;
+}
+
+.ticktick-dashboard-habits .ticktick-dashboard-habit-card {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 2.45rem !important;
+  grid-template-rows: auto auto auto !important;
+  align-content: center !important;
+  align-items: center !important;
+  column-gap: 0.7rem !important;
+  row-gap: 0.18rem !important;
+  min-height: 5.25rem !important;
+  padding: 0.7rem 0.85rem !important;
+  direction: rtl !important;
+  font-family: var(--font-text) !important;
+  text-align: right !important;
+}
+
+.ticktick-dashboard-habits .ticktick-dashboard-habit-card .daily-habit-progress {
+  position: static !important;
+  grid-column: 2 !important;
+  grid-row: 1 / 4 !important;
+  align-self: center !important;
+  justify-self: center !important;
+}
+
+.ticktick-dashboard-habits .ticktick-dashboard-habit-card .daily-habit-text {
+  position: static !important;
+  display: block !important;
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  align-self: end !important;
+  min-width: 0 !important;
+  min-height: 1.35rem !important;
+  overflow: hidden !important;
+}
+
+.ticktick-dashboard-habits .ticktick-dashboard-habit-card .daily-habit-title,
+.ticktick-dashboard-habits .ticktick-dashboard-habit-card .ticktick-habit-source,
+.ticktick-dashboard-habits .ticktick-dashboard-habit-card .daily-habit-state {
+  position: static !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  text-align: right !important;
+  text-overflow: ellipsis !important;
+  transform: none !important;
+  unicode-bidi: plaintext !important;
+  white-space: nowrap !important;
+}
+
+.ticktick-dashboard-habits .ticktick-dashboard-habit-card .daily-habit-title {
+  color: var(--text-normal) !important;
+  font-size: 0.82rem !important;
+  line-height: 1.35rem !important;
+}
+
+.ticktick-dashboard-habits .ticktick-dashboard-habit-card .ticktick-habit-source {
+  color: var(--text-muted) !important;
+  font-size: 0.68rem !important;
+  line-height: 1rem !important;
+}
+
+.ticktick-dashboard-habits .ticktick-dashboard-habit-card .daily-habit-state {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  align-self: start !important;
+  color: var(--text-muted) !important;
+  font-size: 0.72rem !important;
+  line-height: 1.1rem !important;
+}
+
+.ticktick-dashboard-habits .ticktick-dashboard-habit-card .ticktick-habit-history {
+  position: static !important;
+  display: flex !important;
+  grid-column: 1 !important;
+  grid-row: 3 !important;
+  align-self: start !important;
+}
+
 .ticktick-control-nav { padding: .85rem; background: color-mix(in srgb, var(--background-secondary) 68%, var(--background-primary)); border: 0; border-bottom: 1px solid var(--tt-line); }
 .ticktick-control-nav button { padding: .4rem .7rem; }
 .ticktick-control-body { padding: clamp(1rem, 2vw, 1.75rem); }
