@@ -858,12 +858,12 @@ function shiftCalendarDay(day, amount) {
 function weekdayIndex(day) {
   return (/* @__PURE__ */ new Date(`${day}T12:00:00.000Z`)).getUTCDay();
 }
-function weekRange(day, firstWeekday = 1) {
+function weekRange(day, firstWeekday = 6) {
   const offset = (weekdayIndex(day) - firstWeekday + 7) % 7;
   const start = shiftCalendarDay(day, -offset);
   return Array.from({ length: 7 }, (_, index) => shiftCalendarDay(start, index));
 }
-function monthRange(day, firstWeekday = 1) {
+function monthRange(day, firstWeekday = 6) {
   const monthStart = `${String(day).slice(0, 7)}-01`;
   const offset = (weekdayIndex(monthStart) - firstWeekday + 7) % 7;
   const start = shiftCalendarDay(monthStart, -offset);
@@ -1543,7 +1543,7 @@ var DEFAULT_SETTINGS = {
   checkboxImportTag: "ticktick",
   scheduledCheckboxProjectId: "",
   showRibbonIcons: false,
-  plannerFirstWeekday: 1,
+  plannerFirstWeekday: 6,
   plannerShowCompleted: false,
   localHabitFolder: "\u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC/Habits",
   ticktickNotesFolder: "TickTick Notes",
@@ -3395,7 +3395,7 @@ var TickTickBridgeSettings = class extends import_obsidian7.PluginSettingTab {
         button.setDisabled(false);
       }
     }));
-    new import_obsidian7.Setting(containerEl).setName("\u062A\u0642\u0648\u06CC\u0645 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC").setDesc("\u0647\u0641\u062A\u0647 \u0627\u0632 \u062F\u0648\u0634\u0646\u0628\u0647 \u0634\u0631\u0648\u0639 \u0645\u06CC\u200C\u0634\u0648\u062F \u0648 \u062A\u0633\u06A9 \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u067E\u0646\u0647\u0627\u0646 \u0627\u0633\u062A.").addDropdown((dropdown) => dropdown.addOption("1", "\u062F\u0648\u0634\u0646\u0628\u0647").addOption("6", "\u0634\u0646\u0628\u0647").addOption("0", "\u06CC\u06A9\u0634\u0646\u0628\u0647").setValue(String(this.plugin.settings.plannerFirstWeekday)).onChange(async (value) => {
+    new import_obsidian7.Setting(containerEl).setName("\u062A\u0642\u0648\u06CC\u0645 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC").setDesc("\u0647\u0641\u062A\u0647 \u0648 \u0634\u0628\u06A9\u0647\u0654 \u0645\u0627\u0647 \u0627\u0632 \u0634\u0646\u0628\u0647 \u0634\u0631\u0648\u0639 \u0645\u06CC\u200C\u0634\u0648\u0646\u062F \u0648 \u062A\u0633\u06A9 \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u067E\u0646\u0647\u0627\u0646 \u0627\u0633\u062A.").addDropdown((dropdown) => dropdown.addOption("6", "\u0634\u0646\u0628\u0647").addOption("1", "\u062F\u0648\u0634\u0646\u0628\u0647").addOption("0", "\u06CC\u06A9\u0634\u0646\u0628\u0647").setValue(String(this.plugin.settings.plannerFirstWeekday)).onChange(async (value) => {
       this.plugin.settings.plannerFirstWeekday = Number(value);
       await this.plugin.saveSettings();
     })).addToggle((toggle) => toggle.setValue(this.plugin.settings.plannerShowCompleted).setTooltip("\u0646\u0645\u0627\u06CC\u0634 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647 \u062F\u0631 \u062A\u0642\u0648\u06CC\u0645").onChange(async (value) => {

@@ -6,12 +6,12 @@ export function shiftCalendarDay(day, amount) {
   return date.toISOString().slice(0, 10);
 }
 export function weekdayIndex(day) { return new Date(`${day}T12:00:00.000Z`).getUTCDay(); }
-export function weekRange(day, firstWeekday = 1) {
+export function weekRange(day, firstWeekday = 6) {
   const offset = (weekdayIndex(day) - firstWeekday + 7) % 7;
   const start = shiftCalendarDay(day, -offset);
   return Array.from({ length: 7 }, (_, index) => shiftCalendarDay(start, index));
 }
-export function monthRange(day, firstWeekday = 1) {
+export function monthRange(day, firstWeekday = 6) {
   const monthStart = `${String(day).slice(0, 7)}-01`;
   const offset = (weekdayIndex(monthStart) - firstWeekday + 7) % 7;
   const start = shiftCalendarDay(monthStart, -offset);

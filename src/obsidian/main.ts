@@ -70,7 +70,7 @@ const DEFAULT_SETTINGS: BridgeSettings = {
   checkboxImportTag: "ticktick",
   scheduledCheckboxProjectId: "",
   showRibbonIcons: false,
-  plannerFirstWeekday: 1,
+  plannerFirstWeekday: 6,
   plannerShowCompleted: false,
   localHabitFolder: "برنامه‌ریزی/Habits",
   ticktickNotesFolder: "TickTick Notes",
@@ -1866,9 +1866,9 @@ class TickTickBridgeSettings extends PluginSettingTab {
         button.setDisabled(true);
         try { await this.plugin.syncNow(); } finally { button.setDisabled(false); }
       }));
-    new Setting(containerEl).setName("تقویم برنامه‌ریزی").setDesc("هفته از دوشنبه شروع می‌شود و تسک تکمیل‌شده به‌صورت پیش‌فرض پنهان است.").addDropdown(dropdown => dropdown
-      .addOption("1", "دوشنبه")
+    new Setting(containerEl).setName("تقویم برنامه‌ریزی").setDesc("هفته و شبکهٔ ماه از شنبه شروع می‌شوند و تسک تکمیل‌شده به‌صورت پیش‌فرض پنهان است.").addDropdown(dropdown => dropdown
       .addOption("6", "شنبه")
+      .addOption("1", "دوشنبه")
       .addOption("0", "یکشنبه")
       .setValue(String(this.plugin.settings.plannerFirstWeekday))
       .onChange(async value => { this.plugin.settings.plannerFirstWeekday = Number(value); await this.plugin.saveSettings(); }))
