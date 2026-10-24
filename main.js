@@ -1347,7 +1347,8 @@ var PlanningCalendar = class {
   renderDays(root, days, tasks) {
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
     const showRangeBars = days.length > 1;
-    const headers = grid.createDiv({ cls: "ticktick-planner-days-headers" });
+    const shell = grid.createDiv({ cls: "ticktick-planner-days-shell" });
+    const headers = shell.createDiv({ cls: "ticktick-planner-days-headers" });
     for (const day of days) {
       const header = headers.createDiv({ cls: "ticktick-planner-day-header", attr: { "data-day": day } });
       header.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", month: "numeric", day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`)) });
@@ -1356,7 +1357,7 @@ var PlanningCalendar = class {
       const add = header.createEl("button", { cls: "ticktick-planner-add", text: "+ \u0627\u0641\u0632\u0648\u062F\u0646", attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062F\u0631 ${day}` } });
       add.addEventListener("click", () => void this.addTask(day));
     }
-    const body = grid.createDiv({ cls: "ticktick-planner-days-body" });
+    const body = shell.createDiv({ cls: "ticktick-planner-days-body" });
     if (showRangeBars) this.renderRangeLanes(body, days, tasks, "ticktick-planner-range-lanes");
     const columns = body.createDiv({ cls: "ticktick-planner-day-columns" });
     for (const day of days) {

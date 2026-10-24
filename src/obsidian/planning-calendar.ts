@@ -119,7 +119,8 @@ export class PlanningCalendar {
   private renderDays(root: HTMLElement, days: string[], tasks: any[]) {
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
     const showRangeBars = days.length > 1;
-    const headers = grid.createDiv({ cls: "ticktick-planner-days-headers" });
+    const shell = grid.createDiv({ cls: "ticktick-planner-days-shell" });
+    const headers = shell.createDiv({ cls: "ticktick-planner-days-headers" });
     for (const day of days) {
       const header = headers.createDiv({ cls: "ticktick-planner-day-header", attr: { "data-day": day } });
       header.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", month: "numeric", day: "numeric" }).format(new Date(`${day}T12:00:00Z`)) });
@@ -127,7 +128,7 @@ export class PlanningCalendar {
       header.createSpan({ cls: "ticktick-planner-counter", text: `${items.length} تسک` });
       const add = header.createEl("button", { cls: "ticktick-planner-add", text: "+ افزودن", attr: { type: "button", "aria-label": `افزودن تسک در ${day}` } }); add.addEventListener("click", () => void this.addTask(day));
     }
-    const body = grid.createDiv({ cls: "ticktick-planner-days-body" });
+    const body = shell.createDiv({ cls: "ticktick-planner-days-body" });
     if (showRangeBars) this.renderRangeLanes(body, days, tasks, "ticktick-planner-range-lanes");
     const columns = body.createDiv({ cls: "ticktick-planner-day-columns" });
     for (const day of days) {
