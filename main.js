@@ -1263,19 +1263,31 @@ var PlanningCalendar = class {
   renderFilters(root) {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" });
     const tasks = this.host.tasks();
-    const projects = [...new Set(tasks.map((task) => String(task.projectName ?? task.projectId ?? "\u0648\u0631\u0648\u062F\u06CC")))];
-    for (const project of ["", ...projects]) {
-      const button = filters.createEl("button", { text: project || "\u0647\u0645\u0647\u0654 \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627", cls: this.project === project ? "is-active" : "" });
-      button.addEventListener("click", () => {
-        this.project = project;
-        void this.render();
-      });
-    }
-    const tags = [...new Set(tasks.flatMap((task) => task.tags ?? []))].slice(0, 12);
-    for (const tag of tags) {
-      const button = filters.createEl("button", { text: `#${tag}`, cls: this.tag === tag ? "is-active" : "" });
-      button.addEventListener("click", () => {
-        this.tag = this.tag === tag ? "" : tag;
+    const projects = [...new Set(tasks.map((task) => String(task.projectName ?? task.projectId ?? "\u0648\u0631\u0648\u062F\u06CC")))].sort((left, right) => left.localeCompare(right, "fa"));
+    const projectLabel = filters.createEl("label", { text: "\u067E\u0631\u0648\u0698\u0647" });
+    const projectSelect = projectLabel.createEl("select", { attr: { "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u067E\u0631\u0648\u0698\u0647" } });
+    projectSelect.createEl("option", { value: "", text: "\u0647\u0645\u0647\u0654 \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627" });
+    for (const project of projects) projectSelect.createEl("option", { value: project, text: project });
+    projectSelect.value = this.project;
+    projectSelect.addEventListener("change", () => {
+      this.project = projectSelect.value;
+      void this.render();
+    });
+    const tags = [...new Set(tasks.flatMap((task) => task.tags ?? []))].sort((left, right) => String(left).localeCompare(String(right), "fa"));
+    const tagLabel = filters.createEl("label", { text: "\u0628\u0631\u0686\u0633\u0628" });
+    const tagSelect = tagLabel.createEl("select", { attr: { "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0628\u0631\u0686\u0633\u0628" } });
+    tagSelect.createEl("option", { value: "", text: "\u0647\u0645\u0647\u0654 \u0628\u0631\u0686\u0633\u0628\u200C\u0647\u0627" });
+    for (const tag of tags) tagSelect.createEl("option", { value: String(tag), text: `#${tag}` });
+    tagSelect.value = this.tag;
+    tagSelect.addEventListener("change", () => {
+      this.tag = tagSelect.value;
+      void this.render();
+    });
+    if (this.project || this.tag) {
+      const clear = filters.createEl("button", { text: "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631" });
+      clear.addEventListener("click", () => {
+        this.project = "";
+        this.tag = "";
         void this.render();
       });
     }

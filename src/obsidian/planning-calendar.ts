@@ -85,10 +85,19 @@ export class PlanningCalendar {
   }
   private renderFilters(root: HTMLElement) {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" }); const tasks = this.host.tasks();
-    const projects = [...new Set(tasks.map(task => String(task.projectName ?? task.projectId ?? "ورودی")))];
-    for (const project of ["", ...projects]) { const button = filters.createEl("button", { text: project || "همهٔ پروژه‌ها", cls: this.project === project ? "is-active" : "" }); button.addEventListener("click", () => { this.project = project; void this.render(); }); }
-    const tags = [...new Set(tasks.flatMap(task => task.tags ?? []))].slice(0, 12);
-    for (const tag of tags) { const button = filters.createEl("button", { text: `#${tag}`, cls: this.tag === tag ? "is-active" : "" }); button.addEventListener("click", () => { this.tag = this.tag === tag ? "" : tag; void this.render(); }); }
+    const projects = [...new Set(tasks.map(task => String(task.projectName ?? task.projectId ?? "ورودی")))].sort((left, right) => left.localeCompare(right, "fa"));
+    const projectLabel = filters.createEl("label", { text: "پروژه" });
+    const projectSelect = projectLabel.createEl("select", { attr: { "aria-label": "فیلتر پروژه" } });
+    projectSelect.createEl("option", { value: "", text: "همهٔ پروژه‌ها" });
+    for (const project of projects) projectSelect.createEl("option", { value: project, text: project });
+    projectSelect.value = this.project; projectSelect.addEventListener("change", () => { this.project = projectSelect.value; void this.render(); });
+    const tags = [...new Set(tasks.flatMap(task => task.tags ?? []))].sort((left, right) => String(left).localeCompare(String(right), "fa"));
+    const tagLabel = filters.createEl("label", { text: "برچسب" });
+    const tagSelect = tagLabel.createEl("select", { attr: { "aria-label": "فیلتر برچسب" } });
+    tagSelect.createEl("option", { value: "", text: "همهٔ برچسب‌ها" });
+    for (const tag of tags) tagSelect.createEl("option", { value: String(tag), text: `#${tag}` });
+    tagSelect.value = this.tag; tagSelect.addEventListener("change", () => { this.tag = tagSelect.value; void this.render(); });
+    if (this.project || this.tag) { const clear = filters.createEl("button", { text: "پاک‌کردن فیلتر" }); clear.addEventListener("click", () => { this.project = ""; this.tag = ""; void this.render(); }); }
   }
   private filteredTasks() { return this.host.tasks().filter(task => (!this.project || String(task.projectName ?? task.projectId ?? "ورودی") === this.project) && (!this.tag || (task.tags ?? []).includes(this.tag))); }
   private renderDays(root: HTMLElement, days: string[], tasks: any[]) {

@@ -326,8 +326,9 @@
 .ticktick-planner-controls,
 .ticktick-control-nav { align-items: center; gap: .5rem; }
 .ticktick-planner-controls { padding-bottom: .7rem; border-bottom: 1px solid var(--tt-line); }
-.ticktick-planner-filters { padding: .15rem 0 .3rem; }
-.ticktick-planner-filters button { border-radius: 999px; background: transparent; border: 1px solid var(--tt-line); color: var(--tt-muted); }
+.ticktick-planner-filters { display: flex; flex-wrap: wrap; align-items: end; gap: .45rem; padding: .55rem 0 .65rem; border-bottom: 1px solid var(--tt-line); }
+.ticktick-planner-filters label { display: grid; gap: .18rem; color: var(--tt-muted); font-size: .68rem; }.ticktick-planner-filters select { min-width: min(13rem, 42vw); height: 2rem; padding: 0 .5rem; border: 1px solid var(--tt-line); border-radius: .5rem; background: var(--background-secondary); color: var(--text-normal); font: inherit; }
+.ticktick-planner-filters button { min-height: 2rem; padding: .28rem .55rem; border-radius: .5rem; background: transparent; border: 1px solid var(--tt-line); color: var(--tt-muted); }
 .ticktick-planner-filters button.is-active,
 .ticktick-planner-controls button.is-active,
 .ticktick-control-nav button.is-active { background: var(--interactive-accent); border-color: var(--interactive-accent); color: var(--text-on-accent); }
