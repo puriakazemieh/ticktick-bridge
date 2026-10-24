@@ -377,8 +377,9 @@
   border-radius: 999px;
   font-size: 0.82rem;
   font-weight: 500;
-  border: none;
-  background: transparent;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
   color: var(--text-muted);
   cursor: pointer;
   transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -386,14 +387,14 @@
 
 .ticktick-planner-mode-btn:hover {
   color: var(--text-normal);
-  background: color-mix(in srgb, var(--background-modifier-hover) 60%, transparent);
+  background: color-mix(in srgb, var(--background-modifier-hover) 60%, transparent) !important;
 }
 
 .ticktick-planner-mode-btn.is-active {
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
+  background: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
   font-weight: 700;
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--interactive-accent) 45%, transparent);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--interactive-accent) 45%, transparent) !important;
   transform: translateY(-0.5px);
 }
 
@@ -552,33 +553,78 @@
 }
 
 .ticktick-filter-select-wrapper {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   height: 2rem;
-  padding: 0 0.65rem;
-  background: var(--background-secondary);
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
-  border-radius: 999px;
+  padding: 0 0.75rem;
+  background: var(--background-secondary) !important;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent) !important;
+  border-radius: 999px !important;
   font-size: 0.78rem;
   color: var(--text-muted);
+  box-shadow: none !important;
   transition: border-color 150ms ease, box-shadow 150ms ease;
+  cursor: pointer;
 }
 
 .ticktick-filter-select-wrapper:hover {
-  border-color: color-mix(in srgb, var(--interactive-accent) 40%, var(--background-modifier-border));
+  background: var(--background-modifier-hover) !important;
+  border-color: color-mix(in srgb, var(--interactive-accent) 40%, var(--background-modifier-border)) !important;
 }
 
-.ticktick-filter-select-wrapper select {
-  border: none;
-  background: transparent;
-  color: var(--text-normal);
-  font-size: 0.78rem;
+.ticktick-filter-select-wrapper select,
+.ticktick-filter-select-wrapper select.dropdown,
+.ticktick-planner-filters select,
+.ticktick-planner-filters select.dropdown {
+  border: none !important;
+  border-width: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border-radius: 0 !important;
+  padding: 0 0.15rem !important;
+  margin: 0 !important;
+  color: var(--text-normal) !important;
+  font-size: 0.78rem !important;
+  font-family: inherit !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  height: 100% !important;
+  line-height: inherit !important;
+  text-align: right;
+  direction: rtl;
+}
+
+.ticktick-filter-select-wrapper select:focus,
+.ticktick-filter-select-wrapper select:focus-visible,
+.ticktick-planner-filters select:focus {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.ticktick-filter-select-wrapper select option,
+.ticktick-planner-filters select option {
+  background-color: var(--background-secondary) !important;
+  color: var(--text-normal) !important;
+  padding: 0.4rem 0.6rem;
   font-family: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  outline: none;
-  padding-inline-end: 0.2rem;
+  font-size: 0.8rem;
+}
+
+.ticktick-select-icon {
+  display: flex;
+  align-items: center;
+  pointer-events: none;
 }
 
 .ticktick-select-icon svg {
@@ -595,8 +641,9 @@
   height: 2rem;
   padding: 0 0.85rem;
   border-radius: 999px;
-  background: var(--background-secondary);
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+  background: var(--background-secondary) !important;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent) !important;
+  box-shadow: none !important;
   color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 500;
@@ -605,16 +652,17 @@
 }
 
 .ticktick-filter-chip:hover {
-  background: var(--background-modifier-hover);
+  background: var(--background-modifier-hover) !important;
   color: var(--text-normal);
+  border-color: color-mix(in srgb, var(--interactive-accent) 40%, var(--background-modifier-border)) !important;
 }
 
 .ticktick-filter-chip.is-filtered {
-  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary));
-  border-color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)) !important;
+  border-color: var(--interactive-accent) !important;
   color: var(--text-accent);
   font-weight: 700;
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--interactive-accent) 20%, transparent);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--interactive-accent) 20%, transparent) !important;
 }
 
 .ticktick-chip-icon svg {
@@ -630,8 +678,9 @@
   height: 2rem;
   padding: 0 0.75rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-red, #e74c3c) 8%, transparent);
-  border: 1px dashed color-mix(in srgb, var(--color-red, #e74c3c) 40%, transparent);
+  background: color-mix(in srgb, var(--color-red, #e74c3c) 8%, transparent) !important;
+  border: 1px dashed color-mix(in srgb, var(--color-red, #e74c3c) 40%, transparent) !important;
+  box-shadow: none !important;
   color: var(--color-red, #e74c3c);
   font-size: 0.75rem;
   font-weight: 600;
@@ -1452,26 +1501,27 @@
 
 .ticktick-overflow-task {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.6rem;
   padding: 0.55rem 0.85rem;
   border-radius: 0.65rem;
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--interactive-accent) 30%, var(--background-modifier-border));
-  border-inline-start: 4px solid var(--interactive-accent);
+  background: transparent !important;
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 35%, transparent);
+  border-inline-start: 4px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  box-shadow: none !important;
   transition: all 140ms ease;
   cursor: pointer;
 }
 
 .ticktick-overflow-task:hover {
-  background: color-mix(in srgb, var(--interactive-accent) 8%, transparent);
-  border-color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 8%, transparent) !important;
+  border-color: var(--ticktick-task-tone, var(--interactive-accent)) !important;
 }
 
 .ticktick-overflow-check {
   width: 1.1rem;
   height: 1.1rem;
-  margin: 0.15rem 0 0 0;
+  margin: 0;
   cursor: pointer;
   accent-color: var(--interactive-accent);
   flex-shrink: 0;
@@ -1479,21 +1529,23 @@
 
 .ticktick-overflow-task-main {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.5rem;
   flex: 1;
   min-width: 0;
 }
 
+.ticktick-overflow-task button,
 .ticktick-overflow-task-title {
   border: none !important;
   background: transparent !important;
   background-color: transparent !important;
   box-shadow: none !important;
   outline: none !important;
-  padding: 0;
+  padding: 0 !important;
+  margin: 0 !important;
   text-align: right;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-normal);
   white-space: normal !important;
@@ -1507,12 +1559,16 @@
 .ticktick-overflow-task-project {
   font-size: 0.7rem;
   font-weight: 600;
-  color: var(--interactive-accent);
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+  color: var(--ticktick-task-tone, var(--interactive-accent));
+  background: transparent !important;
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 45%, transparent) !important;
   padding: 0.08rem 0.45rem;
   border-radius: 999px;
   flex-shrink: 0;
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ticktick-overflow-task.is-completed {

@@ -177,11 +177,18 @@ class TaskOverflowModal extends Modal {
     for (const task of this.tasks) {
       const priority = taskPriority(task.priority);
       const isCompleted = Number(task.status ?? 0) !== 0;
+      const tone = task.projectColor || (
+        Number(task.priority) === 5 ? "var(--color-red)" :
+        Number(task.priority) === 3 ? "var(--color-orange)" :
+        Number(task.priority) === 1 ? "var(--color-blue)" :
+        "var(--interactive-accent)"
+      );
 
       const row = container.createDiv({
         cls: `ticktick-overflow-task priority-${priority.value} ${isCompleted ? "is-completed" : ""}`,
         attr: { role: "button", tabindex: "0" }
       });
+      row.style.setProperty("--ticktick-task-tone", tone);
 
       row.addEventListener("click", () => new TaskDetailsModal(this.app, task, {
         complete: () => this.complete(task),
@@ -189,6 +196,18 @@ class TaskOverflowModal extends Modal {
         edit: this.edit,
         changed: this.changed
       }).open());
+
+      row.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          new TaskDetailsModal(this.app, task, {
+            complete: () => this.complete(task),
+            load: this.load,
+            edit: this.edit,
+            changed: this.changed
+          }).open();
+        }
+      });
 
       const check = row.createEl("input", { type: "checkbox", cls: "ticktick-overflow-check", attr: { "aria-label": `تکمیل ${task.title}` } });
       check.checked = isCompleted;
@@ -375,6 +394,11 @@ export class PlanningCalendar {
       this.sortMode = sort.value;
       void this.render();
     });
+    sortWrapper.addEventListener("click", event => {
+      if (event.target !== sort && typeof (sort as any).showPicker === "function") {
+        try { (sort as any).showPicker(); } catch {}
+      }
+    });
 
     // Color mode select
     const colorWrapper = filters.createDiv({ cls: "ticktick-filter-select-wrapper" });
@@ -388,6 +412,11 @@ export class PlanningCalendar {
     color.addEventListener("change", () => {
       this.colorMode = color.value as ColorMode;
       void this.render();
+    });
+    colorWrapper.addEventListener("click", event => {
+      if (event.target !== color && typeof (color as any).showPicker === "function") {
+        try { (color as any).showPicker(); } catch {}
+      }
     });
 
     // Project filter button

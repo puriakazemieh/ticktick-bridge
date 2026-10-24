@@ -1348,16 +1348,29 @@ var TaskOverflowModal = class extends import_obsidian4.Modal {
     for (const task of this.tasks) {
       const priority = taskPriority(task.priority);
       const isCompleted = Number(task.status ?? 0) !== 0;
+      const tone = task.projectColor || (Number(task.priority) === 5 ? "var(--color-red)" : Number(task.priority) === 3 ? "var(--color-orange)" : Number(task.priority) === 1 ? "var(--color-blue)" : "var(--interactive-accent)");
       const row = container.createDiv({
         cls: `ticktick-overflow-task priority-${priority.value} ${isCompleted ? "is-completed" : ""}`,
         attr: { role: "button", tabindex: "0" }
       });
+      row.style.setProperty("--ticktick-task-tone", tone);
       row.addEventListener("click", () => new TaskDetailsModal(this.app, task, {
         complete: () => this.complete(task),
         load: this.load,
         edit: this.edit,
         changed: this.changed
       }).open());
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          new TaskDetailsModal(this.app, task, {
+            complete: () => this.complete(task),
+            load: this.load,
+            edit: this.edit,
+            changed: this.changed
+          }).open();
+        }
+      });
       const check = row.createEl("input", { type: "checkbox", cls: "ticktick-overflow-check", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
       check.checked = isCompleted;
       check.disabled = isCompleted;
@@ -1511,6 +1524,14 @@ var PlanningCalendar = class {
       this.sortMode = sort.value;
       void this.render();
     });
+    sortWrapper.addEventListener("click", (event) => {
+      if (event.target !== sort && typeof sort.showPicker === "function") {
+        try {
+          sort.showPicker();
+        } catch {
+        }
+      }
+    });
     const colorWrapper = filters.createDiv({ cls: "ticktick-filter-select-wrapper" });
     const colorIcon = colorWrapper.createSpan({ cls: "ticktick-select-icon" });
     (0, import_obsidian4.setIcon)(colorIcon, "palette");
@@ -1522,6 +1543,14 @@ var PlanningCalendar = class {
     color.addEventListener("change", () => {
       this.colorMode = color.value;
       void this.render();
+    });
+    colorWrapper.addEventListener("click", (event) => {
+      if (event.target !== color && typeof color.showPicker === "function") {
+        try {
+          color.showPicker();
+        } catch {
+        }
+      }
     });
     const projects = [...new Set(tasks.map((task) => String(task.projectName ?? task.projectId ?? "\u0648\u0631\u0648\u062F\u06CC")))].sort((left, right) => left.localeCompare(right, "fa"));
     const projectBtn = filters.createEl("button", {
