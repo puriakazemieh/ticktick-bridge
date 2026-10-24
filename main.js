@@ -1248,6 +1248,7 @@ var PlanningCalendar = class {
   projects = /* @__PURE__ */ new Set();
   tags = /* @__PURE__ */ new Set();
   sortMode = "ticktick";
+  colorMode = "project";
   async render() {
     this.element.empty();
     this.element.addClass("ticktick-planner");
@@ -1304,6 +1305,13 @@ var PlanningCalendar = class {
     sort.value = this.sortMode;
     sort.addEventListener("change", () => {
       this.sortMode = sort.value;
+      void this.render();
+    });
+    const color = filters.createEl("select", { attr: { "aria-label": "\u0631\u0646\u06AF\u200C\u0628\u0646\u062F\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627" } });
+    for (const [value, label] of [["project", "\u0631\u0646\u06AF: \u067E\u0631\u0648\u0698\u0647"], ["tag", "\u0631\u0646\u06AF: \u0628\u0631\u0686\u0633\u0628"], ["priority", "\u0631\u0646\u06AF: \u0627\u0648\u0644\u0648\u06CC\u062A"], ["uniform", "\u0631\u0646\u06AF: \u06CC\u06A9\u062F\u0633\u062A"]]) color.createEl("option", { value, text: label });
+    color.value = this.colorMode;
+    color.addEventListener("change", () => {
+      this.colorMode = color.value;
       void this.render();
     });
     const projects = [...new Set(tasks.map((task) => String(task.projectName ?? task.projectId ?? "\u0648\u0631\u0648\u062F\u06CC")))].sort((left, right) => left.localeCompare(right, "fa"));
@@ -1417,9 +1425,7 @@ var PlanningCalendar = class {
       const priority = taskPriority(task.priority);
       const bar = lanes.createDiv({ cls: `ticktick-planner-range-task priority-${priority.value}`, attr: { title: `\u0628\u0627\u0632\u0647\u0654 ${range.start} \u062A\u0627 ${range.end} \xB7 \u0628\u0631\u0627\u06CC \u062C\u0632\u0626\u06CC\u0627\u062A \u06A9\u0644\u06CC\u06A9 \u06A9\u0646` } });
       bar.style.gridColumn = `${first + 1} / ${last + 2}`;
-      const projectColor = String(task.projectColor ?? "").trim();
-      const tone = /^#[0-9a-f]{3,8}$/i.test(projectColor) ? projectColor : priority.value === 5 ? "var(--color-red)" : priority.value === 3 ? "var(--color-orange)" : priority.value === 1 ? "var(--color-blue)" : "var(--interactive-accent)";
-      bar.style.setProperty("--ticktick-range-tone", tone);
+      bar.style.setProperty("--ticktick-task-tone", this.taskTone(task));
       const check = bar.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
       check.checked = Number(task.status ?? 0) !== 0;
       check.disabled = check.checked;
@@ -1435,6 +1441,7 @@ var PlanningCalendar = class {
     const bound = this.host.binding(task);
     const priority = taskPriority(task.priority);
     const card = parent.createDiv({ cls: `ticktick-planner-task priority-${priority.value}${bound ? " is-bound" : ""}`, attr: { title: `${bound ? "\u0628\u0631\u0627\u06CC \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0628\u06A9\u0634" : "\u0628\u0631\u0627\u06CC \u062F\u06CC\u062F\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A \u06A9\u0644\u06CC\u06A9 \u06A9\u0646"} \xB7 \u0627\u0648\u0644\u0648\u06CC\u062A: ${priority.label}` } });
+    card.style.setProperty("--ticktick-task-tone", this.taskTone(task));
     const check = card.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
     check.checked = Number(task.status ?? 0) !== 0;
     check.disabled = check.checked;
@@ -1449,6 +1456,16 @@ var PlanningCalendar = class {
     card.addEventListener("dragstart", (event) => {
       if (bound) event.dataTransfer?.setData("text/ticktick-task", String(task.id));
     });
+  }
+  taskTone(task) {
+    if (this.colorMode === "uniform") return "var(--interactive-accent)";
+    if (this.colorMode === "priority") return Number(task.priority) === 5 ? "var(--color-red)" : Number(task.priority) === 3 ? "var(--color-orange)" : Number(task.priority) === 1 ? "var(--color-blue)" : "var(--text-muted)";
+    const seed = this.colorMode === "tag" ? String(task.tags?.[0] ?? task.projectName ?? task.projectId ?? "") : String(task.projectName ?? task.projectId ?? "");
+    const projectColor = String(task.projectColor ?? "").trim();
+    if (this.colorMode === "project" && /^#[0-9a-f]{3,8}$/i.test(projectColor)) return projectColor;
+    const palette = ["#7c6cff", "#4aa3df", "#2a9d8f", "#e76f51", "#d36ba6", "#d49a2a", "#5a9b68"];
+    const hash = [...seed].reduce((value, char) => value * 31 + char.charCodeAt(0) >>> 0, 0);
+    return palette[hash % palette.length];
   }
   async completeTask(task, checkbox) {
     try {

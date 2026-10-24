@@ -6,6 +6,7 @@ import { taskPriority } from "./task-priority";
 
 type PlannerHost = { app: App; timeZone: string; firstWeekday: number; showCompleted: boolean; tasks: () => any[]; refresh: () => Promise<void>; reschedule: (task: any, day: string) => Promise<any>; complete: (task: any) => Promise<any>; binding: (task: any) => any; load: (task: any) => Promise<any>; edit: (task: any) => Promise<any>; create: (initial: any) => Promise<any> };
 type Mode = "day" | "week" | "month";
+type ColorMode = "project" | "tag" | "priority" | "uniform";
 
 class PlannerMultiSelectModal extends Modal {
   private answer?: Set<string>;
@@ -76,6 +77,7 @@ export class PlanningCalendar {
   private projects = new Set<string>();
   private tags = new Set<string>();
   private sortMode = "ticktick";
+  private colorMode: ColorMode = "project";
   constructor(private element: HTMLElement, private host: PlannerHost) { this.day = todayInZone(host.timeZone); }
   async render() {
     this.element.empty(); this.element.addClass("ticktick-planner");
@@ -104,6 +106,9 @@ export class PlanningCalendar {
     const sort = filters.createEl("select", { attr: { "aria-label": "مرتب‌سازی تسک‌ها" } });
     for (const [value, label] of [["ticktick", "ترتیب TickTick"], ["time", "ساعت"], ["priority", "اولویت"], ["title", "عنوان"]]) sort.createEl("option", { value, text: `مرتب‌سازی: ${label}` });
     sort.value = this.sortMode; sort.addEventListener("change", () => { this.sortMode = sort.value; void this.render(); });
+    const color = filters.createEl("select", { attr: { "aria-label": "رنگ‌بندی تسک‌ها" } });
+    for (const [value, label] of [["project", "رنگ: پروژه"], ["tag", "رنگ: برچسب"], ["priority", "رنگ: اولویت"], ["uniform", "رنگ: یکدست"]] as Array<[ColorMode, string]>) color.createEl("option", { value, text: label });
+    color.value = this.colorMode; color.addEventListener("change", () => { this.colorMode = color.value as ColorMode; void this.render(); });
     const projects = [...new Set(tasks.map(task => String(task.projectName ?? task.projectId ?? "ورودی")))].sort((left, right) => left.localeCompare(right, "fa"));
     const project = filters.createEl("button", { text: this.projects.size ? `پروژه (${this.projects.size})` : "پروژه" }); project.addEventListener("click", async () => { const value = await new PlannerMultiSelectModal(this.host.app, "پروژه‌ها", projects, this.projects).openAndWait(); if (value) { this.projects = value; await this.render(); } });
     const tags = [...new Set(tasks.flatMap(task => task.tags ?? []).map(String))].sort((left, right) => left.localeCompare(right, "fa"));
@@ -170,9 +175,7 @@ export class PlanningCalendar {
       const priority = taskPriority(task.priority);
       const bar = lanes.createDiv({ cls: `ticktick-planner-range-task priority-${priority.value}`, attr: { title: `بازهٔ ${range.start} تا ${range.end} · برای جزئیات کلیک کن` } });
       bar.style.gridColumn = `${first + 1} / ${last + 2}`;
-      const projectColor = String(task.projectColor ?? "").trim();
-      const tone = /^#[0-9a-f]{3,8}$/i.test(projectColor) ? projectColor : priority.value === 5 ? "var(--color-red)" : priority.value === 3 ? "var(--color-orange)" : priority.value === 1 ? "var(--color-blue)" : "var(--interactive-accent)";
-      bar.style.setProperty("--ticktick-range-tone", tone);
+      bar.style.setProperty("--ticktick-task-tone", this.taskTone(task));
       const check = bar.createEl("input", { type: "checkbox", attr: { "aria-label": `تکمیل ${task.title}` } }); check.checked = Number(task.status ?? 0) !== 0; check.disabled = check.checked;
       const title = bar.createEl("button", { text: String(task.title ?? "بدون عنوان"), attr: { type: "button", "aria-label": `جزئیات ${task.title}` } });
       title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, { complete: () => this.completeTask(task), load: item => this.host.load(item), edit: item => this.host.edit(item), changed: async () => { await this.host.refresh(); await this.render(); } }).open());
@@ -181,10 +184,21 @@ export class PlanningCalendar {
   }
   private renderTask(parent: HTMLElement, task: any) {
     const bound = this.host.binding(task); const priority = taskPriority(task.priority); const card = parent.createDiv({ cls: `ticktick-planner-task priority-${priority.value}${bound ? " is-bound" : ""}`, attr: { title: `${bound ? "برای جابه‌جایی بکش" : "برای دیدن جزئیات کلیک کن"} · اولویت: ${priority.label}` } });
+    card.style.setProperty("--ticktick-task-tone", this.taskTone(task));
     const check = card.createEl("input", { type: "checkbox", attr: { "aria-label": `تکمیل ${task.title}` } }); check.checked = Number(task.status ?? 0) !== 0; check.disabled = check.checked;
     const title = card.createEl("button", { text: String(task.title ?? "بدون عنوان"), attr: { type: "button", "aria-label": `جزئیات ${task.title}` } }); title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, { complete: () => this.completeTask(task), load: item => this.host.load(item), edit: item => this.host.edit(item), changed: async () => { await this.host.refresh(); await this.render(); } }).open());
     check.addEventListener("click", event => event.stopPropagation()); check.addEventListener("change", () => void this.completeTask(task, check));
     card.draggable = Boolean(bound); card.addEventListener("dragstart", event => { if (bound) event.dataTransfer?.setData("text/ticktick-task", String(task.id)); });
+  }
+  private taskTone(task: any) {
+    if (this.colorMode === "uniform") return "var(--interactive-accent)";
+    if (this.colorMode === "priority") return Number(task.priority) === 5 ? "var(--color-red)" : Number(task.priority) === 3 ? "var(--color-orange)" : Number(task.priority) === 1 ? "var(--color-blue)" : "var(--text-muted)";
+    const seed = this.colorMode === "tag" ? String(task.tags?.[0] ?? task.projectName ?? task.projectId ?? "") : String(task.projectName ?? task.projectId ?? "");
+    const projectColor = String(task.projectColor ?? "").trim();
+    if (this.colorMode === "project" && /^#[0-9a-f]{3,8}$/i.test(projectColor)) return projectColor;
+    const palette = ["#7c6cff", "#4aa3df", "#2a9d8f", "#e76f51", "#d36ba6", "#d49a2a", "#5a9b68"];
+    const hash = [...seed].reduce((value, char) => ((value * 31) + char.charCodeAt(0)) >>> 0, 0);
+    return palette[hash % palette.length];
   }
   private async completeTask(task: any, checkbox?: HTMLInputElement) { try { await this.host.complete(task); new Notice("تسک تکمیل و همگام شد."); await this.host.refresh(); await this.render(); } catch (error) { if (checkbox) { checkbox.checked = false; checkbox.disabled = false; } new Notice(error instanceof Error ? error.message : "تکمیل ناموفق بود."); } }
   private async addTask(day: string) { try { const created = await this.host.create({ dueDate: day }); if (!created) return; new Notice("تسک در TickTick اضافه شد."); await this.host.refresh(); await this.render(); } catch (error) { new Notice(error instanceof Error ? error.message : "افزودن تسک ناموفق بود."); } }
