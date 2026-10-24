@@ -6,6 +6,7 @@
 
 ## Status
 
+- **Status**: Complete on `main` (2026-10-24)
 - **Priority**: P0
 - **Effort**: L
 - **Risk**: HIGH — may edit Markdown and remote tasks.
@@ -90,11 +91,11 @@ Migrate existing legacy bindings only after scan: match by existing ID plus proj
 
 ## Done criteria
 
-- [ ] A synced Markdown checkbox contains a verified TickTick task ID and project ID.
-- [ ] Preview mode produces no Vault or TickTick mutations.
-- [ ] A rerun after any ambiguous create does not automatically duplicate a task.
-- [ ] Same-field changes require a visible user choice; reports/snapshots live only under `.ticktick/`.
-- [ ] `npm test`, `npm run check`, and `npm run build` pass.
+- [x] A synced Markdown checkbox contains a verified TickTick task ID and project ID.
+- [x] Preview mode produces no Vault or TickTick mutations.
+- [x] A rerun after any ambiguous create does not automatically duplicate a task.
+- [x] Same-field changes require a visible user choice; reports/snapshots live only under `.ticktick/`.
+- [x] `npm test`, `npm run check`, and `npm run build` pass.
 
 ## STOP conditions
 

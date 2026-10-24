@@ -47,6 +47,7 @@ export class TickTickClient {
   listProjects() { return this.request("/project"); }
   getProject(projectId) { return this.request(`/project/${encodeURIComponent(projectId)}`); }
   getProjectData(projectId) { return this.request(`/project/${encodeURIComponent(projectId)}/data`); }
+  getTask(projectId, taskId) { return this.request(`/project/${encodeURIComponent(projectId)}/task/${encodeURIComponent(taskId)}`); }
   createTask(task) { return this.request("/task", { method: "POST", body: task }); }
   updateTask(task) {
     if (!task?.id) throw new Error("Task id is required for update.");

@@ -77,6 +77,11 @@ export class ManagedStorage {
     return paths.length ? { path: paths.at(-1)!, report: await this.readReport(paths.at(-1)!) } : null;
   }
   async persistJournal(operationId: string, journal: unknown) { const path = journalPath(operationId); await this.writeJson(path, { schemaVersion: 1, operationId, metadata: publicManagedMetadata(journal) }); return path; }
+  async readJournal(operationId: string) {
+    const path = this.managedPath(journalPath(operationId), "journal");
+    if (!await this.adapter.exists(path)) return null;
+    return JSON.parse(await this.adapter.read(path));
+  }
   async removeJournal(operationId: string) { const path = journalPath(operationId); if (await this.adapter.exists(path)) await this.adapter.remove(path); }
   async listManagedBackups() {
     const root = `${managedRoot()}/backups`;

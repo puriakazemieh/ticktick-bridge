@@ -16,6 +16,10 @@ Open the Today or Habits view from the ribbon or Command Palette. Add a
 `ticktick-today` or `ticktick-habits` code block to a note to render the
 corresponding dashboard inline.
 
+### Safe Markdown sync
+
+Use **Preview Markdown ↔ TickTick sync** before **Apply Markdown ↔ TickTick sync**. A tagged task is bound only after TickTick returns its task and project IDs, using a hidden public marker such as `<!-- ticktick-bridge:task id=… project=… v=1 -->`. Preview performs no writes. Conflicts, ambiguous creates, missing remote tasks, and duplicate bindings are quarantined for review; the plugin never retries an ambiguous create automatically.
+
 ## Managed local storage
 
 The plugin keeps recoverable, non-secret managed artifacts under

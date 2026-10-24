@@ -3,6 +3,8 @@ import { isHabitScheduledForDay, isScheduledForDay, jalaliDateKeyToGregorian, to
 import { TickTickClient } from "../core/ticktick-client.js";
 import { normalizeWebSessionCookie, parseWebHabitCheckins } from "../core/ticktick-web-habits.js";
 import { ManagedStorage } from "./managed-storage";
+import { MarkdownSync } from "./markdown-sync";
+import { MarkdownConflictModal } from "./conflict-modal";
 
 const VIEW_TYPE = "ticktick-bridge-today";
 const HABIT_VIEW_TYPE = "ticktick-bridge-habits";
@@ -74,6 +76,7 @@ export default class TickTickBridgePlugin extends Plugin {
   private checkboxImportTimers = new Map<string, number>();
   private syncInProgress = false;
   private managedStorage!: ManagedStorage;
+  private markdownSync!: MarkdownSync;
   private lastManagedReport = "هنوز گزارشی ثبت نشده است.";
 
   async onload() {
@@ -89,6 +92,7 @@ export default class TickTickBridgePlugin extends Plugin {
     } = legacySettings;
     this.settings = { ...DEFAULT_SETTINGS, ...activeSettings };
     this.cache = normalizeCache(savedCache);
+    this.markdownSync = new MarkdownSync(this.app, this.managedStorage, () => this.client(), () => this.settings, () => this.scheduledCheckboxProjectId());
     if ("projectRoot" in legacySettings || "projectDependencies" in legacySettings || "projectTaskCatalog" in legacySettings) await this.saveSettings();
     // Remove any restored workspace leaf from the retired project-planning view.
     this.app.workspace.onLayoutReady(() => {
@@ -115,7 +119,11 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-today-tasks", name: "Open today's TickTick tasks", callback: () => this.openTodayView() });
     this.addCommand({ id: "open-today-habits", name: "Open today's TickTick habits", callback: () => this.openHabitView() });
     this.addCommand({ id: "sync-now", name: "Sync TickTick now", callback: () => this.syncNow() });
-    this.addCommand({ id: "import-ticktick-checkboxes", name: "Import #ticktick checkboxes", callback: () => this.importAllTaggedCheckboxes() });
+    this.addCommand({ id: "preview-markdown-sync", name: "Preview Markdown ↔ TickTick sync", callback: () => this.previewMarkdownSync() });
+    this.addCommand({ id: "apply-markdown-sync", name: "Apply Markdown ↔ TickTick sync preview", callback: () => this.applyMarkdownSync() });
+    this.addCommand({ id: "open-markdown-sync-conflicts", name: "Open Markdown sync conflicts", callback: () => this.openMarkdownSyncConflicts() });
+    this.addCommand({ id: "repair-markdown-bindings", name: "Repair legacy Markdown bindings", callback: () => this.repairMarkdownBindings() });
+    this.addCommand({ id: "import-ticktick-checkboxes", name: "Preview #ticktick checkboxes", callback: () => this.previewMarkdownSync() });
     this.registerEvent(this.app.vault.on("modify", file => {
       if (file instanceof TFile && file.extension === "md") this.queueTaggedCheckboxImport(file);
     }));
@@ -150,15 +158,38 @@ export default class TickTickBridgePlugin extends Plugin {
     if (previous) window.clearTimeout(previous);
     this.checkboxImportTimers.set(file.path, window.setTimeout(() => {
       this.checkboxImportTimers.delete(file.path);
-      void this.importTaggedCheckboxes(file);
+      void this.previewMarkdownSync(true, [file]);
     }, 700));
   }
 
   async importAllTaggedCheckboxes() {
-    const files = this.app.vault.getMarkdownFiles();
-    let imported = 0;
-    for (const file of files) imported += await this.importTaggedCheckboxes(file, true);
-    new Notice(imported ? `${imported} چک‌باکس به TickTick اضافه شد.` : "چک‌باکس جدیدی با تگ TickTick پیدا نشد.");
+    await this.previewMarkdownSync();
+  }
+
+  async previewMarkdownSync(quiet = false, files?: TFile[]) {
+    const result = await this.markdownSync.preview(files);
+    if (!quiet) new Notice(`پیش‌نمایش Markdown sync: ایجاد ${result.create}، ارسال ${result.push}، دریافت ${result.pull}، تعارض ${result.conflict}، قرنطینه ${result.quarantine}.`);
+    return result;
+  }
+  async applyMarkdownSync() {
+    const result = await this.markdownSync.apply();
+    new Notice(`همگام‌سازی اعمال شد: ${result.applied} تغییر. تعارض/قرنطینه: ${result.conflict + result.quarantine}.`);
+    return result;
+  }
+  async openMarkdownSyncConflicts() {
+    const conflicts = await this.markdownSync.conflicts();
+    if (conflicts.length) {
+      if (!conflicts[0].diff?.conflicts?.length) { new Notice(`${conflicts[0].message} — این مورد قرنطینه شده و در گزارش ذخیره شده است.`); return conflicts; }
+      const choice = await new MarkdownConflictModal(this.app, conflicts[0]).openAndWait();
+      await this.markdownSync.resolve(conflicts[0], choice);
+      new Notice("انتخاب شما ثبت شد؛ گزارش در /.ticktick/reports/ ذخیره شد.");
+    } else new Notice("تعارض Markdown sync وجود ندارد.");
+    return conflicts;
+  }
+  async repairMarkdownBindings() {
+    const result = await this.markdownSync.repairLegacyBindings();
+    new Notice(`اسکن binding قدیمی تمام شد؛ ${result.quarantine} مورد نیازمند بررسی دستی است.`);
+    return result;
   }
 
   private async importTaggedCheckboxes(file: TFile, quiet = false) {
@@ -1540,14 +1571,17 @@ class TickTickBridgeSettings extends PluginSettingTab {
       input.inputEl.type = "password";
       input.setValue(this.plugin.settings.apiToken).onChange(async value => { this.plugin.settings.apiToken = value.trim(); await this.plugin.saveSettings(); });
     });
-    new Setting(containerEl).setName("تگ چک‌باکس TickTick").setDesc("بدون زمان در Inbox و بدون تاریخ ساخته می‌شود. با #امروز، #فردا، #هفته-بعد، #ماه-بعد یا نام روز هفته، با تاریخ مربوطه در لیست «اقدام» ساخته می‌شود.").addText(input => {
+    new Setting(containerEl).setName("تگ چک‌باکس TickTick").setDesc("چک‌باکس‌های دارای این تگ ابتدا فقط پیش‌نمایش می‌شوند؛ سپس با فرمان اعمال، binding امن TickTick می‌گیرند.").addText(input => {
       input.setValue(this.plugin.settings.checkboxImportTag).onChange(async value => {
         this.plugin.settings.checkboxImportTag = value.trim().replace(/^#/, "") || "ticktick";
         await this.plugin.saveSettings();
       });
-    }).addButton(button => button.setButtonText("اسکن همهٔ یادداشت‌ها").onClick(async () => {
+    }).addButton(button => button.setButtonText("پیش‌نمایش همهٔ یادداشت‌ها").onClick(async () => {
       button.setDisabled(true);
       try { await this.plugin.importAllTaggedCheckboxes(); } finally { button.setDisabled(false); }
+    })).addButton(button => button.setButtonText("اعمال پیش‌نمایش").setCta().onClick(async () => {
+      button.setDisabled(true);
+      try { await this.plugin.applyMarkdownSync(); } finally { button.setDisabled(false); }
     }));
     new Setting(containerEl).setName("ورود مستقل برای عادت‌ها").setDesc("مستقیم وارد TickTick می‌شود و نشست لازم را در خود Bridge نگه می‌دارد. نام کاربری و رمز ذخیره نمی‌شوند.").addButton(button => button
       .setButtonText("ورود به TickTick")

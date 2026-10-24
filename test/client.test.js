@@ -11,6 +11,13 @@ test("recurring completion uses TickTick's dedicated complete endpoint", async (
   assert.equal(calls[0].init.headers.Authorization, "Bearer test");
 });
 
+test("single task reads use the official project task endpoint", async () => {
+  const calls = [];
+  const client = new TickTickClient({ token: "test", transport: async (url, init) => { calls.push({ url, init }); return { status: 200, text: "{}" }; } });
+  await client.getTask("project 1", "task 1");
+  assert.equal(calls[0].url, "https://api.ticktick.com/open/v1/project/project%201/task/task%201");
+});
+
 test("habit check-in uses the official habit endpoint and date stamp", async () => {
   const calls = [];
   const client = new TickTickClient({ token: "test", transport: async (url, init) => { calls.push({ url, init }); return { status: 201, text: "" }; } });
