@@ -17,5 +17,6 @@ test("calendar separates all-day, timed, overdue, recurring, and completed tasks
   ];
   const buckets = planningBuckets(tasks, "2026-03-21");
   assert.equal(buckets.allDay.length, 2); assert.equal(buckets.timed[0].id, "t"); assert.equal(buckets.overdue[0].id, "o"); assert.equal(buckets.recurring[0].id, "r");
-  assert.deepEqual(tasksForCalendarDay(tasks, "2026-03-21").map(task => task.id), ["a", "r", "t", "o"]);
+  assert.deepEqual(tasksForCalendarDay(tasks, "2026-03-21").map(task => task.id), ["a", "r", "t"]);
+  assert.deepEqual(tasksForCalendarDay(tasks, "2026-03-22").map(task => task.id), []);
 });

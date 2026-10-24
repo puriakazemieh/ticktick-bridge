@@ -941,7 +941,7 @@ function planningBuckets(tasks, day, timeZone = "Asia/Tehran", showCompleted = f
 }
 function tasksForCalendarDay(tasks, day, timeZone = "Asia/Tehran", showCompleted = false) {
   const buckets = planningBuckets(tasks, day, timeZone, showCompleted);
-  return [...sortPlanningTasks(buckets.allDay.filter((task) => taskDay(task, timeZone) === day)), ...sortPlanningTasks(buckets.timed.filter((task) => taskDay(task, timeZone) === day)), ...sortPlanningTasks(buckets.overdue)];
+  return [...sortPlanningTasks(buckets.allDay.filter((task) => taskDay(task, timeZone) === day)), ...sortPlanningTasks(buckets.timed.filter((task) => taskDay(task, timeZone) === day))];
 }
 
 // src/obsidian/task-details-modal.ts

@@ -41,5 +41,8 @@ export function planningBuckets(tasks, day, timeZone = "Asia/Tehran", showComple
 }
 export function tasksForCalendarDay(tasks, day, timeZone = "Asia/Tehran", showCompleted = false) {
   const buckets = planningBuckets(tasks, day, timeZone, showCompleted);
-  return [...sortPlanningTasks(buckets.allDay.filter(task => taskDay(task, timeZone) === day)), ...sortPlanningTasks(buckets.timed.filter(task => taskDay(task, timeZone) === day)), ...sortPlanningTasks(buckets.overdue)];
+  // A calendar cell represents one date, not an "everything still overdue"
+  // bucket. Rendering overdue tasks in every later cell makes a single dated
+  // task look recurring. The caller can surface overdue work separately.
+  return [...sortPlanningTasks(buckets.allDay.filter(task => taskDay(task, timeZone) === day)), ...sortPlanningTasks(buckets.timed.filter(task => taskDay(task, timeZone) === day))];
 }
