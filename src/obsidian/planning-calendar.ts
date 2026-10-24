@@ -56,6 +56,7 @@ export class PlanningCalendar {
   private day: string;
   private project = "";
   private tag = "";
+  private sortMode = "ticktick";
   constructor(private element: HTMLElement, private host: PlannerHost) { this.day = todayInZone(host.timeZone); }
   async render() {
     this.element.empty(); this.element.addClass("ticktick-planner");
@@ -74,6 +75,9 @@ export class PlanningCalendar {
     const next = nav.createEl("button", { text: "›", attr: { "aria-label": "بعدی" } }); next.addEventListener("click", () => { this.day = shiftCalendarDay(this.day, step); void this.render(); });
     const add = controls.createEl("button", { text: "+ افزودن تسک" }); add.addEventListener("click", () => void this.addTask(this.day));
     const refresh = controls.createEl("button", { text: "همگام‌سازی" }); refresh.addEventListener("click", async () => { refresh.disabled = true; try { await this.host.refresh(); await this.render(); } catch (error) { new Notice(error instanceof Error ? error.message : "همگام‌سازی ناموفق بود."); } });
+    const sort = controls.createEl("select", { attr: { "aria-label": "مرتب‌سازی تسک‌ها" } });
+    for (const [value, label] of [["ticktick", "ترتیب TickTick"], ["time", "ساعت"], ["priority", "اولویت"], ["title", "عنوان"]]) sort.createEl("option", { value, text: `مرتب‌سازی: ${label}` });
+    sort.value = this.sortMode; sort.addEventListener("change", () => { this.sortMode = sort.value; void this.render(); });
     this.renderFilters(root);
     const tasks = this.filteredTasks();
     if (!tasks.length) root.createDiv({ cls: "ticktick-planner-empty", text: "تسکی برای این فیلتر نیست؛ از دکمهٔ «افزودن تسک» استفاده کن." });
@@ -92,7 +96,7 @@ export class PlanningCalendar {
     for (const day of days) {
       const column = grid.createDiv({ cls: "ticktick-planner-day", attr: { "data-day": day } });
       column.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", month: "numeric", day: "numeric" }).format(new Date(`${day}T12:00:00Z`)) });
-      const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted);
+      const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
       column.createSpan({ cls: "ticktick-planner-counter", text: `${items.length} تسک` });
       const add = column.createEl("button", { cls: "ticktick-planner-add", text: "+ افزودن", attr: { type: "button", "aria-label": `افزودن تسک در ${day}` } }); add.addEventListener("click", () => void this.addTask(day));
       column.addEventListener("dragover", event => event.preventDefault());
@@ -105,7 +109,7 @@ export class PlanningCalendar {
     for (const day of monthRange(this.day, this.host.firstWeekday)) {
       const cell = grid.createDiv({ cls: `ticktick-planner-month-cell${day.slice(0, 7) === this.day.slice(0, 7) ? "" : " is-outside"}`, attr: { "data-day": day } });
       cell.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(new Date(`${day}T12:00:00Z`)) });
-      const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted); cell.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
+      const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode); cell.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
       const add = cell.createEl("button", { cls: "ticktick-planner-add", text: "+", attr: { type: "button", "aria-label": `افزودن تسک در ${day}` } }); add.addEventListener("click", () => void this.addTask(day));
       cell.addEventListener("dragover", event => event.preventDefault()); cell.addEventListener("drop", event => { event.preventDefault(); const id = event.dataTransfer?.getData("text/ticktick-task"); const task = tasks.find(item => String(item.id) === id); if (task) void this.dropTask(task, day); });
       for (const task of items.slice(0, 3)) this.renderTask(cell, task);

@@ -31,3 +31,15 @@ test("calendar expands date ranges and recurring occurrences without duplicating
   assert.equal(taskOccursOnCalendarDay(weekly, "2026-10-25"), false);
   assert.equal(taskOccursOnCalendarDay(dated, "2026-10-25"), false);
 });
+
+test("calendar display sorting supports TickTick order, priority, time, and title", () => {
+  const tasks = [
+    { id: "late", title: "ب", dueDate: "2026-10-24T15:00:00+03:30", priority: 1, sortOrder: 3 },
+    { id: "high", title: "ج", dueDate: "2026-10-24T09:00:00+03:30", priority: 5, sortOrder: 2 },
+    { id: "first", title: "الف", dueDate: "2026-10-24", priority: 0, sortOrder: 1 },
+  ];
+  assert.deepEqual(tasksForCalendarDay(tasks, "2026-10-24").map(task => task.id), ["first", "high", "late"]);
+  assert.deepEqual(tasksForCalendarDay(tasks, "2026-10-24", "Asia/Tehran", false, "priority").map(task => task.id), ["high", "late", "first"]);
+  assert.deepEqual(tasksForCalendarDay(tasks, "2026-10-24", "Asia/Tehran", false, "time").map(task => task.id), ["first", "high", "late"]);
+  assert.deepEqual(tasksForCalendarDay(tasks, "2026-10-24", "Asia/Tehran", false, "title").map(task => task.id), ["first", "late", "high"]);
+});

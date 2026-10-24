@@ -5,11 +5,12 @@ import { taskPriority } from "./task-priority";
 import { ProjectEditorModal } from "./project-editor-modal";
 import { taskDescription } from "../core/task-description.js";
 import { formatPersianDate } from "../core/persian-date.js";
+import { sortPlanningTasks } from "../core/calendar-range.js";
 
 type Host = { app: App; projects: () => Promise<any[]>; createProject: (project: any) => Promise<any>; updateProject: (project: any) => Promise<any>; deleteProject: (projectId: string) => Promise<any>; createTask: (initial: any) => Promise<any>; tasks: () => any[]; board: (project: any) => Promise<any>; refresh: () => Promise<void>; complete: (task: any) => Promise<any>; binding: (task: any) => any; load: (task: any) => Promise<any>; edit: (task: any) => Promise<any>; showCompleted: () => boolean; preferences: () => { selected: string; collapsed: string[] }; savePreferences: (value: { selected: string; collapsed: string[] }) => Promise<void> };
 
 export class ProjectBoard {
-  private selected = ""; private collapsed = new Set<string>(); private initialized = false;
+  private selected = ""; private collapsed = new Set<string>(); private initialized = false; private sortMode = "ticktick";
   constructor(private element: HTMLElement, private host: Host) {}
   async render() {
     if (!this.initialized) { const saved = this.host.preferences(); this.selected = saved.selected; this.collapsed = new Set(saved.collapsed); this.initialized = true; }
@@ -28,6 +29,9 @@ export class ProjectBoard {
       }
       const main = root.createDiv({ cls: "ticktick-project-main" }); const toolbar = main.createDiv({ cls: "ticktick-project-toolbar" });
       const refresh = toolbar.createEl("button", { text: "به‌روزرسانی" }); refresh.addEventListener("click", async () => { refresh.disabled = true; try { await this.host.refresh(); await this.render(); } catch (error) { new Notice(error instanceof Error ? error.message : "همگام‌سازی ناموفق بود."); } });
+      const sort = toolbar.createEl("select", { attr: { "aria-label": "مرتب‌سازی کارت‌های برد" } });
+      for (const [value, label] of [["ticktick", "ترتیب TickTick"], ["time", "تاریخ/ساعت"], ["priority", "اولویت"], ["title", "عنوان"]]) sort.createEl("option", { value, text: `مرتب‌سازی: ${label}` });
+      sort.value = this.sortMode; sort.addEventListener("change", () => { this.sortMode = sort.value; void this.render(); });
       const create = toolbar.createEl("button", { text: "+ لیست جدید" }); create.addEventListener("click", async () => { const draft = await new ProjectEditorModal(this.host.app).openAndWait(); if (!draft) return; create.disabled = true; try { const project = await this.host.createProject(draft); this.selected = String(project?.id ?? ""); await this.host.refresh(); await this.persistAndRender(); new Notice("لیست در TickTick ساخته شد."); } catch (error) { new Notice(error instanceof Error ? error.message : "ساخت لیست ناموفق بود."); } finally { create.disabled = false; } });
       const project = projects.find(item => String(item.id) === this.selected);
       if (!project) { main.createEl("p", { text: "یک لیست را از نوار کناری انتخاب کن." }); return; }
@@ -37,7 +41,7 @@ export class ProjectBoard {
       const data = await this.host.board(project); main.createEl("h2", { text: project.name });
       const columns = main.createDiv({ cls: "ticktick-project-columns" });
       for (const column of boardColumns(data, this.host.showCompleted())) { const shell = columns.createDiv({ cls: "ticktick-project-column" }); shell.createEl("strong", { text: `${column.name} · ${column.count}` }); shell.createEl("small", { text: column.synthetic ? "ستون نمایشی؛ جابه‌جایی غیرفعال است" : "ترتیب و جابه‌جایی ستون در نسخهٔ اول فقط خواندنی است" }); shell.addEventListener("dragover", event => event.preventDefault()); shell.addEventListener("drop", event => { event.preventDefault(); new Notice("جابه‌جایی بین ستون‌ها تا تأیید رسمی API TickTick غیرفعال است."); });
-        for (const group of column.groups) { shell.createEl("h4", { text: group.name }); for (const task of group.tasks) this.card(shell, task); }
+        for (const group of column.groups) { shell.createEl("h4", { text: group.name }); for (const task of sortPlanningTasks(group.tasks, this.sortMode)) this.card(shell, task); }
       }
     } catch (error) { root.createEl("p", { text: error instanceof Error ? error.message : "دادهٔ پروژه در دسترس نیست." }); }
   }

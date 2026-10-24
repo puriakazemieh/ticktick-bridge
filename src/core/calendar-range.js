@@ -62,10 +62,23 @@ export function taskOccursOnCalendarDay(task, day, timeZone = "Asia/Tehran", sho
   if (frequency === "YEARLY") return value.getUTCFullYear() >= base.getUTCFullYear() && (value.getUTCFullYear() - base.getUTCFullYear()) % interval === 0 && value.getUTCMonth() === base.getUTCMonth() && value.getUTCDate() === base.getUTCDate();
   return day === anchor;
 }
-export function sortPlanningTasks(tasks) {
-  return [...tasks].sort((left, right) => Number(left.sortOrder ?? left.order ?? 0) - Number(right.sortOrder ?? right.order ?? 0)
+export function sortPlanningTasks(tasks, mode = "ticktick") {
+  const byTickTick = (left, right) => Number(left.sortOrder ?? left.order ?? 0) - Number(right.sortOrder ?? right.order ?? 0)
     || taskTime(left).localeCompare(taskTime(right)) || Number(right.priority ?? 0) - Number(left.priority ?? 0)
-    || String(left.title ?? "").localeCompare(String(right.title ?? ""), "fa"));
+    || String(left.title ?? "").localeCompare(String(right.title ?? ""), "fa");
+  return [...tasks].sort((left, right) => {
+    if (mode === "priority") {
+      const priority = Number(right.priority ?? 0) - Number(left.priority ?? 0);
+      if (priority) return priority;
+    } else if (mode === "time") {
+      const time = taskTime(left).localeCompare(taskTime(right));
+      if (time) return time;
+    } else if (mode === "title") {
+      const title = String(left.title ?? "").localeCompare(String(right.title ?? ""), "fa");
+      if (title) return title;
+    }
+    return byTickTick(left, right);
+  });
 }
 export function planningBuckets(tasks, day, timeZone = "Asia/Tehran", showCompleted = false) {
   const result = { allDay: [], timed: [], overdue: [], recurring: [], completed: [], unscheduled: [] };
@@ -82,6 +95,6 @@ export function planningBuckets(tasks, day, timeZone = "Asia/Tehran", showComple
   for (const key of Object.keys(result)) result[key] = sortPlanningTasks(result[key]);
   return result;
 }
-export function tasksForCalendarDay(tasks, day, timeZone = "Asia/Tehran", showCompleted = false) {
-  return sortPlanningTasks((tasks ?? []).filter(task => taskOccursOnCalendarDay(task, day, timeZone, showCompleted)));
+export function tasksForCalendarDay(tasks, day, timeZone = "Asia/Tehran", showCompleted = false, sortMode = "ticktick") {
+  return sortPlanningTasks((tasks ?? []).filter(task => taskOccursOnCalendarDay(task, day, timeZone, showCompleted)), sortMode);
 }
