@@ -918,18 +918,37 @@ function checklistSummary(items) {
 
 // src/obsidian/task-details-modal.ts
 var TaskDetailsModal = class extends import_obsidian3.Modal {
-  constructor(app, task, onComplete) {
+  constructor(app, task, actions = {}) {
     super(app);
     this.task = task;
-    this.onComplete = onComplete;
+    this.actions = actions;
   }
   onOpen() {
     this.modalEl.addClass("ticktick-task-details-modal");
+    void this.loadAndRender();
+  }
+  async loadAndRender() {
+    this.contentEl.empty();
+    this.titleEl.setText("\u062C\u0632\u0626\u06CC\u0627\u062A \u062A\u0633\u06A9");
+    if (this.actions.load) {
+      this.contentEl.createDiv({ cls: "ticktick-task-details-loading", text: "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062C\u0632\u0626\u06CC\u0627\u062A \u06A9\u0627\u0645\u0644 \u0627\u0632 TickTick\u2026" });
+      try {
+        const fresh = await this.actions.load(this.task);
+        if (fresh?.id) this.task = { ...this.task, ...fresh };
+      } catch {
+      }
+    }
+    this.render();
+  }
+  render() {
+    this.contentEl.empty();
     this.titleEl.setText(String(this.task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"));
     const meta = this.contentEl.createDiv({ cls: "ticktick-task-details-meta" });
-    for (const value of [this.task.projectName, this.task.dueDate ? `\u{1F4C5} ${String(this.task.dueDate).slice(0, 10)}` : "", this.task.repeatFlag ? "\u{1F501} \u062A\u06A9\u0631\u0627\u0631" : ""]) if (value) meta.createSpan({ text: String(value) });
+    for (const value of [this.task.projectName, this.task.dueDate ? `\u{1F4C5} ${String(this.task.dueDate).slice(0, 10)}` : "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", `\u0627\u0648\u0644\u0648\u06CC\u062A P${Number(this.task.priority ?? 0)}`, this.task.repeatFlag ? "\u{1F501} \u062A\u06A9\u0631\u0627\u0631" : ""]) if (value) meta.createSpan({ text: String(value) });
     const description = String(this.task.desc ?? this.task.content ?? "").trim();
-    if (description) this.contentEl.createDiv({ cls: "ticktick-task-details-description", text: description });
+    const descriptionBox = this.contentEl.createDiv({ cls: "ticktick-task-details-description" });
+    descriptionBox.createEl("strong", { text: "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A" });
+    descriptionBox.createDiv({ text: description || "\u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A." });
     const items = normalizeChecklist(this.task.items);
     if (items.length) {
       const box = this.contentEl.createDiv({ cls: "ticktick-task-details-checklist" });
@@ -939,12 +958,34 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
     }
     const tags = this.task.tags ?? [];
     if (tags.length) this.contentEl.createDiv({ cls: "ticktick-task-details-tags", text: tags.map((tag) => `#${tag}`).join("  ") });
-    if (this.onComplete && Number(this.task.status ?? 0) === 0) {
-      const button = this.contentEl.createEl("button", { text: "\u062A\u06A9\u0645\u06CC\u0644 \u062A\u0633\u06A9", cls: "mod-cta" });
+    const actions = this.contentEl.createDiv({ cls: "ticktick-task-details-actions" });
+    if (this.actions.edit) {
+      const edit = actions.createEl("button", { text: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u06A9\u0627\u0645\u0644", cls: "mod-cta" });
+      edit.addEventListener("click", async () => {
+        edit.disabled = true;
+        try {
+          const updated = await this.actions.edit(this.task);
+          if (!updated) {
+            edit.disabled = false;
+            return;
+          }
+          if (updated.id) this.task = { ...this.task, ...updated };
+          await this.actions.changed?.();
+          new import_obsidian3.Notice("\u062A\u063A\u06CC\u06CC\u0631\u0627\u062A \u062F\u0631 TickTick \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
+          await this.loadAndRender();
+        } catch (error) {
+          edit.disabled = false;
+          new import_obsidian3.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+        }
+      });
+    }
+    if (this.actions.complete && Number(this.task.status ?? 0) === 0) {
+      const button = actions.createEl("button", { text: "\u062A\u06A9\u0645\u06CC\u0644 \u062A\u0633\u06A9" });
       button.addEventListener("click", async () => {
         button.disabled = true;
         try {
-          await this.onComplete();
+          await this.actions.complete();
+          await this.actions.changed?.();
           new import_obsidian3.Notice("\u062A\u0633\u06A9 \u062A\u06A9\u0645\u06CC\u0644 \u0648 \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F.");
           this.close();
         } catch (error) {
@@ -992,16 +1033,19 @@ var RescheduleModal = class extends import_obsidian4.Modal {
   }
 };
 var TaskOverflowModal = class extends import_obsidian4.Modal {
-  constructor(app, tasks, complete) {
+  constructor(app, tasks, complete, load, edit, changed) {
     super(app);
     this.tasks = tasks;
     this.complete = complete;
+    this.load = load;
+    this.edit = edit;
+    this.changed = changed;
   }
   onOpen() {
     this.titleEl.setText("\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632");
     for (const task of this.tasks) {
       const button = this.contentEl.createEl("button", { cls: "ticktick-overflow-task", text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646") });
-      button.addEventListener("click", () => new TaskDetailsModal(this.app, task, () => this.complete(task)).open());
+      button.addEventListener("click", () => new TaskDetailsModal(this.app, task, { complete: () => this.complete(task), load: this.load, edit: this.edit, changed: this.changed }).open());
     }
   }
   onClose() {
@@ -1121,7 +1165,10 @@ var PlanningCalendar = class {
       for (const task of items.slice(0, 3)) this.renderTask(cell, task);
       if (items.length > 3) {
         const more = cell.createEl("button", { cls: "ticktick-planner-overflow", text: `+${items.length - 3}`, attr: { type: "button", "aria-label": "\u0646\u0645\u0627\u06CC\u0634 \u0647\u0645\u0647\u0654 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0631\u0648\u0632" } });
-        more.addEventListener("click", () => new TaskOverflowModal(this.host.app, items, (task) => this.completeTask(task)).open());
+        more.addEventListener("click", () => new TaskOverflowModal(this.host.app, items, (task) => this.completeTask(task), (task) => this.host.load(task), (task) => this.host.edit(task), async () => {
+          await this.host.refresh();
+          await this.render();
+        }).open());
       }
     }
   }
@@ -1132,7 +1179,10 @@ var PlanningCalendar = class {
     check.checked = Number(task.status ?? 0) !== 0;
     check.disabled = check.checked;
     const title = card.createEl("button", { text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"), attr: { type: "button", "aria-label": `\u062C\u0632\u0626\u06CC\u0627\u062A ${task.title}` } });
-    title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, () => this.completeTask(task)).open());
+    title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, { complete: () => this.completeTask(task), load: (item) => this.host.load(item), edit: (item) => this.host.edit(item), changed: async () => {
+      await this.host.refresh();
+      await this.render();
+    } }).open());
     check.addEventListener("click", (event) => event.stopPropagation());
     check.addEventListener("change", () => void this.completeTask(task, check));
     card.draggable = Boolean(bound);
@@ -1279,10 +1329,12 @@ var ProjectBoard = class {
     if (task.repeatFlag) meta.createSpan({ text: "\u{1F501} \u062A\u06A9\u0631\u0627\u0631" });
     for (const tag of task.tags ?? []) meta.createSpan({ text: `#${tag}` });
     if (bound) meta.createSpan({ text: "\u2197 Markdown" });
-    const details = () => new TaskDetailsModal(this.host.app, task, async () => {
+    const details = () => new TaskDetailsModal(this.host.app, task, { complete: async () => {
       await this.host.complete(task);
+    }, load: (item) => this.host.load(item), edit: (item) => this.host.edit(item), changed: async () => {
+      await this.host.refresh();
       await this.render();
-    }).open();
+    } }).open();
     card.addEventListener("click", details);
     card.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
@@ -1673,7 +1725,9 @@ var TickTickBridgePlugin = class extends import_obsidian7.Plugin {
       },
       reschedule: async (task, day) => this.markdownSync.rescheduleBoundTask(String(task.id), day),
       complete: async (task) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
-      binding: (task) => this.markdownSync.bindingForTask(String(task.id))
+      binding: (task) => this.markdownSync.bindingForTask(String(task.id)),
+      load: async (task) => this.loadTaskDetails(task),
+      edit: async (task) => this.editTaskFromSurface(task)
     };
   }
   projectBoardHost() {
@@ -1685,8 +1739,10 @@ var TickTickBridgePlugin = class extends import_obsidian7.Plugin {
       refresh: async () => {
         await this.syncNow({ quiet: true });
       },
-      complete: async (task) => this.markdownSync.completeBoundTask(String(task.id)),
+      complete: async (task) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task) => this.markdownSync.bindingForTask(String(task.id)),
+      load: async (task) => this.loadTaskDetails(task),
+      edit: async (task) => this.editTaskFromSurface(task),
       showCompleted: () => this.settings.plannerShowCompleted,
       preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups }),
       savePreferences: async (value) => {
@@ -1966,6 +2022,20 @@ var TickTickBridgePlugin = class extends import_obsidian7.Plugin {
   }
   async checkInHabit(habitId, day, checkin) {
     return this.runMutation("habit", { habitId, day, checkin });
+  }
+  async loadTaskDetails(task) {
+    const projectId = String(task?.projectId ?? "");
+    if (!projectId || !task?.id) return task;
+    return this.client().getTask(projectId, String(task.id));
+  }
+  async editTaskFromSurface(task) {
+    const current = await this.loadTaskDetails(task);
+    const projects = await this.client().listProjects();
+    const draft = await openTaskEditor(this.app, projects, current);
+    if (!draft) return null;
+    const payload = toTaskPayload({ ...current, ...draft }, this.settings.timeZone);
+    await this.updateTask(payload);
+    return { ...current, ...payload };
   }
   cachedTasksForDay(day) {
     return this.cache.tasks.filter((task) => isScheduledForDay(task, day));
