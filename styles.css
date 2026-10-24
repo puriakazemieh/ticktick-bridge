@@ -29,7 +29,7 @@
 .ticktick-planner-add { align-self: flex-start; padding: .16rem .4rem; border: 1px dashed var(--tt-line); border-radius: .4rem; background: transparent; color: var(--text-muted); font-size: .7rem; cursor: pointer; }.ticktick-planner-month-cell > .ticktick-planner-add { float: left; margin-top: -.1rem; }
 .ticktick-planner-task.priority-5 { border-color: var(--color-red); }.ticktick-planner-task.priority-3 { border-color: var(--color-orange); }.ticktick-planner-task.priority-1 { border-color: var(--color-blue); }
 .ticktick-planner-task.is-bound { cursor: grab; }.ticktick-planner-task:not(.is-bound) { opacity: .72; }
-.ticktick-planner-month { display: grid; grid-template-columns: repeat(7, minmax(6rem, 1fr)); gap: .35rem; overflow-x: auto; }
+.ticktick-planner-month { display: block; overflow-x: auto; }
 .ticktick-planner-month-cell { min-height: 7rem; }.ticktick-planner-month-cell.is-outside { opacity: .5; }.ticktick-planner-overflow { font-size: .7rem; color: var(--text-muted); }
 .ticktick-planner-empty { padding: 1rem; color: var(--text-muted); text-align: center; }
 
@@ -351,6 +351,11 @@
 
 .ticktick-planner-task { display: grid; grid-template-columns: min-content minmax(0, 1fr); align-items: center; gap: .35rem; width: 100%; min-width: 0; padding: .32rem .4rem; }
 .ticktick-planner-task input { margin: 0; }.ticktick-planner-task button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; background: transparent; color: var(--text-normal); text-align: right; padding: 0; box-shadow: none; }
+.ticktick-planner-range-lanes, .ticktick-planner-month-range-lanes { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(7, minmax(8rem, 1fr)); gap: .28rem .45rem; min-width: 56rem; }
+.ticktick-planner-month-week { min-width: 56rem; margin-bottom: .45rem; }.ticktick-planner-month-cells { display: grid; grid-template-columns: repeat(7, minmax(8rem, 1fr)); gap: .35rem; }
+.ticktick-planner-range-task { display: grid; grid-template-columns: min-content minmax(0, 1fr); align-items: center; gap: .35rem; min-width: 0; padding: .3rem .48rem; border: 1px solid color-mix(in srgb, var(--interactive-accent) 45%, var(--tt-line)); border-inline-start: 3px solid var(--interactive-accent); border-radius: .4rem; background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)); }
+.ticktick-planner-range-task.priority-5 { border-inline-start-color: var(--color-red); }.ticktick-planner-range-task.priority-3 { border-inline-start-color: var(--color-orange); }.ticktick-planner-range-task.priority-1 { border-inline-start-color: var(--color-blue); }
+.ticktick-planner-range-task input { margin: 0; }.ticktick-planner-range-task button { min-width: 0; overflow: hidden; padding: 0; border: 0; background: transparent; color: var(--text-normal); text-align: right; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; box-shadow: none; }
 .ticktick-planner-overflow { display: inline-flex; align-items: center; justify-content: center; min-height: 1.7rem; width: 100%; margin-top: .2rem; border: 1px dashed var(--tt-line); border-radius: .45rem; background: transparent; color: var(--text-muted); cursor: pointer; }
 .ticktick-overflow-task { display: grid; grid-template-columns: min-content minmax(0, 1fr); align-items: center; gap: .5rem; width: 100%; margin: .25rem 0; padding: .28rem .45rem; border: 1px solid var(--tt-line); border-radius: .45rem; background: var(--background-secondary); direction: rtl; }.ticktick-overflow-task input { margin: 0; }.ticktick-overflow-task button { min-width: 0; overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; border: 0; background: transparent; color: var(--text-normal); cursor: pointer; }
 

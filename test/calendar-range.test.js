@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { monthRange, planningBuckets, taskOccursOnCalendarDay, tasksForCalendarDay, weekRange } from "../src/core/calendar-range.js";
+import { monthRange, planningBuckets, taskDateRange, taskOccursOnCalendarDay, tasksForCalendarDay, weekRange } from "../src/core/calendar-range.js";
 
 test("calendar ranges begin on configurable weekday and month always has 42 cells", () => {
   assert.deepEqual(weekRange("2026-03-21", 1), ["2026-03-16", "2026-03-17", "2026-03-18", "2026-03-19", "2026-03-20", "2026-03-21", "2026-03-22"]);
@@ -30,6 +30,8 @@ test("calendar expands date ranges and recurring occurrences without duplicating
   assert.equal(taskOccursOnCalendarDay(weekly, "2026-10-26"), true);
   assert.equal(taskOccursOnCalendarDay(weekly, "2026-10-25"), false);
   assert.equal(taskOccursOnCalendarDay(dated, "2026-10-25"), false);
+  assert.deepEqual(taskDateRange(ranged), { start: "2026-10-24", end: "2026-10-27" });
+  assert.equal(taskDateRange(weekly), null);
 });
 
 test("calendar display sorting supports TickTick order, priority, time, and title", () => {

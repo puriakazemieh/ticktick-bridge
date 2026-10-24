@@ -18,6 +18,13 @@ export function monthRange(day, firstWeekday = 6) {
   return Array.from({ length: 42 }, (_, index) => shiftCalendarDay(start, index));
 }
 function taskDay(task, timeZone) { return toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone); }
+/** A non-recurring multi-day task can be painted as one continuous calendar bar. */
+export function taskDateRange(task, timeZone = "Asia/Tehran") {
+  if (task?.repeatFlag) return null;
+  const start = toDateKey(task?.startDate, task?.timeZone || timeZone);
+  const end = toDateKey(task?.dueDate, task?.timeZone || timeZone);
+  return start && end && start < end ? { start, end } : null;
+}
 function taskTime(task) { return String(task.startDate ?? task.dueDate ?? "").match(/T(\d{2}:\d{2})/)?.[1] ?? ""; }
 function dayNumber(day) { return Math.floor(Date.parse(`${day}T12:00:00Z`) / 86400000); }
 function ruleParts(task) {

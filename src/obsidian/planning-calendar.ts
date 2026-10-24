@@ -1,5 +1,5 @@
 import { App, Modal, Notice } from "obsidian";
-import { monthRange, shiftCalendarDay, tasksForCalendarDay, weekRange } from "../core/calendar-range.js";
+import { monthRange, shiftCalendarDay, taskDateRange, tasksForCalendarDay, weekRange } from "../core/calendar-range.js";
 import { todayInZone } from "../core/date.js";
 import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
@@ -93,6 +93,8 @@ export class PlanningCalendar {
   private filteredTasks() { return this.host.tasks().filter(task => (!this.project || String(task.projectName ?? task.projectId ?? "ورودی") === this.project) && (!this.tag || (task.tags ?? []).includes(this.tag))); }
   private renderDays(root: HTMLElement, days: string[], tasks: any[]) {
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
+    const showRangeBars = days.length > 1;
+    if (showRangeBars) this.renderRangeLanes(grid, days, tasks, "ticktick-planner-range-lanes");
     for (const day of days) {
       const column = grid.createDiv({ cls: "ticktick-planner-day", attr: { "data-day": day } });
       column.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", month: "numeric", day: "numeric" }).format(new Date(`${day}T12:00:00Z`)) });
@@ -101,19 +103,44 @@ export class PlanningCalendar {
       const add = column.createEl("button", { cls: "ticktick-planner-add", text: "+ افزودن", attr: { type: "button", "aria-label": `افزودن تسک در ${day}` } }); add.addEventListener("click", () => void this.addTask(day));
       column.addEventListener("dragover", event => event.preventDefault());
       column.addEventListener("drop", event => { event.preventDefault(); const id = event.dataTransfer?.getData("text/ticktick-task"); const task = tasks.find(item => String(item.id) === id); if (task) void this.dropTask(task, day); });
-      for (const task of items) this.renderTask(column, task);
+      for (const task of items.filter(item => !showRangeBars || !taskDateRange(item, this.host.timeZone))) this.renderTask(column, task);
     }
   }
   private renderMonth(root: HTMLElement, tasks: any[]) {
     const grid = root.createDiv({ cls: "ticktick-planner-month" });
-    for (const day of monthRange(this.day, this.host.firstWeekday)) {
-      const cell = grid.createDiv({ cls: `ticktick-planner-month-cell${day.slice(0, 7) === this.day.slice(0, 7) ? "" : " is-outside"}`, attr: { "data-day": day } });
+    const days = monthRange(this.day, this.host.firstWeekday);
+    for (let index = 0; index < days.length; index += 7) {
+      const weekDays = days.slice(index, index + 7);
+      const week = grid.createDiv({ cls: "ticktick-planner-month-week" });
+      this.renderRangeLanes(week, weekDays, tasks, "ticktick-planner-month-range-lanes");
+      const cells = week.createDiv({ cls: "ticktick-planner-month-cells" });
+      for (const day of weekDays) {
+      const cell = cells.createDiv({ cls: `ticktick-planner-month-cell${day.slice(0, 7) === this.day.slice(0, 7) ? "" : " is-outside"}`, attr: { "data-day": day } });
       cell.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(new Date(`${day}T12:00:00Z`)) });
       const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode); cell.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
       const add = cell.createEl("button", { cls: "ticktick-planner-add", text: "+", attr: { type: "button", "aria-label": `افزودن تسک در ${day}` } }); add.addEventListener("click", () => void this.addTask(day));
       cell.addEventListener("dragover", event => event.preventDefault()); cell.addEventListener("drop", event => { event.preventDefault(); const id = event.dataTransfer?.getData("text/ticktick-task"); const task = tasks.find(item => String(item.id) === id); if (task) void this.dropTask(task, day); });
-      for (const task of items.slice(0, 3)) this.renderTask(cell, task);
-      if (items.length > 3) { const more = cell.createEl("button", { cls: "ticktick-planner-overflow", text: `+${items.length - 3}`, attr: { type: "button", "aria-label": "نمایش همهٔ تسک‌های روز" } }); more.addEventListener("click", () => new TaskOverflowModal(this.host.app, items, task => this.completeTask(task), task => this.host.load(task), task => this.host.edit(task), async () => { await this.host.refresh(); await this.render(); }).open()); }
+      const cards = items.filter(item => !taskDateRange(item, this.host.timeZone));
+      for (const task of cards.slice(0, 3)) this.renderTask(cell, task);
+      if (cards.length > 3) { const more = cell.createEl("button", { cls: "ticktick-planner-overflow", text: `+${cards.length - 3}`, attr: { type: "button", "aria-label": "نمایش همهٔ تسک‌های روز" } }); more.addEventListener("click", () => new TaskOverflowModal(this.host.app, cards, task => this.completeTask(task), task => this.host.load(task), task => this.host.edit(task), async () => { await this.host.refresh(); await this.render(); }).open()); }
+      }
+    }
+  }
+  private renderRangeLanes(parent: HTMLElement, days: string[], tasks: any[], cls: string) {
+    const lanes = parent.createDiv({ cls });
+    for (const task of tasks) {
+      if (Number(task.status ?? 0) !== 0 && !this.host.showCompleted) continue;
+      const range = taskDateRange(task, this.host.timeZone);
+      if (!range || range.end < days[0] || range.start > days.at(-1)!) continue;
+      const first = Math.max(0, days.findIndex(day => day >= range.start));
+      const last = Math.max(first, (() => { const index = days.findIndex(day => day > range.end); return index < 0 ? days.length - 1 : index - 1; })());
+      const priority = taskPriority(task.priority);
+      const bar = lanes.createDiv({ cls: `ticktick-planner-range-task priority-${priority.value}`, attr: { title: `بازهٔ ${range.start} تا ${range.end} · برای جزئیات کلیک کن` } });
+      bar.style.gridColumn = `${first + 1} / ${last + 2}`;
+      const check = bar.createEl("input", { type: "checkbox", attr: { "aria-label": `تکمیل ${task.title}` } }); check.checked = Number(task.status ?? 0) !== 0; check.disabled = check.checked;
+      const title = bar.createEl("button", { text: String(task.title ?? "بدون عنوان"), attr: { type: "button", "aria-label": `جزئیات ${task.title}` } });
+      title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, { complete: () => this.completeTask(task), load: item => this.host.load(item), edit: item => this.host.edit(item), changed: async () => { await this.host.refresh(); await this.render(); } }).open());
+      check.addEventListener("change", () => void this.completeTask(task, check));
     }
   }
   private renderTask(parent: HTMLElement, task: any) {
