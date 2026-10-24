@@ -7,6 +7,25 @@ import { taskPriority } from "./task-priority";
 type PlannerHost = { app: App; timeZone: string; firstWeekday: number; showCompleted: boolean; tasks: () => any[]; refresh: () => Promise<void>; reschedule: (task: any, day: string) => Promise<any>; complete: (task: any) => Promise<any>; binding: (task: any) => any; load: (task: any) => Promise<any>; edit: (task: any) => Promise<any>; create: (initial: any) => Promise<any> };
 type Mode = "day" | "week" | "month";
 
+class PlannerMultiSelectModal extends Modal {
+  private answer?: Set<string>;
+  constructor(app: App, private label: string, private values: string[], private selected: Set<string>, private prefix = "") { super(app); }
+  openAndWait() { this.open(); return new Promise<Set<string> | undefined>(resolve => { this.onClose = () => { this.contentEl.empty(); resolve(this.answer); }; }); }
+  onOpen() {
+    this.titleEl.setText(`انتخاب ${this.label}`);
+    const choices = new Set(this.selected);
+    const list = this.contentEl.createDiv({ cls: "ticktick-planner-filter-modal" });
+    for (const value of this.values) {
+      const row = list.createEl("label"); const check = row.createEl("input", { type: "checkbox" }); check.checked = choices.has(value);
+      row.appendText(`${this.prefix}${value}`);
+      check.addEventListener("change", () => { check.checked ? choices.add(value) : choices.delete(value); });
+    }
+    const actions = this.contentEl.createDiv({ cls: "modal-button-container" });
+    actions.createEl("button", { text: "لغو" }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "اعمال", cls: "mod-cta" }).addEventListener("click", () => { this.answer = choices; this.close(); });
+  }
+}
+
 class RescheduleModal extends Modal {
   private resolveAnswer!: (value: boolean) => void;
   constructor(app: App, private task: any, private target: string) { super(app); }
@@ -86,21 +105,10 @@ export class PlanningCalendar {
   private renderFilters(root: HTMLElement) {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" }); const tasks = this.host.tasks();
     const projects = [...new Set(tasks.map(task => String(task.projectName ?? task.projectId ?? "ورودی")))].sort((left, right) => left.localeCompare(right, "fa"));
-    this.renderMultiSelect(filters, "پروژه", projects, this.projects, value => { this.projects = value; });
+    const project = filters.createEl("button", { text: this.projects.size ? `پروژه (${this.projects.size})` : "پروژه" }); project.addEventListener("click", async () => { const value = await new PlannerMultiSelectModal(this.host.app, "پروژه‌ها", projects, this.projects).openAndWait(); if (value) { this.projects = value; await this.render(); } });
     const tags = [...new Set(tasks.flatMap(task => task.tags ?? []).map(String))].sort((left, right) => left.localeCompare(right, "fa"));
-    this.renderMultiSelect(filters, "برچسب", tags, this.tags, value => { this.tags = value; }, "#");
+    const tag = filters.createEl("button", { text: this.tags.size ? `برچسب (${this.tags.size})` : "برچسب" }); tag.addEventListener("click", async () => { const value = await new PlannerMultiSelectModal(this.host.app, "برچسب‌ها", tags, this.tags, "#").openAndWait(); if (value) { this.tags = value; await this.render(); } });
     if (this.projects.size || this.tags.size) { const clear = filters.createEl("button", { text: "پاک", attr: { "aria-label": "پاک‌کردن همهٔ فیلترها" } }); clear.addEventListener("click", () => { this.projects.clear(); this.tags.clear(); void this.render(); }); }
-  }
-  private renderMultiSelect(parent: HTMLElement, label: string, values: string[], selected: Set<string>, changed: (value: Set<string>) => void, prefix = "") {
-    const menu = parent.createEl("details", { cls: "ticktick-planner-filter-menu" });
-    menu.createEl("summary", { text: selected.size ? `${label} (${selected.size})` : label });
-    const options = menu.createDiv({ cls: "ticktick-planner-filter-options" });
-    if (!values.length) options.createSpan({ text: "موردی نیست" });
-    for (const value of values) {
-      const option = options.createEl("label"); const check = option.createEl("input", { type: "checkbox", value }); check.checked = selected.has(value);
-      option.appendText(`${prefix}${value}`);
-      check.addEventListener("change", () => { const next = new Set(selected); check.checked ? next.add(value) : next.delete(value); changed(next); void this.render(); });
-    }
   }
   private filteredTasks() { return this.host.tasks().filter(task => (!this.projects.size || this.projects.has(String(task.projectName ?? task.projectId ?? "ورودی"))) && (!this.tags.size || (task.tags ?? []).some((tag: any) => this.tags.has(String(tag))))); }
   private renderDays(root: HTMLElement, days: string[], tasks: any[]) {

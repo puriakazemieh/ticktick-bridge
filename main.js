@@ -1130,6 +1130,45 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
 };
 
 // src/obsidian/planning-calendar.ts
+var PlannerMultiSelectModal = class extends import_obsidian4.Modal {
+  constructor(app, label, values, selected, prefix = "") {
+    super(app);
+    this.label = label;
+    this.values = values;
+    this.selected = selected;
+    this.prefix = prefix;
+  }
+  answer;
+  openAndWait() {
+    this.open();
+    return new Promise((resolve) => {
+      this.onClose = () => {
+        this.contentEl.empty();
+        resolve(this.answer);
+      };
+    });
+  }
+  onOpen() {
+    this.titleEl.setText(`\u0627\u0646\u062A\u062E\u0627\u0628 ${this.label}`);
+    const choices = new Set(this.selected);
+    const list = this.contentEl.createDiv({ cls: "ticktick-planner-filter-modal" });
+    for (const value of this.values) {
+      const row = list.createEl("label");
+      const check = row.createEl("input", { type: "checkbox" });
+      check.checked = choices.has(value);
+      row.appendText(`${this.prefix}${value}`);
+      check.addEventListener("change", () => {
+        check.checked ? choices.add(value) : choices.delete(value);
+      });
+    }
+    const actions = this.contentEl.createDiv({ cls: "modal-button-container" });
+    actions.createEl("button", { text: "\u0644\u063A\u0648" }).addEventListener("click", () => this.close());
+    actions.createEl("button", { text: "\u0627\u0639\u0645\u0627\u0644", cls: "mod-cta" }).addEventListener("click", () => {
+      this.answer = choices;
+      this.close();
+    });
+  }
+};
 var RescheduleModal = class extends import_obsidian4.Modal {
   constructor(app, task, target) {
     super(app);
@@ -1268,36 +1307,28 @@ var PlanningCalendar = class {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" });
     const tasks = this.host.tasks();
     const projects = [...new Set(tasks.map((task) => String(task.projectName ?? task.projectId ?? "\u0648\u0631\u0648\u062F\u06CC")))].sort((left, right) => left.localeCompare(right, "fa"));
-    this.renderMultiSelect(filters, "\u067E\u0631\u0648\u0698\u0647", projects, this.projects, (value) => {
-      this.projects = value;
+    const project = filters.createEl("button", { text: this.projects.size ? `\u067E\u0631\u0648\u0698\u0647 (${this.projects.size})` : "\u067E\u0631\u0648\u0698\u0647" });
+    project.addEventListener("click", async () => {
+      const value = await new PlannerMultiSelectModal(this.host.app, "\u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627", projects, this.projects).openAndWait();
+      if (value) {
+        this.projects = value;
+        await this.render();
+      }
     });
     const tags = [...new Set(tasks.flatMap((task) => task.tags ?? []).map(String))].sort((left, right) => left.localeCompare(right, "fa"));
-    this.renderMultiSelect(filters, "\u0628\u0631\u0686\u0633\u0628", tags, this.tags, (value) => {
-      this.tags = value;
-    }, "#");
+    const tag = filters.createEl("button", { text: this.tags.size ? `\u0628\u0631\u0686\u0633\u0628 (${this.tags.size})` : "\u0628\u0631\u0686\u0633\u0628" });
+    tag.addEventListener("click", async () => {
+      const value = await new PlannerMultiSelectModal(this.host.app, "\u0628\u0631\u0686\u0633\u0628\u200C\u0647\u0627", tags, this.tags, "#").openAndWait();
+      if (value) {
+        this.tags = value;
+        await this.render();
+      }
+    });
     if (this.projects.size || this.tags.size) {
       const clear = filters.createEl("button", { text: "\u067E\u0627\u06A9", attr: { "aria-label": "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0647\u0645\u0647\u0654 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627" } });
       clear.addEventListener("click", () => {
         this.projects.clear();
         this.tags.clear();
-        void this.render();
-      });
-    }
-  }
-  renderMultiSelect(parent, label, values, selected, changed, prefix = "") {
-    const menu = parent.createEl("details", { cls: "ticktick-planner-filter-menu" });
-    menu.createEl("summary", { text: selected.size ? `${label} (${selected.size})` : label });
-    const options = menu.createDiv({ cls: "ticktick-planner-filter-options" });
-    if (!values.length) options.createSpan({ text: "\u0645\u0648\u0631\u062F\u06CC \u0646\u06CC\u0633\u062A" });
-    for (const value of values) {
-      const option = options.createEl("label");
-      const check = option.createEl("input", { type: "checkbox", value });
-      check.checked = selected.has(value);
-      option.appendText(`${prefix}${value}`);
-      check.addEventListener("change", () => {
-        const next = new Set(selected);
-        check.checked ? next.add(value) : next.delete(value);
-        changed(next);
         void this.render();
       });
     }
