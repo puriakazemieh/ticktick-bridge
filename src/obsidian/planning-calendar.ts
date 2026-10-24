@@ -23,7 +23,30 @@ class RescheduleModal extends Modal {
 
 class TaskOverflowModal extends Modal {
   constructor(app: App, private tasks: any[], private complete: (task: any) => Promise<any>, private load: (task: any) => Promise<any>, private edit: (task: any) => Promise<any>, private changed: () => Promise<void>) { super(app); }
-  onOpen() { this.titleEl.setText("تسک‌های این روز"); for (const task of this.tasks) { const button = this.contentEl.createEl("button", { cls: "ticktick-overflow-task", text: String(task.title ?? "بدون عنوان") }); button.addEventListener("click", () => new TaskDetailsModal(this.app, task, { complete: () => this.complete(task), load: this.load, edit: this.edit, changed: this.changed }).open()); } }
+  onOpen() {
+    this.titleEl.setText("تسک‌های این روز");
+    for (const task of this.tasks) {
+      const row = this.contentEl.createDiv({ cls: "ticktick-overflow-task" });
+      const check = row.createEl("input", { type: "checkbox", attr: { "aria-label": `تکمیل ${task.title}` } });
+      check.checked = Number(task.status ?? 0) !== 0;
+      check.disabled = check.checked;
+      const button = row.createEl("button", { text: String(task.title ?? "بدون عنوان"), attr: { type: "button", "aria-label": `جزئیات ${task.title}` } });
+      button.addEventListener("click", () => new TaskDetailsModal(this.app, task, { complete: () => this.complete(task), load: this.load, edit: this.edit, changed: this.changed }).open());
+      check.addEventListener("change", async () => {
+        check.disabled = true;
+        try {
+          await this.complete(task);
+          task.status = 2;
+          await this.changed();
+          new Notice("تسک تکمیل و همگام شد.");
+        } catch (error) {
+          check.checked = false;
+          check.disabled = false;
+          new Notice(error instanceof Error ? error.message : "تکمیل تسک ناموفق بود.");
+        }
+      });
+    }
+  }
   onClose() { this.contentEl.empty(); }
 }
 

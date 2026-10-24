@@ -1044,8 +1044,25 @@ var TaskOverflowModal = class extends import_obsidian4.Modal {
   onOpen() {
     this.titleEl.setText("\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632");
     for (const task of this.tasks) {
-      const button = this.contentEl.createEl("button", { cls: "ticktick-overflow-task", text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646") });
+      const row = this.contentEl.createDiv({ cls: "ticktick-overflow-task" });
+      const check = row.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
+      check.checked = Number(task.status ?? 0) !== 0;
+      check.disabled = check.checked;
+      const button = row.createEl("button", { text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"), attr: { type: "button", "aria-label": `\u062C\u0632\u0626\u06CC\u0627\u062A ${task.title}` } });
       button.addEventListener("click", () => new TaskDetailsModal(this.app, task, { complete: () => this.complete(task), load: this.load, edit: this.edit, changed: this.changed }).open());
+      check.addEventListener("change", async () => {
+        check.disabled = true;
+        try {
+          await this.complete(task);
+          task.status = 2;
+          await this.changed();
+          new import_obsidian4.Notice("\u062A\u0633\u06A9 \u062A\u06A9\u0645\u06CC\u0644 \u0648 \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F.");
+        } catch (error) {
+          check.checked = false;
+          check.disabled = false;
+          new import_obsidian4.Notice(error instanceof Error ? error.message : "\u062A\u06A9\u0645\u06CC\u0644 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+        }
+      });
     }
   }
   onClose() {
