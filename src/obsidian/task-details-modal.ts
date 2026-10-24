@@ -14,10 +14,9 @@ export class TaskDetailsModal extends Modal {
   constructor(app: App, private task: any, private actions: TaskActions = {}) { super(app); }
   onOpen() {
     this.modalEl.addClass("ticktick-task-details-modal");
-    // Full descriptions live in the local cache, so opening a task never
-    // waits on the network. A read is only needed for an incomplete record.
+    // Opening a card is always local and instantaneous. Network reads are an
+    // explicit user action, never a hidden click-time request.
     this.render();
-    if (this.actions.load && !taskDescription(this.task)) void this.loadAndRender();
   }
   private async loadAndRender() {
     this.contentEl.empty();
@@ -46,6 +45,10 @@ export class TaskDetailsModal extends Modal {
     const items = normalizeChecklist(this.task.items); if (items.length) { const box = this.contentEl.createDiv({ cls: "ticktick-task-details-checklist" }); const summary = checklistSummary(items); box.createEl("strong", { text: `Checklist · ${summary.completed}/${summary.total}` }); for (const item of items) box.createDiv({ text: `${item.completed ? "☑" : "☐"} ${item.title}` }); }
     const tags = this.task.tags ?? []; if (tags.length) this.contentEl.createDiv({ cls: "ticktick-task-details-tags", text: tags.map((tag: string) => `#${tag}`).join("  ") });
     const actions = this.contentEl.createDiv({ cls: "ticktick-task-details-actions" });
+    if (this.actions.load) {
+      const refresh = actions.createEl("button", { text: "تازه‌سازی جزئیات" });
+      refresh.addEventListener("click", () => void this.loadAndRender());
+    }
     if (this.actions.edit) {
       const edit = actions.createEl("button", { text: "ویرایش کامل", cls: "mod-cta" });
       edit.addEventListener("click", async () => { edit.disabled = true; try { const updated = await this.actions.edit!(this.task); if (!updated) { edit.disabled = false; return; } if (updated.id) this.task = { ...this.task, ...updated }; await this.actions.changed?.(); new Notice("تغییرات در TickTick ذخیره شد."); await this.loadAndRender(); } catch (error) { edit.disabled = false; new Notice(error instanceof Error ? error.message : "ویرایش تسک ناموفق بود."); } });

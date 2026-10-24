@@ -993,7 +993,6 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
   onOpen() {
     this.modalEl.addClass("ticktick-task-details-modal");
     this.render();
-    if (this.actions.load && !taskDescription(this.task)) void this.loadAndRender();
   }
   async loadAndRender() {
     this.contentEl.empty();
@@ -1028,6 +1027,10 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
     const tags = this.task.tags ?? [];
     if (tags.length) this.contentEl.createDiv({ cls: "ticktick-task-details-tags", text: tags.map((tag) => `#${tag}`).join("  ") });
     const actions = this.contentEl.createDiv({ cls: "ticktick-task-details-actions" });
+    if (this.actions.load) {
+      const refresh = actions.createEl("button", { text: "\u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC \u062C\u0632\u0626\u06CC\u0627\u062A" });
+      refresh.addEventListener("click", () => void this.loadAndRender());
+    }
     if (this.actions.edit) {
       const edit = actions.createEl("button", { text: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u06A9\u0627\u0645\u0644", cls: "mod-cta" });
       edit.addEventListener("click", async () => {
