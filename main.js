@@ -2303,7 +2303,7 @@ var ProjectBoard = class {
       });
       const addIcon = addTaskBtn.createSpan({ cls: "ticktick-btn-icon" });
       (0, import_obsidian6.setIcon)(addIcon, "plus");
-      addTaskBtn.createSpan({ text: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9" });
+      addTaskBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9" });
       addTaskBtn.addEventListener("click", async () => {
         addTaskBtn.disabled = true;
         try {
@@ -2366,7 +2366,7 @@ var ProjectBoard = class {
       });
       const refreshIcon = refreshBtn.createSpan({ cls: "ticktick-btn-icon" });
       (0, import_obsidian6.setIcon)(refreshIcon, "refresh-cw");
-      refreshBtn.createSpan({ text: "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC" });
+      refreshBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC" });
       refreshBtn.addEventListener("click", async () => {
         refreshBtn.disabled = true;
         refreshIcon.addClass("is-syncing");
@@ -2385,7 +2385,7 @@ var ProjectBoard = class {
       });
       const editIcon = editBtn.createSpan({ cls: "ticktick-btn-icon" });
       (0, import_obsidian6.setIcon)(editIcon, "pencil");
-      editBtn.createSpan({ text: "\u0648\u06CC\u0631\u0627\u06CC\u0634" });
+      editBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "\u0648\u06CC\u0631\u0627\u06CC\u0634" });
       editBtn.addEventListener("click", async () => {
         const draft = await new ProjectEditorModal(this.host.app, project).openAndWait();
         if (!draft) return;
@@ -2407,7 +2407,7 @@ var ProjectBoard = class {
       });
       const deleteIcon = deleteBtn.createSpan({ cls: "ticktick-btn-icon" });
       (0, import_obsidian6.setIcon)(deleteIcon, "trash-2");
-      deleteBtn.createSpan({ text: "\u062D\u0630\u0641" });
+      deleteBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "\u062D\u0630\u0641" });
       deleteBtn.addEventListener("click", async () => {
         if (!window.confirm(`\u0644\u06CC\u0633\u062A \xAB${project.name}\xBB \u0648 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0622\u0646 \u062F\u0631 TickTick \u062D\u0630\u0641 \u0634\u0648\u062F\u061F`)) return;
         deleteBtn.disabled = true;

@@ -169,7 +169,7 @@ export class ProjectBoard {
       });
       const addIcon = addTaskBtn.createSpan({ cls: "ticktick-btn-icon" });
       setIcon(addIcon, "plus");
-      addTaskBtn.createSpan({ text: "افزودن تسک" });
+      addTaskBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "افزودن تسک" });
       addTaskBtn.addEventListener("click", async () => {
         addTaskBtn.disabled = true;
         try {
@@ -239,7 +239,7 @@ export class ProjectBoard {
       });
       const refreshIcon = refreshBtn.createSpan({ cls: "ticktick-btn-icon" });
       setIcon(refreshIcon, "refresh-cw");
-      refreshBtn.createSpan({ text: "به‌روزرسانی" });
+      refreshBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "به‌روزرسانی" });
       refreshBtn.addEventListener("click", async () => {
         refreshBtn.disabled = true;
         refreshIcon.addClass("is-syncing");
@@ -260,7 +260,7 @@ export class ProjectBoard {
       });
       const editIcon = editBtn.createSpan({ cls: "ticktick-btn-icon" });
       setIcon(editIcon, "pencil");
-      editBtn.createSpan({ text: "ویرایش" });
+      editBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "ویرایش" });
       editBtn.addEventListener("click", async () => {
         const draft = await new ProjectEditorModal(this.host.app, project).openAndWait();
         if (!draft) return;
@@ -284,7 +284,7 @@ export class ProjectBoard {
       });
       const deleteIcon = deleteBtn.createSpan({ cls: "ticktick-btn-icon" });
       setIcon(deleteIcon, "trash-2");
-      deleteBtn.createSpan({ text: "حذف" });
+      deleteBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "حذف" });
       deleteBtn.addEventListener("click", async () => {
         if (!window.confirm(`لیست «${project.name}» و تسک‌های آن در TickTick حذف شود؟`)) return;
         deleteBtn.disabled = true;
