@@ -178,23 +178,28 @@ class TaskOverflowModal extends Modal {
       const priority = taskPriority(task.priority);
       const isCompleted = Number(task.status ?? 0) !== 0;
 
-      const row = container.createDiv({ cls: `ticktick-overflow-task priority-${priority.value} ${isCompleted ? "is-completed" : ""}` });
-      const check = row.createEl("input", { type: "checkbox", cls: "ticktick-overflow-check", attr: { "aria-label": `تکمیل ${task.title}` } });
-      check.checked = isCompleted;
-      check.disabled = isCompleted;
-
-      const main = row.createDiv({ cls: "ticktick-overflow-task-main" });
-      const titleBtn = main.createEl("button", {
-        text: String(task.title ?? "بدون عنوان"),
-        cls: "ticktick-overflow-task-title",
-        attr: { type: "button", "aria-label": `جزئیات ${task.title}` }
+      const row = container.createDiv({
+        cls: `ticktick-overflow-task priority-${priority.value} ${isCompleted ? "is-completed" : ""}`,
+        attr: { role: "button", tabindex: "0" }
       });
-      titleBtn.addEventListener("click", () => new TaskDetailsModal(this.app, task, {
+
+      row.addEventListener("click", () => new TaskDetailsModal(this.app, task, {
         complete: () => this.complete(task),
         load: this.load,
         edit: this.edit,
         changed: this.changed
       }).open());
+
+      const check = row.createEl("input", { type: "checkbox", cls: "ticktick-overflow-check", attr: { "aria-label": `تکمیل ${task.title}` } });
+      check.checked = isCompleted;
+      check.disabled = isCompleted;
+      check.addEventListener("click", e => e.stopPropagation());
+
+      const main = row.createDiv({ cls: "ticktick-overflow-task-main" });
+      main.createDiv({
+        text: String(task.title ?? "بدون عنوان"),
+        cls: "ticktick-overflow-task-title"
+      });
 
       if (task.projectName) {
         main.createSpan({ cls: "ticktick-overflow-task-project", text: task.projectName });
@@ -632,13 +637,28 @@ export class PlanningCalendar {
       })());
       const priority = taskPriority(task.priority);
       const isCompleted = Number(task.status ?? 0) !== 0;
+      const tone = this.taskTone(task);
 
       const bar = lanes.createDiv({
         cls: `ticktick-planner-range-task priority-${priority.value} ${isCompleted ? "is-completed" : ""}`,
-        attr: { title: `بازهٔ ${range.start} تا ${range.end} · برای جزئیات کلیک کن` }
+        attr: {
+          title: `بازهٔ ${range.start} تا ${range.end} · ${task.title}`,
+          role: "button",
+          tabindex: "0"
+        }
       });
       bar.style.gridColumn = `${first + 1} / ${last + 2}`;
-      bar.style.setProperty("--ticktick-task-tone", this.taskTone(task));
+      bar.style.setProperty("--ticktick-task-tone", tone);
+
+      bar.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
+        complete: () => this.completeTask(task),
+        load: item => this.host.load(item),
+        edit: item => this.host.edit(item),
+        changed: async () => {
+          await this.host.refresh();
+          await this.render();
+        }
+      }).open());
 
       const check = bar.createEl("input", { type: "checkbox", cls: "ticktick-range-check", attr: { "aria-label": `تکمیل ${task.title}` } });
       check.checked = isCompleted;
@@ -649,20 +669,10 @@ export class PlanningCalendar {
       const rangeIcon = bar.createSpan({ cls: "ticktick-range-indicator mod-icon", attr: { "aria-hidden": "true" } });
       setIcon(rangeIcon, "calendar-range");
 
-      const title = bar.createEl("button", {
+      bar.createDiv({
         cls: "ticktick-range-title",
-        text: String(task.title ?? "بدون عنوان"),
-        attr: { type: "button", "aria-label": `جزئیات ${task.title}` }
+        text: String(task.title ?? "بدون عنوان")
       });
-      title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
-        complete: () => this.completeTask(task),
-        load: item => this.host.load(item),
-        edit: item => this.host.edit(item),
-        changed: async () => {
-          await this.host.refresh();
-          await this.render();
-        }
-      }).open());
     }
   }
 
@@ -675,15 +685,43 @@ export class PlanningCalendar {
     const card = parent.createDiv({
       cls: `ticktick-planner-task priority-${priority.value} ${bound ? "is-bound" : ""} ${isCompleted ? "is-completed" : ""}`,
       attr: {
-        title: `${bound ? "برای جابه‌جایی بکش · " : ""}اولویت: ${priority.label}${task.projectName ? ` · ${task.projectName}` : ""}`
+        title: `${String(task.title ?? "")}${task.projectName ? ` · ${task.projectName}` : ""}${bound ? " · (برای جابه‌جایی بکش)" : ""}`,
+        role: "button",
+        tabindex: "0"
       }
     });
     card.style.setProperty("--ticktick-task-tone", tone);
+
+    card.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
+      complete: () => this.completeTask(task),
+      load: item => this.host.load(item),
+      edit: item => this.host.edit(item),
+      changed: async () => {
+        await this.host.refresh();
+        await this.render();
+      }
+    }).open());
+
+    card.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        new TaskDetailsModal(this.host.app, task, {
+          complete: () => this.completeTask(task),
+          load: item => this.host.load(item),
+          edit: item => this.host.edit(item),
+          changed: async () => {
+            await this.host.refresh();
+            await this.render();
+          }
+        }).open();
+      }
+    });
 
     // Bound grip indicator
     if (bound) {
       const grip = card.createSpan({ cls: "ticktick-task-grip mod-icon", attr: { "aria-hidden": "true" } });
       setIcon(grip, "grip-vertical");
+      grip.addEventListener("click", event => event.stopPropagation());
     }
 
     // Checkbox
@@ -696,10 +734,13 @@ export class PlanningCalendar {
     // Content container
     const content = card.createDiv({ cls: "ticktick-task-content" });
 
-    // Meta chips (Time, Priority, Project)
+    // Meta chips (Project, Time, Priority)
     const timeStr = formatTaskTime(task, this.host.timeZone);
     if (timeStr || priority.value > 0 || task.projectName) {
       const metaRow = content.createDiv({ cls: "ticktick-task-meta-row" });
+      if (task.projectName) {
+        metaRow.createSpan({ cls: "ticktick-task-project-chip", text: task.projectName });
+      }
       if (timeStr) {
         const timeBadge = metaRow.createSpan({ cls: "ticktick-task-time-badge" });
         const clockIcon = timeBadge.createSpan({ cls: "ticktick-time-icon" });
@@ -709,26 +750,13 @@ export class PlanningCalendar {
       if (priority.value > 0) {
         metaRow.createSpan({ cls: `ticktick-task-priority-dot ${priority.className}`, attr: { title: `اولویت: ${priority.label}` } });
       }
-      if (task.projectName) {
-        metaRow.createSpan({ cls: "ticktick-task-project-chip", text: task.projectName });
-      }
     }
 
-    // Task title button
-    const title = content.createEl("button", {
+    // Task title: plain div, no button, full wrap!
+    content.createDiv({
       cls: "ticktick-task-title",
-      text: String(task.title ?? "بدون عنوان"),
-      attr: { type: "button", "aria-label": `جزئیات ${task.title}` }
+      text: String(task.title ?? "بدون عنوان")
     });
-    title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
-      complete: () => this.completeTask(task),
-      load: item => this.host.load(item),
-      edit: item => this.host.edit(item),
-      changed: async () => {
-        await this.host.refresh();
-        await this.render();
-      }
-    }).open());
 
     card.draggable = Boolean(bound);
     card.addEventListener("dragstart", event => {
@@ -750,9 +778,23 @@ export class PlanningCalendar {
 
     const card = parent.createDiv({
       cls: `ticktick-planner-month-task priority-${priority.value} ${bound ? "is-bound" : ""} ${isCompleted ? "is-completed" : ""}`,
-      attr: { title: `${task.title} · اولویت: ${priority.label}` }
+      attr: {
+        title: `${task.title}${task.projectName ? ` · ${task.projectName}` : ""}`,
+        role: "button",
+        tabindex: "0"
+      }
     });
     card.style.setProperty("--ticktick-task-tone", tone);
+
+    card.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
+      complete: () => this.completeTask(task),
+      load: item => this.host.load(item),
+      edit: item => this.host.edit(item),
+      changed: async () => {
+        await this.host.refresh();
+        await this.render();
+      }
+    }).open());
 
     const check = card.createEl("input", { type: "checkbox", cls: "ticktick-month-check", attr: { "aria-label": `تکمیل ${task.title}` } });
     check.checked = isCompleted;
@@ -765,20 +807,10 @@ export class PlanningCalendar {
       card.createSpan({ cls: "ticktick-month-time", text: timeStr });
     }
 
-    const title = card.createEl("button", {
+    card.createDiv({
       cls: "ticktick-month-task-title",
-      text: String(task.title ?? "بدون عنوان"),
-      attr: { type: "button", "aria-label": `جزئیات ${task.title}` }
+      text: String(task.title ?? "بدون عنوان")
     });
-    title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
-      complete: () => this.completeTask(task),
-      load: item => this.host.load(item),
-      edit: item => this.host.edit(item),
-      changed: async () => {
-        await this.host.refresh();
-        await this.render();
-      }
-    }).open());
 
     card.draggable = Boolean(bound);
     card.addEventListener("dragstart", event => {
