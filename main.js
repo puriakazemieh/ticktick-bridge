@@ -1030,6 +1030,13 @@ function tasksForCalendarDay(tasks, day, timeZone = "Asia/Tehran", showCompleted
   return sortPlanningTasks((tasks ?? []).filter((task) => taskOccursOnCalendarDay(task, day, timeZone, showCompleted)), sortMode);
 }
 
+// src/core/persian-date.js
+function formatPersianDate(value, timeZone = "Asia/Tehran") {
+  const day = toDateKey(value, timeZone);
+  if (!day) return "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E";
+  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", { year: "numeric", month: "long", day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`));
+}
+
 // src/obsidian/task-details-modal.ts
 var import_obsidian3 = require("obsidian");
 
@@ -1067,13 +1074,6 @@ function mergeTaskDetails(cached = {}, fresh = {}) {
     if ((!merged[field] || typeof merged[field] !== "string") && typeof cached[field] === "string" && cached[field].trim()) merged[field] = cached[field];
   }
   return merged;
-}
-
-// src/core/persian-date.js
-function formatPersianDate(value, timeZone = "Asia/Tehran") {
-  const day = toDateKey(value, timeZone);
-  if (!day) return "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E";
-  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", { year: "numeric", month: "long", day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`));
 }
 
 // src/obsidian/task-details-modal.ts
@@ -1212,6 +1212,19 @@ function enhanceHorizontalScroll(element) {
 }
 
 // src/obsidian/planning-calendar.ts
+function formatTaskTime(task, timeZone) {
+  if (task.isAllDay) return null;
+  const raw = task.startDate ?? task.dueDate;
+  if (!raw || !String(raw).includes("T")) return null;
+  try {
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return null;
+    return new Intl.DateTimeFormat("fa-IR", { timeZone, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+  } catch {
+    const m = String(raw).match(/T(\d{2}:\d{2})/);
+    return m ? m[1] : null;
+  }
+}
 var PlannerMultiSelectModal = class extends import_obsidian4.Modal {
   constructor(app, label, values, selected, prefix = "") {
     super(app);
@@ -1231,21 +1244,48 @@ var PlannerMultiSelectModal = class extends import_obsidian4.Modal {
     });
   }
   onOpen() {
-    this.titleEl.setText(`\u0627\u0646\u062A\u062E\u0627\u0628 ${this.label}`);
+    this.modalEl.addClass("ticktick-filter-modal-dialog");
+    this.titleEl.setText(`\u0641\u06CC\u0644\u062A\u0631 ${this.label}`);
     const choices = new Set(this.selected);
+    const searchBox = this.contentEl.createDiv({ cls: "ticktick-filter-search-box" });
+    const searchInput = searchBox.createEl("input", {
+      type: "search",
+      placeholder: `\u062C\u0633\u062A\u062C\u0648 \u062F\u0631 ${this.label}\u2026`,
+      cls: "ticktick-filter-search-input"
+    });
     const list = this.contentEl.createDiv({ cls: "ticktick-planner-filter-modal" });
-    for (const value of this.values) {
-      const row = list.createEl("label");
-      const check = row.createEl("input", { type: "checkbox" });
-      check.checked = choices.has(value);
-      row.appendText(`${this.prefix}${value}`);
-      check.addEventListener("change", () => {
-        check.checked ? choices.add(value) : choices.delete(value);
-      });
-    }
-    const actions = this.contentEl.createDiv({ cls: "modal-button-container" });
+    const renderList = (filterText = "") => {
+      list.empty();
+      const filtered = this.values.filter((v) => !filterText || v.toLowerCase().includes(filterText.toLowerCase()));
+      if (!filtered.length) {
+        list.createDiv({ cls: "ticktick-filter-empty", text: "\u0645\u0648\u0631\u062F\u06CC \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F" });
+        return;
+      }
+      for (const value of filtered) {
+        const row = list.createEl("label", { cls: "ticktick-filter-item" });
+        const check = row.createEl("input", { type: "checkbox", cls: "ticktick-filter-checkbox" });
+        check.checked = choices.has(value);
+        row.createSpan({ cls: "ticktick-filter-item-text", text: `${this.prefix}${value}` });
+        check.addEventListener("change", () => {
+          check.checked ? choices.add(value) : choices.delete(value);
+        });
+      }
+    };
+    searchInput.addEventListener("input", () => renderList(searchInput.value.trim()));
+    renderList();
+    const actions = this.contentEl.createDiv({ cls: "modal-button-container ticktick-filter-actions" });
+    const selectAllBtn = actions.createEl("button", { text: "\u0627\u0646\u062A\u062E\u0627\u0628 \u0647\u0645\u0647", cls: "ticktick-filter-quick-btn" });
+    selectAllBtn.addEventListener("click", () => {
+      this.values.forEach((v) => choices.add(v));
+      renderList(searchInput.value.trim());
+    });
+    const clearBtn = actions.createEl("button", { text: "\u062D\u0630\u0641 \u0647\u0645\u0647", cls: "ticktick-filter-quick-btn" });
+    clearBtn.addEventListener("click", () => {
+      choices.clear();
+      renderList(searchInput.value.trim());
+    });
     actions.createEl("button", { text: "\u0644\u063A\u0648" }).addEventListener("click", () => this.close());
-    actions.createEl("button", { text: "\u0627\u0639\u0645\u0627\u0644", cls: "mod-cta" }).addEventListener("click", () => {
+    actions.createEl("button", { text: "\u0627\u0639\u0645\u0627\u0644 \u0641\u06CC\u0644\u062A\u0631", cls: "mod-cta" }).addEventListener("click", () => {
       this.answer = choices;
       this.close();
     });
@@ -1265,15 +1305,24 @@ var RescheduleModal = class extends import_obsidian4.Modal {
     });
   }
   onOpen() {
-    this.titleEl.setText("\u062A\u0623\u06CC\u06CC\u062F \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u062A\u0633\u06A9");
-    this.contentEl.createEl("p", { text: `\xAB${this.task.title}\xBB \u0628\u0647 ${this.target} \u0645\u0646\u062A\u0642\u0644 \u0634\u0648\u062F\u061F` });
-    if (this.task.repeatFlag) this.contentEl.createEl("p", { cls: "mod-warning", text: "\u062A\u0633\u06A9 \u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647 \u0627\u0633\u062A\u061B occurrence \u062C\u062F\u06CC\u062F \u0645\u062D\u0644\u06CC \u0633\u0627\u062E\u062A\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F." });
+    this.modalEl.addClass("ticktick-reschedule-modal");
+    this.titleEl.setText("\u062A\u0623\u06CC\u06CC\u062F \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u062A\u0627\u0631\u06CC\u062E \u062A\u0633\u06A9");
+    const body = this.contentEl.createDiv({ cls: "ticktick-reschedule-body" });
+    const formattedTarget = formatPersianDate(this.target);
+    const card = body.createDiv({ cls: "ticktick-reschedule-card" });
+    card.createEl("span", { cls: "ticktick-reschedule-task-title", text: `\xAB${this.task.title}\xBB` });
+    card.createDiv({ cls: "ticktick-reschedule-dest", text: `\u0627\u0646\u062A\u0642\u0627\u0644 \u0628\u0647 \u062A\u0627\u0631\u06CC\u062E: ${formattedTarget}` });
+    if (this.task.repeatFlag) {
+      const warning = body.createDiv({ cls: "ticktick-reschedule-warning" });
+      (0, import_obsidian4.setIcon)(warning.createSpan({ cls: "ticktick-warning-icon" }), "alert-circle");
+      warning.createSpan({ text: "\u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647 \u0627\u0633\u062A\u061B occurrence \u062C\u062F\u06CC\u062F \u0645\u062D\u0644\u06CC \u0633\u0627\u062E\u062A\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F." });
+    }
     const actions = this.contentEl.createDiv({ cls: "modal-button-container" });
-    actions.createEl("button", { text: "\u0644\u063A\u0648" }).addEventListener("click", () => {
+    actions.createEl("button", { text: "\u0627\u0646\u0635\u0631\u0627\u0641" }).addEventListener("click", () => {
       this.resolveAnswer(false);
       this.close();
     });
-    actions.createEl("button", { text: "\u0627\u0646\u062A\u0642\u0627\u0644", cls: "mod-cta" }).addEventListener("click", () => {
+    actions.createEl("button", { text: "\u062A\u0623\u06CC\u06CC\u062F \u0648 \u0627\u0646\u062A\u0642\u0627\u0644", cls: "mod-cta" }).addEventListener("click", () => {
       this.resolveAnswer(true);
       this.close();
     });
@@ -1283,23 +1332,41 @@ var RescheduleModal = class extends import_obsidian4.Modal {
   }
 };
 var TaskOverflowModal = class extends import_obsidian4.Modal {
-  constructor(app, tasks, complete, load, edit, changed) {
+  constructor(app, tasks, complete, load, edit, changed, dayLabel) {
     super(app);
     this.tasks = tasks;
     this.complete = complete;
     this.load = load;
     this.edit = edit;
     this.changed = changed;
+    this.dayLabel = dayLabel;
   }
   onOpen() {
-    this.titleEl.setText("\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632");
+    this.modalEl.addClass("ticktick-overflow-modal");
+    this.titleEl.setText(this.dayLabel ? `\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC ${this.dayLabel}` : "\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0631\u0648\u0632");
+    const container = this.contentEl.createDiv({ cls: "ticktick-overflow-list" });
     for (const task of this.tasks) {
-      const row = this.contentEl.createDiv({ cls: "ticktick-overflow-task" });
-      const check = row.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
-      check.checked = Number(task.status ?? 0) !== 0;
-      check.disabled = check.checked;
-      const button = row.createEl("button", { text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"), attr: { type: "button", "aria-label": `\u062C\u0632\u0626\u06CC\u0627\u062A ${task.title}` } });
-      button.addEventListener("click", () => new TaskDetailsModal(this.app, task, { complete: () => this.complete(task), load: this.load, edit: this.edit, changed: this.changed }).open());
+      const priority = taskPriority(task.priority);
+      const isCompleted = Number(task.status ?? 0) !== 0;
+      const row = container.createDiv({ cls: `ticktick-overflow-task priority-${priority.value} ${isCompleted ? "is-completed" : ""}` });
+      const check = row.createEl("input", { type: "checkbox", cls: "ticktick-overflow-check", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
+      check.checked = isCompleted;
+      check.disabled = isCompleted;
+      const main = row.createDiv({ cls: "ticktick-overflow-task-main" });
+      const titleBtn = main.createEl("button", {
+        text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"),
+        cls: "ticktick-overflow-task-title",
+        attr: { type: "button", "aria-label": `\u062C\u0632\u0626\u06CC\u0627\u062A ${task.title}` }
+      });
+      titleBtn.addEventListener("click", () => new TaskDetailsModal(this.app, task, {
+        complete: () => this.complete(task),
+        load: this.load,
+        edit: this.edit,
+        changed: this.changed
+      }).open());
+      if (task.projectName) {
+        main.createSpan({ cls: "ticktick-overflow-task-project", text: task.projectName });
+      }
       check.addEventListener("change", async () => {
         check.disabled = true;
         try {
@@ -1336,8 +1403,15 @@ var PlanningCalendar = class {
     this.element.addClass("ticktick-planner");
     const root = this.element.createDiv({ cls: "ticktick-planner-root" });
     const controls = root.createDiv({ cls: "ticktick-planner-controls" });
-    for (const [mode, label] of [["day", "\u0631\u0648\u0632"], ["week", "\u0647\u0641\u062A\u0647"], ["month", "\u0645\u0627\u0647"]]) {
-      const button = controls.createEl("button", { text: label, cls: this.mode === mode ? "is-active" : "" });
+    const modesContainer = controls.createDiv({ cls: "ticktick-planner-modes" });
+    for (const [mode, label, icon] of [["day", "\u0631\u0648\u0632", "calendar"], ["week", "\u0647\u0641\u062A\u0647", "calendar-days"], ["month", "\u0645\u0627\u0647", "calendar-range"]]) {
+      const button = modesContainer.createEl("button", {
+        cls: `ticktick-planner-mode-btn ${this.mode === mode ? "is-active" : ""}`,
+        attr: { type: "button" }
+      });
+      const iconSpan = button.createSpan({ cls: "ticktick-mode-icon" });
+      (0, import_obsidian4.setIcon)(iconSpan, icon);
+      button.createSpan({ text: label });
       button.addEventListener("click", () => {
         this.mode = mode;
         void this.render();
@@ -1345,60 +1419,116 @@ var PlanningCalendar = class {
     }
     const nav = controls.createDiv({ cls: "ticktick-planner-nav" });
     const step = this.mode === "week" ? 7 : 1;
-    const previous = nav.createEl("button", { text: "\u2039", attr: { "aria-label": "\u0642\u0628\u0644\u06CC" } });
-    previous.addEventListener("click", () => {
+    const prevBtn = nav.createEl("button", {
+      cls: "ticktick-nav-btn mod-icon",
+      attr: { type: "button", "aria-label": "\u0642\u0628\u0644\u06CC" }
+    });
+    (0, import_obsidian4.setIcon)(prevBtn, "chevron-right");
+    prevBtn.addEventListener("click", () => {
       this.day = this.mode === "month" ? shiftPersianMonth(this.day, -1) : shiftCalendarDay(this.day, -step);
       void this.render();
     });
-    const today = nav.createEl("button", { text: "\u0627\u0645\u0631\u0648\u0632" });
-    today.addEventListener("click", () => {
+    const todayBtn = nav.createEl("button", {
+      cls: "ticktick-nav-today-btn",
+      text: "\u0627\u0645\u0631\u0648\u0632",
+      attr: { type: "button" }
+    });
+    todayBtn.addEventListener("click", () => {
       this.day = todayInZone(this.host.timeZone);
       void this.render();
     });
-    nav.createEl("span", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", this.mode === "month" ? { year: "numeric", month: "long" } : { year: "numeric", month: "long", day: "numeric" }).format(/* @__PURE__ */ new Date(`${this.day}T12:00:00Z`)) });
-    const next = nav.createEl("button", { text: "\u203A", attr: { "aria-label": "\u0628\u0639\u062F\u06CC" } });
-    next.addEventListener("click", () => {
+    const nextBtn = nav.createEl("button", {
+      cls: "ticktick-nav-btn mod-icon",
+      attr: { type: "button", "aria-label": "\u0628\u0639\u062F\u06CC" }
+    });
+    (0, import_obsidian4.setIcon)(nextBtn, "chevron-left");
+    nextBtn.addEventListener("click", () => {
       this.day = this.mode === "month" ? shiftPersianMonth(this.day, 1) : shiftCalendarDay(this.day, step);
       void this.render();
     });
-    const add = controls.createEl("button", { text: "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9" });
-    add.addEventListener("click", () => void this.addTask(this.day));
-    const refresh = controls.createEl("button", { text: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC" });
-    refresh.addEventListener("click", async () => {
-      refresh.disabled = true;
+    const titleFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", this.mode === "month" ? { year: "numeric", month: "long" } : this.mode === "week" ? { year: "numeric", month: "long" } : { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    nav.createEl("span", {
+      cls: "ticktick-planner-date-title",
+      text: titleFormatter.format(/* @__PURE__ */ new Date(`${this.day}T12:00:00Z`))
+    });
+    const actionsGroup = controls.createDiv({ cls: "ticktick-planner-actions" });
+    const addBtn = actionsGroup.createEl("button", {
+      cls: "ticktick-planner-add-btn mod-cta",
+      attr: { type: "button" }
+    });
+    const addIcon = addBtn.createSpan({ cls: "ticktick-btn-icon" });
+    (0, import_obsidian4.setIcon)(addIcon, "plus");
+    addBtn.createSpan({ text: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9" });
+    addBtn.addEventListener("click", () => void this.addTask(this.day));
+    const refreshBtn = actionsGroup.createEl("button", {
+      cls: "ticktick-planner-sync-btn",
+      attr: { type: "button", "aria-label": "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC" }
+    });
+    const syncIcon = refreshBtn.createSpan({ cls: "ticktick-btn-icon" });
+    (0, import_obsidian4.setIcon)(syncIcon, "refresh-cw");
+    refreshBtn.createSpan({ text: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC" });
+    refreshBtn.addEventListener("click", async () => {
+      refreshBtn.disabled = true;
+      refreshBtn.addClass("is-syncing");
       try {
         await this.host.refresh();
         await this.render();
       } catch (error) {
         new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+      } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.removeClass("is-syncing");
       }
     });
     this.renderFilters(root);
     const tasks = this.filteredTasks();
-    if (!tasks.length) root.createDiv({ cls: "ticktick-planner-empty", text: "\u062A\u0633\u06A9\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631 \u0646\u06CC\u0633\u062A\u061B \u0627\u0632 \u062F\u06A9\u0645\u0647\u0654 \xAB\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9\xBB \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646." });
-    if (this.mode === "month") this.renderMonth(root, tasks);
-    else this.renderDays(root, this.mode === "week" ? weekRange(this.day, this.host.firstWeekday) : [this.day], tasks);
+    if (!tasks.length) {
+      const emptyBox = root.createDiv({ cls: "ticktick-planner-empty" });
+      emptyBox.createEl("p", { text: "\u062A\u0633\u06A9\u06CC \u0628\u0631\u0627\u06CC \u0646\u0645\u0627\u06CC\u0634 \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u06CC\u0627 \u0641\u06CC\u0644\u062A\u0631 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F." });
+      emptyBox.createEl("small", { text: "\u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0628\u0627 \u062F\u06A9\u0645\u0647\u0654 \xAB\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9\xBB \u0628\u0631\u0646\u0627\u0645\u0647 \u062C\u062F\u06CC\u062F\u06CC \u0628\u0633\u0627\u0632\u06CC\u062F." });
+    }
+    if (this.mode === "month") {
+      this.renderMonth(root, tasks);
+    } else {
+      this.renderDays(root, this.mode === "week" ? weekRange(this.day, this.host.firstWeekday) : [this.day], tasks);
+    }
   }
   renderFilters(root) {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" });
     const tasks = this.host.tasks();
-    const sort = filters.createEl("select", { attr: { "aria-label": "\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627" } });
-    for (const [value, label] of [["ticktick", "\u062A\u0631\u062A\u06CC\u0628 TickTick"], ["time", "\u0633\u0627\u0639\u062A"], ["priority", "\u0627\u0648\u0644\u0648\u06CC\u062A"], ["title", "\u0639\u0646\u0648\u0627\u0646"]]) sort.createEl("option", { value, text: `\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC: ${label}` });
+    const sortWrapper = filters.createDiv({ cls: "ticktick-filter-select-wrapper" });
+    const sortIcon = sortWrapper.createSpan({ cls: "ticktick-select-icon" });
+    (0, import_obsidian4.setIcon)(sortIcon, "arrow-up-down");
+    const sort = sortWrapper.createEl("select", { attr: { "aria-label": "\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627" } });
+    for (const [value, label] of [["ticktick", "\u062A\u0631\u062A\u06CC\u0628 TickTick"], ["time", "\u0633\u0627\u0639\u062A"], ["priority", "\u0627\u0648\u0644\u0648\u06CC\u062A"], ["title", "\u0639\u0646\u0648\u0627\u0646"]]) {
+      sort.createEl("option", { value, text: `\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC: ${label}` });
+    }
     sort.value = this.sortMode;
     sort.addEventListener("change", () => {
       this.sortMode = sort.value;
       void this.render();
     });
-    const color = filters.createEl("select", { attr: { "aria-label": "\u0631\u0646\u06AF\u200C\u0628\u0646\u062F\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627" } });
-    for (const [value, label] of [["project", "\u0631\u0646\u06AF: \u067E\u0631\u0648\u0698\u0647"], ["tag", "\u0631\u0646\u06AF: \u0628\u0631\u0686\u0633\u0628"], ["priority", "\u0631\u0646\u06AF: \u0627\u0648\u0644\u0648\u06CC\u062A"], ["uniform", "\u0631\u0646\u06AF: \u06CC\u06A9\u062F\u0633\u062A"]]) color.createEl("option", { value, text: label });
+    const colorWrapper = filters.createDiv({ cls: "ticktick-filter-select-wrapper" });
+    const colorIcon = colorWrapper.createSpan({ cls: "ticktick-select-icon" });
+    (0, import_obsidian4.setIcon)(colorIcon, "palette");
+    const color = colorWrapper.createEl("select", { attr: { "aria-label": "\u0631\u0646\u06AF\u200C\u0628\u0646\u062F\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627" } });
+    for (const [value, label] of [["project", "\u0631\u0646\u06AF: \u067E\u0631\u0648\u0698\u0647"], ["tag", "\u0631\u0646\u06AF: \u0628\u0631\u0686\u0633\u0628"], ["priority", "\u0631\u0646\u06AF: \u0627\u0648\u0644\u0648\u06CC\u062A"], ["uniform", "\u0631\u0646\u06AF: \u06CC\u06A9\u062F\u0633\u062A"]]) {
+      color.createEl("option", { value, text: label });
+    }
     color.value = this.colorMode;
     color.addEventListener("change", () => {
       this.colorMode = color.value;
       void this.render();
     });
     const projects = [...new Set(tasks.map((task) => String(task.projectName ?? task.projectId ?? "\u0648\u0631\u0648\u062F\u06CC")))].sort((left, right) => left.localeCompare(right, "fa"));
-    const project = filters.createEl("button", { text: this.projects.size ? `\u067E\u0631\u0648\u0698\u0647 (${this.projects.size})` : "\u067E\u0631\u0648\u0698\u0647" });
-    project.addEventListener("click", async () => {
+    const projectBtn = filters.createEl("button", {
+      cls: `ticktick-filter-chip ${this.projects.size ? "is-filtered" : ""}`,
+      attr: { type: "button" }
+    });
+    const folderIcon = projectBtn.createSpan({ cls: "ticktick-chip-icon" });
+    (0, import_obsidian4.setIcon)(folderIcon, "folder");
+    projectBtn.createSpan({ text: this.projects.size ? `\u067E\u0631\u0648\u0698\u0647 (${this.projects.size})` : "\u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627" });
+    projectBtn.addEventListener("click", async () => {
       const value = await new PlannerMultiSelectModal(this.host.app, "\u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627", projects, this.projects).openAndWait();
       if (value) {
         this.projects = value;
@@ -1406,8 +1536,14 @@ var PlanningCalendar = class {
       }
     });
     const tags = [...new Set(tasks.flatMap((task) => task.tags ?? []).map(String))].sort((left, right) => left.localeCompare(right, "fa"));
-    const tag = filters.createEl("button", { text: this.tags.size ? `\u0628\u0631\u0686\u0633\u0628 (${this.tags.size})` : "\u0628\u0631\u0686\u0633\u0628" });
-    tag.addEventListener("click", async () => {
+    const tagBtn = filters.createEl("button", {
+      cls: `ticktick-filter-chip ${this.tags.size ? "is-filtered" : ""}`,
+      attr: { type: "button" }
+    });
+    const tagIcon = tagBtn.createSpan({ cls: "ticktick-chip-icon" });
+    (0, import_obsidian4.setIcon)(tagIcon, "tag");
+    tagBtn.createSpan({ text: this.tags.size ? `\u0628\u0631\u0686\u0633\u0628 (${this.tags.size})` : "\u0628\u0631\u0686\u0633\u0628\u200C\u0647\u0627" });
+    tagBtn.addEventListener("click", async () => {
       const value = await new PlannerMultiSelectModal(this.host.app, "\u0628\u0631\u0686\u0633\u0628\u200C\u0647\u0627", tags, this.tags, "#").openAndWait();
       if (value) {
         this.tags = value;
@@ -1415,7 +1551,13 @@ var PlanningCalendar = class {
       }
     });
     if (this.projects.size || this.tags.size) {
-      const clear = filters.createEl("button", { text: "\u067E\u0627\u06A9", attr: { "aria-label": "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0647\u0645\u0647\u0654 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627" } });
+      const clear = filters.createEl("button", {
+        cls: "ticktick-filter-clear-btn",
+        attr: { type: "button", "aria-label": "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627" }
+      });
+      const clearIcon = clear.createSpan({ cls: "ticktick-chip-icon" });
+      (0, import_obsidian4.setIcon)(clearIcon, "x");
+      clear.createSpan({ text: "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627" });
       clear.addEventListener("click", () => {
         this.projects.clear();
         this.tags.clear();
@@ -1424,75 +1566,157 @@ var PlanningCalendar = class {
     }
   }
   filteredTasks() {
-    return this.host.tasks().filter((task) => (!this.projects.size || this.projects.has(String(task.projectName ?? task.projectId ?? "\u0648\u0631\u0648\u062F\u06CC"))) && (!this.tags.size || (task.tags ?? []).some((tag) => this.tags.has(String(tag)))));
+    return this.host.tasks().filter(
+      (task) => (!this.projects.size || this.projects.has(String(task.projectName ?? task.projectId ?? "\u0648\u0631\u0648\u062F\u06CC"))) && (!this.tags.size || (task.tags ?? []).some((tag) => this.tags.has(String(tag))))
+    );
   }
   renderDays(root, days, tasks) {
+    const today = todayInZone(this.host.timeZone);
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
     enhanceHorizontalScroll(grid);
     const showRangeBars = days.length > 1;
     const shell = grid.createDiv({ cls: "ticktick-planner-days-shell" });
     const headers = shell.createDiv({ cls: "ticktick-planner-days-headers" });
     for (const day of days) {
-      const header = headers.createDiv({ cls: "ticktick-planner-day-header", attr: { "data-day": day } });
-      header.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", month: "numeric", day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`)) });
+      const isToday = day === today;
+      const header = headers.createDiv({ cls: `ticktick-planner-day-header ${isToday ? "is-today" : ""}`, attr: { "data-day": day } });
+      const dayTop = header.createDiv({ cls: "ticktick-planner-day-top" });
+      const weekdayName = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`));
+      dayTop.createSpan({ cls: "ticktick-planner-day-name", text: weekdayName });
+      if (isToday) {
+        dayTop.createSpan({ cls: "ticktick-today-pill", text: "\u0627\u0645\u0631\u0648\u0632" });
+      }
+      const dayDateWrapper = header.createDiv({ cls: "ticktick-planner-day-date-wrap" });
+      const dayNumber2 = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`));
+      const monthName = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { month: "short" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`));
+      dayDateWrapper.createSpan({ cls: `ticktick-day-num-badge ${isToday ? "is-today-badge" : ""}`, text: dayNumber2 });
+      dayDateWrapper.createSpan({ cls: "ticktick-month-name", text: monthName });
       const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
-      header.createSpan({ cls: "ticktick-planner-counter", text: `${items.length} \u062A\u0633\u06A9` });
-      const add = header.createEl("button", { cls: "ticktick-planner-add", text: "+ \u0627\u0641\u0632\u0648\u062F\u0646", attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062F\u0631 ${day}` } });
+      const dayBottom = header.createDiv({ cls: "ticktick-planner-day-bottom" });
+      dayBottom.createSpan({ cls: "ticktick-planner-counter", text: `${items.length} \u062A\u0633\u06A9` });
+      const add = dayBottom.createEl("button", {
+        cls: "ticktick-planner-add",
+        attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062F\u0631 ${day}` }
+      });
+      (0, import_obsidian4.setIcon)(add, "plus");
+      add.createSpan({ text: "\u0627\u0641\u0632\u0648\u062F\u0646" });
       add.addEventListener("click", () => void this.addTask(day));
     }
     const body = shell.createDiv({ cls: "ticktick-planner-days-body" });
     if (showRangeBars) this.renderRangeLanes(body, days, tasks, "ticktick-planner-range-lanes");
     const columns = body.createDiv({ cls: "ticktick-planner-day-columns" });
     for (const day of days) {
-      const column = columns.createDiv({ cls: "ticktick-planner-day", attr: { "data-day": day } });
+      const isToday = day === today;
+      const column = columns.createDiv({ cls: `ticktick-planner-day ${isToday ? "is-today" : ""}`, attr: { "data-day": day } });
       const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
-      column.addEventListener("dragover", (event) => event.preventDefault());
+      column.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        column.addClass("is-drag-over");
+      });
+      column.addEventListener("dragleave", () => {
+        column.removeClass("is-drag-over");
+      });
       column.addEventListener("drop", (event) => {
         event.preventDefault();
+        column.removeClass("is-drag-over");
         const id = event.dataTransfer?.getData("text/ticktick-task");
         const task = tasks.find((item) => String(item.id) === id);
         if (task) void this.dropTask(task, day);
       });
-      for (const task of items.filter((item) => !showRangeBars || !taskDateRange(item, this.host.timeZone))) this.renderTask(column, task);
+      const singleDayTasks = items.filter((item) => !showRangeBars || !taskDateRange(item, this.host.timeZone));
+      if (!singleDayTasks.length) {
+        const emptyHint = column.createDiv({ cls: "ticktick-planner-day-empty" });
+        emptyHint.createSpan({ text: "\u062A\u0633\u06A9\u06CC \u0646\u06CC\u0633\u062A" });
+      } else {
+        for (const task of singleDayTasks) this.renderTask(column, task);
+      }
     }
   }
   renderMonth(root, tasks) {
+    const today = todayInZone(this.host.timeZone);
     const grid = root.createDiv({ cls: "ticktick-planner-month" });
     enhanceHorizontalScroll(grid);
     const days = persianMonthRange(this.day, this.host.firstWeekday);
+    const weekdayBar = grid.createDiv({ cls: "ticktick-planner-month-weekdays-bar" });
+    const sampleWeek = days.slice(0, 7);
+    for (const sampleDay of sampleWeek) {
+      const weekdayName = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long" }).format(/* @__PURE__ */ new Date(`${sampleDay}T12:00:00Z`));
+      weekdayBar.createDiv({ cls: "ticktick-planner-month-weekday-cell", text: weekdayName });
+    }
     for (let index = 0; index < days.length; index += 7) {
       const weekDays = days.slice(index, index + 7);
       const week = grid.createDiv({ cls: "ticktick-planner-month-week" });
       const headers = week.createDiv({ cls: "ticktick-planner-month-headers" });
       for (const day of weekDays) {
-        const header = headers.createDiv({ cls: `ticktick-planner-month-header${isSamePersianMonth(day, this.day) ? "" : " is-outside"}`, attr: { "data-day": day } });
-        header.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`)) });
+        const isToday = day === today;
+        const isOutside = !isSamePersianMonth(day, this.day);
+        const header = headers.createDiv({
+          cls: `ticktick-planner-month-header ${isOutside ? "is-outside" : ""} ${isToday ? "is-today" : ""}`,
+          attr: { "data-day": day }
+        });
+        const numWrapper = header.createDiv({ cls: "ticktick-month-num-wrap" });
+        const dayNum = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`));
+        numWrapper.createSpan({ cls: `ticktick-day-num-badge ${isToday ? "is-today-badge" : ""}`, text: dayNum });
         const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
-        header.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
-        const add = header.createEl("button", { cls: "ticktick-planner-add", text: "+", attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062F\u0631 ${day}` } });
-        add.addEventListener("click", () => void this.addTask(day));
+        if (items.length) {
+          header.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
+        }
+        const add = header.createEl("button", {
+          cls: "ticktick-planner-add mod-icon",
+          attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062F\u0631 ${day}` }
+        });
+        (0, import_obsidian4.setIcon)(add, "plus");
+        add.addEventListener("click", (e) => {
+          e.stopPropagation();
+          void this.addTask(day);
+        });
       }
       const body = week.createDiv({ cls: "ticktick-planner-month-body" });
       this.renderRangeLanes(body, weekDays, tasks, "ticktick-planner-month-range-lanes");
       const cells = body.createDiv({ cls: "ticktick-planner-month-cells" });
       for (const day of weekDays) {
-        const cell = cells.createDiv({ cls: `ticktick-planner-month-cell${isSamePersianMonth(day, this.day) ? "" : " is-outside"}`, attr: { "data-day": day } });
+        const isToday = day === today;
+        const isOutside = !isSamePersianMonth(day, this.day);
+        const cell = cells.createDiv({
+          cls: `ticktick-planner-month-cell ${isOutside ? "is-outside" : ""} ${isToday ? "is-today" : ""}`,
+          attr: { "data-day": day }
+        });
         const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
-        cell.addEventListener("dragover", (event) => event.preventDefault());
+        cell.addEventListener("dragover", (event) => {
+          event.preventDefault();
+          cell.addClass("is-drag-over");
+        });
+        cell.addEventListener("dragleave", () => {
+          cell.removeClass("is-drag-over");
+        });
         cell.addEventListener("drop", (event) => {
           event.preventDefault();
+          cell.removeClass("is-drag-over");
           const id = event.dataTransfer?.getData("text/ticktick-task");
           const task = tasks.find((item) => String(item.id) === id);
           if (task) void this.dropTask(task, day);
         });
         const cards = items.filter((item) => !taskDateRange(item, this.host.timeZone));
-        for (const task of cards.slice(0, 3)) this.renderTask(cell, task);
+        for (const task of cards.slice(0, 3)) this.renderMonthTask(cell, task);
         if (cards.length > 3) {
-          const more = cell.createEl("button", { cls: "ticktick-planner-overflow", text: `+${cards.length - 3}`, attr: { type: "button", "aria-label": "\u0646\u0645\u0627\u06CC\u0634 \u0647\u0645\u0647\u0654 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0631\u0648\u0632" } });
-          more.addEventListener("click", () => new TaskOverflowModal(this.host.app, cards, (task) => this.completeTask(task), (task) => this.host.load(task), (task) => this.host.edit(task), async () => {
-            await this.host.refresh();
-            await this.render();
-          }).open());
+          const more = cell.createEl("button", {
+            cls: "ticktick-planner-overflow",
+            text: `+${cards.length - 3} \u062A\u0633\u06A9 \u062F\u06CC\u06AF\u0631`,
+            attr: { type: "button", "aria-label": "\u0646\u0645\u0627\u06CC\u0634 \u0647\u0645\u0647\u0654 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0631\u0648\u0632" }
+          });
+          const dayLabel = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", day: "numeric", month: "long" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`));
+          more.addEventListener("click", () => new TaskOverflowModal(
+            this.host.app,
+            cards,
+            (task) => this.completeTask(task),
+            (task) => this.host.load(task),
+            (task) => this.host.edit(task),
+            async () => {
+              await this.host.refresh();
+              await this.render();
+            },
+            dayLabel
+          ).open());
         }
       }
     }
@@ -1509,43 +1733,148 @@ var PlanningCalendar = class {
         return index < 0 ? days.length - 1 : index - 1;
       })());
       const priority = taskPriority(task.priority);
-      const bar = lanes.createDiv({ cls: `ticktick-planner-range-task priority-${priority.value}`, attr: { title: `\u0628\u0627\u0632\u0647\u0654 ${range.start} \u062A\u0627 ${range.end} \xB7 \u0628\u0631\u0627\u06CC \u062C\u0632\u0626\u06CC\u0627\u062A \u06A9\u0644\u06CC\u06A9 \u06A9\u0646` } });
+      const isCompleted = Number(task.status ?? 0) !== 0;
+      const bar = lanes.createDiv({
+        cls: `ticktick-planner-range-task priority-${priority.value} ${isCompleted ? "is-completed" : ""}`,
+        attr: { title: `\u0628\u0627\u0632\u0647\u0654 ${range.start} \u062A\u0627 ${range.end} \xB7 \u0628\u0631\u0627\u06CC \u062C\u0632\u0626\u06CC\u0627\u062A \u06A9\u0644\u06CC\u06A9 \u06A9\u0646` }
+      });
       bar.style.gridColumn = `${first + 1} / ${last + 2}`;
       bar.style.setProperty("--ticktick-task-tone", this.taskTone(task));
-      const check = bar.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
-      check.checked = Number(task.status ?? 0) !== 0;
-      check.disabled = check.checked;
-      const title = bar.createEl("button", { text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"), attr: { type: "button", "aria-label": `\u062C\u0632\u0626\u06CC\u0627\u062A ${task.title}` } });
-      title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, { complete: () => this.completeTask(task), load: (item) => this.host.load(item), edit: (item) => this.host.edit(item), changed: async () => {
-        await this.host.refresh();
-        await this.render();
-      } }).open());
+      const check = bar.createEl("input", { type: "checkbox", cls: "ticktick-range-check", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
+      check.checked = isCompleted;
+      check.disabled = isCompleted;
+      check.addEventListener("click", (e) => e.stopPropagation());
       check.addEventListener("change", () => void this.completeTask(task, check));
+      const rangeIcon = bar.createSpan({ cls: "ticktick-range-indicator mod-icon", attr: { "aria-hidden": "true" } });
+      (0, import_obsidian4.setIcon)(rangeIcon, "calendar-range");
+      const title = bar.createEl("button", {
+        cls: "ticktick-range-title",
+        text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"),
+        attr: { type: "button", "aria-label": `\u062C\u0632\u0626\u06CC\u0627\u062A ${task.title}` }
+      });
+      title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
+        complete: () => this.completeTask(task),
+        load: (item) => this.host.load(item),
+        edit: (item) => this.host.edit(item),
+        changed: async () => {
+          await this.host.refresh();
+          await this.render();
+        }
+      }).open());
     }
   }
   renderTask(parent, task) {
     const bound = this.host.binding(task);
     const priority = taskPriority(task.priority);
-    const card = parent.createDiv({ cls: `ticktick-planner-task priority-${priority.value}${bound ? " is-bound" : ""}`, attr: { title: `${bound ? "\u0628\u0631\u0627\u06CC \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0628\u06A9\u0634" : "\u0628\u0631\u0627\u06CC \u062F\u06CC\u062F\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A \u06A9\u0644\u06CC\u06A9 \u06A9\u0646"} \xB7 \u0627\u0648\u0644\u0648\u06CC\u062A: ${priority.label}` } });
-    card.style.setProperty("--ticktick-task-tone", this.taskTone(task));
-    const check = card.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
-    check.checked = Number(task.status ?? 0) !== 0;
-    check.disabled = check.checked;
-    const title = card.createEl("button", { text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"), attr: { type: "button", "aria-label": `\u062C\u0632\u0626\u06CC\u0627\u062A ${task.title}` } });
-    title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, { complete: () => this.completeTask(task), load: (item) => this.host.load(item), edit: (item) => this.host.edit(item), changed: async () => {
-      await this.host.refresh();
-      await this.render();
-    } }).open());
+    const isCompleted = Number(task.status ?? 0) !== 0;
+    const tone = this.taskTone(task);
+    const card = parent.createDiv({
+      cls: `ticktick-planner-task priority-${priority.value} ${bound ? "is-bound" : ""} ${isCompleted ? "is-completed" : ""}`,
+      attr: {
+        title: `${bound ? "\u0628\u0631\u0627\u06CC \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0628\u06A9\u0634 \xB7 " : ""}\u0627\u0648\u0644\u0648\u06CC\u062A: ${priority.label}${task.projectName ? ` \xB7 ${task.projectName}` : ""}`
+      }
+    });
+    card.style.setProperty("--ticktick-task-tone", tone);
+    if (bound) {
+      const grip = card.createSpan({ cls: "ticktick-task-grip mod-icon", attr: { "aria-hidden": "true" } });
+      (0, import_obsidian4.setIcon)(grip, "grip-vertical");
+    }
+    const check = card.createEl("input", { type: "checkbox", cls: "ticktick-task-check", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
+    check.checked = isCompleted;
+    check.disabled = isCompleted;
     check.addEventListener("click", (event) => event.stopPropagation());
     check.addEventListener("change", () => void this.completeTask(task, check));
+    const content = card.createDiv({ cls: "ticktick-task-content" });
+    const timeStr = formatTaskTime(task, this.host.timeZone);
+    if (timeStr || priority.value > 0 || task.projectName) {
+      const metaRow = content.createDiv({ cls: "ticktick-task-meta-row" });
+      if (timeStr) {
+        const timeBadge = metaRow.createSpan({ cls: "ticktick-task-time-badge" });
+        const clockIcon = timeBadge.createSpan({ cls: "ticktick-time-icon" });
+        (0, import_obsidian4.setIcon)(clockIcon, "clock");
+        timeBadge.createSpan({ text: timeStr });
+      }
+      if (priority.value > 0) {
+        metaRow.createSpan({ cls: `ticktick-task-priority-dot ${priority.className}`, attr: { title: `\u0627\u0648\u0644\u0648\u06CC\u062A: ${priority.label}` } });
+      }
+      if (task.projectName) {
+        metaRow.createSpan({ cls: "ticktick-task-project-chip", text: task.projectName });
+      }
+    }
+    const title = content.createEl("button", {
+      cls: "ticktick-task-title",
+      text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"),
+      attr: { type: "button", "aria-label": `\u062C\u0632\u0626\u06CC\u0627\u062A ${task.title}` }
+    });
+    title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
+      complete: () => this.completeTask(task),
+      load: (item) => this.host.load(item),
+      edit: (item) => this.host.edit(item),
+      changed: async () => {
+        await this.host.refresh();
+        await this.render();
+      }
+    }).open());
     card.draggable = Boolean(bound);
     card.addEventListener("dragstart", (event) => {
-      if (bound) event.dataTransfer?.setData("text/ticktick-task", String(task.id));
+      if (bound) {
+        card.addClass("is-dragging");
+        event.dataTransfer?.setData("text/ticktick-task", String(task.id));
+      }
+    });
+    card.addEventListener("dragend", () => {
+      card.removeClass("is-dragging");
+    });
+  }
+  renderMonthTask(parent, task) {
+    const bound = this.host.binding(task);
+    const priority = taskPriority(task.priority);
+    const isCompleted = Number(task.status ?? 0) !== 0;
+    const tone = this.taskTone(task);
+    const card = parent.createDiv({
+      cls: `ticktick-planner-month-task priority-${priority.value} ${bound ? "is-bound" : ""} ${isCompleted ? "is-completed" : ""}`,
+      attr: { title: `${task.title} \xB7 \u0627\u0648\u0644\u0648\u06CC\u062A: ${priority.label}` }
+    });
+    card.style.setProperty("--ticktick-task-tone", tone);
+    const check = card.createEl("input", { type: "checkbox", cls: "ticktick-month-check", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
+    check.checked = isCompleted;
+    check.disabled = isCompleted;
+    check.addEventListener("click", (event) => event.stopPropagation());
+    check.addEventListener("change", () => void this.completeTask(task, check));
+    const timeStr = formatTaskTime(task, this.host.timeZone);
+    if (timeStr) {
+      card.createSpan({ cls: "ticktick-month-time", text: timeStr });
+    }
+    const title = card.createEl("button", {
+      cls: "ticktick-month-task-title",
+      text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"),
+      attr: { type: "button", "aria-label": `\u062C\u0632\u0626\u06CC\u0627\u062A ${task.title}` }
+    });
+    title.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
+      complete: () => this.completeTask(task),
+      load: (item) => this.host.load(item),
+      edit: (item) => this.host.edit(item),
+      changed: async () => {
+        await this.host.refresh();
+        await this.render();
+      }
+    }).open());
+    card.draggable = Boolean(bound);
+    card.addEventListener("dragstart", (event) => {
+      if (bound) {
+        card.addClass("is-dragging");
+        event.dataTransfer?.setData("text/ticktick-task", String(task.id));
+      }
+    });
+    card.addEventListener("dragend", () => {
+      card.removeClass("is-dragging");
     });
   }
   taskTone(task) {
     if (this.colorMode === "uniform") return "var(--interactive-accent)";
-    if (this.colorMode === "priority") return Number(task.priority) === 5 ? "var(--color-red)" : Number(task.priority) === 3 ? "var(--color-orange)" : Number(task.priority) === 1 ? "var(--color-blue)" : "var(--text-muted)";
+    if (this.colorMode === "priority") {
+      return Number(task.priority) === 5 ? "var(--color-red)" : Number(task.priority) === 3 ? "var(--color-orange)" : Number(task.priority) === 1 ? "var(--color-blue)" : "var(--text-muted)";
+    }
     const seed = this.colorMode === "tag" ? String(task.tags?.[0] ?? task.projectName ?? task.projectId ?? "") : String(task.projectName ?? task.projectId ?? "");
     const projectColor = String(task.projectColor ?? "").trim();
     if (this.colorMode === "project" && /^#[0-9a-f]{3,8}$/i.test(projectColor)) return projectColor;
@@ -3116,7 +3445,10 @@ var TodayTasksView = class extends import_obsidian8.ItemView {
     contentEl.empty();
     contentEl.addClass("ticktick-today-tasks-panel");
     const header = contentEl.createDiv({ cls: "ticktick-panel-header" });
+    header.addClass("ticktick-today-header");
     header.createEl("h2", { text: "\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632" });
+    const currentPersianDate = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", year: "numeric", month: "long", day: "numeric" }).format(/* @__PURE__ */ new Date(`${todayInZone(this.plugin.settings.timeZone)}T12:00:00Z`));
+    header.createSpan({ cls: "ticktick-panel-subtitle", text: currentPersianDate });
     const refresh = header.createEl("button", { text: "\u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC" });
     refresh.addEventListener("click", async () => {
       refresh.disabled = true;
@@ -3246,7 +3578,7 @@ var PlanningView = class extends import_obsidian8.ItemView {
     return PLANNER_VIEW_TYPE;
   }
   getDisplayText() {
-    return "\u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC TickTick";
+    return "\u062A\u0642\u0648\u06CC\u0645 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC TickTick";
   }
   getIcon() {
     return "calendar-days";

@@ -1168,7 +1168,10 @@ class TodayTasksView extends ItemView {
     contentEl.empty();
     contentEl.addClass("ticktick-today-tasks-panel");
     const header = contentEl.createDiv({ cls: "ticktick-panel-header" });
+    header.addClass("ticktick-today-header");
     header.createEl("h2", { text: "تسک‌های امروز" });
+    const currentPersianDate = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", year: "numeric", month: "long", day: "numeric" }).format(new Date(`${todayInZone(this.plugin.settings.timeZone)}T12:00:00Z`));
+    header.createSpan({ cls: "ticktick-panel-subtitle", text: currentPersianDate });
     const refresh = header.createEl("button", { text: "بروزرسانی" });
     refresh.addEventListener("click", async () => {
       refresh.disabled = true;
@@ -1277,7 +1280,7 @@ class TodayHabitsView extends ItemView {
 class PlanningView extends ItemView {
   constructor(leaf: WorkspaceLeaf, private plugin: TickTickBridgePlugin) { super(leaf); }
   getViewType() { return PLANNER_VIEW_TYPE; }
-  getDisplayText() { return "برنامه‌ریزی TickTick"; }
+  getDisplayText() { return "تقویم برنامه‌ریزی TickTick"; }
   getIcon() { return "calendar-days"; }
   async onOpen() { await this.render(); }
   async render() {
