@@ -1043,8 +1043,10 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
     this.task = task;
     this.actions = actions;
   }
+  markdownComponent = new import_obsidian3.Component();
   onOpen() {
     this.modalEl.addClass("ticktick-task-details-modal");
+    this.markdownComponent.load();
     this.render();
   }
   async loadAndRender() {
@@ -1069,7 +1071,9 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
     const description = taskDescription(this.task);
     const descriptionBox = this.contentEl.createDiv({ cls: "ticktick-task-details-description" });
     descriptionBox.createEl("strong", { text: "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A" });
-    descriptionBox.createDiv({ text: description || "\u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A." });
+    const descriptionContent = descriptionBox.createDiv({ cls: "markdown-rendered" });
+    if (description) void import_obsidian3.MarkdownRenderer.render(this.app, description, descriptionContent, "", this.markdownComponent);
+    else descriptionContent.setText("\u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A.");
     const items = normalizeChecklist(this.task.items);
     if (items.length) {
       const box = this.contentEl.createDiv({ cls: "ticktick-task-details-checklist" });
@@ -1121,6 +1125,7 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
     }
   }
   onClose() {
+    this.markdownComponent.unload();
     this.contentEl.empty();
   }
 };
