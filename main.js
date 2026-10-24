@@ -1193,7 +1193,9 @@ function enhanceHorizontalScroll(element) {
       moved = true;
       element.addClass("is-horizontal-dragging");
     }
-    if (moved) element.scrollLeft = originLeft - distance;
+    if (moved) {
+      element.scrollLeft = originLeft - distance;
+    }
   });
   const release = (event) => {
     if (pointerId !== event.pointerId) return;
@@ -1205,10 +1207,38 @@ function enhanceHorizontalScroll(element) {
   element.addEventListener("pointercancel", release);
   element.addEventListener("wheel", (event) => {
     if (!event.shiftKey || element.scrollWidth <= element.clientWidth) return;
-    const amount = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-    element.scrollLeft += amount;
+    const isRtl = getComputedStyle(element).direction === "rtl";
+    let delta = 0;
+    if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+      delta = event.deltaX;
+    } else {
+      delta = isRtl ? -event.deltaY : event.deltaY;
+    }
+    element.scrollLeft += delta;
     event.preventDefault();
   }, { passive: false });
+}
+function scrollToStart(element) {
+  const align = () => {
+    const isRtl = getComputedStyle(element).direction === "rtl";
+    if (!isRtl) {
+      element.scrollLeft = 0;
+      return;
+    }
+    element.scrollLeft = 0;
+    if (element.scrollLeft === 0 && element.scrollWidth > element.clientWidth) {
+      element.scrollLeft = 1;
+      if (element.scrollLeft > 0) {
+        element.scrollLeft = element.scrollWidth - element.clientWidth;
+      } else {
+        element.scrollLeft = 0;
+      }
+    }
+  };
+  align();
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(align);
+  }
 }
 
 // src/obsidian/planning-calendar.ts
@@ -1650,6 +1680,7 @@ var PlanningCalendar = class {
     const today = todayInZone(this.host.timeZone);
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
     enhanceHorizontalScroll(grid);
+    scrollToStart(grid);
     const showRangeBars = days.length > 1;
     const shell = grid.createDiv({ cls: "ticktick-planner-days-shell" });
     const headers = shell.createDiv({ cls: "ticktick-planner-days-headers" });
@@ -1712,6 +1743,7 @@ var PlanningCalendar = class {
     const today = todayInZone(this.host.timeZone);
     const grid = root.createDiv({ cls: "ticktick-planner-month" });
     enhanceHorizontalScroll(grid);
+    scrollToStart(grid);
     const days = persianMonthRange(this.day, this.host.firstWeekday);
     const weekdayBar = grid.createDiv({ cls: "ticktick-planner-month-weekdays-bar" });
     const sampleWeek = days.slice(0, 7);

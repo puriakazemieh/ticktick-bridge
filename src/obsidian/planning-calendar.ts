@@ -4,7 +4,7 @@ import { formatPersianDate } from "../core/persian-date.js";
 import { todayInZone } from "../core/date.js";
 import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
-import { enhanceHorizontalScroll } from "./horizontal-scroll";
+import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
 
 type PlannerHost = {
   app: App;
@@ -537,6 +537,7 @@ export class PlanningCalendar {
     const today = todayInZone(this.host.timeZone);
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
     enhanceHorizontalScroll(grid);
+    scrollToStart(grid);
     const showRangeBars = days.length > 1;
 
     const shell = grid.createDiv({ cls: "ticktick-planner-days-shell" });
@@ -611,6 +612,7 @@ export class PlanningCalendar {
     const today = todayInZone(this.host.timeZone);
     const grid = root.createDiv({ cls: "ticktick-planner-month" });
     enhanceHorizontalScroll(grid);
+    scrollToStart(grid);
     const days = persianMonthRange(this.day, this.host.firstWeekday);
 
     // Weekday name bar at top of month view

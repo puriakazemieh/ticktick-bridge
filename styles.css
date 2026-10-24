@@ -1410,6 +1410,7 @@
 .ticktick-planner-days {
   display: block;
   overflow-x: auto;
+  direction: rtl;
 }
 
 .ticktick-planner-days-shell {
@@ -1444,12 +1445,11 @@
   gap: 0.35rem;
   padding: 0.65rem 0.75rem;
   background: color-mix(in srgb, var(--background-primary) 65%, var(--background-secondary));
-  border-inline-start: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
   transition: background 150ms ease;
 }
 
-.ticktick-planner-days-shell .ticktick-planner-day-header:last-child {
-  border-inline-start: none;
+.ticktick-planner-days-shell .ticktick-planner-day-header:not(:last-child) {
+  border-inline-end: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
 }
 
 .ticktick-planner-day-header.is-today {
@@ -1574,13 +1574,12 @@
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  border-inline-start: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
   background: color-mix(in srgb, var(--background-primary) 85%, var(--background-secondary));
   transition: background 150ms ease, outline 150ms ease;
 }
 
-.ticktick-planner-days-body .ticktick-planner-day:last-child {
-  border-inline-start: none;
+.ticktick-planner-days-body .ticktick-planner-day:not(:last-child) {
+  border-inline-end: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
 }
 
 .ticktick-planner-day.is-today {
@@ -1857,6 +1856,7 @@
 .ticktick-planner-month {
   display: block;
   overflow-x: auto;
+  direction: rtl;
 }
 
 .ticktick-planner-month-weekdays-bar {
@@ -1875,6 +1875,10 @@
 
 .ticktick-planner-month-weekday-cell {
   padding: 0 0.5rem;
+}
+
+.ticktick-planner-month-weekday-cell:not(:last-child) {
+  border-inline-end: 1px solid color-mix(in srgb, var(--background-modifier-border) 25%, transparent);
 }
 
 .ticktick-planner-month-week {
@@ -1902,11 +1906,10 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.35rem 0.55rem;
-  border-inline-start: 1px solid color-mix(in srgb, var(--background-modifier-border) 35%, transparent);
 }
 
-.ticktick-planner-month-week .ticktick-planner-month-header:last-child {
-  border-inline-start: none;
+.ticktick-planner-month-header:not(:last-child) {
+  border-inline-end: 1px solid color-mix(in srgb, var(--background-modifier-border) 35%, transparent);
 }
 
 .ticktick-planner-month-header.is-outside {
@@ -1934,13 +1937,12 @@
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  border-inline-start: 1px solid color-mix(in srgb, var(--background-modifier-border) 35%, transparent);
   background: color-mix(in srgb, var(--background-primary) 80%, var(--background-secondary));
   transition: background 150ms ease;
 }
 
-.ticktick-planner-month-cells .ticktick-planner-month-cell:last-child {
-  border-inline-start: none;
+.ticktick-planner-month-cells .ticktick-planner-month-cell:not(:last-child) {
+  border-inline-end: 1px solid color-mix(in srgb, var(--background-modifier-border) 35%, transparent);
 }
 
 .ticktick-planner-month-cell.is-outside {
@@ -2493,9 +2495,18 @@
 
 @media (prefers-reduced-motion: reduce) { .ticktick-today-tasks-panel *, .ticktick-today-habits-panel *, .ticktick-planner-panel *, .ticktick-project-board-panel *, .ticktick-control-page * { transition-duration: 0ms !important; } }
 
-/* Horizontal calendar/board surfaces: predictable LTR scroll physics while
-   their contents remain RTL, a visible Windows scrollbar, and native touch panning. */
-.ticktick-planner-days, .ticktick-planner-month, .ticktick-project-columns {
+/* Horizontal calendar/board surfaces: RTL scroll physics starting on Saturday (far right)
+   for week and month views, visible Windows scrollbar, and smooth touch/mouse drag panning. */
+.ticktick-planner-days, .ticktick-planner-month {
+  direction: rtl !important;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-color: var(--interactive-accent) var(--background-secondary);
+  scrollbar-width: auto;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.ticktick-project-columns {
   direction: ltr;
   scrollbar-gutter: stable both-edges;
   scrollbar-color: var(--interactive-accent) var(--background-secondary);
@@ -2504,7 +2515,18 @@
   overscroll-behavior-inline: contain;
   -webkit-overflow-scrolling: touch;
 }
-.ticktick-planner-days-shell, .ticktick-planner-month-week, .ticktick-project-columns > * { direction: rtl; }
+.ticktick-planner-days-shell,
+.ticktick-planner-month-week,
+.ticktick-planner-month-weekdays-bar,
+.ticktick-planner-month-headers,
+.ticktick-planner-month-cells,
+.ticktick-planner-month-range-lanes,
+.ticktick-planner-days-headers,
+.ticktick-planner-day-columns,
+.ticktick-planner-range-lanes,
+.ticktick-project-columns > * {
+  direction: rtl !important;
+}
 .ticktick-planner-days::-webkit-scrollbar, .ticktick-planner-month::-webkit-scrollbar, .ticktick-project-columns::-webkit-scrollbar { height: 13px; }
 .ticktick-planner-days::-webkit-scrollbar-track, .ticktick-planner-month::-webkit-scrollbar-track, .ticktick-project-columns::-webkit-scrollbar-track { margin: .25rem .4rem; border-radius: 999px; background: var(--background-secondary); }
 .ticktick-planner-days::-webkit-scrollbar-thumb, .ticktick-planner-month::-webkit-scrollbar-thumb, .ticktick-project-columns::-webkit-scrollbar-thumb { min-width: 3.5rem; border: 3px solid var(--background-secondary); border-radius: 999px; background: color-mix(in srgb, var(--interactive-accent) 72%, var(--text-muted)); }
