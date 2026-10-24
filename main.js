@@ -948,6 +948,24 @@ function taskPriority(input) {
   return { value: 0, label: "\u0628\u062F\u0648\u0646 \u0627\u0648\u0644\u0648\u06CC\u062A", icon: "\u26AA", className: "is-none" };
 }
 
+// src/core/task-description.js
+var textFields = ["desc", "content", "description", "note", "text", "body"];
+function taskDescription(task) {
+  for (const field of textFields) {
+    const value = task?.[field];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+function mergeTaskDetails(cached = {}, fresh = {}) {
+  const merged = { ...cached, ...fresh };
+  if (taskDescription(fresh) || !taskDescription(cached)) return merged;
+  for (const field of textFields) {
+    if ((!merged[field] || typeof merged[field] !== "string") && typeof cached[field] === "string" && cached[field].trim()) merged[field] = cached[field];
+  }
+  return merged;
+}
+
 // src/obsidian/task-details-modal.ts
 var TaskDetailsModal = class extends import_obsidian3.Modal {
   constructor(app, task, actions = {}) {
@@ -966,7 +984,7 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
       this.contentEl.createDiv({ cls: "ticktick-task-details-loading", text: "\u062F\u0631 \u062D\u0627\u0644 \u062F\u0631\u06CC\u0627\u0641\u062A \u062C\u0632\u0626\u06CC\u0627\u062A \u06A9\u0627\u0645\u0644 \u0627\u0632 TickTick\u2026" });
       try {
         const fresh = await this.actions.load(this.task);
-        if (fresh?.id) this.task = { ...this.task, ...fresh };
+        if (fresh?.id) this.task = mergeTaskDetails(this.task, fresh);
       } catch {
       }
     }
@@ -978,7 +996,7 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
     const meta = this.contentEl.createDiv({ cls: "ticktick-task-details-meta" });
     const priority = taskPriority(this.task.priority);
     for (const value of [this.task.projectName, this.task.dueDate ? `\u{1F4C5} ${String(this.task.dueDate).slice(0, 10)}` : "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", `${priority.icon} \u0627\u0648\u0644\u0648\u06CC\u062A ${priority.label}`, this.task.repeatFlag ? "\u{1F501} \u062A\u06A9\u0631\u0627\u0631" : ""]) if (value) meta.createSpan({ text: String(value) });
-    const description = String(this.task.desc ?? this.task.content ?? "").trim();
+    const description = taskDescription(this.task);
     const descriptionBox = this.contentEl.createDiv({ cls: "ticktick-task-details-description" });
     descriptionBox.createEl("strong", { text: "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A" });
     descriptionBox.createDiv({ text: description || "\u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A." });
@@ -1519,7 +1537,8 @@ var ProjectBoard = class {
     const priority = taskPriority(task.priority);
     top.createSpan({ text: task.title });
     top.createSpan({ cls: `ticktick-project-priority ${priority.className}`, text: `${priority.icon} ${priority.label}`, attr: { title: `\u0627\u0648\u0644\u0648\u06CC\u062A: ${priority.label}` } });
-    if (task.desc || task.content) card.createEl("small", { text: String(task.desc ?? task.content).slice(0, 100) });
+    const description = taskDescription(task);
+    if (description) card.createEl("small", { text: description.slice(0, 100) });
     const meta = card.createDiv({ cls: "ticktick-project-card-meta" });
     if (task.dueDate) meta.createSpan({ text: `\u{1F4C5} ${String(task.dueDate).slice(0, 10)}` });
     if (task.repeatFlag) meta.createSpan({ text: "\u{1F501} \u062A\u06A9\u0631\u0627\u0631" });
@@ -3236,7 +3255,7 @@ var TaskEditorModal = class extends import_obsidian8.Modal {
     contentEl.createDiv({ cls: "ticktick-editor-divider" });
     const fields2 = contentEl.createDiv({ cls: "ticktick-editor-fields" });
     let title = String(this.initial.title ?? "");
-    let description = String(this.initial.desc || this.initial.content || "");
+    let description = taskDescription(this.initial);
     let projectId = String(this.initial.projectId ?? this.projects[0]?.id ?? "");
     let dueDate = toDateKey(String(this.initial.dueDate ?? ""), String(this.initial.timeZone ?? "Asia/Tehran")) ?? "";
     let reminderTime = reminderTimeFromTask(this.initial);

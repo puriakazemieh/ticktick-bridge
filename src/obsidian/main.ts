@@ -10,6 +10,7 @@ import { ProjectBoard } from "./project-board";
 import { HabitMigration } from "./habit-migration";
 import { NoteImport, NoteImportModal } from "./note-import";
 import { checklistSummary } from "../core/checklist.js";
+import { taskDescription } from "../core/task-description.js";
 
 const VIEW_TYPE = "ticktick-bridge-today";
 const HABIT_VIEW_TYPE = "ticktick-bridge-habits";
@@ -1585,7 +1586,7 @@ class TaskEditorModal extends Modal {
     const fields = contentEl.createDiv({ cls: "ticktick-editor-fields" });
 
     let title = String(this.initial.title ?? "");
-    let description = String(this.initial.desc || this.initial.content || "");
+    let description = taskDescription(this.initial);
     let projectId = String(this.initial.projectId ?? this.projects[0]?.id ?? "");
     let dueDate = toDateKey(String(this.initial.dueDate ?? ""), String(this.initial.timeZone ?? "Asia/Tehran")) ?? "";
     let reminderTime = reminderTimeFromTask(this.initial);

@@ -1,6 +1,7 @@
 import { App, Modal, Notice } from "obsidian";
 import { checklistSummary, normalizeChecklist } from "../core/checklist.js";
 import { taskPriority } from "./task-priority";
+import { mergeTaskDetails, taskDescription } from "../core/task-description.js";
 
 type TaskActions = {
   complete?: () => Promise<void>;
@@ -22,7 +23,7 @@ export class TaskDetailsModal extends Modal {
       this.contentEl.createDiv({ cls: "ticktick-task-details-loading", text: "در حال دریافت جزئیات کامل از TickTick…" });
       try {
         const fresh = await this.actions.load(this.task);
-        if (fresh?.id) this.task = { ...this.task, ...fresh };
+        if (fresh?.id) this.task = mergeTaskDetails(this.task, fresh);
       } catch {
         // The cached card remains useful if TickTick cannot be reached.
       }
@@ -35,7 +36,7 @@ export class TaskDetailsModal extends Modal {
     const meta = this.contentEl.createDiv({ cls: "ticktick-task-details-meta" });
     const priority = taskPriority(this.task.priority);
     for (const value of [this.task.projectName, this.task.dueDate ? `📅 ${String(this.task.dueDate).slice(0, 10)}` : "بدون تاریخ", `${priority.icon} اولویت ${priority.label}`, this.task.repeatFlag ? "🔁 تکرار" : ""]) if (value) meta.createSpan({ text: String(value) });
-    const description = String(this.task.desc ?? this.task.content ?? "").trim();
+    const description = taskDescription(this.task);
     const descriptionBox = this.contentEl.createDiv({ cls: "ticktick-task-details-description" });
     descriptionBox.createEl("strong", { text: "توضیحات" });
     descriptionBox.createDiv({ text: description || "توضیحی برای این تسک ثبت نشده است." });

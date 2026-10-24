@@ -3,6 +3,7 @@ import { boardColumns, sidebarTree } from "../core/project-board.js";
 import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
 import { ProjectEditorModal } from "./project-editor-modal";
+import { taskDescription } from "../core/task-description.js";
 
 type Host = { app: App; projects: () => Promise<any[]>; createProject: (project: any) => Promise<any>; updateProject: (project: any) => Promise<any>; deleteProject: (projectId: string) => Promise<any>; createTask: (initial: any) => Promise<any>; tasks: () => any[]; board: (project: any) => Promise<any>; refresh: () => Promise<void>; complete: (task: any) => Promise<any>; binding: (task: any) => any; load: (task: any) => Promise<any>; edit: (task: any) => Promise<any>; showCompleted: () => boolean; preferences: () => { selected: string; collapsed: string[] }; savePreferences: (value: { selected: string; collapsed: string[] }) => Promise<void> };
 
@@ -45,7 +46,7 @@ export class ProjectBoard {
     const top = card.createDiv({ cls: "ticktick-project-card-top" }); const check = top.createEl("input", { type: "checkbox", attr: { "aria-label": `تکمیل ${task.title}` } }); check.checked = Number(task.status ?? 0) !== 0; check.disabled = !bound || check.checked;
     const priority = taskPriority(task.priority);
     top.createSpan({ text: task.title }); top.createSpan({ cls: `ticktick-project-priority ${priority.className}`, text: `${priority.icon} ${priority.label}`, attr: { title: `اولویت: ${priority.label}` } });
-    if (task.desc || task.content) card.createEl("small", { text: String(task.desc ?? task.content).slice(0, 100) });
+    const description = taskDescription(task); if (description) card.createEl("small", { text: description.slice(0, 100) });
     const meta = card.createDiv({ cls: "ticktick-project-card-meta" }); if (task.dueDate) meta.createSpan({ text: `📅 ${String(task.dueDate).slice(0, 10)}` }); if (task.repeatFlag) meta.createSpan({ text: "🔁 تکرار" }); for (const tag of task.tags ?? []) meta.createSpan({ text: `#${tag}` }); if (bound) meta.createSpan({ text: "↗ Markdown" });
     const details = () => new TaskDetailsModal(this.host.app, task, { complete: async () => { await this.host.complete(task); }, load: item => this.host.load(item), edit: item => this.host.edit(item), changed: async () => { await this.host.refresh(); await this.render(); } }).open();
     card.addEventListener("click", details); card.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); details(); } });
