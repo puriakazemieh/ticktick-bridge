@@ -1142,6 +1142,8 @@ var PlanningCalendar = class {
       this.day = shiftCalendarDay(this.day, step);
       void this.render();
     });
+    const add = controls.createEl("button", { text: "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9" });
+    add.addEventListener("click", () => void this.addTask(this.day));
     const refresh = controls.createEl("button", { text: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC" });
     refresh.addEventListener("click", async () => {
       refresh.disabled = true;
@@ -1154,8 +1156,8 @@ var PlanningCalendar = class {
     });
     this.renderFilters(root);
     const tasks = this.filteredTasks();
-    if (!tasks.length) root.createDiv({ cls: "ticktick-planner-empty", text: "\u062A\u0633\u06A9\u06CC \u062F\u0631 cache \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631 \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F. \u0628\u0631\u0627\u06CC \u062F\u0631\u06CC\u0627\u0641\u062A \u062F\u0627\u062F\u0647\u060C \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0631\u0627 \u0628\u0632\u0646." });
-    else if (this.mode === "month") this.renderMonth(root, tasks);
+    if (!tasks.length) root.createDiv({ cls: "ticktick-planner-empty", text: "\u062A\u0633\u06A9\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631 \u0646\u06CC\u0633\u062A\u061B \u0627\u0632 \u062F\u06A9\u0645\u0647\u0654 \xAB\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9\xBB \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646." });
+    if (this.mode === "month") this.renderMonth(root, tasks);
     else this.renderDays(root, this.mode === "week" ? weekRange(this.day, this.host.firstWeekday) : [this.day], tasks);
   }
   renderFilters(root) {
@@ -1188,6 +1190,8 @@ var PlanningCalendar = class {
       column.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", month: "numeric", day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`)) });
       const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted);
       column.createSpan({ cls: "ticktick-planner-counter", text: `${items.length} \u062A\u0633\u06A9` });
+      const add = column.createEl("button", { cls: "ticktick-planner-add", text: "+ \u0627\u0641\u0632\u0648\u062F\u0646", attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062F\u0631 ${day}` } });
+      add.addEventListener("click", () => void this.addTask(day));
       column.addEventListener("dragover", (event) => event.preventDefault());
       column.addEventListener("drop", (event) => {
         event.preventDefault();
@@ -1205,6 +1209,8 @@ var PlanningCalendar = class {
       cell.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`)) });
       const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted);
       cell.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
+      const add = cell.createEl("button", { cls: "ticktick-planner-add", text: "+", attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062F\u0631 ${day}` } });
+      add.addEventListener("click", () => void this.addTask(day));
       cell.addEventListener("dragover", (event) => event.preventDefault());
       cell.addEventListener("drop", (event) => {
         event.preventDefault();
@@ -1253,6 +1259,17 @@ var PlanningCalendar = class {
         checkbox.disabled = false;
       }
       new import_obsidian4.Notice(error instanceof Error ? error.message : "\u062A\u06A9\u0645\u06CC\u0644 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+    }
+  }
+  async addTask(day) {
+    try {
+      const created = await this.host.create({ dueDate: day });
+      if (!created) return;
+      new import_obsidian4.Notice("\u062A\u0633\u06A9 \u062F\u0631 TickTick \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.");
+      await this.host.refresh();
+      await this.render();
+    } catch (error) {
+      new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
     }
   }
   async dropTask(task, target) {
@@ -1419,6 +1436,21 @@ var ProjectBoard = class {
         main.createEl("p", { text: "\u06CC\u06A9 \u0644\u06CC\u0633\u062A \u0631\u0627 \u0627\u0632 \u0646\u0648\u0627\u0631 \u06A9\u0646\u0627\u0631\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646." });
         return;
       }
+      const addTask = toolbar.createEl("button", { text: "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9", cls: "mod-cta" });
+      addTask.addEventListener("click", async () => {
+        addTask.disabled = true;
+        try {
+          const created = await this.host.createTask({ projectId: project.id });
+          if (!created) return;
+          await this.host.refresh();
+          await this.render();
+          new import_obsidian6.Notice("\u062A\u0633\u06A9 \u062F\u0631 \u0627\u06CC\u0646 \u0644\u06CC\u0633\u062A \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.");
+        } catch (error) {
+          new import_obsidian6.Notice(error instanceof Error ? error.message : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+        } finally {
+          addTask.disabled = false;
+        }
+      });
       const editProject = toolbar.createEl("button", { text: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0644\u06CC\u0633\u062A" });
       editProject.addEventListener("click", async () => {
         const draft = await new ProjectEditorModal(this.host.app, project).openAndWait();
@@ -1891,7 +1923,8 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       complete: async (task) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task) => this.loadTaskDetails(task),
-      edit: async (task) => this.editTaskFromSurface(task)
+      edit: async (task) => this.editTaskFromSurface(task),
+      create: async (initial) => this.createTaskFromSurface(initial)
     };
   }
   projectBoardHost() {
@@ -1901,6 +1934,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       createProject: (project) => this.client().createProject(project),
       updateProject: (project) => this.client().updateProject(project),
       deleteProject: (projectId) => this.client().deleteProject(projectId),
+      createTask: (initial) => this.createTaskFromSurface(initial),
       tasks: () => this.cache.tasks,
       board: (project) => this.client().projectBoard(project),
       refresh: async () => {
@@ -2189,6 +2223,12 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   }
   async checkInHabit(habitId, day, checkin) {
     return this.runMutation("habit", { habitId, day, checkin });
+  }
+  async createTaskFromSurface(initial = {}) {
+    const projects = await this.client().listProjects();
+    const draft = await openTaskEditor(this.app, projects, initial);
+    if (!draft) return null;
+    return this.createTask(toTaskPayload(draft, this.settings.timeZone));
   }
   async loadTaskDetails(task) {
     const projectId = String(task?.projectId ?? "");

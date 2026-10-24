@@ -264,6 +264,7 @@ export default class TickTickBridgePlugin extends Plugin {
       binding: (task: any) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task: any) => this.loadTaskDetails(task),
       edit: async (task: any) => this.editTaskFromSurface(task),
+      create: async (initial: any) => this.createTaskFromSurface(initial),
     };
   }
 
@@ -274,6 +275,7 @@ export default class TickTickBridgePlugin extends Plugin {
       createProject: (project: any) => this.client().createProject(project),
       updateProject: (project: any) => this.client().updateProject(project),
       deleteProject: (projectId: string) => this.client().deleteProject(projectId),
+      createTask: (initial: any) => this.createTaskFromSurface(initial),
       tasks: () => this.cache.tasks,
       board: (project: any) => this.client().projectBoard(project),
       refresh: async () => { await this.syncNow({ quiet: true }); },
@@ -567,6 +569,12 @@ export default class TickTickBridgePlugin extends Plugin {
   async completeTask(task: any) { return this.runMutation("complete", task); }
   async deleteTask(task: any) { return this.runMutation("delete", task); }
   async checkInHabit(habitId: string, day: string, checkin: any) { return this.runMutation("habit", { habitId, day, checkin }); }
+  async createTaskFromSurface(initial: TaskDraft = {}) {
+    const projects = await this.client().listProjects();
+    const draft = await openTaskEditor(this.app, projects, initial);
+    if (!draft) return null;
+    return this.createTask(toTaskPayload(draft, this.settings.timeZone));
+  }
   async loadTaskDetails(task: any) {
     const projectId = String(task?.projectId ?? "");
     if (!projectId || !task?.id) return task;

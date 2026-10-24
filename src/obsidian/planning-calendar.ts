@@ -4,7 +4,7 @@ import { todayInZone } from "../core/date.js";
 import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
 
-type PlannerHost = { app: App; timeZone: string; firstWeekday: number; showCompleted: boolean; tasks: () => any[]; refresh: () => Promise<void>; reschedule: (task: any, day: string) => Promise<any>; complete: (task: any) => Promise<any>; binding: (task: any) => any; load: (task: any) => Promise<any>; edit: (task: any) => Promise<any> };
+type PlannerHost = { app: App; timeZone: string; firstWeekday: number; showCompleted: boolean; tasks: () => any[]; refresh: () => Promise<void>; reschedule: (task: any, day: string) => Promise<any>; complete: (task: any) => Promise<any>; binding: (task: any) => any; load: (task: any) => Promise<any>; edit: (task: any) => Promise<any>; create: (initial: any) => Promise<any> };
 type Mode = "day" | "week" | "month";
 
 class RescheduleModal extends Modal {
@@ -72,11 +72,12 @@ export class PlanningCalendar {
     const today = nav.createEl("button", { text: "امروز" }); today.addEventListener("click", () => { this.day = todayInZone(this.host.timeZone); void this.render(); });
     nav.createEl("span", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { year: "numeric", month: "long", day: "numeric" }).format(new Date(`${this.day}T12:00:00Z`)) });
     const next = nav.createEl("button", { text: "›", attr: { "aria-label": "بعدی" } }); next.addEventListener("click", () => { this.day = shiftCalendarDay(this.day, step); void this.render(); });
+    const add = controls.createEl("button", { text: "+ افزودن تسک" }); add.addEventListener("click", () => void this.addTask(this.day));
     const refresh = controls.createEl("button", { text: "همگام‌سازی" }); refresh.addEventListener("click", async () => { refresh.disabled = true; try { await this.host.refresh(); await this.render(); } catch (error) { new Notice(error instanceof Error ? error.message : "همگام‌سازی ناموفق بود."); } });
     this.renderFilters(root);
     const tasks = this.filteredTasks();
-    if (!tasks.length) root.createDiv({ cls: "ticktick-planner-empty", text: "تسکی در cache برای این فیلتر وجود ندارد. برای دریافت داده، همگام‌سازی را بزن." });
-    else if (this.mode === "month") this.renderMonth(root, tasks); else this.renderDays(root, this.mode === "week" ? weekRange(this.day, this.host.firstWeekday) : [this.day], tasks);
+    if (!tasks.length) root.createDiv({ cls: "ticktick-planner-empty", text: "تسکی برای این فیلتر نیست؛ از دکمهٔ «افزودن تسک» استفاده کن." });
+    if (this.mode === "month") this.renderMonth(root, tasks); else this.renderDays(root, this.mode === "week" ? weekRange(this.day, this.host.firstWeekday) : [this.day], tasks);
   }
   private renderFilters(root: HTMLElement) {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" }); const tasks = this.host.tasks();
@@ -93,6 +94,7 @@ export class PlanningCalendar {
       column.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", month: "numeric", day: "numeric" }).format(new Date(`${day}T12:00:00Z`)) });
       const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted);
       column.createSpan({ cls: "ticktick-planner-counter", text: `${items.length} تسک` });
+      const add = column.createEl("button", { cls: "ticktick-planner-add", text: "+ افزودن", attr: { type: "button", "aria-label": `افزودن تسک در ${day}` } }); add.addEventListener("click", () => void this.addTask(day));
       column.addEventListener("dragover", event => event.preventDefault());
       column.addEventListener("drop", event => { event.preventDefault(); const id = event.dataTransfer?.getData("text/ticktick-task"); const task = tasks.find(item => String(item.id) === id); if (task) void this.dropTask(task, day); });
       for (const task of items) this.renderTask(column, task);
@@ -104,6 +106,7 @@ export class PlanningCalendar {
       const cell = grid.createDiv({ cls: `ticktick-planner-month-cell${day.slice(0, 7) === this.day.slice(0, 7) ? "" : " is-outside"}`, attr: { "data-day": day } });
       cell.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(new Date(`${day}T12:00:00Z`)) });
       const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted); cell.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
+      const add = cell.createEl("button", { cls: "ticktick-planner-add", text: "+", attr: { type: "button", "aria-label": `افزودن تسک در ${day}` } }); add.addEventListener("click", () => void this.addTask(day));
       cell.addEventListener("dragover", event => event.preventDefault()); cell.addEventListener("drop", event => { event.preventDefault(); const id = event.dataTransfer?.getData("text/ticktick-task"); const task = tasks.find(item => String(item.id) === id); if (task) void this.dropTask(task, day); });
       for (const task of items.slice(0, 3)) this.renderTask(cell, task);
       if (items.length > 3) { const more = cell.createEl("button", { cls: "ticktick-planner-overflow", text: `+${items.length - 3}`, attr: { type: "button", "aria-label": "نمایش همهٔ تسک‌های روز" } }); more.addEventListener("click", () => new TaskOverflowModal(this.host.app, items, task => this.completeTask(task), task => this.host.load(task), task => this.host.edit(task), async () => { await this.host.refresh(); await this.render(); }).open()); }
@@ -117,6 +120,7 @@ export class PlanningCalendar {
     card.draggable = Boolean(bound); card.addEventListener("dragstart", event => { if (bound) event.dataTransfer?.setData("text/ticktick-task", String(task.id)); });
   }
   private async completeTask(task: any, checkbox?: HTMLInputElement) { try { await this.host.complete(task); new Notice("تسک تکمیل و همگام شد."); await this.host.refresh(); await this.render(); } catch (error) { if (checkbox) { checkbox.checked = false; checkbox.disabled = false; } new Notice(error instanceof Error ? error.message : "تکمیل ناموفق بود."); } }
+  private async addTask(day: string) { try { const created = await this.host.create({ dueDate: day }); if (!created) return; new Notice("تسک در TickTick اضافه شد."); await this.host.refresh(); await this.render(); } catch (error) { new Notice(error instanceof Error ? error.message : "افزودن تسک ناموفق بود."); } }
   private async dropTask(task: any, target: string) {
     if (!this.host.binding(task)) { new Notice("فقط taskهای bind‌شده به Markdown قابل جابه‌جایی هستند."); return; }
     if (!await new RescheduleModal(this.host.app, task, target).openAndWait()) return;
