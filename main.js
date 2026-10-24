@@ -1176,7 +1176,27 @@ function enhanceHorizontalScroll(element) {
   let originX = 0;
   let originLeft = 0;
   let moved = false;
-  const interactive = "button, input, select, textarea, a, label";
+  const interactive = [
+    "button",
+    "input",
+    "select",
+    "textarea",
+    "a",
+    "label",
+    "[role='button']",
+    ".ticktick-planner-task",
+    ".ticktick-planner-month-task",
+    ".ticktick-planner-range-task",
+    ".ticktick-overflow-task",
+    ".ticktick-project-card",
+    ".ticktick-planner-day-header",
+    ".ticktick-planner-month-header",
+    ".ticktick-month-task-title",
+    ".ticktick-task-title",
+    ".ticktick-range-title",
+    ".ticktick-overflow-task-title",
+    ".ticktick-project-card-title"
+  ].join(", ");
   element.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || element.scrollWidth <= element.clientWidth) return;
     if (event.target instanceof HTMLElement && event.target.closest(interactive)) return;
@@ -1184,14 +1204,17 @@ function enhanceHorizontalScroll(element) {
     originX = event.clientX;
     originLeft = element.scrollLeft;
     moved = false;
-    element.setPointerCapture(event.pointerId);
   });
   element.addEventListener("pointermove", (event) => {
     if (pointerId !== event.pointerId) return;
     const distance = event.clientX - originX;
-    if (Math.abs(distance) > 3) {
+    if (!moved && Math.abs(distance) > 4) {
       moved = true;
       element.addClass("is-horizontal-dragging");
+      try {
+        element.setPointerCapture(event.pointerId);
+      } catch {
+      }
     }
     if (moved) {
       element.scrollLeft = originLeft - distance;
@@ -1199,12 +1222,27 @@ function enhanceHorizontalScroll(element) {
   });
   const release = (event) => {
     if (pointerId !== event.pointerId) return;
-    if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
+    if (element.hasPointerCapture(event.pointerId)) {
+      try {
+        element.releasePointerCapture(event.pointerId);
+      } catch {
+      }
+    }
     pointerId = null;
     element.removeClass("is-horizontal-dragging");
+    setTimeout(() => {
+      moved = false;
+    }, 60);
   };
   element.addEventListener("pointerup", release);
   element.addEventListener("pointercancel", release);
+  element.addEventListener("click", (event) => {
+    if (moved) {
+      event.preventDefault();
+      event.stopPropagation();
+      moved = false;
+    }
+  }, { capture: true });
   element.addEventListener("wheel", (event) => {
     if (!event.shiftKey || element.scrollWidth <= element.clientWidth) return;
     const isRtl = getComputedStyle(element).direction === "rtl";
@@ -1384,21 +1422,17 @@ var TaskOverflowModal = class extends import_obsidian4.Modal {
         attr: { role: "button", tabindex: "0" }
       });
       row.style.setProperty("--ticktick-task-tone", tone);
-      row.addEventListener("click", () => new TaskDetailsModal(this.app, task, {
+      const openDetails = () => new TaskDetailsModal(this.app, task, {
         complete: () => this.complete(task),
         load: this.load,
         edit: this.edit,
         changed: this.changed
-      }).open());
+      }).open();
+      row.addEventListener("click", openDetails);
       row.addEventListener("keydown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          new TaskDetailsModal(this.app, task, {
-            complete: () => this.complete(task),
-            load: this.load,
-            edit: this.edit,
-            changed: this.changed
-          }).open();
+          openDetails();
         }
       });
       const check = row.createEl("input", { type: "checkbox", cls: "ticktick-overflow-check", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
@@ -1406,9 +1440,13 @@ var TaskOverflowModal = class extends import_obsidian4.Modal {
       check.disabled = isCompleted;
       check.addEventListener("click", (e) => e.stopPropagation());
       const main = row.createDiv({ cls: "ticktick-overflow-task-main" });
-      main.createDiv({
+      const titleEl = main.createDiv({
         text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"),
         cls: "ticktick-overflow-task-title"
+      });
+      titleEl.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openDetails();
       });
       if (task.projectName) {
         main.createSpan({ cls: "ticktick-overflow-task-project", text: task.projectName });
@@ -1853,7 +1891,7 @@ var PlanningCalendar = class {
       });
       bar.style.gridColumn = `${first + 1} / ${last + 2}`;
       bar.style.setProperty("--ticktick-task-tone", tone);
-      bar.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
+      const openDetails = () => new TaskDetailsModal(this.host.app, task, {
         complete: () => this.completeTask(task),
         load: (item) => this.host.load(item),
         edit: (item) => this.host.edit(item),
@@ -1861,7 +1899,14 @@ var PlanningCalendar = class {
           await this.host.refresh();
           await this.render();
         }
-      }).open());
+      }).open();
+      bar.addEventListener("click", openDetails);
+      bar.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openDetails();
+        }
+      });
       const check = bar.createEl("input", { type: "checkbox", cls: "ticktick-range-check", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
       check.checked = isCompleted;
       check.disabled = isCompleted;
@@ -1869,9 +1914,13 @@ var PlanningCalendar = class {
       check.addEventListener("change", () => void this.completeTask(task, check));
       const rangeIcon = bar.createSpan({ cls: "ticktick-range-indicator mod-icon", attr: { "aria-hidden": "true" } });
       (0, import_obsidian4.setIcon)(rangeIcon, "calendar-range");
-      bar.createDiv({
+      const titleEl = bar.createDiv({
         cls: "ticktick-range-title",
         text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646")
+      });
+      titleEl.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openDetails();
       });
     }
   }
@@ -1889,7 +1938,7 @@ var PlanningCalendar = class {
       }
     });
     card.style.setProperty("--ticktick-task-tone", tone);
-    card.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
+    const openDetails = () => new TaskDetailsModal(this.host.app, task, {
       complete: () => this.completeTask(task),
       load: (item) => this.host.load(item),
       edit: (item) => this.host.edit(item),
@@ -1897,19 +1946,12 @@ var PlanningCalendar = class {
         await this.host.refresh();
         await this.render();
       }
-    }).open());
+    }).open();
+    card.addEventListener("click", openDetails);
     card.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        new TaskDetailsModal(this.host.app, task, {
-          complete: () => this.completeTask(task),
-          load: (item) => this.host.load(item),
-          edit: (item) => this.host.edit(item),
-          changed: async () => {
-            await this.host.refresh();
-            await this.render();
-          }
-        }).open();
+        openDetails();
       }
     });
     if (bound) {
@@ -1939,9 +1981,13 @@ var PlanningCalendar = class {
         metaRow.createSpan({ cls: `ticktick-task-priority-dot ${priority.className}`, attr: { title: `\u0627\u0648\u0644\u0648\u06CC\u062A: ${priority.label}` } });
       }
     }
-    content.createDiv({
+    const titleEl = content.createDiv({
       cls: "ticktick-task-title",
       text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646")
+    });
+    titleEl.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openDetails();
     });
     card.draggable = Boolean(bound);
     card.addEventListener("dragstart", (event) => {
@@ -1968,7 +2014,7 @@ var PlanningCalendar = class {
       }
     });
     card.style.setProperty("--ticktick-task-tone", tone);
-    card.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
+    const openDetails = () => new TaskDetailsModal(this.host.app, task, {
       complete: () => this.completeTask(task),
       load: (item) => this.host.load(item),
       edit: (item) => this.host.edit(item),
@@ -1976,7 +2022,14 @@ var PlanningCalendar = class {
         await this.host.refresh();
         await this.render();
       }
-    }).open());
+    }).open();
+    card.addEventListener("click", openDetails);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openDetails();
+      }
+    });
     const check = card.createEl("input", { type: "checkbox", cls: "ticktick-month-check", attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` } });
     check.checked = isCompleted;
     check.disabled = isCompleted;
@@ -1986,9 +2039,13 @@ var PlanningCalendar = class {
     if (timeStr) {
       card.createSpan({ cls: "ticktick-month-time", text: timeStr });
     }
-    card.createDiv({
+    const titleEl = card.createDiv({
       cls: "ticktick-month-task-title",
       text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646")
+    });
+    titleEl.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openDetails();
     });
     card.draggable = Boolean(bound);
     card.addEventListener("dragstart", (event) => {
@@ -2419,9 +2476,13 @@ var ProjectBoard = class {
     });
     check.checked = isCompleted;
     check.disabled = !bound || isCompleted;
-    top.createDiv({
+    const titleEl = top.createDiv({
       cls: "ticktick-project-card-title",
       text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646")
+    });
+    titleEl.addEventListener("click", (event) => {
+      event.stopPropagation();
+      details();
     });
     if (priority.value > 0) {
       top.createSpan({

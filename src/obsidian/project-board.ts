@@ -376,9 +376,13 @@ export class ProjectBoard {
     check.checked = isCompleted;
     check.disabled = !bound || isCompleted;
 
-    top.createDiv({
+    const titleEl = top.createDiv({
       cls: "ticktick-project-card-title",
       text: String(task.title ?? "بدون عنوان")
+    });
+    titleEl.addEventListener("click", event => {
+      event.stopPropagation();
+      details();
     });
 
     if (priority.value > 0) {

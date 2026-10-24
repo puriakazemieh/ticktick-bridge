@@ -190,22 +190,18 @@ class TaskOverflowModal extends Modal {
       });
       row.style.setProperty("--ticktick-task-tone", tone);
 
-      row.addEventListener("click", () => new TaskDetailsModal(this.app, task, {
+      const openDetails = () => new TaskDetailsModal(this.app, task, {
         complete: () => this.complete(task),
         load: this.load,
         edit: this.edit,
         changed: this.changed
-      }).open());
+      }).open();
 
+      row.addEventListener("click", openDetails);
       row.addEventListener("keydown", event => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          new TaskDetailsModal(this.app, task, {
-            complete: () => this.complete(task),
-            load: this.load,
-            edit: this.edit,
-            changed: this.changed
-          }).open();
+          openDetails();
         }
       });
 
@@ -215,9 +211,13 @@ class TaskOverflowModal extends Modal {
       check.addEventListener("click", e => e.stopPropagation());
 
       const main = row.createDiv({ cls: "ticktick-overflow-task-main" });
-      main.createDiv({
+      const titleEl = main.createDiv({
         text: String(task.title ?? "بدون عنوان"),
         cls: "ticktick-overflow-task-title"
+      });
+      titleEl.addEventListener("click", event => {
+        event.stopPropagation();
+        openDetails();
       });
 
       if (task.projectName) {
@@ -737,7 +737,7 @@ export class PlanningCalendar {
       bar.style.gridColumn = `${first + 1} / ${last + 2}`;
       bar.style.setProperty("--ticktick-task-tone", tone);
 
-      bar.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
+      const openDetails = () => new TaskDetailsModal(this.host.app, task, {
         complete: () => this.completeTask(task),
         load: item => this.host.load(item),
         edit: item => this.host.edit(item),
@@ -745,7 +745,15 @@ export class PlanningCalendar {
           await this.host.refresh();
           await this.render();
         }
-      }).open());
+      }).open();
+
+      bar.addEventListener("click", openDetails);
+      bar.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openDetails();
+        }
+      });
 
       const check = bar.createEl("input", { type: "checkbox", cls: "ticktick-range-check", attr: { "aria-label": `تکمیل ${task.title}` } });
       check.checked = isCompleted;
@@ -756,9 +764,13 @@ export class PlanningCalendar {
       const rangeIcon = bar.createSpan({ cls: "ticktick-range-indicator mod-icon", attr: { "aria-hidden": "true" } });
       setIcon(rangeIcon, "calendar-range");
 
-      bar.createDiv({
+      const titleEl = bar.createDiv({
         cls: "ticktick-range-title",
         text: String(task.title ?? "بدون عنوان")
+      });
+      titleEl.addEventListener("click", event => {
+        event.stopPropagation();
+        openDetails();
       });
     }
   }
@@ -779,7 +791,7 @@ export class PlanningCalendar {
     });
     card.style.setProperty("--ticktick-task-tone", tone);
 
-    card.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
+    const openDetails = () => new TaskDetailsModal(this.host.app, task, {
       complete: () => this.completeTask(task),
       load: item => this.host.load(item),
       edit: item => this.host.edit(item),
@@ -787,20 +799,13 @@ export class PlanningCalendar {
         await this.host.refresh();
         await this.render();
       }
-    }).open());
+    }).open();
 
+    card.addEventListener("click", openDetails);
     card.addEventListener("keydown", event => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        new TaskDetailsModal(this.host.app, task, {
-          complete: () => this.completeTask(task),
-          load: item => this.host.load(item),
-          edit: item => this.host.edit(item),
-          changed: async () => {
-            await this.host.refresh();
-            await this.render();
-          }
-        }).open();
+        openDetails();
       }
     });
 
@@ -840,9 +845,13 @@ export class PlanningCalendar {
     }
 
     // Task title: plain div, no button, full wrap!
-    content.createDiv({
+    const titleEl = content.createDiv({
       cls: "ticktick-task-title",
       text: String(task.title ?? "بدون عنوان")
+    });
+    titleEl.addEventListener("click", event => {
+      event.stopPropagation();
+      openDetails();
     });
 
     card.draggable = Boolean(bound);
@@ -873,7 +882,7 @@ export class PlanningCalendar {
     });
     card.style.setProperty("--ticktick-task-tone", tone);
 
-    card.addEventListener("click", () => new TaskDetailsModal(this.host.app, task, {
+    const openDetails = () => new TaskDetailsModal(this.host.app, task, {
       complete: () => this.completeTask(task),
       load: item => this.host.load(item),
       edit: item => this.host.edit(item),
@@ -881,7 +890,15 @@ export class PlanningCalendar {
         await this.host.refresh();
         await this.render();
       }
-    }).open());
+    }).open();
+
+    card.addEventListener("click", openDetails);
+    card.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openDetails();
+      }
+    });
 
     const check = card.createEl("input", { type: "checkbox", cls: "ticktick-month-check", attr: { "aria-label": `تکمیل ${task.title}` } });
     check.checked = isCompleted;
@@ -894,9 +911,13 @@ export class PlanningCalendar {
       card.createSpan({ cls: "ticktick-month-time", text: timeStr });
     }
 
-    card.createDiv({
+    const titleEl = card.createDiv({
       cls: "ticktick-month-task-title",
       text: String(task.title ?? "بدون عنوان")
+    });
+    titleEl.addEventListener("click", event => {
+      event.stopPropagation();
+      openDetails();
     });
 
     card.draggable = Boolean(bound);

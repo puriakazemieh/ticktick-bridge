@@ -5,7 +5,27 @@ export function enhanceHorizontalScroll(element: HTMLElement) {
   let originX = 0;
   let originLeft = 0;
   let moved = false;
-  const interactive = "button, input, select, textarea, a, label";
+  const interactive = [
+    "button",
+    "input",
+    "select",
+    "textarea",
+    "a",
+    "label",
+    "[role='button']",
+    ".ticktick-planner-task",
+    ".ticktick-planner-month-task",
+    ".ticktick-planner-range-task",
+    ".ticktick-overflow-task",
+    ".ticktick-project-card",
+    ".ticktick-planner-day-header",
+    ".ticktick-planner-month-header",
+    ".ticktick-month-task-title",
+    ".ticktick-task-title",
+    ".ticktick-range-title",
+    ".ticktick-overflow-task-title",
+    ".ticktick-project-card-title"
+  ].join(", ");
 
   element.addEventListener("pointerdown", event => {
     if (event.button !== 0 || element.scrollWidth <= element.clientWidth) return;
@@ -14,15 +34,18 @@ export function enhanceHorizontalScroll(element: HTMLElement) {
     originX = event.clientX;
     originLeft = element.scrollLeft;
     moved = false;
-    element.setPointerCapture(event.pointerId);
+    // Do NOT call setPointerCapture here; wait until user actually drags.
   });
 
   element.addEventListener("pointermove", event => {
     if (pointerId !== event.pointerId) return;
     const distance = event.clientX - originX;
-    if (Math.abs(distance) > 3) {
+    if (!moved && Math.abs(distance) > 4) {
       moved = true;
       element.addClass("is-horizontal-dragging");
+      try {
+        element.setPointerCapture(event.pointerId);
+      } catch {}
     }
     if (moved) {
       element.scrollLeft = originLeft - distance;
@@ -31,13 +54,26 @@ export function enhanceHorizontalScroll(element: HTMLElement) {
 
   const release = (event: PointerEvent) => {
     if (pointerId !== event.pointerId) return;
-    if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
+    if (element.hasPointerCapture(event.pointerId)) {
+      try {
+        element.releasePointerCapture(event.pointerId);
+      } catch {}
+    }
     pointerId = null;
     element.removeClass("is-horizontal-dragging");
+    setTimeout(() => { moved = false; }, 60);
   };
 
   element.addEventListener("pointerup", release);
   element.addEventListener("pointercancel", release);
+
+  element.addEventListener("click", event => {
+    if (moved) {
+      event.preventDefault();
+      event.stopPropagation();
+      moved = false;
+    }
+  }, { capture: true });
 
   element.addEventListener("wheel", event => {
     if (!event.shiftKey || element.scrollWidth <= element.clientWidth) return;
