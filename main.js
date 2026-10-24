@@ -983,6 +983,13 @@ function mergeTaskDetails(cached = {}, fresh = {}) {
   return merged;
 }
 
+// src/core/persian-date.js
+function formatPersianDate(value, timeZone = "Asia/Tehran") {
+  const day = toDateKey(value, timeZone);
+  if (!day) return "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E";
+  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", { year: "numeric", month: "long", day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`));
+}
+
 // src/obsidian/task-details-modal.ts
 var TaskDetailsModal = class extends import_obsidian3.Modal {
   constructor(app, task, actions = {}) {
@@ -1012,7 +1019,7 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
     this.titleEl.setText(String(this.task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"));
     const meta = this.contentEl.createDiv({ cls: "ticktick-task-details-meta" });
     const priority = taskPriority(this.task.priority);
-    for (const value of [this.task.projectName, this.task.dueDate ? `\u{1F4C5} ${String(this.task.dueDate).slice(0, 10)}` : "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", `${priority.icon} \u0627\u0648\u0644\u0648\u06CC\u062A ${priority.label}`, this.task.repeatFlag ? "\u{1F501} \u062A\u06A9\u0631\u0627\u0631" : ""]) if (value) meta.createSpan({ text: String(value) });
+    for (const value of [this.task.projectName, this.task.dueDate ? `\u{1F4C5} ${formatPersianDate(this.task.dueDate, this.task.timeZone)}` : "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", `${priority.icon} \u0627\u0648\u0644\u0648\u06CC\u062A ${priority.label}`, this.task.repeatFlag ? "\u{1F501} \u062A\u06A9\u0631\u0627\u0631" : ""]) if (value) meta.createSpan({ text: String(value) });
     const description = taskDescription(this.task);
     const descriptionBox = this.contentEl.createDiv({ cls: "ticktick-task-details-description" });
     descriptionBox.createEl("strong", { text: "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A" });
@@ -1561,7 +1568,7 @@ var ProjectBoard = class {
     const description = taskDescription(task);
     if (description) card.createEl("small", { text: description.slice(0, 100) });
     const meta = card.createDiv({ cls: "ticktick-project-card-meta" });
-    if (task.dueDate) meta.createSpan({ text: `\u{1F4C5} ${String(task.dueDate).slice(0, 10)}` });
+    if (task.dueDate) meta.createSpan({ text: `\u{1F4C5} ${formatPersianDate(task.dueDate, task.timeZone)}` });
     if (task.repeatFlag) meta.createSpan({ text: "\u{1F501} \u062A\u06A9\u0631\u0627\u0631" });
     for (const tag of task.tags ?? []) meta.createSpan({ text: `#${tag}` });
     if (bound) meta.createSpan({ text: "\u2197 Markdown" });
