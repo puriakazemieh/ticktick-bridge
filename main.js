@@ -1170,6 +1170,47 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
   }
 };
 
+// src/obsidian/horizontal-scroll.ts
+function enhanceHorizontalScroll(element) {
+  let pointerId = null;
+  let originX = 0;
+  let originLeft = 0;
+  let moved = false;
+  const interactive = "button, input, select, textarea, a, label";
+  element.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || element.scrollWidth <= element.clientWidth) return;
+    if (event.target instanceof HTMLElement && event.target.closest(interactive)) return;
+    pointerId = event.pointerId;
+    originX = event.clientX;
+    originLeft = element.scrollLeft;
+    moved = false;
+    element.setPointerCapture(event.pointerId);
+  });
+  element.addEventListener("pointermove", (event) => {
+    if (pointerId !== event.pointerId) return;
+    const distance = event.clientX - originX;
+    if (Math.abs(distance) > 3) {
+      moved = true;
+      element.addClass("is-horizontal-dragging");
+    }
+    if (moved) element.scrollLeft = originLeft - distance;
+  });
+  const release = (event) => {
+    if (pointerId !== event.pointerId) return;
+    if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
+    pointerId = null;
+    element.removeClass("is-horizontal-dragging");
+  };
+  element.addEventListener("pointerup", release);
+  element.addEventListener("pointercancel", release);
+  element.addEventListener("wheel", (event) => {
+    if (!event.shiftKey || element.scrollWidth <= element.clientWidth) return;
+    const amount = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    element.scrollLeft += amount;
+    event.preventDefault();
+  }, { passive: false });
+}
+
 // src/obsidian/planning-calendar.ts
 var PlannerMultiSelectModal = class extends import_obsidian4.Modal {
   constructor(app, label, values, selected, prefix = "") {
@@ -1387,6 +1428,7 @@ var PlanningCalendar = class {
   }
   renderDays(root, days, tasks) {
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
+    enhanceHorizontalScroll(grid);
     const showRangeBars = days.length > 1;
     const shell = grid.createDiv({ cls: "ticktick-planner-days-shell" });
     const headers = shell.createDiv({ cls: "ticktick-planner-days-headers" });
@@ -1416,6 +1458,7 @@ var PlanningCalendar = class {
   }
   renderMonth(root, tasks) {
     const grid = root.createDiv({ cls: "ticktick-planner-month" });
+    enhanceHorizontalScroll(grid);
     const days = persianMonthRange(this.day, this.host.firstWeekday);
     for (let index = 0; index < days.length; index += 7) {
       const weekDays = days.slice(index, index + 7);
@@ -1756,6 +1799,7 @@ var ProjectBoard = class {
       const data = await this.host.board(project);
       main.createEl("h2", { text: project.name });
       const columns = main.createDiv({ cls: "ticktick-project-columns" });
+      enhanceHorizontalScroll(columns);
       for (const column of boardColumns(data, this.host.showCompleted())) {
         const shell = columns.createDiv({ cls: "ticktick-project-column" });
         shell.createEl("strong", { text: `${column.name} \xB7 ${column.count}` });

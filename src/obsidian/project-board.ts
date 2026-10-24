@@ -6,6 +6,7 @@ import { ProjectEditorModal } from "./project-editor-modal";
 import { taskDescription } from "../core/task-description.js";
 import { formatPersianDate } from "../core/persian-date.js";
 import { sortPlanningTasks } from "../core/calendar-range.js";
+import { enhanceHorizontalScroll } from "./horizontal-scroll";
 
 type Host = { app: App; projects: () => Promise<any[]>; createProject: (project: any) => Promise<any>; updateProject: (project: any) => Promise<any>; deleteProject: (projectId: string) => Promise<any>; createTask: (initial: any) => Promise<any>; tasks: () => any[]; board: (project: any) => Promise<any>; refresh: () => Promise<void>; complete: (task: any) => Promise<any>; binding: (task: any) => any; load: (task: any) => Promise<any>; edit: (task: any) => Promise<any>; showCompleted: () => boolean; preferences: () => { selected: string; collapsed: string[] }; savePreferences: (value: { selected: string; collapsed: string[] }) => Promise<void> };
 
@@ -39,7 +40,7 @@ export class ProjectBoard {
       const editProject = toolbar.createEl("button", { text: "ویرایش لیست" }); editProject.addEventListener("click", async () => { const draft = await new ProjectEditorModal(this.host.app, project).openAndWait(); if (!draft) return; editProject.disabled = true; try { await this.host.updateProject({ ...project, ...draft }); await this.host.refresh(); await this.render(); new Notice("لیست در TickTick ویرایش شد."); } catch (error) { new Notice(error instanceof Error ? error.message : "ویرایش لیست ناموفق بود."); } finally { editProject.disabled = false; } });
       const removeProject = toolbar.createEl("button", { text: "حذف لیست", cls: "mod-warning" }); removeProject.addEventListener("click", async () => { if (!window.confirm(`لیست «${project.name}» و تسک‌های آن در TickTick حذف شود؟`)) return; removeProject.disabled = true; try { await this.host.deleteProject(String(project.id)); this.selected = ""; await this.host.refresh(); await this.persistAndRender(); new Notice("لیست از TickTick حذف شد."); } catch (error) { removeProject.disabled = false; new Notice(error instanceof Error ? error.message : "حذف لیست ناموفق بود."); } });
       const data = await this.host.board(project); main.createEl("h2", { text: project.name });
-      const columns = main.createDiv({ cls: "ticktick-project-columns" });
+      const columns = main.createDiv({ cls: "ticktick-project-columns" }); enhanceHorizontalScroll(columns);
       for (const column of boardColumns(data, this.host.showCompleted())) { const shell = columns.createDiv({ cls: "ticktick-project-column" }); shell.createEl("strong", { text: `${column.name} · ${column.count}` }); shell.createEl("small", { text: column.synthetic ? "ستون نمایشی؛ جابه‌جایی غیرفعال است" : "ترتیب و جابه‌جایی ستون در نسخهٔ اول فقط خواندنی است" }); shell.addEventListener("dragover", event => event.preventDefault()); shell.addEventListener("drop", event => { event.preventDefault(); new Notice("جابه‌جایی بین ستون‌ها تا تأیید رسمی API TickTick غیرفعال است."); });
         for (const group of column.groups) { shell.createEl("h4", { text: group.name }); for (const task of sortPlanningTasks(group.tasks, this.sortMode)) this.card(shell, task); }
       }

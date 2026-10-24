@@ -3,6 +3,7 @@ import { isSamePersianMonth, persianMonthRange, shiftCalendarDay, shiftPersianMo
 import { todayInZone } from "../core/date.js";
 import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
+import { enhanceHorizontalScroll } from "./horizontal-scroll";
 
 type PlannerHost = { app: App; timeZone: string; firstWeekday: number; showCompleted: boolean; tasks: () => any[]; refresh: () => Promise<void>; reschedule: (task: any, day: string) => Promise<any>; complete: (task: any) => Promise<any>; binding: (task: any) => any; load: (task: any) => Promise<any>; edit: (task: any) => Promise<any>; create: (initial: any) => Promise<any> };
 type Mode = "day" | "week" | "month";
@@ -118,6 +119,7 @@ export class PlanningCalendar {
   private filteredTasks() { return this.host.tasks().filter(task => (!this.projects.size || this.projects.has(String(task.projectName ?? task.projectId ?? "ورودی"))) && (!this.tags.size || (task.tags ?? []).some((tag: any) => this.tags.has(String(tag))))); }
   private renderDays(root: HTMLElement, days: string[], tasks: any[]) {
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
+    enhanceHorizontalScroll(grid);
     const showRangeBars = days.length > 1;
     const shell = grid.createDiv({ cls: "ticktick-planner-days-shell" });
     const headers = shell.createDiv({ cls: "ticktick-planner-days-headers" });
@@ -141,6 +143,7 @@ export class PlanningCalendar {
   }
   private renderMonth(root: HTMLElement, tasks: any[]) {
     const grid = root.createDiv({ cls: "ticktick-planner-month" });
+    enhanceHorizontalScroll(grid);
     const days = persianMonthRange(this.day, this.host.firstWeekday);
     for (let index = 0; index < days.length; index += 7) {
       const weekDays = days.slice(index, index + 7);

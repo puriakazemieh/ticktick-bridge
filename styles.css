@@ -482,6 +482,24 @@
 
 @media (prefers-reduced-motion: reduce) { .ticktick-today-tasks-panel *, .ticktick-today-habits-panel *, .ticktick-planner-panel *, .ticktick-project-board-panel *, .ticktick-control-page * { transition-duration: 0ms !important; } }
 
+/* Horizontal calendar/board surfaces: predictable LTR scroll physics while
+   their contents remain RTL, a visible Windows scrollbar, and native touch panning. */
+.ticktick-planner-days, .ticktick-planner-month, .ticktick-project-columns {
+  direction: ltr;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-color: var(--interactive-accent) var(--background-secondary);
+  scrollbar-width: auto;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.ticktick-planner-days-shell, .ticktick-planner-month-week, .ticktick-project-columns > * { direction: rtl; }
+.ticktick-planner-days::-webkit-scrollbar, .ticktick-planner-month::-webkit-scrollbar, .ticktick-project-columns::-webkit-scrollbar { height: 13px; }
+.ticktick-planner-days::-webkit-scrollbar-track, .ticktick-planner-month::-webkit-scrollbar-track, .ticktick-project-columns::-webkit-scrollbar-track { margin: .25rem .4rem; border-radius: 999px; background: var(--background-secondary); }
+.ticktick-planner-days::-webkit-scrollbar-thumb, .ticktick-planner-month::-webkit-scrollbar-thumb, .ticktick-project-columns::-webkit-scrollbar-thumb { min-width: 3.5rem; border: 3px solid var(--background-secondary); border-radius: 999px; background: color-mix(in srgb, var(--interactive-accent) 72%, var(--text-muted)); }
+.ticktick-planner-days::-webkit-scrollbar-thumb:hover, .ticktick-planner-month::-webkit-scrollbar-thumb:hover, .ticktick-project-columns::-webkit-scrollbar-thumb:hover { background: var(--interactive-accent); }
+.ticktick-planner-days.is-horizontal-dragging, .ticktick-planner-month.is-horizontal-dragging, .ticktick-project-columns.is-horizontal-dragging { cursor: grabbing; user-select: none; scroll-snap-type: none; }
+
 /* Keep the progress/icon on the right in the daily panel regardless of the
    active Obsidian theme's LTR/RTL rules. */
 .daily-habit-list:not(.ticktick-dashboard-habits) .daily-habit-cards {
