@@ -1290,13 +1290,6 @@ var PlanningCalendar = class {
         new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
       }
     });
-    const sort = controls.createEl("select", { attr: { "aria-label": "\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627" } });
-    for (const [value, label] of [["ticktick", "\u062A\u0631\u062A\u06CC\u0628 TickTick"], ["time", "\u0633\u0627\u0639\u062A"], ["priority", "\u0627\u0648\u0644\u0648\u06CC\u062A"], ["title", "\u0639\u0646\u0648\u0627\u0646"]]) sort.createEl("option", { value, text: `\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC: ${label}` });
-    sort.value = this.sortMode;
-    sort.addEventListener("change", () => {
-      this.sortMode = sort.value;
-      void this.render();
-    });
     this.renderFilters(root);
     const tasks = this.filteredTasks();
     if (!tasks.length) root.createDiv({ cls: "ticktick-planner-empty", text: "\u062A\u0633\u06A9\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631 \u0646\u06CC\u0633\u062A\u061B \u0627\u0632 \u062F\u06A9\u0645\u0647\u0654 \xAB\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9\xBB \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646." });
@@ -1306,6 +1299,13 @@ var PlanningCalendar = class {
   renderFilters(root) {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" });
     const tasks = this.host.tasks();
+    const sort = filters.createEl("select", { attr: { "aria-label": "\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627" } });
+    for (const [value, label] of [["ticktick", "\u062A\u0631\u062A\u06CC\u0628 TickTick"], ["time", "\u0633\u0627\u0639\u062A"], ["priority", "\u0627\u0648\u0644\u0648\u06CC\u062A"], ["title", "\u0639\u0646\u0648\u0627\u0646"]]) sort.createEl("option", { value, text: `\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC: ${label}` });
+    sort.value = this.sortMode;
+    sort.addEventListener("change", () => {
+      this.sortMode = sort.value;
+      void this.render();
+    });
     const projects = [...new Set(tasks.map((task) => String(task.projectName ?? task.projectId ?? "\u0648\u0631\u0648\u062F\u06CC")))].sort((left, right) => left.localeCompare(right, "fa"));
     const project = filters.createEl("button", { text: this.projects.size ? `\u067E\u0631\u0648\u0698\u0647 (${this.projects.size})` : "\u067E\u0631\u0648\u0698\u0647" });
     project.addEventListener("click", async () => {

@@ -329,6 +329,7 @@
 .ticktick-control-nav { align-items: center; gap: .5rem; }
 .ticktick-planner-controls { display: flex; flex-wrap: nowrap; overflow-x: auto; padding-bottom: .7rem; border-bottom: 1px solid var(--tt-line); }
 .ticktick-planner-filters { position: relative; z-index: 5; display: flex; align-items: center; gap: .35rem; padding: .55rem 0 .65rem; border-bottom: 1px solid var(--tt-line); }
+.ticktick-planner-filters select { min-height: 2rem; padding: .35rem .55rem; border: 1px solid var(--tt-line); border-radius: .5rem; background: var(--background-secondary); color: var(--text-normal); font: inherit; }
 .ticktick-planner-filters button { min-height: 2rem; padding: .35rem .6rem; border: 1px solid var(--tt-line); border-radius: .5rem; background: var(--background-secondary); color: var(--text-normal); white-space: nowrap; }
 .ticktick-planner-filter-modal { display: grid; gap: .3rem; max-height: min(55vh, 28rem); overflow: auto; padding: .2rem; direction: rtl; }.ticktick-planner-filter-modal label { display: flex; align-items: center; gap: .55rem; min-height: 2rem; padding: .35rem .5rem; border-radius: .4rem; cursor: pointer; }.ticktick-planner-filter-modal label:hover { background: var(--background-modifier-hover); }.ticktick-planner-filter-modal input { margin: 0; }
 .ticktick-planner-filters button { min-height: 2rem; padding: .28rem .55rem; border-radius: .5rem; background: transparent; border: 1px solid var(--tt-line); color: var(--tt-muted); }

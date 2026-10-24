@@ -94,9 +94,6 @@ export class PlanningCalendar {
     const next = nav.createEl("button", { text: "›", attr: { "aria-label": "بعدی" } }); next.addEventListener("click", () => { this.day = shiftCalendarDay(this.day, step); void this.render(); });
     const add = controls.createEl("button", { text: "+ افزودن تسک" }); add.addEventListener("click", () => void this.addTask(this.day));
     const refresh = controls.createEl("button", { text: "همگام‌سازی" }); refresh.addEventListener("click", async () => { refresh.disabled = true; try { await this.host.refresh(); await this.render(); } catch (error) { new Notice(error instanceof Error ? error.message : "همگام‌سازی ناموفق بود."); } });
-    const sort = controls.createEl("select", { attr: { "aria-label": "مرتب‌سازی تسک‌ها" } });
-    for (const [value, label] of [["ticktick", "ترتیب TickTick"], ["time", "ساعت"], ["priority", "اولویت"], ["title", "عنوان"]]) sort.createEl("option", { value, text: `مرتب‌سازی: ${label}` });
-    sort.value = this.sortMode; sort.addEventListener("change", () => { this.sortMode = sort.value; void this.render(); });
     this.renderFilters(root);
     const tasks = this.filteredTasks();
     if (!tasks.length) root.createDiv({ cls: "ticktick-planner-empty", text: "تسکی برای این فیلتر نیست؛ از دکمهٔ «افزودن تسک» استفاده کن." });
@@ -104,6 +101,9 @@ export class PlanningCalendar {
   }
   private renderFilters(root: HTMLElement) {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" }); const tasks = this.host.tasks();
+    const sort = filters.createEl("select", { attr: { "aria-label": "مرتب‌سازی تسک‌ها" } });
+    for (const [value, label] of [["ticktick", "ترتیب TickTick"], ["time", "ساعت"], ["priority", "اولویت"], ["title", "عنوان"]]) sort.createEl("option", { value, text: `مرتب‌سازی: ${label}` });
+    sort.value = this.sortMode; sort.addEventListener("change", () => { this.sortMode = sort.value; void this.render(); });
     const projects = [...new Set(tasks.map(task => String(task.projectName ?? task.projectId ?? "ورودی")))].sort((left, right) => left.localeCompare(right, "fa"));
     const project = filters.createEl("button", { text: this.projects.size ? `پروژه (${this.projects.size})` : "پروژه" }); project.addEventListener("click", async () => { const value = await new PlannerMultiSelectModal(this.host.app, "پروژه‌ها", projects, this.projects).openAndWait(); if (value) { this.projects = value; await this.render(); } });
     const tags = [...new Set(tasks.flatMap(task => task.tags ?? []).map(String))].sort((left, right) => left.localeCompare(right, "fa"));
