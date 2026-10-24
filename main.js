@@ -1512,44 +1512,88 @@ var PlanningCalendar = class {
   renderFilters(root) {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" });
     const tasks = this.host.tasks();
-    const sortWrapper = filters.createDiv({ cls: "ticktick-filter-select-wrapper" });
-    const sortIcon = sortWrapper.createSpan({ cls: "ticktick-select-icon" });
-    (0, import_obsidian4.setIcon)(sortIcon, "arrow-up-down");
-    const sort = sortWrapper.createEl("select", { attr: { "aria-label": "\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627" } });
-    for (const [value, label] of [["ticktick", "\u062A\u0631\u062A\u06CC\u0628 TickTick"], ["time", "\u0633\u0627\u0639\u062A"], ["priority", "\u0627\u0648\u0644\u0648\u06CC\u062A"], ["title", "\u0639\u0646\u0648\u0627\u0646"]]) {
-      sort.createEl("option", { value, text: `\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC: ${label}` });
-    }
-    sort.value = this.sortMode;
-    sort.addEventListener("change", () => {
-      this.sortMode = sort.value;
-      void this.render();
+    const sortLabels = {
+      ticktick: "\u062A\u0631\u062A\u06CC\u0628 TickTick",
+      time: "\u0633\u0627\u0639\u062A",
+      priority: "\u0627\u0648\u0644\u0648\u06CC\u062A",
+      title: "\u0639\u0646\u0648\u0627\u0646"
+    };
+    const sortBtn = filters.createDiv({
+      cls: "ticktick-filter-select-wrapper",
+      attr: { role: "button", tabindex: "0", "aria-label": "\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627" }
     });
-    sortWrapper.addEventListener("click", (event) => {
-      if (event.target !== sort && typeof sort.showPicker === "function") {
-        try {
-          sort.showPicker();
-        } catch {
-        }
+    const sortIcon = sortBtn.createSpan({ cls: "ticktick-select-icon" });
+    (0, import_obsidian4.setIcon)(sortIcon, "arrow-up-down");
+    sortBtn.createSpan({
+      cls: "ticktick-filter-select-label",
+      text: `\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC: ${sortLabels[this.sortMode] ?? "\u062A\u0631\u062A\u06CC\u0628 TickTick"}`
+    });
+    const sortChevron = sortBtn.createSpan({ cls: "ticktick-select-chevron" });
+    (0, import_obsidian4.setIcon)(sortChevron, "chevron-down");
+    const openSortMenu = (event) => {
+      const menu = new import_obsidian4.Menu();
+      for (const [value, label] of [["ticktick", "\u062A\u0631\u062A\u06CC\u0628 TickTick"], ["time", "\u0633\u0627\u0639\u062A"], ["priority", "\u0627\u0648\u0644\u0648\u06CC\u062A"], ["title", "\u0639\u0646\u0648\u0627\u0646"]]) {
+        menu.addItem((item) => {
+          item.setTitle(label).setChecked(this.sortMode === value).onClick(() => {
+            this.sortMode = value;
+            void this.render();
+          });
+        });
+      }
+      if (event instanceof MouseEvent) {
+        menu.showAtMouseEvent(event);
+      } else {
+        const rect = sortBtn.getBoundingClientRect();
+        menu.showAtPosition({ x: rect.right, y: rect.bottom });
+      }
+    };
+    sortBtn.addEventListener("click", openSortMenu);
+    sortBtn.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openSortMenu(event);
       }
     });
-    const colorWrapper = filters.createDiv({ cls: "ticktick-filter-select-wrapper" });
-    const colorIcon = colorWrapper.createSpan({ cls: "ticktick-select-icon" });
-    (0, import_obsidian4.setIcon)(colorIcon, "palette");
-    const color = colorWrapper.createEl("select", { attr: { "aria-label": "\u0631\u0646\u06AF\u200C\u0628\u0646\u062F\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627" } });
-    for (const [value, label] of [["project", "\u0631\u0646\u06AF: \u067E\u0631\u0648\u0698\u0647"], ["tag", "\u0631\u0646\u06AF: \u0628\u0631\u0686\u0633\u0628"], ["priority", "\u0631\u0646\u06AF: \u0627\u0648\u0644\u0648\u06CC\u062A"], ["uniform", "\u0631\u0646\u06AF: \u06CC\u06A9\u062F\u0633\u062A"]]) {
-      color.createEl("option", { value, text: label });
-    }
-    color.value = this.colorMode;
-    color.addEventListener("change", () => {
-      this.colorMode = color.value;
-      void this.render();
+    const colorLabels = {
+      project: "\u0631\u0646\u06AF: \u067E\u0631\u0648\u0698\u0647",
+      tag: "\u0631\u0646\u06AF: \u0628\u0631\u0686\u0633\u0628",
+      priority: "\u0631\u0646\u06AF: \u0627\u0648\u0644\u0648\u06CC\u062A",
+      uniform: "\u0631\u0646\u06AF: \u06CC\u06A9\u062F\u0633\u062A"
+    };
+    const colorBtn = filters.createDiv({
+      cls: "ticktick-filter-select-wrapper",
+      attr: { role: "button", tabindex: "0", "aria-label": "\u0631\u0646\u06AF\u200C\u0628\u0646\u062F\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627" }
     });
-    colorWrapper.addEventListener("click", (event) => {
-      if (event.target !== color && typeof color.showPicker === "function") {
-        try {
-          color.showPicker();
-        } catch {
-        }
+    const colorIcon = colorBtn.createSpan({ cls: "ticktick-select-icon" });
+    (0, import_obsidian4.setIcon)(colorIcon, "palette");
+    colorBtn.createSpan({
+      cls: "ticktick-filter-select-label",
+      text: colorLabels[this.colorMode] ?? "\u0631\u0646\u06AF: \u067E\u0631\u0648\u0698\u0647"
+    });
+    const colorChevron = colorBtn.createSpan({ cls: "ticktick-select-chevron" });
+    (0, import_obsidian4.setIcon)(colorChevron, "chevron-down");
+    const openColorMenu = (event) => {
+      const menu = new import_obsidian4.Menu();
+      for (const [value, label] of [["project", "\u0631\u0646\u06AF: \u067E\u0631\u0648\u0698\u0647"], ["tag", "\u0631\u0646\u06AF: \u0628\u0631\u0686\u0633\u0628"], ["priority", "\u0631\u0646\u06AF: \u0627\u0648\u0644\u0648\u06CC\u062A"], ["uniform", "\u0631\u0646\u06AF: \u06CC\u06A9\u062F\u0633\u062A"]]) {
+        menu.addItem((item) => {
+          item.setTitle(label).setChecked(this.colorMode === value).onClick(() => {
+            this.colorMode = value;
+            void this.render();
+          });
+        });
+      }
+      if (event instanceof MouseEvent) {
+        menu.showAtMouseEvent(event);
+      } else {
+        const rect = colorBtn.getBoundingClientRect();
+        menu.showAtPosition({ x: rect.right, y: rect.bottom });
+      }
+    };
+    colorBtn.addEventListener("click", openColorMenu);
+    colorBtn.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openColorMenu(event);
       }
     });
     const projects = [...new Set(tasks.map((task) => String(task.projectName ?? task.projectId ?? "\u0648\u0631\u0648\u062F\u06CC")))].sort((left, right) => left.localeCompare(right, "fa"));
@@ -2105,12 +2149,19 @@ var ProjectBoard = class {
           new import_obsidian6.Notice(error instanceof Error ? error.message : "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
         }
       });
-      const sort = toolbar.createEl("select", { attr: { "aria-label": "\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0631\u062A\u200C\u0647\u0627\u06CC \u0628\u0631\u062F" } });
-      for (const [value, label] of [["ticktick", "\u062A\u0631\u062A\u06CC\u0628 TickTick"], ["time", "\u062A\u0627\u0631\u06CC\u062E/\u0633\u0627\u0639\u062A"], ["priority", "\u0627\u0648\u0644\u0648\u06CC\u062A"], ["title", "\u0639\u0646\u0648\u0627\u0646"]]) sort.createEl("option", { value, text: `\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC: ${label}` });
-      sort.value = this.sortMode;
-      sort.addEventListener("change", () => {
-        this.sortMode = sort.value;
-        void this.render();
+      const sortLabels = { ticktick: "\u062A\u0631\u062A\u06CC\u0628 TickTick", time: "\u062A\u0627\u0631\u06CC\u062E/\u0633\u0627\u0639\u062A", priority: "\u0627\u0648\u0644\u0648\u06CC\u062A", title: "\u0639\u0646\u0648\u0627\u0646" };
+      const sortBtn = toolbar.createEl("button", { text: `\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC: ${sortLabels[this.sortMode] ?? "\u062A\u0631\u062A\u06CC\u0628 TickTick"}`, attr: { "aria-label": "\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0631\u062A\u200C\u0647\u0627\u06CC \u0628\u0631\u062F" } });
+      sortBtn.addEventListener("click", (event) => {
+        const menu = new import_obsidian6.Menu();
+        for (const [value, label] of [["ticktick", "\u062A\u0631\u062A\u06CC\u0628 TickTick"], ["time", "\u062A\u0627\u0631\u06CC\u062E/\u0633\u0627\u0639\u062A"], ["priority", "\u0627\u0648\u0644\u0648\u06CC\u062A"], ["title", "\u0639\u0646\u0648\u0627\u0646"]]) {
+          menu.addItem((item) => {
+            item.setTitle(label).setChecked(this.sortMode === value).onClick(() => {
+              this.sortMode = value;
+              void this.render();
+            });
+          });
+        }
+        menu.showAtMouseEvent(event);
       });
       const create = toolbar.createEl("button", { text: "+ \u0644\u06CC\u0633\u062A \u062C\u062F\u06CC\u062F" });
       create.addEventListener("click", async () => {

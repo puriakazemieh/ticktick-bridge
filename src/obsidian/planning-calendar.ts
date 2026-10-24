@@ -1,4 +1,4 @@
-import { App, Modal, Notice, setIcon } from "obsidian";
+import { App, Menu, Modal, Notice, setIcon } from "obsidian";
 import { isSamePersianMonth, persianMonthRange, shiftCalendarDay, shiftPersianMonth, taskDateRange, tasksForCalendarDay, weekRange } from "../core/calendar-range.js";
 import { formatPersianDate } from "../core/persian-date.js";
 import { todayInZone } from "../core/date.js";
@@ -381,41 +381,97 @@ export class PlanningCalendar {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" });
     const tasks = this.host.tasks();
 
-    // Sort select
-    const sortWrapper = filters.createDiv({ cls: "ticktick-filter-select-wrapper" });
-    const sortIcon = sortWrapper.createSpan({ cls: "ticktick-select-icon" });
-    setIcon(sortIcon, "arrow-up-down");
-    const sort = sortWrapper.createEl("select", { attr: { "aria-label": "مرتب‌سازی تسک‌ها" } });
-    for (const [value, label] of [["ticktick", "ترتیب TickTick"], ["time", "ساعت"], ["priority", "اولویت"], ["title", "عنوان"]]) {
-      sort.createEl("option", { value, text: `مرتب‌سازی: ${label}` });
-    }
-    sort.value = this.sortMode;
-    sort.addEventListener("change", () => {
-      this.sortMode = sort.value;
-      void this.render();
+    // Sort Menu Button
+    const sortLabels: Record<string, string> = {
+      ticktick: "ترتیب TickTick",
+      time: "ساعت",
+      priority: "اولویت",
+      title: "عنوان"
+    };
+    const sortBtn = filters.createDiv({
+      cls: "ticktick-filter-select-wrapper",
+      attr: { role: "button", tabindex: "0", "aria-label": "مرتب‌سازی تسک‌ها" }
     });
-    sortWrapper.addEventListener("click", event => {
-      if (event.target !== sort && typeof (sort as any).showPicker === "function") {
-        try { (sort as any).showPicker(); } catch {}
+    const sortIcon = sortBtn.createSpan({ cls: "ticktick-select-icon" });
+    setIcon(sortIcon, "arrow-up-down");
+    sortBtn.createSpan({
+      cls: "ticktick-filter-select-label",
+      text: `مرتب‌سازی: ${sortLabels[this.sortMode] ?? "ترتیب TickTick"}`
+    });
+    const sortChevron = sortBtn.createSpan({ cls: "ticktick-select-chevron" });
+    setIcon(sortChevron, "chevron-down");
+
+    const openSortMenu = (event: MouseEvent | KeyboardEvent) => {
+      const menu = new Menu();
+      for (const [value, label] of [["ticktick", "ترتیب TickTick"], ["time", "ساعت"], ["priority", "اولویت"], ["title", "عنوان"]]) {
+        menu.addItem(item => {
+          item.setTitle(label)
+              .setChecked(this.sortMode === value)
+              .onClick(() => {
+                this.sortMode = value;
+                void this.render();
+              });
+        });
+      }
+      if (event instanceof MouseEvent) {
+        menu.showAtMouseEvent(event);
+      } else {
+        const rect = sortBtn.getBoundingClientRect();
+        menu.showAtPosition({ x: rect.right, y: rect.bottom });
+      }
+    };
+    sortBtn.addEventListener("click", openSortMenu);
+    sortBtn.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openSortMenu(event);
       }
     });
 
-    // Color mode select
-    const colorWrapper = filters.createDiv({ cls: "ticktick-filter-select-wrapper" });
-    const colorIcon = colorWrapper.createSpan({ cls: "ticktick-select-icon" });
-    setIcon(colorIcon, "palette");
-    const color = colorWrapper.createEl("select", { attr: { "aria-label": "رنگ‌بندی تسک‌ها" } });
-    for (const [value, label] of [["project", "رنگ: پروژه"], ["tag", "رنگ: برچسب"], ["priority", "رنگ: اولویت"], ["uniform", "رنگ: یکدست"]] as Array<[ColorMode, string]>) {
-      color.createEl("option", { value, text: label });
-    }
-    color.value = this.colorMode;
-    color.addEventListener("change", () => {
-      this.colorMode = color.value as ColorMode;
-      void this.render();
+    // Color Mode Menu Button
+    const colorLabels: Record<string, string> = {
+      project: "رنگ: پروژه",
+      tag: "رنگ: برچسب",
+      priority: "رنگ: اولویت",
+      uniform: "رنگ: یکدست"
+    };
+    const colorBtn = filters.createDiv({
+      cls: "ticktick-filter-select-wrapper",
+      attr: { role: "button", tabindex: "0", "aria-label": "رنگ‌بندی تسک‌ها" }
     });
-    colorWrapper.addEventListener("click", event => {
-      if (event.target !== color && typeof (color as any).showPicker === "function") {
-        try { (color as any).showPicker(); } catch {}
+    const colorIcon = colorBtn.createSpan({ cls: "ticktick-select-icon" });
+    setIcon(colorIcon, "palette");
+    colorBtn.createSpan({
+      cls: "ticktick-filter-select-label",
+      text: colorLabels[this.colorMode] ?? "رنگ: پروژه"
+    });
+    const colorChevron = colorBtn.createSpan({ cls: "ticktick-select-chevron" });
+    setIcon(colorChevron, "chevron-down");
+
+    const openColorMenu = (event: MouseEvent | KeyboardEvent) => {
+      const menu = new Menu();
+      for (const [value, label] of [["project", "رنگ: پروژه"], ["tag", "رنگ: برچسب"], ["priority", "رنگ: اولویت"], ["uniform", "رنگ: یکدست"]] as Array<[ColorMode, string]>) {
+        menu.addItem(item => {
+          item.setTitle(label)
+              .setChecked(this.colorMode === value)
+              .onClick(() => {
+                this.colorMode = value;
+                void this.render();
+              });
+        });
+      }
+      if (event instanceof MouseEvent) {
+        menu.showAtMouseEvent(event);
+      } else {
+        const rect = colorBtn.getBoundingClientRect();
+        menu.showAtPosition({ x: rect.right, y: rect.bottom });
+      }
+    };
+    colorBtn.addEventListener("click", openColorMenu);
+    colorBtn.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openColorMenu(event);
       }
     });
 

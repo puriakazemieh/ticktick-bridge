@@ -1,4 +1,4 @@
-import { App, Notice } from "obsidian";
+import { App, Menu, Notice } from "obsidian";
 import { boardColumns, sidebarTree } from "../core/project-board.js";
 import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
@@ -30,9 +30,22 @@ export class ProjectBoard {
       }
       const main = root.createDiv({ cls: "ticktick-project-main" }); const toolbar = main.createDiv({ cls: "ticktick-project-toolbar" });
       const refresh = toolbar.createEl("button", { text: "به‌روزرسانی" }); refresh.addEventListener("click", async () => { refresh.disabled = true; try { await this.host.refresh(); await this.render(); } catch (error) { new Notice(error instanceof Error ? error.message : "همگام‌سازی ناموفق بود."); } });
-      const sort = toolbar.createEl("select", { attr: { "aria-label": "مرتب‌سازی کارت‌های برد" } });
-      for (const [value, label] of [["ticktick", "ترتیب TickTick"], ["time", "تاریخ/ساعت"], ["priority", "اولویت"], ["title", "عنوان"]]) sort.createEl("option", { value, text: `مرتب‌سازی: ${label}` });
-      sort.value = this.sortMode; sort.addEventListener("change", () => { this.sortMode = sort.value; void this.render(); });
+      const sortLabels: Record<string, string> = { ticktick: "ترتیب TickTick", time: "تاریخ/ساعت", priority: "اولویت", title: "عنوان" };
+      const sortBtn = toolbar.createEl("button", { text: `مرتب‌سازی: ${sortLabels[this.sortMode] ?? "ترتیب TickTick"}`, attr: { "aria-label": "مرتب‌سازی کارت‌های برد" } });
+      sortBtn.addEventListener("click", event => {
+        const menu = new Menu();
+        for (const [value, label] of [["ticktick", "ترتیب TickTick"], ["time", "تاریخ/ساعت"], ["priority", "اولویت"], ["title", "عنوان"]]) {
+          menu.addItem(item => {
+            item.setTitle(label)
+                .setChecked(this.sortMode === value)
+                .onClick(() => {
+                  this.sortMode = value;
+                  void this.render();
+                });
+          });
+        }
+        menu.showAtMouseEvent(event);
+      });
       const create = toolbar.createEl("button", { text: "+ لیست جدید" }); create.addEventListener("click", async () => { const draft = await new ProjectEditorModal(this.host.app).openAndWait(); if (!draft) return; create.disabled = true; try { const project = await this.host.createProject(draft); this.selected = String(project?.id ?? ""); await this.host.refresh(); await this.persistAndRender(); new Notice("لیست در TickTick ساخته شد."); } catch (error) { new Notice(error instanceof Error ? error.message : "ساخت لیست ناموفق بود."); } finally { create.disabled = false; } });
       const project = projects.find(item => String(item.id) === this.selected);
       if (!project) { main.createEl("p", { text: "یک لیست را از نوار کناری انتخاب کن." }); return; }

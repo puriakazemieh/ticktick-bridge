@@ -556,17 +556,16 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.45rem;
   height: 2rem;
-  padding: 0 0.75rem;
+  padding: 0 0.85rem;
   background: var(--background-secondary) !important;
   border: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent) !important;
   border-radius: 999px !important;
-  font-size: 0.78rem;
-  color: var(--text-muted);
   box-shadow: none !important;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  transition: all 150ms ease;
   cursor: pointer;
+  user-select: none;
 }
 
 .ticktick-filter-select-wrapper:hover {
@@ -574,57 +573,21 @@
   border-color: color-mix(in srgb, var(--interactive-accent) 40%, var(--background-modifier-border)) !important;
 }
 
-.ticktick-filter-select-wrapper select,
-.ticktick-filter-select-wrapper select.dropdown,
-.ticktick-planner-filters select,
-.ticktick-planner-filters select.dropdown {
-  border: none !important;
-  border-width: 0 !important;
-  background: transparent !important;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  outline: none !important;
-  border-radius: 0 !important;
-  padding: 0 0.15rem !important;
-  margin: 0 !important;
-  color: var(--text-normal) !important;
-  font-size: 0.78rem !important;
-  font-family: inherit !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-  -webkit-appearance: none !important;
-  -moz-appearance: none !important;
-  appearance: none !important;
-  height: 100% !important;
-  line-height: inherit !important;
-  text-align: right;
-  direction: rtl;
+.ticktick-filter-select-wrapper:active {
+  transform: translateY(1px);
 }
 
-.ticktick-filter-select-wrapper select:focus,
-.ticktick-filter-select-wrapper select:focus-visible,
-.ticktick-planner-filters select:focus {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-.ticktick-filter-select-wrapper select option,
-.ticktick-planner-filters select option {
-  background-color: var(--background-secondary) !important;
-  color: var(--text-normal) !important;
-  padding: 0.4rem 0.6rem;
-  font-family: inherit;
-  font-size: 0.8rem;
+.ticktick-filter-select-label {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-normal);
+  white-space: nowrap;
+  line-height: 1;
 }
 
 .ticktick-select-icon {
   display: flex;
   align-items: center;
-  pointer-events: none;
 }
 
 .ticktick-select-icon svg {
@@ -632,6 +595,26 @@
   height: 0.85rem;
   color: var(--text-muted);
   display: block;
+}
+
+.ticktick-select-chevron {
+  display: flex;
+  align-items: center;
+  opacity: 0.55;
+  transition: opacity 140ms ease;
+}
+
+.ticktick-select-chevron svg {
+  width: 0.68rem;
+  height: 0.68rem;
+  color: var(--text-muted);
+  display: block;
+}
+
+.ticktick-filter-select-wrapper:hover .ticktick-select-icon svg,
+.ticktick-filter-select-wrapper:hover .ticktick-select-chevron svg {
+  color: var(--text-normal);
+  opacity: 0.85;
 }
 
 .ticktick-filter-chip {
