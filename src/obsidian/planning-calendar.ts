@@ -54,8 +54,8 @@ class TaskOverflowModal extends Modal {
 export class PlanningCalendar {
   private mode: Mode = "week";
   private day: string;
-  private project = "";
-  private tag = "";
+  private projects = new Set<string>();
+  private tags = new Set<string>();
   private sortMode = "ticktick";
   constructor(private element: HTMLElement, private host: PlannerHost) { this.day = todayInZone(host.timeZone); }
   async render() {
@@ -78,7 +78,7 @@ export class PlanningCalendar {
     const sort = controls.createEl("select", { attr: { "aria-label": "مرتب‌سازی تسک‌ها" } });
     for (const [value, label] of [["ticktick", "ترتیب TickTick"], ["time", "ساعت"], ["priority", "اولویت"], ["title", "عنوان"]]) sort.createEl("option", { value, text: `مرتب‌سازی: ${label}` });
     sort.value = this.sortMode; sort.addEventListener("change", () => { this.sortMode = sort.value; void this.render(); });
-    this.renderFilters(root);
+    this.renderFilters(controls);
     const tasks = this.filteredTasks();
     if (!tasks.length) root.createDiv({ cls: "ticktick-planner-empty", text: "تسکی برای این فیلتر نیست؛ از دکمهٔ «افزودن تسک» استفاده کن." });
     if (this.mode === "month") this.renderMonth(root, tasks); else this.renderDays(root, this.mode === "week" ? weekRange(this.day, this.host.firstWeekday) : [this.day], tasks);
@@ -86,20 +86,23 @@ export class PlanningCalendar {
   private renderFilters(root: HTMLElement) {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" }); const tasks = this.host.tasks();
     const projects = [...new Set(tasks.map(task => String(task.projectName ?? task.projectId ?? "ورودی")))].sort((left, right) => left.localeCompare(right, "fa"));
-    const projectLabel = filters.createEl("label", { text: "پروژه" });
-    const projectSelect = projectLabel.createEl("select", { attr: { "aria-label": "فیلتر پروژه" } });
-    projectSelect.createEl("option", { value: "", text: "همهٔ پروژه‌ها" });
-    for (const project of projects) projectSelect.createEl("option", { value: project, text: project });
-    projectSelect.value = this.project; projectSelect.addEventListener("change", () => { this.project = projectSelect.value; void this.render(); });
-    const tags = [...new Set(tasks.flatMap(task => task.tags ?? []))].sort((left, right) => String(left).localeCompare(String(right), "fa"));
-    const tagLabel = filters.createEl("label", { text: "برچسب" });
-    const tagSelect = tagLabel.createEl("select", { attr: { "aria-label": "فیلتر برچسب" } });
-    tagSelect.createEl("option", { value: "", text: "همهٔ برچسب‌ها" });
-    for (const tag of tags) tagSelect.createEl("option", { value: String(tag), text: `#${tag}` });
-    tagSelect.value = this.tag; tagSelect.addEventListener("change", () => { this.tag = tagSelect.value; void this.render(); });
-    if (this.project || this.tag) { const clear = filters.createEl("button", { text: "پاک‌کردن فیلتر" }); clear.addEventListener("click", () => { this.project = ""; this.tag = ""; void this.render(); }); }
+    this.renderMultiSelect(filters, "پروژه", projects, this.projects, value => { this.projects = value; });
+    const tags = [...new Set(tasks.flatMap(task => task.tags ?? []).map(String))].sort((left, right) => left.localeCompare(right, "fa"));
+    this.renderMultiSelect(filters, "برچسب", tags, this.tags, value => { this.tags = value; }, "#");
+    if (this.projects.size || this.tags.size) { const clear = filters.createEl("button", { text: "پاک", attr: { "aria-label": "پاک‌کردن همهٔ فیلترها" } }); clear.addEventListener("click", () => { this.projects.clear(); this.tags.clear(); void this.render(); }); }
   }
-  private filteredTasks() { return this.host.tasks().filter(task => (!this.project || String(task.projectName ?? task.projectId ?? "ورودی") === this.project) && (!this.tag || (task.tags ?? []).includes(this.tag))); }
+  private renderMultiSelect(parent: HTMLElement, label: string, values: string[], selected: Set<string>, changed: (value: Set<string>) => void, prefix = "") {
+    const menu = parent.createEl("details", { cls: "ticktick-planner-filter-menu" });
+    menu.createEl("summary", { text: selected.size ? `${label} (${selected.size})` : label });
+    const options = menu.createDiv({ cls: "ticktick-planner-filter-options" });
+    if (!values.length) options.createSpan({ text: "موردی نیست" });
+    for (const value of values) {
+      const option = options.createEl("label"); const check = option.createEl("input", { type: "checkbox", value }); check.checked = selected.has(value);
+      option.appendText(`${prefix}${value}`);
+      check.addEventListener("change", () => { const next = new Set(selected); check.checked ? next.add(value) : next.delete(value); changed(next); void this.render(); });
+    }
+  }
+  private filteredTasks() { return this.host.tasks().filter(task => (!this.projects.size || this.projects.has(String(task.projectName ?? task.projectId ?? "ورودی"))) && (!this.tags.size || (task.tags ?? []).some((tag: any) => this.tags.has(String(tag))))); }
   private renderDays(root: HTMLElement, days: string[], tasks: any[]) {
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
     const showRangeBars = days.length > 1;

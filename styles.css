@@ -325,9 +325,10 @@
 
 .ticktick-planner-controls,
 .ticktick-control-nav { align-items: center; gap: .5rem; }
-.ticktick-planner-controls { padding-bottom: .7rem; border-bottom: 1px solid var(--tt-line); }
-.ticktick-planner-filters { display: flex; flex-wrap: wrap; align-items: end; gap: .45rem; padding: .55rem 0 .65rem; border-bottom: 1px solid var(--tt-line); }
-.ticktick-planner-filters label { display: grid; gap: .18rem; color: var(--tt-muted); font-size: .68rem; }.ticktick-planner-filters select { min-width: min(13rem, 42vw); height: 2rem; padding: 0 .5rem; border: 1px solid var(--tt-line); border-radius: .5rem; background: var(--background-secondary); color: var(--text-normal); font: inherit; }
+.ticktick-planner-controls { display: flex; flex-wrap: nowrap; overflow-x: auto; padding-bottom: .7rem; border-bottom: 1px solid var(--tt-line); }
+.ticktick-planner-filters { display: flex; flex: 0 0 auto; align-items: center; gap: .35rem; }
+.ticktick-planner-filter-menu { position: relative; flex: 0 0 auto; }.ticktick-planner-filter-menu summary { display: block; min-height: 2rem; padding: .35rem .6rem; border: 1px solid var(--tt-line); border-radius: .5rem; background: var(--background-secondary); color: var(--text-normal); cursor: pointer; white-space: nowrap; }.ticktick-planner-filter-menu summary::-webkit-details-marker { display: none; }.ticktick-planner-filter-menu summary::after { content: "⌄"; margin-inline-start: .35rem; color: var(--tt-muted); }
+.ticktick-planner-filter-options { position: absolute; z-index: 20; top: calc(100% + .25rem); inset-inline-end: 0; display: grid; gap: .2rem; width: max-content; min-width: 11rem; max-width: min(18rem, 80vw); max-height: 16rem; overflow: auto; padding: .45rem; border: 1px solid var(--tt-line); border-radius: .55rem; background: var(--background-primary); box-shadow: 0 .5rem 1.5rem rgb(0 0 0 / .25); }.ticktick-planner-filter-options label { display: flex; align-items: center; gap: .45rem; min-height: 1.8rem; padding: .2rem .35rem; color: var(--text-normal); font-size: .8rem; white-space: nowrap; cursor: pointer; }.ticktick-planner-filter-options input { margin: 0; }
 .ticktick-planner-filters button { min-height: 2rem; padding: .28rem .55rem; border-radius: .5rem; background: transparent; border: 1px solid var(--tt-line); color: var(--tt-muted); }
 .ticktick-planner-filters button.is-active,
 .ticktick-planner-controls button.is-active,

@@ -1202,8 +1202,8 @@ var PlanningCalendar = class {
   }
   mode = "week";
   day;
-  project = "";
-  tag = "";
+  projects = /* @__PURE__ */ new Set();
+  tags = /* @__PURE__ */ new Set();
   sortMode = "ticktick";
   async render() {
     this.element.empty();
@@ -1254,7 +1254,7 @@ var PlanningCalendar = class {
       this.sortMode = sort.value;
       void this.render();
     });
-    this.renderFilters(root);
+    this.renderFilters(controls);
     const tasks = this.filteredTasks();
     if (!tasks.length) root.createDiv({ cls: "ticktick-planner-empty", text: "\u062A\u0633\u06A9\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631 \u0646\u06CC\u0633\u062A\u061B \u0627\u0632 \u062F\u06A9\u0645\u0647\u0654 \xAB\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9\xBB \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646." });
     if (this.mode === "month") this.renderMonth(root, tasks);
@@ -1264,36 +1264,42 @@ var PlanningCalendar = class {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" });
     const tasks = this.host.tasks();
     const projects = [...new Set(tasks.map((task) => String(task.projectName ?? task.projectId ?? "\u0648\u0631\u0648\u062F\u06CC")))].sort((left, right) => left.localeCompare(right, "fa"));
-    const projectLabel = filters.createEl("label", { text: "\u067E\u0631\u0648\u0698\u0647" });
-    const projectSelect = projectLabel.createEl("select", { attr: { "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u067E\u0631\u0648\u0698\u0647" } });
-    projectSelect.createEl("option", { value: "", text: "\u0647\u0645\u0647\u0654 \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627" });
-    for (const project of projects) projectSelect.createEl("option", { value: project, text: project });
-    projectSelect.value = this.project;
-    projectSelect.addEventListener("change", () => {
-      this.project = projectSelect.value;
-      void this.render();
+    this.renderMultiSelect(filters, "\u067E\u0631\u0648\u0698\u0647", projects, this.projects, (value) => {
+      this.projects = value;
     });
-    const tags = [...new Set(tasks.flatMap((task) => task.tags ?? []))].sort((left, right) => String(left).localeCompare(String(right), "fa"));
-    const tagLabel = filters.createEl("label", { text: "\u0628\u0631\u0686\u0633\u0628" });
-    const tagSelect = tagLabel.createEl("select", { attr: { "aria-label": "\u0641\u06CC\u0644\u062A\u0631 \u0628\u0631\u0686\u0633\u0628" } });
-    tagSelect.createEl("option", { value: "", text: "\u0647\u0645\u0647\u0654 \u0628\u0631\u0686\u0633\u0628\u200C\u0647\u0627" });
-    for (const tag of tags) tagSelect.createEl("option", { value: String(tag), text: `#${tag}` });
-    tagSelect.value = this.tag;
-    tagSelect.addEventListener("change", () => {
-      this.tag = tagSelect.value;
-      void this.render();
-    });
-    if (this.project || this.tag) {
-      const clear = filters.createEl("button", { text: "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631" });
+    const tags = [...new Set(tasks.flatMap((task) => task.tags ?? []).map(String))].sort((left, right) => left.localeCompare(right, "fa"));
+    this.renderMultiSelect(filters, "\u0628\u0631\u0686\u0633\u0628", tags, this.tags, (value) => {
+      this.tags = value;
+    }, "#");
+    if (this.projects.size || this.tags.size) {
+      const clear = filters.createEl("button", { text: "\u067E\u0627\u06A9", attr: { "aria-label": "\u067E\u0627\u06A9\u200C\u06A9\u0631\u062F\u0646 \u0647\u0645\u0647\u0654 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627" } });
       clear.addEventListener("click", () => {
-        this.project = "";
-        this.tag = "";
+        this.projects.clear();
+        this.tags.clear();
+        void this.render();
+      });
+    }
+  }
+  renderMultiSelect(parent, label, values, selected, changed, prefix = "") {
+    const menu = parent.createEl("details", { cls: "ticktick-planner-filter-menu" });
+    menu.createEl("summary", { text: selected.size ? `${label} (${selected.size})` : label });
+    const options = menu.createDiv({ cls: "ticktick-planner-filter-options" });
+    if (!values.length) options.createSpan({ text: "\u0645\u0648\u0631\u062F\u06CC \u0646\u06CC\u0633\u062A" });
+    for (const value of values) {
+      const option = options.createEl("label");
+      const check = option.createEl("input", { type: "checkbox", value });
+      check.checked = selected.has(value);
+      option.appendText(`${prefix}${value}`);
+      check.addEventListener("change", () => {
+        const next = new Set(selected);
+        check.checked ? next.add(value) : next.delete(value);
+        changed(next);
         void this.render();
       });
     }
   }
   filteredTasks() {
-    return this.host.tasks().filter((task) => (!this.project || String(task.projectName ?? task.projectId ?? "\u0648\u0631\u0648\u062F\u06CC") === this.project) && (!this.tag || (task.tags ?? []).includes(this.tag)));
+    return this.host.tasks().filter((task) => (!this.projects.size || this.projects.has(String(task.projectName ?? task.projectId ?? "\u0648\u0631\u0648\u062F\u06CC"))) && (!this.tags.size || (task.tags ?? []).some((tag) => this.tags.has(String(tag)))));
   }
   renderDays(root, days, tasks) {
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
