@@ -19,6 +19,49 @@ export function monthRange(day, firstWeekday = 6) {
 }
 function taskDay(task, timeZone) { return toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone); }
 function taskTime(task) { return String(task.startDate ?? task.dueDate ?? "").match(/T(\d{2}:\d{2})/)?.[1] ?? ""; }
+function dayNumber(day) { return Math.floor(Date.parse(`${day}T12:00:00Z`) / 86400000); }
+function ruleParts(task) {
+  const source = String(task.repeatFlag ?? "").toUpperCase().replace(/^RRULE:/, "");
+  return Object.fromEntries(source.split(";").map(part => part.split("=", 2)).filter(([key, value]) => key && value));
+}
+function ruleDate(value) {
+  const match = String(value ?? "").match(/^(\d{4})(\d{2})(\d{2})/);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+}
+function weekdayCode(day) { return ["SU", "MO", "TU", "WE", "TH", "FR", "SA"][weekdayIndex(day)]; }
+function excluded(task, day) {
+  const values = [task.exDates, task.exDate, task.exdate].flatMap(value => Array.isArray(value) ? value : value == null ? [] : String(value).split(","));
+  return values.some(value => ruleDate(value) === day || String(value).replaceAll("-", "").slice(0, 8) === day.replaceAll("-", ""));
+}
+
+/** Whether this exact cell contains an occurrence. Unlike the daily agenda,
+ * calendar cells never repeat an overdue one-off task in later days. */
+export function taskOccursOnCalendarDay(task, day, timeZone = "Asia/Tehran", showCompleted = false) {
+  if (Number(task?.status ?? 0) !== 0) return showCompleted && taskDay(task, timeZone) === day;
+  const due = toDateKey(task?.dueDate, task?.timeZone || timeZone);
+  const start = toDateKey(task?.startDate, task?.timeZone || timeZone);
+  const anchor = start ?? due;
+  if (!anchor) return false;
+  if (!task?.repeatFlag) return start && due ? day >= start && day <= due : day === anchor;
+  if (day < anchor || excluded(task, day)) return false;
+  const rule = ruleParts(task); const frequency = rule.FREQ ?? "DAILY"; const interval = Math.max(1, Number(rule.INTERVAL ?? 1));
+  const until = ruleDate(rule.UNTIL); if (until && day > until) return false;
+  const distance = dayNumber(day) - dayNumber(anchor);
+  if (frequency === "DAILY") return distance % interval === 0;
+  if (frequency === "WEEKLY") {
+    const weeks = Math.floor(distance / 7); if (weeks % interval) return false;
+    const days = rule.BYDAY ? rule.BYDAY.split(",").map(value => value.replace(/^[-+]?\d+/, "")) : [weekdayCode(anchor)];
+    return days.includes(weekdayCode(day));
+  }
+  const value = new Date(`${day}T12:00:00Z`); const base = new Date(`${anchor}T12:00:00Z`);
+  if (frequency === "MONTHLY") {
+    const months = (value.getUTCFullYear() - base.getUTCFullYear()) * 12 + value.getUTCMonth() - base.getUTCMonth();
+    const dates = (rule.BYMONTHDAY ?? String(base.getUTCDate())).split(",").map(Number);
+    return months >= 0 && months % interval === 0 && dates.includes(value.getUTCDate());
+  }
+  if (frequency === "YEARLY") return value.getUTCFullYear() >= base.getUTCFullYear() && (value.getUTCFullYear() - base.getUTCFullYear()) % interval === 0 && value.getUTCMonth() === base.getUTCMonth() && value.getUTCDate() === base.getUTCDate();
+  return day === anchor;
+}
 export function sortPlanningTasks(tasks) {
   return [...tasks].sort((left, right) => Number(left.sortOrder ?? left.order ?? 0) - Number(right.sortOrder ?? right.order ?? 0)
     || taskTime(left).localeCompare(taskTime(right)) || Number(right.priority ?? 0) - Number(left.priority ?? 0)
@@ -40,9 +83,5 @@ export function planningBuckets(tasks, day, timeZone = "Asia/Tehran", showComple
   return result;
 }
 export function tasksForCalendarDay(tasks, day, timeZone = "Asia/Tehran", showCompleted = false) {
-  const buckets = planningBuckets(tasks, day, timeZone, showCompleted);
-  // A calendar cell represents one date, not an "everything still overdue"
-  // bucket. Rendering overdue tasks in every later cell makes a single dated
-  // task look recurring. The caller can surface overdue work separately.
-  return [...sortPlanningTasks(buckets.allDay.filter(task => taskDay(task, timeZone) === day)), ...sortPlanningTasks(buckets.timed.filter(task => taskDay(task, timeZone) === day))];
+  return sortPlanningTasks((tasks ?? []).filter(task => taskOccursOnCalendarDay(task, day, timeZone, showCompleted)));
 }
