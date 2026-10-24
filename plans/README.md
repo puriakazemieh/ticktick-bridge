@@ -6,7 +6,7 @@ Generated on 2026-10-14 against commit `b86e322`. Execute in this order. Each ex
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| 001 | Isolate managed TickTick data and retain ten days of backups | P0 | M | — | TODO |
+| 001 | Isolate managed TickTick data and retain ten days of backups | P0 | M | — | DONE (reviewed at `62c952f`) |
 | 002 | Synchronize bound Markdown tasks safely in both directions | P0 | L | 001 | TODO |
 | 003 | Add an interactive weekly and monthly planning calendar | P1 | L | 001, 002 | TODO |
 | 004 | Present projects and folders as TickTick-style Kanban boards | P1 | L | 001, 002 | TODO |
