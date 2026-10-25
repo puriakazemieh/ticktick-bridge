@@ -3062,8 +3062,10 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       firstWeekday: 6,
       showCompleted: this.settings.plannerShowCompleted,
       tasks: () => this.cache.tasks,
+      // This host is called by an explicit toolbar action. Let the central
+      // sync layer report an honest success/fallback/error notification.
       refresh: async () => {
-        await this.syncNow({ quiet: true });
+        await this.syncNow();
       },
       reschedule: async (task, day) => this.rescheduleTaskFromPlanner(task, day),
       complete: async (task) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
@@ -3083,8 +3085,10 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       createTask: (initial) => this.createTaskFromSurface(initial),
       tasks: () => this.cache.tasks,
       board: async (project) => this.cache.projectBoards[String(project.id)] ?? this.client().projectBoard(project),
+      // This host is called by an explicit toolbar action. Let the central
+      // sync layer report an honest success/fallback/error notification.
       refresh: async () => {
-        await this.syncNow({ quiet: true });
+        await this.syncNow();
       },
       complete: async (task) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task) => this.markdownSync.bindingForTask(String(task.id)),
@@ -3187,7 +3191,10 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     this.syncRibbonIcon.setAttribute("aria-label", syncing ? "TickTick Bridge: \u062F\u0631 \u062D\u0627\u0644 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC\u2026" : "TickTick Bridge: \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0628\u0627 TickTick");
   }
   async syncNow({ quiet = false } = {}) {
-    if (this.syncInProgress) return;
+    if (this.syncInProgress) {
+      if (!quiet) new import_obsidian8.Notice("\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC TickTick \u0647\u0645\u06CC\u0646 \u062D\u0627\u0644\u0627 \u062F\u0631 \u062D\u0627\u0644 \u0627\u0646\u062C\u0627\u0645 \u0627\u0633\u062A.");
+      return;
+    }
     this.syncInProgress = true;
     this.setSyncRibbonState(true);
     try {
@@ -3197,7 +3204,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
         if (!quiet) new import_obsidian8.Notice("\u062A\u063A\u06CC\u06CC\u0631\u0647\u0627 \u062F\u0631 \u0635\u0641 \u0627\u0645\u0646 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0645\u0627\u0646\u062F\u0646\u062F\u061B TickTick \u0641\u0639\u0644\u0627\u064B \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u062A\u0627\u0632\u0647 \u0646\u0645\u06CC\u200C\u067E\u0630\u06CC\u0631\u062F.");
         return;
       }
-      await this.refreshCacheFromTickTick(day);
+      const refreshed = await this.refreshCacheFromTickTick(day);
       const tasks = this.cachedTasksForDay(day);
       const habits = this.cachedHabitsForDay(day);
       this.habitCheckinCache.clear();
@@ -3234,9 +3241,11 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
         const view = leaf.view;
         if (typeof view.render === "function") await view.render();
       }
-      if (!quiet) {
+      if (!quiet && refreshed.remote) {
         const notes = this.cache.tasks.filter((task) => String(task.kind ?? "").toUpperCase() === "NOTE").length;
         new import_obsidian8.Notice(`\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0645\u0644 \u0634\u062F: ${this.cache.projects.length} \u0644\u06CC\u0633\u062A\u060C ${this.cache.tasks.length} \u0631\u06A9\u0648\u0631\u062F (${notes} Note) \u0648 ${habits.length} \u0639\u0627\u062F\u062A \u0627\u0645\u0631\u0648\u0632.`);
+      } else if (!quiet) {
+        new import_obsidian8.Notice("\u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u0622\u0645\u0627\u062F\u0647 \u0627\u0633\u062A\u061B TickTick \u062F\u0627\u062F\u0647\u0654 \u062A\u0627\u0632\u0647\u200C\u0627\u06CC \u0628\u0631\u0646\u06AF\u0631\u062F\u0627\u0646\u062F. \u0627\u062A\u0635\u0627\u0644 \u0648\u0628 \u0631\u0627 \u062F\u0631 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646.");
       }
     } catch (error) {
       if (!quiet) new import_obsidian8.Notice(error instanceof Error ? error.message : "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC TickTick \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
@@ -3335,6 +3344,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       conflicts: this.cache.conflicts
     };
     await this.saveSettings();
+    return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable };
   }
   async runMutation(type, payload) {
     const operation = { id: crypto.randomUUID(), type, payload, queuedAt: (/* @__PURE__ */ new Date()).toISOString() };

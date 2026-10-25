@@ -258,7 +258,9 @@ export default class TickTickBridgePlugin extends Plugin {
       firstWeekday: 6,
       showCompleted: this.settings.plannerShowCompleted,
       tasks: () => this.cache.tasks,
-      refresh: async () => { await this.syncNow({ quiet: true }); },
+      // This host is called by an explicit toolbar action. Let the central
+      // sync layer report an honest success/fallback/error notification.
+      refresh: async () => { await this.syncNow(); },
       reschedule: async (task: any, day: string) => this.rescheduleTaskFromPlanner(task, day),
       complete: async (task: any) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task: any) => this.markdownSync.bindingForTask(String(task.id)),
@@ -278,7 +280,9 @@ export default class TickTickBridgePlugin extends Plugin {
       createTask: (initial: any) => this.createTaskFromSurface(initial),
       tasks: () => this.cache.tasks,
       board: async (project: any) => this.cache.projectBoards[String(project.id)] ?? this.client().projectBoard(project),
-      refresh: async () => { await this.syncNow({ quiet: true }); },
+      // This host is called by an explicit toolbar action. Let the central
+      // sync layer report an honest success/fallback/error notification.
+      refresh: async () => { await this.syncNow(); },
       complete: async (task: any) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task: any) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task: any) => this.loadTaskDetails(task),
@@ -388,7 +392,10 @@ export default class TickTickBridgePlugin extends Plugin {
     // An interval may fire again while a slow TickTick request is still in
     // flight.  Allowing those runs to overlap can apply an older response
     // after a newer one and needlessly redraw the page.
-    if (this.syncInProgress) return;
+    if (this.syncInProgress) {
+      if (!quiet) new Notice("همگام‌سازی TickTick همین حالا در حال انجام است.");
+      return;
+    }
     this.syncInProgress = true;
     this.setSyncRibbonState(true);
     try {
@@ -401,7 +408,7 @@ export default class TickTickBridgePlugin extends Plugin {
         if (!quiet) new Notice("تغییرها در صف امن همگام‌سازی ماندند؛ TickTick فعلاً درخواست تازه نمی‌پذیرد.");
         return;
       }
-      await this.refreshCacheFromTickTick(day);
+      const refreshed = await this.refreshCacheFromTickTick(day);
       const tasks = this.cachedTasksForDay(day);
       const habits = this.cachedHabitsForDay(day);
       this.habitCheckinCache.clear();
@@ -438,9 +445,11 @@ export default class TickTickBridgePlugin extends Plugin {
         const view = leaf.view as unknown as { render?: () => Promise<void> | void };
         if (typeof view.render === "function") await view.render();
       }
-      if (!quiet) {
+      if (!quiet && refreshed.remote) {
         const notes = this.cache.tasks.filter(task => String(task.kind ?? "").toUpperCase() === "NOTE").length;
         new Notice(`همگام‌سازی کامل شد: ${this.cache.projects.length} لیست، ${this.cache.tasks.length} رکورد (${notes} Note) و ${habits.length} عادت امروز.`);
+      } else if (!quiet) {
+        new Notice("نسخهٔ محلی آماده است؛ TickTick دادهٔ تازه‌ای برنگرداند. اتصال وب را در تنظیمات بررسی کن.");
       }
     } catch (error) {
       if (!quiet) new Notice(error instanceof Error ? error.message : "همگام‌سازی TickTick ناموفق بود.");
@@ -560,6 +569,7 @@ export default class TickTickBridgePlugin extends Plugin {
       conflicts: this.cache.conflicts,
     };
     await this.saveSettings();
+    return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable };
   }
 
   private async runMutation(type: PendingMutation["type"], payload: any) {
