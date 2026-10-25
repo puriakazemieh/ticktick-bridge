@@ -19,6 +19,16 @@ function parseBody(text) {
   try { return JSON.parse(text); } catch { return text; }
 }
 
+function requestFailureMessage(status) {
+  if (status === 400) return "TickTick درخواست را نپذیرفت. دادهٔ تسک را بررسی کن.";
+  if (status === 401 || status === 403) return "دسترسی TickTick رد شد. API Token را در تنظیمات TickTick Bridge دوباره بررسی کن.";
+  if (status === 404) return "رکورد موردنظر دیگر در TickTick وجود ندارد یا دسترسی آن تغییر کرده است.";
+  if (status === 409) return "این تغییر با نسخهٔ جدیدتر TickTick تداخل دارد.";
+  if (status === 429) return "TickTick درخواست‌ها را موقتاً محدود کرده است؛ تغییر محلی حفظ شد و کمی بعد دوباره همگام‌سازی می‌شود.";
+  if (status >= 500) return "سرویس TickTick موقتاً پاسخ‌گو نیست؛ کمی بعد دوباره تلاش کن.";
+  return "ارتباط با TickTick ناموفق بود.";
+}
+
 /** Portable client: pass Obsidian's requestUrl through `transport` in the plugin. */
 export class TickTickClient {
   constructor({ token, transport = fetchTransport, baseUrl = "https://api.ticktick.com/open/v1" }) {
@@ -39,7 +49,7 @@ export class TickTickClient {
     });
     const parsed = parseBody(response.text);
     if (response.status < 200 || response.status >= 300) {
-      throw new TickTickApiError("TickTick request failed.", { status: response.status, body: parsed });
+      throw new TickTickApiError(requestFailureMessage(response.status), { status: response.status, body: parsed });
     }
     return parsed;
   }

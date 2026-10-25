@@ -219,6 +219,15 @@ function parseBody(text) {
     return text;
   }
 }
+function requestFailureMessage(status) {
+  if (status === 400) return "TickTick \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u0631\u0627 \u0646\u067E\u0630\u06CC\u0631\u0641\u062A. \u062F\u0627\u062F\u0647\u0654 \u062A\u0633\u06A9 \u0631\u0627 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646.";
+  if (status === 401 || status === 403) return "\u062F\u0633\u062A\u0631\u0633\u06CC TickTick \u0631\u062F \u0634\u062F. API Token \u0631\u0627 \u062F\u0631 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A TickTick Bridge \u062F\u0648\u0628\u0627\u0631\u0647 \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646.";
+  if (status === 404) return "\u0631\u06A9\u0648\u0631\u062F \u0645\u0648\u0631\u062F\u0646\u0638\u0631 \u062F\u06CC\u06AF\u0631 \u062F\u0631 TickTick \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F \u06CC\u0627 \u062F\u0633\u062A\u0631\u0633\u06CC \u0622\u0646 \u062A\u063A\u06CC\u06CC\u0631 \u06A9\u0631\u062F\u0647 \u0627\u0633\u062A.";
+  if (status === 409) return "\u0627\u06CC\u0646 \u062A\u063A\u06CC\u06CC\u0631 \u0628\u0627 \u0646\u0633\u062E\u0647\u0654 \u062C\u062F\u06CC\u062F\u062A\u0631 TickTick \u062A\u062F\u0627\u062E\u0644 \u062F\u0627\u0631\u062F.";
+  if (status === 429) return "TickTick \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627 \u0631\u0627 \u0645\u0648\u0642\u062A\u0627\u064B \u0645\u062D\u062F\u0648\u062F \u06A9\u0631\u062F\u0647 \u0627\u0633\u062A\u061B \u062A\u063A\u06CC\u06CC\u0631 \u0645\u062D\u0644\u06CC \u062D\u0641\u0638 \u0634\u062F \u0648 \u06A9\u0645\u06CC \u0628\u0639\u062F \u062F\u0648\u0628\u0627\u0631\u0647 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0645\u06CC\u200C\u0634\u0648\u062F.";
+  if (status >= 500) return "\u0633\u0631\u0648\u06CC\u0633 TickTick \u0645\u0648\u0642\u062A\u0627\u064B \u067E\u0627\u0633\u062E\u200C\u06AF\u0648 \u0646\u06CC\u0633\u062A\u061B \u06A9\u0645\u06CC \u0628\u0639\u062F \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u06A9\u0646.";
+  return "\u0627\u0631\u062A\u0628\u0627\u0637 \u0628\u0627 TickTick \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.";
+}
 var TickTickClient = class {
   constructor({ token, transport = fetchTransport, baseUrl = "https://api.ticktick.com/open/v1" }) {
     if (!token?.trim()) throw new Error("TickTick API token is required.");
@@ -237,7 +246,7 @@ var TickTickClient = class {
     });
     const parsed = parseBody(response.text);
     if (response.status < 200 || response.status >= 300) {
-      throw new TickTickApiError("TickTick request failed.", { status: response.status, body: parsed });
+      throw new TickTickApiError(requestFailureMessage(response.status), { status: response.status, body: parsed });
     }
     return parsed;
   }
@@ -2530,6 +2539,7 @@ var ProjectBoard = class {
           new import_obsidian6.Notice(error instanceof Error ? error.message : "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
         } finally {
           refreshBtn.disabled = false;
+          refreshIcon.removeClass("is-syncing");
         }
       });
       if (project) {
@@ -3182,7 +3192,11 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     this.setSyncRibbonState(true);
     try {
       const day = todayInZone(this.settings.timeZone);
-      await this.flushPendingMutations();
+      const pendingFlushed = await this.flushPendingMutations();
+      if (!pendingFlushed) {
+        if (!quiet) new import_obsidian8.Notice("\u062A\u063A\u06CC\u06CC\u0631\u0647\u0627 \u062F\u0631 \u0635\u0641 \u0627\u0645\u0646 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0645\u0627\u0646\u062F\u0646\u062F\u061B TickTick \u0641\u0639\u0644\u0627\u064B \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u062A\u0627\u0632\u0647 \u0646\u0645\u06CC\u200C\u067E\u0630\u06CC\u0631\u062F.");
+        return;
+      }
       await this.refreshCacheFromTickTick(day);
       const tasks = this.cachedTasksForDay(day);
       const habits = this.cachedHabitsForDay(day);
@@ -3257,13 +3271,31 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   async refreshCacheFromTickTick(today) {
     const client = this.client();
     const [projects, webTasks, habits, sections] = await Promise.all([client.listProjects(), this.webOpenTasks(), client.listHabits(), client.listHabitSections()]);
-    const documents = await Promise.all(projects.map((project) => client.getProjectData(project.id)));
     const projectBoards = {};
     const taskIndex = /* @__PURE__ */ new Map();
-    for (let index = 0; index < projects.length; index++) {
-      const board = normalizeProjectData(documents[index], projects[index]);
+    for (const task of this.cache.tasks) {
+      const key = `${String(task?.projectId ?? "")}:${String(task?.id ?? "")}`;
+      if (task?.id) taskIndex.set(key, task);
+    }
+    for (const project of projects) {
+      const projectId = String(project.id);
+      const cachedBoard = this.cache.projectBoards[projectId];
+      if (!cachedBoard) continue;
+      const board = { ...cachedBoard, project: { ...cachedBoard.project, ...project } };
+      projectBoards[projectId] = board;
+      for (const task of board.tasks ?? []) {
+        const key = `${String(task?.projectId ?? projectId)}:${String(task?.id ?? "")}`;
+        if (task?.id) taskIndex.set(key, mergeTaskDetails(task, taskIndex.get(key)));
+      }
+    }
+    const missingProject = projects.find((project) => !projectBoards[String(project.id)]);
+    if (missingProject) {
+      const board = normalizeProjectData(await client.getProjectData(missingProject.id), missingProject);
       projectBoards[String(board.project.id)] = board;
-      for (const task of board.tasks) taskIndex.set(`${task.projectId}:${task.id}`, task);
+      for (const task of board.tasks) {
+        const key = `${String(task?.projectId ?? missingProject.id)}:${String(task?.id ?? "")}`;
+        taskIndex.set(key, mergeTaskDetails(taskIndex.get(key), task));
+      }
     }
     for (const task of webTasks ?? []) {
       const projectId = String(task.projectId ?? "");
@@ -3272,6 +3304,10 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       taskIndex.set(key, prior ? mergeTaskDetails(prior, task) : task);
     }
     const tasks = [...taskIndex.values()];
+    for (const [projectId, board] of Object.entries(projectBoards)) {
+      const prior = new Map((board.tasks ?? []).map((task) => [String(task.id), task]));
+      board.tasks = tasks.filter((task) => String(task?.projectId ?? "") === projectId).map((task) => mergeTaskDetails(prior.get(String(task.id)), task));
+    }
     const activeHabits = habits.filter((habit) => habit.status === void 0 || habit.status === 0);
     const fromDay = shiftIsoDay(today, -90);
     const officialDocuments = activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit) => habit.id), fromDay, today) : [];
@@ -3339,7 +3375,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     }
   }
   async flushPendingMutations() {
-    if (!this.cache.pending.length || !navigator.onLine) return;
+    if (!this.cache.pending.length || !navigator.onLine) return true;
     const remaining = [];
     for (let index = 0; index < this.cache.pending.length; index++) {
       const operation = this.cache.pending[index];
@@ -3357,12 +3393,15 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
           new import_obsidian8.Notice("\u06CC\u06A9 \u062A\u063A\u06CC\u06CC\u0631 \u0622\u0641\u0644\u0627\u06CC\u0646 \u0628\u0627 \u0646\u0633\u062E\u0647\u0654 TickTick \u062A\u062F\u0627\u062E\u0644 \u062F\u0627\u0634\u062A \u0648 \u0627\u0631\u0633\u0627\u0644 \u0646\u0634\u062F.");
         } else {
           remaining.push(...this.cache.pending.slice(index));
-          break;
+          this.cache.pending = remaining;
+          await this.saveSettings();
+          return false;
         }
       }
     }
     this.cache.pending = remaining;
     await this.saveSettings();
+    return true;
   }
   async createTask(task) {
     return this.runMutation("create", task);

@@ -393,7 +393,14 @@ export default class TickTickBridgePlugin extends Plugin {
     this.setSyncRibbonState(true);
     try {
       const day = todayInZone(this.settings.timeZone);
-      await this.flushPendingMutations();
+      // A queued write that is being rate-limited must not be followed by a
+      // second burst of project-data reads. The optimistic cache is already
+      // current for the user action, so leave it visible and retry later.
+      const pendingFlushed = await this.flushPendingMutations();
+      if (!pendingFlushed) {
+        if (!quiet) new Notice("تغییرها در صف امن همگام‌سازی ماندند؛ TickTick فعلاً درخواست تازه نمی‌پذیرد.");
+        return;
+      }
       await this.refreshCacheFromTickTick(day);
       const tasks = this.cachedTasksForDay(day);
       const habits = this.cachedHabitsForDay(day);
@@ -470,13 +477,36 @@ export default class TickTickBridgePlugin extends Plugin {
   private async refreshCacheFromTickTick(today: string) {
     const client = this.client();
     const [projects, webTasks, habits, sections] = await Promise.all([client.listProjects(), this.webOpenTasks(), client.listHabits(), client.listHabitSections()]);
-    const documents = await Promise.all(projects.map((project: any) => client.getProjectData(project.id)));
     const projectBoards: Record<string, any> = {};
     const taskIndex = new Map<string, any>();
-    for (let index = 0; index < projects.length; index++) {
-      const board = normalizeProjectData(documents[index], projects[index]);
+    // The web batch endpoint is the compact, current task feed. Calling
+    // `/project/:id/data` for every project in parallel trips TickTick's rate
+    // limiter, then leaves every surface waiting for a refresh that cannot
+    // finish. Keep the cached project documents as board metadata and hydrate
+    // only a genuinely missing document, one per sync.
+    for (const task of this.cache.tasks) {
+      const key = `${String(task?.projectId ?? "")}:${String(task?.id ?? "")}`;
+      if (task?.id) taskIndex.set(key, task);
+    }
+    for (const project of projects) {
+      const projectId = String(project.id);
+      const cachedBoard = this.cache.projectBoards[projectId];
+      if (!cachedBoard) continue;
+      const board = { ...cachedBoard, project: { ...cachedBoard.project, ...project } };
+      projectBoards[projectId] = board;
+      for (const task of board.tasks ?? []) {
+        const key = `${String(task?.projectId ?? projectId)}:${String(task?.id ?? "")}`;
+        if (task?.id) taskIndex.set(key, mergeTaskDetails(task, taskIndex.get(key)));
+      }
+    }
+    const missingProject = projects.find((project: any) => !projectBoards[String(project.id)]);
+    if (missingProject) {
+      const board = normalizeProjectData(await client.getProjectData(missingProject.id), missingProject);
       projectBoards[String(board.project.id)] = board;
-      for (const task of board.tasks) taskIndex.set(`${task.projectId}:${task.id}`, task);
+      for (const task of board.tasks) {
+        const key = `${String(task?.projectId ?? missingProject.id)}:${String(task?.id ?? "")}`;
+        taskIndex.set(key, mergeTaskDetails(taskIndex.get(key), task));
+      }
     }
     for (const task of webTasks ?? []) {
       const projectId = String(task.projectId ?? ""); const key = `${projectId}:${task.id}`;
@@ -484,6 +514,15 @@ export default class TickTickBridgePlugin extends Plugin {
       taskIndex.set(key, prior ? mergeTaskDetails(prior, task) : task);
     }
     const tasks = [...taskIndex.values()];
+    // Board columns come from the cached project document, while task values
+    // come from the fresh batch feed. Recompose them before rendering so a
+    // normal sync never displays an old card after a local mutation.
+    for (const [projectId, board] of Object.entries(projectBoards)) {
+      const prior = new Map<string, any>((board.tasks ?? []).map((task: any) => [String(task.id), task]));
+      board.tasks = tasks
+        .filter(task => String(task?.projectId ?? "") === projectId)
+        .map(task => mergeTaskDetails(prior.get(String(task.id)), task));
+    }
     const activeHabits = habits.filter((habit: { status?: number }) => habit.status === undefined || habit.status === 0);
     const fromDay = shiftIsoDay(today, -90);
     const officialDocuments = activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit: { id: string }) => habit.id), fromDay, today) : [];
@@ -554,7 +593,7 @@ export default class TickTickBridgePlugin extends Plugin {
   }
 
   private async flushPendingMutations() {
-    if (!this.cache.pending.length || !navigator.onLine) return;
+    if (!this.cache.pending.length || !navigator.onLine) return true;
     const remaining: PendingMutation[] = [];
     for (let index = 0; index < this.cache.pending.length; index++) {
       const operation = this.cache.pending[index];
@@ -574,12 +613,15 @@ export default class TickTickBridgePlugin extends Plugin {
           new Notice("یک تغییر آفلاین با نسخهٔ TickTick تداخل داشت و ارسال نشد.");
         } else {
           remaining.push(...this.cache.pending.slice(index));
-          break;
+          this.cache.pending = remaining;
+          await this.saveSettings();
+          return false;
         }
       }
     }
     this.cache.pending = remaining;
     await this.saveSettings();
+    return true;
   }
 
   async createTask(task: any) { return this.runMutation("create", task); }

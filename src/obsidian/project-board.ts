@@ -304,6 +304,7 @@ export class ProjectBoard {
           new Notice(error instanceof Error ? error.message : "همگام‌سازی ناموفق بود.");
         } finally {
           refreshBtn.disabled = false;
+          refreshIcon.removeClass("is-syncing");
         }
       });
 

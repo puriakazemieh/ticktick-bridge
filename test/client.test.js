@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { TickTickClient } from "../src/core/ticktick-client.js";
+import { TickTickApiError, TickTickClient } from "../src/core/ticktick-client.js";
 
 test("recurring completion uses TickTick's dedicated complete endpoint", async () => {
   const calls = [];
@@ -16,6 +16,16 @@ test("single task reads use the official project task endpoint", async () => {
   const client = new TickTickClient({ token: "test", transport: async (url, init) => { calls.push({ url, init }); return { status: 200, text: "{}" }; } });
   await client.getTask("project 1", "task 1");
   assert.equal(calls[0].url, "https://api.ticktick.com/open/v1/project/project%201/task/task%201");
+});
+
+test("rate limits retain their status and provide an actionable safe message", async () => {
+  const client = new TickTickClient({ token: "test", transport: async () => ({ status: 429, text: "Too many requests" }) });
+  await assert.rejects(() => client.listProjects(), error => {
+    assert.ok(error instanceof TickTickApiError);
+    assert.equal(error.status, 429);
+    assert.match(error.message, /موقتاً محدود/);
+    return true;
+  });
 });
 
 test("project management uses the documented project endpoints", async () => {
