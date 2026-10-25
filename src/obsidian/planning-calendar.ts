@@ -110,52 +110,6 @@ class PlannerMultiSelectModal extends Modal {
   }
 }
 
-class RescheduleModal extends Modal {
-  private resolveAnswer!: (value: boolean) => void;
-  constructor(app: App, private task: any, private target: string) {
-    super(app);
-  }
-
-  openAndWait() {
-    this.open();
-    return new Promise<boolean>(resolve => {
-      this.resolveAnswer = resolve;
-    });
-  }
-
-  onOpen() {
-    this.modalEl.addClass("ticktick-reschedule-modal");
-    this.titleEl.setText("تأیید جابه‌جایی تاریخ تسک");
-
-    const body = this.contentEl.createDiv({ cls: "ticktick-reschedule-body" });
-    const formattedTarget = formatPersianDate(this.target);
-
-    const card = body.createDiv({ cls: "ticktick-reschedule-card" });
-    card.createEl("span", { cls: "ticktick-reschedule-task-title", text: `«${this.task.title}»` });
-    card.createDiv({ cls: "ticktick-reschedule-dest", text: `انتقال به تاریخ: ${formattedTarget}` });
-
-    if (this.task.repeatFlag) {
-      const warning = body.createDiv({ cls: "ticktick-reschedule-warning" });
-      setIcon(warning.createSpan({ cls: "ticktick-warning-icon" }), "alert-circle");
-      warning.createSpan({ text: "این تسک تکرارشونده است؛ occurrence جدید محلی ساخته نمی‌شود." });
-    }
-
-    const actions = this.contentEl.createDiv({ cls: "modal-button-container" });
-    actions.createEl("button", { text: "انصراف" }).addEventListener("click", () => {
-      this.resolveAnswer(false);
-      this.close();
-    });
-    actions.createEl("button", { text: "تأیید و انتقال", cls: "mod-cta" }).addEventListener("click", () => {
-      this.resolveAnswer(true);
-      this.close();
-    });
-  }
-
-  onClose() {
-    this.contentEl.empty();
-  }
-}
-
 class TaskOverflowModal extends Modal {
   constructor(
     app: App,
@@ -777,6 +731,14 @@ export class PlanningCalendar {
         event.stopPropagation();
         openDetails();
       });
+
+      bar.draggable = true;
+      bar.addEventListener("dragstart", event => {
+        bar.addClass("is-dragging");
+        event.dataTransfer!.effectAllowed = "move";
+        event.dataTransfer?.setData("text/ticktick-task", String(task.id));
+      });
+      bar.addEventListener("dragend", () => bar.removeClass("is-dragging"));
     }
   }
 
@@ -859,12 +821,11 @@ export class PlanningCalendar {
       openDetails();
     });
 
-    card.draggable = Boolean(bound);
+    card.draggable = true;
     card.addEventListener("dragstart", event => {
-      if (bound) {
-        card.addClass("is-dragging");
-        event.dataTransfer?.setData("text/ticktick-task", String(task.id));
-      }
+      card.addClass("is-dragging");
+      event.dataTransfer!.effectAllowed = "move";
+      event.dataTransfer?.setData("text/ticktick-task", String(task.id));
     });
     card.addEventListener("dragend", () => {
       card.removeClass("is-dragging");
@@ -925,12 +886,11 @@ export class PlanningCalendar {
       openDetails();
     });
 
-    card.draggable = Boolean(bound);
+    card.draggable = true;
     card.addEventListener("dragstart", event => {
-      if (bound) {
-        card.addClass("is-dragging");
-        event.dataTransfer?.setData("text/ticktick-task", String(task.id));
-      }
+      card.addClass("is-dragging");
+      event.dataTransfer!.effectAllowed = "move";
+      event.dataTransfer?.setData("text/ticktick-task", String(task.id));
     });
     card.addEventListener("dragend", () => {
       card.removeClass("is-dragging");
@@ -986,14 +946,12 @@ export class PlanningCalendar {
   }
 
   private async dropTask(task: any, target: string) {
-    if (!this.host.binding(task)) {
-      new Notice("فقط taskهای bind‌شده به Markdown قابل جابه‌جایی هستند.");
-      return;
-    }
-    if (!await new RescheduleModal(this.host.app, task, target).openAndWait()) return;
+    const currentRange = taskDateRange(task, this.host.timeZone);
+    const currentDay = currentRange?.start ?? String(task.dueDate ?? task.startDate ?? "").slice(0, 10);
+    if (!currentDay || currentDay === target) return;
     try {
       await this.host.reschedule(task, target);
-      new Notice("تاریخ تسک با تأیید شما تغییر کرد.");
+      new Notice(currentRange ? "بازهٔ زمانی تسک جابه‌جا و همگام شد." : "تاریخ تسک جابه‌جا و همگام شد.");
       await this.host.refresh();
       await this.render();
     } catch (error) {

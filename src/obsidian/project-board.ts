@@ -22,6 +22,7 @@ type Host = {
   binding: (task: any) => any;
   load: (task: any) => Promise<any>;
   edit: (task: any) => Promise<any>;
+  moveToColumn: (task: any, columnId: string) => Promise<any>;
   showCompleted: () => boolean;
   preferences: () => { selected: string; collapsed: string[] };
   savePreferences: (value: { selected: string; collapsed: string[] }) => Promise<void>;
@@ -317,10 +318,26 @@ export class ProjectBoard {
           shell.createEl("small", { cls: "ticktick-column-hint", text: "ستون نمایشی؛ جابه‌جایی غیرفعال است" });
         }
 
-        shell.addEventListener("dragover", event => event.preventDefault());
+        shell.addEventListener("dragover", event => {
+          if (column.synthetic) return;
+          event.preventDefault();
+          event.dataTransfer!.dropEffect = "move";
+          shell.addClass("is-drag-over");
+        });
+        shell.addEventListener("dragleave", event => {
+          if (!shell.contains(event.relatedTarget as Node | null)) shell.removeClass("is-drag-over");
+        });
         shell.addEventListener("drop", event => {
           event.preventDefault();
-          new Notice("جابه‌جایی بین ستون‌ها تا تأیید رسمی API TickTick غیرفعال است.");
+          shell.removeClass("is-drag-over");
+          if (column.synthetic) {
+            new Notice("این ستون نمایشی است و مقصد انتقال نیست.");
+            return;
+          }
+          const id = event.dataTransfer?.getData("text/ticktick-board-task");
+          const task = data.tasks.find((item: any) => String(item.id) === id);
+          if (!task || String(task.columnId ?? "") === String(column.id)) return;
+          void this.moveTask(task, String(column.id));
         });
 
         const listWrap = shell.createDiv({ cls: "ticktick-column-cards" });
@@ -364,8 +381,15 @@ export class ProjectBoard {
         title: "برای دیدن جزئیات کلیک کنید"
       }
     });
-    card.draggable = false;
+    card.draggable = true;
     card.style.setProperty("--ticktick-task-tone", tone);
+
+    card.addEventListener("dragstart", event => {
+      card.addClass("is-dragging");
+      event.dataTransfer!.effectAllowed = "move";
+      event.dataTransfer?.setData("text/ticktick-board-task", String(task.id));
+    });
+    card.addEventListener("dragend", () => card.removeClass("is-dragging"));
 
     // Top Row: Checkbox, Title, Priority Chip
     const top = card.createDiv({ cls: "ticktick-project-card-top" });
@@ -461,5 +485,16 @@ export class ProjectBoard {
         new Notice(error instanceof Error ? error.message : "تکمیل ناموفق بود.");
       }
     });
+  }
+
+  private async moveTask(task: any, columnId: string) {
+    try {
+      await this.host.moveToColumn(task, columnId);
+      new Notice("تسک به ستون جدید منتقل و با TickTick همگام شد.");
+      await this.host.refresh();
+      await this.render();
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : "انتقال تسک ناموفق بود.");
+    }
   }
 }

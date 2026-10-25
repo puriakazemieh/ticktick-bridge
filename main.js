@@ -1030,13 +1030,6 @@ function tasksForCalendarDay(tasks, day, timeZone = "Asia/Tehran", showCompleted
   return sortPlanningTasks((tasks ?? []).filter((task) => taskOccursOnCalendarDay(task, day, timeZone, showCompleted)), sortMode);
 }
 
-// src/core/persian-date.js
-function formatPersianDate(value, timeZone = "Asia/Tehran") {
-  const day = toDateKey(value, timeZone);
-  if (!day) return "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E";
-  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", { year: "numeric", month: "long", day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`));
-}
-
 // src/obsidian/task-details-modal.ts
 var import_obsidian3 = require("obsidian");
 
@@ -1074,6 +1067,13 @@ function mergeTaskDetails(cached = {}, fresh = {}) {
     if ((!merged[field] || typeof merged[field] !== "string") && typeof cached[field] === "string" && cached[field].trim()) merged[field] = cached[field];
   }
   return merged;
+}
+
+// src/core/persian-date.js
+function formatPersianDate(value, timeZone = "Asia/Tehran") {
+  const day = toDateKey(value, timeZone);
+  if (!day) return "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E";
+  return new Intl.DateTimeFormat("fa-IR-u-ca-persian", { year: "numeric", month: "long", day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`));
 }
 
 // src/obsidian/task-details-modal.ts
@@ -1365,46 +1365,6 @@ var PlannerMultiSelectModal = class extends import_obsidian4.Modal {
       this.answer = choices;
       this.close();
     });
-  }
-};
-var RescheduleModal = class extends import_obsidian4.Modal {
-  constructor(app, task, target) {
-    super(app);
-    this.task = task;
-    this.target = target;
-  }
-  resolveAnswer;
-  openAndWait() {
-    this.open();
-    return new Promise((resolve) => {
-      this.resolveAnswer = resolve;
-    });
-  }
-  onOpen() {
-    this.modalEl.addClass("ticktick-reschedule-modal");
-    this.titleEl.setText("\u062A\u0623\u06CC\u06CC\u062F \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u062A\u0627\u0631\u06CC\u062E \u062A\u0633\u06A9");
-    const body = this.contentEl.createDiv({ cls: "ticktick-reschedule-body" });
-    const formattedTarget = formatPersianDate(this.target);
-    const card = body.createDiv({ cls: "ticktick-reschedule-card" });
-    card.createEl("span", { cls: "ticktick-reschedule-task-title", text: `\xAB${this.task.title}\xBB` });
-    card.createDiv({ cls: "ticktick-reschedule-dest", text: `\u0627\u0646\u062A\u0642\u0627\u0644 \u0628\u0647 \u062A\u0627\u0631\u06CC\u062E: ${formattedTarget}` });
-    if (this.task.repeatFlag) {
-      const warning = body.createDiv({ cls: "ticktick-reschedule-warning" });
-      (0, import_obsidian4.setIcon)(warning.createSpan({ cls: "ticktick-warning-icon" }), "alert-circle");
-      warning.createSpan({ text: "\u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647 \u0627\u0633\u062A\u061B occurrence \u062C\u062F\u06CC\u062F \u0645\u062D\u0644\u06CC \u0633\u0627\u062E\u062A\u0647 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F." });
-    }
-    const actions = this.contentEl.createDiv({ cls: "modal-button-container" });
-    actions.createEl("button", { text: "\u0627\u0646\u0635\u0631\u0627\u0641" }).addEventListener("click", () => {
-      this.resolveAnswer(false);
-      this.close();
-    });
-    actions.createEl("button", { text: "\u062A\u0623\u06CC\u06CC\u062F \u0648 \u0627\u0646\u062A\u0642\u0627\u0644", cls: "mod-cta" }).addEventListener("click", () => {
-      this.resolveAnswer(true);
-      this.close();
-    });
-  }
-  onClose() {
-    this.contentEl.empty();
   }
 };
 var TaskOverflowModal = class extends import_obsidian4.Modal {
@@ -1934,6 +1894,13 @@ var PlanningCalendar = class {
         event.stopPropagation();
         openDetails();
       });
+      bar.draggable = true;
+      bar.addEventListener("dragstart", (event) => {
+        bar.addClass("is-dragging");
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer?.setData("text/ticktick-task", String(task.id));
+      });
+      bar.addEventListener("dragend", () => bar.removeClass("is-dragging"));
     }
   }
   renderTask(parent, task) {
@@ -2001,12 +1968,11 @@ var PlanningCalendar = class {
       event.stopPropagation();
       openDetails();
     });
-    card.draggable = Boolean(bound);
+    card.draggable = true;
     card.addEventListener("dragstart", (event) => {
-      if (bound) {
-        card.addClass("is-dragging");
-        event.dataTransfer?.setData("text/ticktick-task", String(task.id));
-      }
+      card.addClass("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer?.setData("text/ticktick-task", String(task.id));
     });
     card.addEventListener("dragend", () => {
       card.removeClass("is-dragging");
@@ -2059,12 +2025,11 @@ var PlanningCalendar = class {
       event.stopPropagation();
       openDetails();
     });
-    card.draggable = Boolean(bound);
+    card.draggable = true;
     card.addEventListener("dragstart", (event) => {
-      if (bound) {
-        card.addClass("is-dragging");
-        event.dataTransfer?.setData("text/ticktick-task", String(task.id));
-      }
+      card.addClass("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer?.setData("text/ticktick-task", String(task.id));
     });
     card.addEventListener("dragend", () => {
       card.removeClass("is-dragging");
@@ -2108,14 +2073,12 @@ var PlanningCalendar = class {
     }
   }
   async dropTask(task, target) {
-    if (!this.host.binding(task)) {
-      new import_obsidian4.Notice("\u0641\u0642\u0637 task\u0647\u0627\u06CC bind\u200C\u0634\u062F\u0647 \u0628\u0647 Markdown \u0642\u0627\u0628\u0644 \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0647\u0633\u062A\u0646\u062F.");
-      return;
-    }
-    if (!await new RescheduleModal(this.host.app, task, target).openAndWait()) return;
+    const currentRange = taskDateRange(task, this.host.timeZone);
+    const currentDay = currentRange?.start ?? String(task.dueDate ?? task.startDate ?? "").slice(0, 10);
+    if (!currentDay || currentDay === target) return;
     try {
       await this.host.reschedule(task, target);
-      new import_obsidian4.Notice("\u062A\u0627\u0631\u06CC\u062E \u062A\u0633\u06A9 \u0628\u0627 \u062A\u0623\u06CC\u06CC\u062F \u0634\u0645\u0627 \u062A\u063A\u06CC\u06CC\u0631 \u06A9\u0631\u062F.");
+      new import_obsidian4.Notice(currentRange ? "\u0628\u0627\u0632\u0647\u0654 \u0632\u0645\u0627\u0646\u06CC \u062A\u0633\u06A9 \u062C\u0627\u0628\u0647\u200C\u062C\u0627 \u0648 \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F." : "\u062A\u0627\u0631\u06CC\u062E \u062A\u0633\u06A9 \u062C\u0627\u0628\u0647\u200C\u062C\u0627 \u0648 \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F.");
       await this.host.refresh();
       await this.render();
     } catch (error) {
@@ -2442,10 +2405,26 @@ var ProjectBoard = class {
         if (column.synthetic) {
           shell.createEl("small", { cls: "ticktick-column-hint", text: "\u0633\u062A\u0648\u0646 \u0646\u0645\u0627\u06CC\u0634\u06CC\u061B \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062A" });
         }
-        shell.addEventListener("dragover", (event) => event.preventDefault());
+        shell.addEventListener("dragover", (event) => {
+          if (column.synthetic) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          shell.addClass("is-drag-over");
+        });
+        shell.addEventListener("dragleave", (event) => {
+          if (!shell.contains(event.relatedTarget)) shell.removeClass("is-drag-over");
+        });
         shell.addEventListener("drop", (event) => {
           event.preventDefault();
-          new import_obsidian6.Notice("\u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0628\u06CC\u0646 \u0633\u062A\u0648\u0646\u200C\u0647\u0627 \u062A\u0627 \u062A\u0623\u06CC\u06CC\u062F \u0631\u0633\u0645\u06CC API TickTick \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062A.");
+          shell.removeClass("is-drag-over");
+          if (column.synthetic) {
+            new import_obsidian6.Notice("\u0627\u06CC\u0646 \u0633\u062A\u0648\u0646 \u0646\u0645\u0627\u06CC\u0634\u06CC \u0627\u0633\u062A \u0648 \u0645\u0642\u0635\u062F \u0627\u0646\u062A\u0642\u0627\u0644 \u0646\u06CC\u0633\u062A.");
+            return;
+          }
+          const id = event.dataTransfer?.getData("text/ticktick-board-task");
+          const task = data.tasks.find((item) => String(item.id) === id);
+          if (!task || String(task.columnId ?? "") === String(column.id)) return;
+          void this.moveTask(task, String(column.id));
         });
         const listWrap = shell.createDiv({ cls: "ticktick-column-cards" });
         for (const group of column.groups) {
@@ -2479,8 +2458,14 @@ var ProjectBoard = class {
         title: "\u0628\u0631\u0627\u06CC \u062F\u06CC\u062F\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F"
       }
     });
-    card.draggable = false;
+    card.draggable = true;
     card.style.setProperty("--ticktick-task-tone", tone);
+    card.addEventListener("dragstart", (event) => {
+      card.addClass("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer?.setData("text/ticktick-board-task", String(task.id));
+    });
+    card.addEventListener("dragend", () => card.removeClass("is-dragging"));
     const top = card.createDiv({ cls: "ticktick-project-card-top" });
     const check = top.createEl("input", {
       type: "checkbox",
@@ -2567,6 +2552,16 @@ var ProjectBoard = class {
         new import_obsidian6.Notice(error instanceof Error ? error.message : "\u062A\u06A9\u0645\u06CC\u0644 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
       }
     });
+  }
+  async moveTask(task, columnId) {
+    try {
+      await this.host.moveToColumn(task, columnId);
+      new import_obsidian6.Notice("\u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 \u062C\u062F\u06CC\u062F \u0645\u0646\u062A\u0642\u0644 \u0648 \u0628\u0627 TickTick \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F.");
+      await this.host.refresh();
+      await this.render();
+    } catch (error) {
+      new import_obsidian6.Notice(error instanceof Error ? error.message : "\u0627\u0646\u062A\u0642\u0627\u0644 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+    }
   }
 };
 
@@ -2874,7 +2869,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       refresh: async () => {
         await this.syncNow({ quiet: true });
       },
-      reschedule: async (task, day) => this.markdownSync.rescheduleBoundTask(String(task.id), day),
+      reschedule: async (task, day) => this.rescheduleTaskFromPlanner(task, day),
       complete: async (task) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task) => this.loadTaskDetails(task),
@@ -2899,6 +2894,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       binding: (task) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task) => this.loadTaskDetails(task),
       edit: async (task) => this.editTaskFromSurface(task),
+      moveToColumn: async (task, columnId) => this.moveTaskToBoardColumn(task, columnId),
       showCompleted: () => this.settings.plannerShowCompleted,
       preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups }),
       savePreferences: async (value) => {
@@ -3231,6 +3227,32 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     const payload = toTaskPayload({ ...current, ...draft }, this.settings.timeZone);
     await this.updateTask(payload);
     return { ...current, ...payload };
+  }
+  async rescheduleTaskFromPlanner(task, targetDay) {
+    const start = toDateKey(task?.startDate, task?.timeZone || this.settings.timeZone);
+    const due = toDateKey(task?.dueDate, task?.timeZone || this.settings.timeZone);
+    const anchor = start ?? due;
+    if (!anchor) throw new Error("\u062A\u0633\u06A9 \u062A\u0627\u0631\u06CC\u062E \u0642\u0627\u0628\u0644\u200C\u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0646\u062F\u0627\u0631\u062F.");
+    const offset = Math.round((Date.parse(`${targetDay}T12:00:00Z`) - Date.parse(`${anchor}T12:00:00Z`)) / 864e5);
+    const moveValue = (value, fallback) => {
+      if (!fallback) return null;
+      const original = String(value ?? "");
+      const moved = shiftIsoDay(fallback, offset);
+      return original.includes("T") ? `${moved}${original.slice(10)}` : `${moved}T00:00:00+0330`;
+    };
+    const payload = toTaskPayload({ ...task, dueDate: due ? shiftIsoDay(due, offset) : null }, this.settings.timeZone);
+    payload.startDate = moveValue(task.startDate, start);
+    payload.dueDate = moveValue(task.dueDate, due);
+    payload.isAllDay = task.isAllDay ?? !String(task.dueDate ?? task.startDate ?? "").includes("T");
+    await this.updateTask(payload);
+    return { ...task, ...payload };
+  }
+  async moveTaskToBoardColumn(task, columnId) {
+    if (!columnId) throw new Error("\u0633\u062A\u0648\u0646 \u0645\u0642\u0635\u062F \u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u0642\u0627\u0644 \u0642\u0627\u0628\u0644\u200C\u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0646\u06CC\u0633\u062A.");
+    if (String(task.columnId ?? "") === columnId) return task;
+    const payload = toTaskPayload({ ...task, columnId }, this.settings.timeZone);
+    await this.updateTask(payload);
+    return { ...task, ...payload };
   }
   cachedTasksForDay(day) {
     return this.cache.tasks.filter((task) => isScheduledForDay(task, day));

@@ -259,7 +259,7 @@ export default class TickTickBridgePlugin extends Plugin {
       showCompleted: this.settings.plannerShowCompleted,
       tasks: () => this.cache.tasks,
       refresh: async () => { await this.syncNow({ quiet: true }); },
-      reschedule: async (task: any, day: string) => this.markdownSync.rescheduleBoundTask(String(task.id), day),
+      reschedule: async (task: any, day: string) => this.rescheduleTaskFromPlanner(task, day),
       complete: async (task: any) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task: any) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task: any) => this.loadTaskDetails(task),
@@ -283,6 +283,7 @@ export default class TickTickBridgePlugin extends Plugin {
       binding: (task: any) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task: any) => this.loadTaskDetails(task),
       edit: async (task: any) => this.editTaskFromSurface(task),
+      moveToColumn: async (task: any, columnId: string) => this.moveTaskToBoardColumn(task, columnId),
       showCompleted: () => this.settings.plannerShowCompleted,
       preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups }),
       savePreferences: async (value: { selected: string; collapsed: string[] }) => { this.settings.boardLastProjectId = value.selected; this.settings.boardCollapsedGroups = value.collapsed; await this.saveSettings(); },
@@ -617,6 +618,32 @@ export default class TickTickBridgePlugin extends Plugin {
     const payload = toTaskPayload({ ...current, ...draft }, this.settings.timeZone);
     await this.updateTask(payload);
     return { ...current, ...payload };
+  }
+  private async rescheduleTaskFromPlanner(task: any, targetDay: string) {
+    const start = toDateKey(task?.startDate, task?.timeZone || this.settings.timeZone);
+    const due = toDateKey(task?.dueDate, task?.timeZone || this.settings.timeZone);
+    const anchor = start ?? due;
+    if (!anchor) throw new Error("تسک تاریخ قابل‌جابه‌جایی ندارد.");
+    const offset = Math.round((Date.parse(`${targetDay}T12:00:00Z`) - Date.parse(`${anchor}T12:00:00Z`)) / 86400000);
+    const moveValue = (value: any, fallback: string | null) => {
+      if (!fallback) return null;
+      const original = String(value ?? "");
+      const moved = shiftIsoDay(fallback, offset);
+      return original.includes("T") ? `${moved}${original.slice(10)}` : `${moved}T00:00:00+0330`;
+    };
+    const payload = toTaskPayload({ ...task, dueDate: due ? shiftIsoDay(due, offset) : null }, this.settings.timeZone);
+    payload.startDate = moveValue(task.startDate, start);
+    payload.dueDate = moveValue(task.dueDate, due);
+    payload.isAllDay = task.isAllDay ?? !String(task.dueDate ?? task.startDate ?? "").includes("T");
+    await this.updateTask(payload);
+    return { ...task, ...payload };
+  }
+  private async moveTaskToBoardColumn(task: any, columnId: string) {
+    if (!columnId) throw new Error("ستون مقصد برای انتقال قابل‌استفاده نیست.");
+    if (String(task.columnId ?? "") === columnId) return task;
+    const payload = toTaskPayload({ ...task, columnId }, this.settings.timeZone);
+    await this.updateTask(payload);
+    return { ...task, ...payload };
   }
 
   private cachedTasksForDay(day: string) {
