@@ -207,6 +207,7 @@ export class PlanningCalendar {
   private sortMode = "ticktick";
   private colorMode: ColorMode = "project";
   private draggingTaskId = "";
+  private draggingSourceDay = "";
 
   constructor(private element: HTMLElement, private host: PlannerHost) {
     this.day = todayInZone(host.timeZone);
@@ -738,12 +739,12 @@ export class PlanningCalendar {
       bar.draggable = true;
       bar.addEventListener("dragstart", event => {
         bar.addClass("is-dragging");
-        this.draggingTaskId = String(task.id);
+        this.beginTaskDrag(task, event, bar);
         event.dataTransfer!.effectAllowed = "move";
         event.dataTransfer?.setData("text/ticktick-task", String(task.id));
         event.dataTransfer?.setData("text/plain", String(task.id));
       });
-      bar.addEventListener("dragend", () => { bar.removeClass("is-dragging"); this.draggingTaskId = ""; });
+      bar.addEventListener("dragend", () => { bar.removeClass("is-dragging"); this.clearTaskDrag(); });
     }
   }
 
@@ -829,14 +830,14 @@ export class PlanningCalendar {
     card.draggable = true;
     card.addEventListener("dragstart", event => {
       card.addClass("is-dragging");
-      this.draggingTaskId = String(task.id);
+      this.beginTaskDrag(task, event, card);
       event.dataTransfer!.effectAllowed = "move";
       event.dataTransfer?.setData("text/ticktick-task", String(task.id));
       event.dataTransfer?.setData("text/plain", String(task.id));
     });
     card.addEventListener("dragend", () => {
       card.removeClass("is-dragging");
-      this.draggingTaskId = "";
+      this.clearTaskDrag();
     });
   }
 
@@ -897,14 +898,14 @@ export class PlanningCalendar {
     card.draggable = true;
     card.addEventListener("dragstart", event => {
       card.addClass("is-dragging");
-      this.draggingTaskId = String(task.id);
+      this.beginTaskDrag(task, event, card);
       event.dataTransfer!.effectAllowed = "move";
       event.dataTransfer?.setData("text/ticktick-task", String(task.id));
       event.dataTransfer?.setData("text/plain", String(task.id));
     });
     card.addEventListener("dragend", () => {
       card.removeClass("is-dragging");
-      this.draggingTaskId = "";
+      this.clearTaskDrag();
     });
   }
 
@@ -956,14 +957,20 @@ export class PlanningCalendar {
     }
   }
 
-  private async dropTask(task: any, target: string) {
+  private async dropTask(task: any, target: string, visualSourceDay?: string) {
     const currentRange = taskDateRange(task, this.host.timeZone);
     const currentDay = currentRange?.start ?? String(task.dueDate ?? task.startDate ?? "").slice(0, 10);
-    if (!currentDay || currentDay === target) return;
+    if (!currentDay) return;
+    const offset = visualSourceDay
+      ? Math.round((Date.parse(`${target}T12:00:00Z`) - Date.parse(`${visualSourceDay}T12:00:00Z`)) / 86400000)
+      : Math.round((Date.parse(`${target}T12:00:00Z`) - Date.parse(`${currentDay}T12:00:00Z`)) / 86400000);
+    if (!offset) return;
+    const taskTarget = shiftCalendarDay(currentDay, offset);
     try {
-      await this.host.reschedule(task, target);
+      await this.host.reschedule(task, taskTarget);
       new Notice(currentRange ? "بازهٔ زمانی تسک جابه‌جا و همگام شد." : "تاریخ تسک جابه‌جا و همگام شد.");
-      await this.host.refresh();
+      // runMutation updates the cache immediately after TickTick accepts the
+      // write. Avoid a full remote refresh here: it is slow and resets scroll.
       await this.render();
     } catch (error) {
       new Notice(error instanceof Error ? error.message : "جابه‌جایی ناموفق بود.");
@@ -997,7 +1004,8 @@ export class PlanningCalendar {
       event.stopPropagation();
       surface.querySelectorAll(".is-drag-over").forEach(item => item.removeClass("is-drag-over"));
       const task = this.draggedTask(event, tasks);
-      if (task) void this.dropTask(task, day);
+      const sourceDay = this.draggingSourceDay;
+      if (task) void this.dropTask(task, day, sourceDay);
       else new Notice("تسکِ در حال جابه‌جایی پیدا نشد؛ دوباره تلاش کن.");
     }, true);
   }
@@ -1019,5 +1027,16 @@ export class PlanningCalendar {
     return event.target instanceof Element
       ? event.target.closest<HTMLElement>("[data-day]")?.dataset.day
       : undefined;
+  }
+
+  private beginTaskDrag(task: any, event: DragEvent, card: HTMLElement) {
+    this.draggingTaskId = String(task.id);
+    const surface = card.closest<HTMLElement>(".ticktick-planner-days, .ticktick-planner-month");
+    this.draggingSourceDay = surface ? this.visualDropDay(surface, event) ?? "" : "";
+  }
+
+  private clearTaskDrag() {
+    this.draggingTaskId = "";
+    this.draggingSourceDay = "";
   }
 }

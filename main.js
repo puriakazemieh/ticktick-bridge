@@ -1505,6 +1505,7 @@ var PlanningCalendar = class {
   sortMode = "ticktick";
   colorMode = "project";
   draggingTaskId = "";
+  draggingSourceDay = "";
   async render() {
     this.element.empty();
     this.element.addClass("ticktick-planner");
@@ -1954,14 +1955,14 @@ var PlanningCalendar = class {
       bar.draggable = true;
       bar.addEventListener("dragstart", (event) => {
         bar.addClass("is-dragging");
-        this.draggingTaskId = String(task.id);
+        this.beginTaskDrag(task, event, bar);
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer?.setData("text/ticktick-task", String(task.id));
         event.dataTransfer?.setData("text/plain", String(task.id));
       });
       bar.addEventListener("dragend", () => {
         bar.removeClass("is-dragging");
-        this.draggingTaskId = "";
+        this.clearTaskDrag();
       });
     }
   }
@@ -2033,14 +2034,14 @@ var PlanningCalendar = class {
     card.draggable = true;
     card.addEventListener("dragstart", (event) => {
       card.addClass("is-dragging");
-      this.draggingTaskId = String(task.id);
+      this.beginTaskDrag(task, event, card);
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer?.setData("text/ticktick-task", String(task.id));
       event.dataTransfer?.setData("text/plain", String(task.id));
     });
     card.addEventListener("dragend", () => {
       card.removeClass("is-dragging");
-      this.draggingTaskId = "";
+      this.clearTaskDrag();
     });
   }
   renderMonthTask(parent, task) {
@@ -2093,14 +2094,14 @@ var PlanningCalendar = class {
     card.draggable = true;
     card.addEventListener("dragstart", (event) => {
       card.addClass("is-dragging");
-      this.draggingTaskId = String(task.id);
+      this.beginTaskDrag(task, event, card);
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer?.setData("text/ticktick-task", String(task.id));
       event.dataTransfer?.setData("text/plain", String(task.id));
     });
     card.addEventListener("dragend", () => {
       card.removeClass("is-dragging");
-      this.draggingTaskId = "";
+      this.clearTaskDrag();
     });
   }
   taskTone(task) {
@@ -2140,14 +2141,16 @@ var PlanningCalendar = class {
       new import_obsidian4.Notice(error instanceof Error ? error.message : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
     }
   }
-  async dropTask(task, target) {
+  async dropTask(task, target, visualSourceDay) {
     const currentRange = taskDateRange(task, this.host.timeZone);
     const currentDay = currentRange?.start ?? String(task.dueDate ?? task.startDate ?? "").slice(0, 10);
-    if (!currentDay || currentDay === target) return;
+    if (!currentDay) return;
+    const offset = visualSourceDay ? Math.round((Date.parse(`${target}T12:00:00Z`) - Date.parse(`${visualSourceDay}T12:00:00Z`)) / 864e5) : Math.round((Date.parse(`${target}T12:00:00Z`) - Date.parse(`${currentDay}T12:00:00Z`)) / 864e5);
+    if (!offset) return;
+    const taskTarget = shiftCalendarDay(currentDay, offset);
     try {
-      await this.host.reschedule(task, target);
+      await this.host.reschedule(task, taskTarget);
       new import_obsidian4.Notice(currentRange ? "\u0628\u0627\u0632\u0647\u0654 \u0632\u0645\u0627\u0646\u06CC \u062A\u0633\u06A9 \u062C\u0627\u0628\u0647\u200C\u062C\u0627 \u0648 \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F." : "\u062A\u0627\u0631\u06CC\u062E \u062A\u0633\u06A9 \u062C\u0627\u0628\u0647\u200C\u062C\u0627 \u0648 \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F.");
-      await this.host.refresh();
       await this.render();
     } catch (error) {
       new import_obsidian4.Notice(error instanceof Error ? error.message : "\u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
@@ -2177,7 +2180,8 @@ var PlanningCalendar = class {
       event.stopPropagation();
       surface.querySelectorAll(".is-drag-over").forEach((item) => item.removeClass("is-drag-over"));
       const task = this.draggedTask(event, tasks);
-      if (task) void this.dropTask(task, day);
+      const sourceDay = this.draggingSourceDay;
+      if (task) void this.dropTask(task, day, sourceDay);
       else new import_obsidian4.Notice("\u062A\u0633\u06A9\u0650 \u062F\u0631 \u062D\u0627\u0644 \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F\u061B \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u06A9\u0646.");
     }, true);
   }
@@ -2196,6 +2200,15 @@ var PlanningCalendar = class {
       }
     }
     return event.target instanceof Element ? event.target.closest("[data-day]")?.dataset.day : void 0;
+  }
+  beginTaskDrag(task, event, card) {
+    this.draggingTaskId = String(task.id);
+    const surface = card.closest(".ticktick-planner-days, .ticktick-planner-month");
+    this.draggingSourceDay = surface ? this.visualDropDay(surface, event) ?? "" : "";
+  }
+  clearTaskDrag() {
+    this.draggingTaskId = "";
+    this.draggingSourceDay = "";
   }
 };
 
