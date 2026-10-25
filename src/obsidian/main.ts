@@ -57,6 +57,7 @@ type BridgeCache = {
   habitCheckins: Record<string, CachedHabitCheckin[]>;
   pending: PendingMutation[];
   conflicts: PendingMutation[];
+  rateLimitedUntil: number;
 };
 type PendingMutation = { id: string; type: "create" | "update" | "complete" | "delete" | "habit"; payload: any; queuedAt: string };
 
@@ -82,7 +83,7 @@ const DEFAULT_SETTINGS: BridgeSettings = {
 
 export default class TickTickBridgePlugin extends Plugin {
   settings: BridgeSettings = DEFAULT_SETTINGS;
-  private cache: BridgeCache = { savedAt: "", tasks: [], projects: [], projectBoards: {}, habits: [], habitCheckins: {}, pending: [], conflicts: [] };
+  private cache: BridgeCache = { savedAt: "", tasks: [], projects: [], projectBoards: {}, habits: [], habitCheckins: {}, pending: [], conflicts: [], rateLimitedUntil: 0 };
   private habitCheckinCache = new Map<string, { status: number; value: number; goal: number }>();
   private syncTimer: number | null = null;
   private ribbonIcons: HTMLElement[] = [];
@@ -123,6 +124,7 @@ export default class TickTickBridgePlugin extends Plugin {
     if (this.settings.plannerFirstWeekday !== 6) this.settings.plannerFirstWeekday = 6;
     const privateCache = await this.managedStorage.readPrivateCache();
     this.cache = normalizeCache(privateCache ?? savedCache);
+    this.rateLimitedUntil = Math.max(0, Number(this.cache.rateLimitedUntil ?? 0));
     this.markdownSync = new MarkdownSync(this.app, this.managedStorage, () => this.client(), () => this.settings, () => this.scheduledCheckboxProjectId());
     await this.markdownSync.initialize();
     this.noteImport = new NoteImport(this.app, this.managedStorage, () => this.settings.ticktickNotesFolder);
@@ -432,7 +434,10 @@ export default class TickTickBridgePlugin extends Plugin {
         new Notice("نسخهٔ محلی آماده است؛ TickTick دادهٔ تازه‌ای برنگرداند. اتصال وب را در تنظیمات بررسی کن.");
       }
     } catch (error) {
-      if (this.isRateLimitError(error)) this.deferForRateLimit(error);
+      if (this.isRateLimitError(error)) {
+        this.deferForRateLimit(error);
+        await this.saveSettings();
+      }
       if (!quiet) new Notice(error instanceof Error ? error.message : "همگام‌سازی TickTick ناموفق بود.");
     } finally {
       this.setSyncRibbonState(false);
@@ -587,7 +592,9 @@ export default class TickTickBridgePlugin extends Plugin {
       habitCheckins: checkins,
       pending: this.cache.pending,
       conflicts: this.cache.conflicts,
+      rateLimitedUntil: 0,
     };
+    this.rateLimitedUntil = 0;
     await this.saveSettings();
     return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable };
   }
@@ -706,6 +713,7 @@ export default class TickTickBridgePlugin extends Plugin {
     // retry storm while keeping the local queue responsive.
     const seconds = Number.isFinite(requestedSeconds) && requestedSeconds > 0 ? Math.min(Math.ceil(requestedSeconds), 600) : 60;
     this.rateLimitedUntil = Math.max(this.rateLimitedUntil, Date.now() + seconds * 1_000);
+    this.cache.rateLimitedUntil = this.rateLimitedUntil;
   }
 
   private rateLimitWaitSeconds() {
@@ -1737,7 +1745,7 @@ function shiftIsoDay(day: string, amount: number) {
 
 function normalizeCache(value: unknown): BridgeCache {
   const candidate = value as Partial<BridgeCache> | null;
-  if (!candidate || typeof candidate !== "object") return { savedAt: "", tasks: [], projects: [], projectBoards: {}, habits: [], habitCheckins: {}, pending: [], conflicts: [] };
+  if (!candidate || typeof candidate !== "object") return { savedAt: "", tasks: [], projects: [], projectBoards: {}, habits: [], habitCheckins: {}, pending: [], conflicts: [], rateLimitedUntil: 0 };
   return {
     savedAt: typeof candidate.savedAt === "string" ? candidate.savedAt : "",
     tasks: Array.isArray(candidate.tasks) ? candidate.tasks : [],
@@ -1747,6 +1755,7 @@ function normalizeCache(value: unknown): BridgeCache {
     habitCheckins: candidate.habitCheckins && typeof candidate.habitCheckins === "object" ? candidate.habitCheckins : {},
     pending: Array.isArray(candidate.pending) ? candidate.pending : [],
     conflicts: Array.isArray(candidate.conflicts) ? candidate.conflicts : [],
+    rateLimitedUntil: Math.max(0, Number(candidate.rateLimitedUntil ?? 0)),
   };
 }
 

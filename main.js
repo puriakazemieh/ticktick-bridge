@@ -2889,7 +2889,7 @@ var DEFAULT_SETTINGS = {
 };
 var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   settings = DEFAULT_SETTINGS;
-  cache = { savedAt: "", tasks: [], projects: [], projectBoards: {}, habits: [], habitCheckins: {}, pending: [], conflicts: [] };
+  cache = { savedAt: "", tasks: [], projects: [], projectBoards: {}, habits: [], habitCheckins: {}, pending: [], conflicts: [], rateLimitedUntil: 0 };
   habitCheckinCache = /* @__PURE__ */ new Map();
   syncTimer = null;
   ribbonIcons = [];
@@ -2927,6 +2927,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     if (this.settings.plannerFirstWeekday !== 6) this.settings.plannerFirstWeekday = 6;
     const privateCache = await this.managedStorage.readPrivateCache();
     this.cache = normalizeCache(privateCache ?? savedCache);
+    this.rateLimitedUntil = Math.max(0, Number(this.cache.rateLimitedUntil ?? 0));
     this.markdownSync = new MarkdownSync(this.app, this.managedStorage, () => this.client(), () => this.settings, () => this.scheduledCheckboxProjectId());
     await this.markdownSync.initialize();
     this.noteImport = new NoteImport(this.app, this.managedStorage, () => this.settings.ticktickNotesFolder);
@@ -3231,7 +3232,10 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
         new import_obsidian8.Notice("\u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u0622\u0645\u0627\u062F\u0647 \u0627\u0633\u062A\u061B TickTick \u062F\u0627\u062F\u0647\u0654 \u062A\u0627\u0632\u0647\u200C\u0627\u06CC \u0628\u0631\u0646\u06AF\u0631\u062F\u0627\u0646\u062F. \u0627\u062A\u0635\u0627\u0644 \u0648\u0628 \u0631\u0627 \u062F\u0631 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646.");
       }
     } catch (error) {
-      if (this.isRateLimitError(error)) this.deferForRateLimit(error);
+      if (this.isRateLimitError(error)) {
+        this.deferForRateLimit(error);
+        await this.saveSettings();
+      }
       if (!quiet) new import_obsidian8.Notice(error instanceof Error ? error.message : "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC TickTick \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
     } finally {
       this.setSyncRibbonState(false);
@@ -3363,8 +3367,10 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       habits: activeHabits.map((habit) => ({ ...habit, sectionName: sectionNames.get(habit.sectionId) ?? habit.sectionName ?? "\u0628\u062F\u0648\u0646 \u062F\u0633\u062A\u0647" })),
       habitCheckins: checkins,
       pending: this.cache.pending,
-      conflicts: this.cache.conflicts
+      conflicts: this.cache.conflicts,
+      rateLimitedUntil: 0
     };
+    this.rateLimitedUntil = 0;
     await this.saveSettings();
     return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable };
   }
@@ -3470,6 +3476,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     const requestedSeconds = Number(error?.retryAfter ?? 0);
     const seconds = Number.isFinite(requestedSeconds) && requestedSeconds > 0 ? Math.min(Math.ceil(requestedSeconds), 600) : 60;
     this.rateLimitedUntil = Math.max(this.rateLimitedUntil, Date.now() + seconds * 1e3);
+    this.cache.rateLimitedUntil = this.rateLimitedUntil;
   }
   rateLimitWaitSeconds() {
     return Math.max(1, Math.ceil((this.rateLimitedUntil - Date.now()) / 1e3));
@@ -4471,7 +4478,7 @@ function shiftIsoDay(day, amount) {
 }
 function normalizeCache(value) {
   const candidate = value;
-  if (!candidate || typeof candidate !== "object") return { savedAt: "", tasks: [], projects: [], projectBoards: {}, habits: [], habitCheckins: {}, pending: [], conflicts: [] };
+  if (!candidate || typeof candidate !== "object") return { savedAt: "", tasks: [], projects: [], projectBoards: {}, habits: [], habitCheckins: {}, pending: [], conflicts: [], rateLimitedUntil: 0 };
   return {
     savedAt: typeof candidate.savedAt === "string" ? candidate.savedAt : "",
     tasks: Array.isArray(candidate.tasks) ? candidate.tasks : [],
@@ -4480,7 +4487,8 @@ function normalizeCache(value) {
     habits: Array.isArray(candidate.habits) ? candidate.habits : [],
     habitCheckins: candidate.habitCheckins && typeof candidate.habitCheckins === "object" ? candidate.habitCheckins : {},
     pending: Array.isArray(candidate.pending) ? candidate.pending : [],
-    conflicts: Array.isArray(candidate.conflicts) ? candidate.conflicts : []
+    conflicts: Array.isArray(candidate.conflicts) ? candidate.conflicts : [],
+    rateLimitedUntil: Math.max(0, Number(candidate.rateLimitedUntil ?? 0))
   };
 }
 function escapeRegExp(value) {
