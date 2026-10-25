@@ -3255,6 +3255,9 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  /* Keep the physical control order stable: previous, today, next. The date
+     text itself remains RTL below, but flex must not reverse the arrow slots. */
+  direction: ltr;
 }
 
 .ticktick-dashboard-date button {
@@ -3282,6 +3285,7 @@
 
 .ticktick-dashboard-date strong {
   flex: 1 1 auto;
+  direction: rtl;
   text-align: center;
   font-size: 0.95rem;
   font-weight: 700;
