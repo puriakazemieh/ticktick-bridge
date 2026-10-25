@@ -206,6 +206,7 @@ export class PlanningCalendar {
   private tags = new Set<string>();
   private sortMode = "ticktick";
   private colorMode: ColorMode = "project";
+  private draggingTaskId = "";
 
   constructor(private element: HTMLElement, private host: PlannerHost) {
     this.day = todayInZone(host.timeZone);
@@ -539,6 +540,7 @@ export class PlanningCalendar {
 
       column.addEventListener("dragover", event => {
         event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
         column.addClass("is-drag-over");
       });
       column.addEventListener("dragleave", () => {
@@ -547,8 +549,7 @@ export class PlanningCalendar {
       column.addEventListener("drop", event => {
         event.preventDefault();
         column.removeClass("is-drag-over");
-        const id = event.dataTransfer?.getData("text/ticktick-task");
-        const task = tasks.find(item => String(item.id) === id);
+        const task = this.draggedTask(event, tasks);
         if (task) void this.dropTask(task, day);
       });
 
@@ -625,6 +626,7 @@ export class PlanningCalendar {
 
         cell.addEventListener("dragover", event => {
           event.preventDefault();
+          if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
           cell.addClass("is-drag-over");
         });
         cell.addEventListener("dragleave", () => {
@@ -633,8 +635,7 @@ export class PlanningCalendar {
         cell.addEventListener("drop", event => {
           event.preventDefault();
           cell.removeClass("is-drag-over");
-          const id = event.dataTransfer?.getData("text/ticktick-task");
-          const task = tasks.find(item => String(item.id) === id);
+          const task = this.draggedTask(event, tasks);
           if (task) void this.dropTask(task, day);
         });
 
@@ -735,10 +736,12 @@ export class PlanningCalendar {
       bar.draggable = true;
       bar.addEventListener("dragstart", event => {
         bar.addClass("is-dragging");
+        this.draggingTaskId = String(task.id);
         event.dataTransfer!.effectAllowed = "move";
         event.dataTransfer?.setData("text/ticktick-task", String(task.id));
+        event.dataTransfer?.setData("text/plain", String(task.id));
       });
-      bar.addEventListener("dragend", () => bar.removeClass("is-dragging"));
+      bar.addEventListener("dragend", () => { bar.removeClass("is-dragging"); this.draggingTaskId = ""; });
     }
   }
 
@@ -824,11 +827,14 @@ export class PlanningCalendar {
     card.draggable = true;
     card.addEventListener("dragstart", event => {
       card.addClass("is-dragging");
+      this.draggingTaskId = String(task.id);
       event.dataTransfer!.effectAllowed = "move";
       event.dataTransfer?.setData("text/ticktick-task", String(task.id));
+      event.dataTransfer?.setData("text/plain", String(task.id));
     });
     card.addEventListener("dragend", () => {
       card.removeClass("is-dragging");
+      this.draggingTaskId = "";
     });
   }
 
@@ -889,11 +895,14 @@ export class PlanningCalendar {
     card.draggable = true;
     card.addEventListener("dragstart", event => {
       card.addClass("is-dragging");
+      this.draggingTaskId = String(task.id);
       event.dataTransfer!.effectAllowed = "move";
       event.dataTransfer?.setData("text/ticktick-task", String(task.id));
+      event.dataTransfer?.setData("text/plain", String(task.id));
     });
     card.addEventListener("dragend", () => {
       card.removeClass("is-dragging");
+      this.draggingTaskId = "";
     });
   }
 
@@ -957,5 +966,12 @@ export class PlanningCalendar {
     } catch (error) {
       new Notice(error instanceof Error ? error.message : "جابه‌جایی ناموفق بود.");
     }
+  }
+
+  private draggedTask(event: DragEvent, tasks: any[]) {
+    const id = event.dataTransfer?.getData("text/ticktick-task")
+      || event.dataTransfer?.getData("text/plain")
+      || this.draggingTaskId;
+    return tasks.find(item => String(item.id) === String(id));
   }
 }
