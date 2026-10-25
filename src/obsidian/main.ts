@@ -99,6 +99,7 @@ export default class TickTickBridgePlugin extends Plugin {
   private dashboardStates = new Map<HTMLElement, { day: string; mode: DashboardMode }>();
   private checkboxImportTimers = new Map<string, number>();
   private syncInProgress = false;
+  private rateLimitedUntil = 0;
   private managedStorage!: ManagedStorage;
   private markdownSync!: MarkdownSync;
   private noteImport!: NoteImport;
@@ -396,6 +397,10 @@ export default class TickTickBridgePlugin extends Plugin {
       if (!quiet) new Notice("همگام‌سازی TickTick همین حالا در حال انجام است.");
       return;
     }
+    if (Date.now() < this.rateLimitedUntil) {
+      if (!quiet) new Notice(`TickTick موقتاً درخواست‌ها را محدود کرده است. ارسال تغییرهای صف‌شده حدود ${this.rateLimitWaitSeconds()} ثانیهٔ دیگر دوباره تلاش می‌شود.`);
+      return;
+    }
     this.syncInProgress = true;
     this.setSyncRibbonState(true);
     try {
@@ -452,6 +457,7 @@ export default class TickTickBridgePlugin extends Plugin {
         new Notice("نسخهٔ محلی آماده است؛ TickTick دادهٔ تازه‌ای برنگرداند. اتصال وب را در تنظیمات بررسی کن.");
       }
     } catch (error) {
+      if (this.isRateLimitError(error)) this.deferForRateLimit(error);
       if (!quiet) new Notice(error instanceof Error ? error.message : "همگام‌سازی TickTick ناموفق بود.");
     } finally {
       this.setSyncRibbonState(false);
@@ -599,6 +605,13 @@ export default class TickTickBridgePlugin extends Plugin {
       new Notice("آفلاین هستی؛ تغییر در صف همگام‌سازی ذخیره شد.");
       return { queued: true };
     }
+    if (Date.now() < this.rateLimitedUntil) {
+      this.cache.pending.push(operation);
+      applyLocal();
+      await this.saveSettings();
+      new Notice(`TickTick موقتاً محدودیت گذاشته است؛ تغییر محلی حفظ شد و حدود ${this.rateLimitWaitSeconds()} ثانیهٔ دیگر خودکار ارسال می‌شود.`);
+      return { queued: true };
+    }
     try {
       const result = await execute();
       applyLocal();
@@ -606,11 +619,17 @@ export default class TickTickBridgePlugin extends Plugin {
       return { queued: false, result };
     } catch (error) {
       const status = Number((error as { status?: number })?.status ?? 0);
-      if (status > 0 && status < 500) throw error;
+      // A 429 is temporary, not a conflict. Preserve the visible optimistic
+      // change and send it after the server's retry window instead of making
+      // calendar drag-and-drop look like it failed.
+      if (status === 429) this.deferForRateLimit(error);
+      else if (status > 0 && status < 500) throw error;
       this.cache.pending.push(operation);
       applyLocal();
       await this.saveSettings();
-      new Notice("اتصال TickTick برقرار نیست؛ تغییر در صف همگام‌سازی ذخیره شد.");
+      new Notice(status === 429
+        ? `TickTick موقتاً محدودیت گذاشته است؛ تغییر محلی حفظ شد و حدود ${this.rateLimitWaitSeconds()} ثانیهٔ دیگر خودکار ارسال می‌شود.`
+        : "اتصال TickTick برقرار نیست؛ تغییر در صف همگام‌سازی ذخیره شد.");
       return { queued: true };
     }
   }
@@ -635,6 +654,7 @@ export default class TickTickBridgePlugin extends Plugin {
           this.cache.conflicts.push(operation);
           new Notice("یک تغییر آفلاین با نسخهٔ TickTick تداخل داشت و ارسال نشد.");
         } else {
+          if (status === 429) this.deferForRateLimit(error);
           remaining.push(...this.cache.pending.slice(index));
           this.cache.pending = remaining;
           await this.saveSettings();
@@ -645,6 +665,22 @@ export default class TickTickBridgePlugin extends Plugin {
     this.cache.pending = remaining;
     await this.saveSettings();
     return true;
+  }
+
+  private isRateLimitError(error: unknown) {
+    return Number((error as { status?: number })?.status ?? 0) === 429;
+  }
+
+  private deferForRateLimit(error: unknown) {
+    const requestedSeconds = Number((error as { retryAfter?: number })?.retryAfter ?? 0);
+    // Some TickTick routes omit Retry-After. A one-minute pause avoids a
+    // retry storm while keeping the local queue responsive.
+    const seconds = Number.isFinite(requestedSeconds) && requestedSeconds > 0 ? Math.min(Math.ceil(requestedSeconds), 600) : 60;
+    this.rateLimitedUntil = Math.max(this.rateLimitedUntil, Date.now() + seconds * 1_000);
+  }
+
+  private rateLimitWaitSeconds() {
+    return Math.max(1, Math.ceil((this.rateLimitedUntil - Date.now()) / 1_000));
   }
 
   async createTask(task: any) { return this.runMutation("create", task); }
@@ -748,7 +784,7 @@ export default class TickTickBridgePlugin extends Plugin {
       token: this.settings.apiToken,
       transport: async (url, init) => {
         const response = await requestUrl({ url, method: init.method, headers: init.headers, body: init.body, throw: false });
-        return { status: response.status, text: response.text };
+        return { status: response.status, text: response.text, headers: response.headers };
       },
     });
   }

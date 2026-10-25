@@ -18,11 +18,12 @@ test("single task reads use the official project task endpoint", async () => {
   assert.equal(calls[0].url, "https://api.ticktick.com/open/v1/project/project%201/task/task%201");
 });
 
-test("rate limits retain their status and provide an actionable safe message", async () => {
-  const client = new TickTickClient({ token: "test", transport: async () => ({ status: 429, text: "Too many requests" }) });
+test("rate limits retain their status, retry delay, and actionable safe message", async () => {
+  const client = new TickTickClient({ token: "test", transport: async () => ({ status: 429, text: "Too many requests", headers: { "retry-after": "75" } }) });
   await assert.rejects(() => client.listProjects(), error => {
     assert.ok(error instanceof TickTickApiError);
     assert.equal(error.status, 429);
+    assert.equal(error.retryAfter, 75);
     assert.match(error.message, /موقتاً محدود/);
     return true;
   });

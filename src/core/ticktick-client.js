@@ -1,11 +1,12 @@
 import { isHabitScheduledForDay, isScheduledForDay, toHabitStamp } from "./date.js";
 
 export class TickTickApiError extends Error {
-  constructor(message, { status, body } = {}) {
+  constructor(message, { status, body, retryAfter } = {}) {
     super(message);
     this.name = "TickTickApiError";
     this.status = status;
     this.body = body;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -49,7 +50,9 @@ export class TickTickClient {
     });
     const parsed = parseBody(response.text);
     if (response.status < 200 || response.status >= 300) {
-      throw new TickTickApiError(requestFailureMessage(response.status), { status: response.status, body: parsed });
+      const retryAfterHeader = response.headers?.["retry-after"] ?? response.headers?.["Retry-After"];
+      const retryAfter = Number(retryAfterHeader);
+      throw new TickTickApiError(requestFailureMessage(response.status), { status: response.status, body: parsed, retryAfter: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined });
     }
     return parsed;
   }

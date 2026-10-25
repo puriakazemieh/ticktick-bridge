@@ -240,10 +240,11 @@ export class PlanningCalendar {
     const nav = controls.createDiv({ cls: "ticktick-planner-nav" });
     const step = this.mode === "week" ? 7 : 1;
 
-    // Previous button (in RTL, moving backwards in time is chevron-right)
+    // Keep the visual arrows in the order users expect in the calendar bar:
+    // previous on the left, next on the right.
     const prevBtn = nav.createEl("button", {
       cls: "ticktick-nav-btn mod-icon",
-      text: "›",
+      text: "‹",
       attr: { type: "button", "aria-label": "قبلی" }
     });
     prevBtn.addEventListener("click", () => {
@@ -261,10 +262,9 @@ export class PlanningCalendar {
       void this.render();
     });
 
-    // Next button (in RTL, moving forward in time is chevron-left)
     const nextBtn = nav.createEl("button", {
       cls: "ticktick-nav-btn mod-icon",
-      text: "‹",
+      text: "›",
       attr: { type: "button", "aria-label": "بعدی" }
     });
     nextBtn.addEventListener("click", () => {

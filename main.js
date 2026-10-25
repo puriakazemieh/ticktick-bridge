@@ -200,11 +200,12 @@ function isHabitScheduledForDay(habit, day) {
 
 // src/core/ticktick-client.js
 var TickTickApiError = class extends Error {
-  constructor(message, { status, body } = {}) {
+  constructor(message, { status, body, retryAfter } = {}) {
     super(message);
     this.name = "TickTickApiError";
     this.status = status;
     this.body = body;
+    this.retryAfter = retryAfter;
   }
 };
 async function fetchTransport(url, init) {
@@ -246,7 +247,9 @@ var TickTickClient = class {
     });
     const parsed = parseBody(response.text);
     if (response.status < 200 || response.status >= 300) {
-      throw new TickTickApiError(requestFailureMessage(response.status), { status: response.status, body: parsed });
+      const retryAfterHeader = response.headers?.["retry-after"] ?? response.headers?.["Retry-After"];
+      const retryAfter = Number(retryAfterHeader);
+      throw new TickTickApiError(requestFailureMessage(response.status), { status: response.status, body: parsed, retryAfter: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : void 0 });
     }
     return parsed;
   }
@@ -1538,7 +1541,7 @@ var PlanningCalendar = class {
     const step = this.mode === "week" ? 7 : 1;
     const prevBtn = nav.createEl("button", {
       cls: "ticktick-nav-btn mod-icon",
-      text: "\u203A",
+      text: "\u2039",
       attr: { type: "button", "aria-label": "\u0642\u0628\u0644\u06CC" }
     });
     prevBtn.addEventListener("click", () => {
@@ -1556,7 +1559,7 @@ var PlanningCalendar = class {
     });
     const nextBtn = nav.createEl("button", {
       cls: "ticktick-nav-btn mod-icon",
-      text: "\u2039",
+      text: "\u203A",
       attr: { type: "button", "aria-label": "\u0628\u0639\u062F\u06CC" }
     });
     nextBtn.addEventListener("click", () => {
@@ -2902,6 +2905,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   dashboardStates = /* @__PURE__ */ new Map();
   checkboxImportTimers = /* @__PURE__ */ new Map();
   syncInProgress = false;
+  rateLimitedUntil = 0;
   managedStorage;
   markdownSync;
   noteImport;
@@ -3195,6 +3199,10 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       if (!quiet) new import_obsidian8.Notice("\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC TickTick \u0647\u0645\u06CC\u0646 \u062D\u0627\u0644\u0627 \u062F\u0631 \u062D\u0627\u0644 \u0627\u0646\u062C\u0627\u0645 \u0627\u0633\u062A.");
       return;
     }
+    if (Date.now() < this.rateLimitedUntil) {
+      if (!quiet) new import_obsidian8.Notice(`TickTick \u0645\u0648\u0642\u062A\u0627\u064B \u062F\u0631\u062E\u0648\u0627\u0633\u062A\u200C\u0647\u0627 \u0631\u0627 \u0645\u062D\u062F\u0648\u062F \u06A9\u0631\u062F\u0647 \u0627\u0633\u062A. \u0627\u0631\u0633\u0627\u0644 \u062A\u063A\u06CC\u06CC\u0631\u0647\u0627\u06CC \u0635\u0641\u200C\u0634\u062F\u0647 \u062D\u062F\u0648\u062F ${this.rateLimitWaitSeconds()} \u062B\u0627\u0646\u06CC\u0647\u0654 \u062F\u06CC\u06AF\u0631 \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u0645\u06CC\u200C\u0634\u0648\u062F.`);
+      return;
+    }
     this.syncInProgress = true;
     this.setSyncRibbonState(true);
     try {
@@ -3248,6 +3256,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
         new import_obsidian8.Notice("\u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u0622\u0645\u0627\u062F\u0647 \u0627\u0633\u062A\u061B TickTick \u062F\u0627\u062F\u0647\u0654 \u062A\u0627\u0632\u0647\u200C\u0627\u06CC \u0628\u0631\u0646\u06AF\u0631\u062F\u0627\u0646\u062F. \u0627\u062A\u0635\u0627\u0644 \u0648\u0628 \u0631\u0627 \u062F\u0631 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646.");
       }
     } catch (error) {
+      if (this.isRateLimitError(error)) this.deferForRateLimit(error);
       if (!quiet) new import_obsidian8.Notice(error instanceof Error ? error.message : "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC TickTick \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
     } finally {
       this.setSyncRibbonState(false);
@@ -3373,6 +3382,13 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       new import_obsidian8.Notice("\u0622\u0641\u0644\u0627\u06CC\u0646 \u0647\u0633\u062A\u06CC\u061B \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0631 \u0635\u0641 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
       return { queued: true };
     }
+    if (Date.now() < this.rateLimitedUntil) {
+      this.cache.pending.push(operation);
+      applyLocal();
+      await this.saveSettings();
+      new import_obsidian8.Notice(`TickTick \u0645\u0648\u0642\u062A\u0627\u064B \u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u06AF\u0630\u0627\u0634\u062A\u0647 \u0627\u0633\u062A\u061B \u062A\u063A\u06CC\u06CC\u0631 \u0645\u062D\u0644\u06CC \u062D\u0641\u0638 \u0634\u062F \u0648 \u062D\u062F\u0648\u062F ${this.rateLimitWaitSeconds()} \u062B\u0627\u0646\u06CC\u0647\u0654 \u062F\u06CC\u06AF\u0631 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0627\u0631\u0633\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F.`);
+      return { queued: true };
+    }
     try {
       const result = await execute();
       applyLocal();
@@ -3380,11 +3396,12 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       return { queued: false, result };
     } catch (error) {
       const status = Number(error?.status ?? 0);
-      if (status > 0 && status < 500) throw error;
+      if (status === 429) this.deferForRateLimit(error);
+      else if (status > 0 && status < 500) throw error;
       this.cache.pending.push(operation);
       applyLocal();
       await this.saveSettings();
-      new import_obsidian8.Notice("\u0627\u062A\u0635\u0627\u0644 TickTick \u0628\u0631\u0642\u0631\u0627\u0631 \u0646\u06CC\u0633\u062A\u061B \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0631 \u0635\u0641 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
+      new import_obsidian8.Notice(status === 429 ? `TickTick \u0645\u0648\u0642\u062A\u0627\u064B \u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u06AF\u0630\u0627\u0634\u062A\u0647 \u0627\u0633\u062A\u061B \u062A\u063A\u06CC\u06CC\u0631 \u0645\u062D\u0644\u06CC \u062D\u0641\u0638 \u0634\u062F \u0648 \u062D\u062F\u0648\u062F ${this.rateLimitWaitSeconds()} \u062B\u0627\u0646\u06CC\u0647\u0654 \u062F\u06CC\u06AF\u0631 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0627\u0631\u0633\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F.` : "\u0627\u062A\u0635\u0627\u0644 TickTick \u0628\u0631\u0642\u0631\u0627\u0631 \u0646\u06CC\u0633\u062A\u061B \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0631 \u0635\u0641 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
       return { queued: true };
     }
   }
@@ -3406,6 +3423,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
           this.cache.conflicts.push(operation);
           new import_obsidian8.Notice("\u06CC\u06A9 \u062A\u063A\u06CC\u06CC\u0631 \u0622\u0641\u0644\u0627\u06CC\u0646 \u0628\u0627 \u0646\u0633\u062E\u0647\u0654 TickTick \u062A\u062F\u0627\u062E\u0644 \u062F\u0627\u0634\u062A \u0648 \u0627\u0631\u0633\u0627\u0644 \u0646\u0634\u062F.");
         } else {
+          if (status === 429) this.deferForRateLimit(error);
           remaining.push(...this.cache.pending.slice(index));
           this.cache.pending = remaining;
           await this.saveSettings();
@@ -3416,6 +3434,17 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     this.cache.pending = remaining;
     await this.saveSettings();
     return true;
+  }
+  isRateLimitError(error) {
+    return Number(error?.status ?? 0) === 429;
+  }
+  deferForRateLimit(error) {
+    const requestedSeconds = Number(error?.retryAfter ?? 0);
+    const seconds = Number.isFinite(requestedSeconds) && requestedSeconds > 0 ? Math.min(Math.ceil(requestedSeconds), 600) : 60;
+    this.rateLimitedUntil = Math.max(this.rateLimitedUntil, Date.now() + seconds * 1e3);
+  }
+  rateLimitWaitSeconds() {
+    return Math.max(1, Math.ceil((this.rateLimitedUntil - Date.now()) / 1e3));
   }
   async createTask(task) {
     return this.runMutation("create", task);
@@ -3527,7 +3556,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       token: this.settings.apiToken,
       transport: async (url, init) => {
         const response = await (0, import_obsidian8.requestUrl)({ url, method: init.method, headers: init.headers, body: init.body, throw: false });
-        return { status: response.status, text: response.text };
+        return { status: response.status, text: response.text, headers: response.headers };
       }
     });
   }
