@@ -41,6 +41,7 @@ interface BridgeSettings {
   showRibbonIcons: boolean;
   plannerFirstWeekday: number;
   plannerShowCompleted: boolean;
+  plannerShowHabits: boolean;
   ticktickNotesFolder: string;
   experimentalChecklistReadOnly: boolean;
   boardLastProjectId: string;
@@ -76,6 +77,7 @@ const DEFAULT_SETTINGS: BridgeSettings = {
   showRibbonIcons: false,
   plannerFirstWeekday: 6,
   plannerShowCompleted: false,
+  plannerShowHabits: false,
   ticktickNotesFolder: "TickTick Notes",
   experimentalChecklistReadOnly: true,
   boardLastProjectId: "",
@@ -286,6 +288,8 @@ export default class TickTickBridgePlugin extends Plugin {
       create: async (initial: any) => this.createTaskFromSurface(initial),
       habits: (day: string) => this.cachedHabitsForDay(day),
       checkInHabit: async (habit: any, day: string) => this.checkInHabit(String(habit.id), day, { value: Math.max(1, Number(habit.goal ?? 1)), goal: Math.max(1, Number(habit.goal ?? 1)), status: 2 }),
+      showHabits: () => this.settings.plannerShowHabits,
+      setShowHabits: async (value: boolean) => { this.settings.plannerShowHabits = value; await this.saveSettings(); },
     };
   }
 

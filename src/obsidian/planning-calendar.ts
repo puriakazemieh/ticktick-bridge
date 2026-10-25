@@ -21,6 +21,8 @@ type PlannerHost = {
   create: (initial: any) => Promise<any>;
   habits: (day: string) => any[];
   checkInHabit: (habit: any, day: string) => Promise<any>;
+  showHabits: () => boolean;
+  setShowHabits: (value: boolean) => Promise<void>;
 };
 
 type Mode = "day" | "week" | "month";
@@ -214,6 +216,7 @@ export class PlanningCalendar {
 
   constructor(private element: HTMLElement, private host: PlannerHost) {
     this.day = todayInZone(host.timeZone);
+    this.showHabits = host.showHabits();
   }
 
   async render() {
@@ -349,7 +352,7 @@ export class PlanningCalendar {
     habitsBtn.createSpan({ text: this.showHabits ? "عادت‌ها: روشن" : "نمایش عادت‌ها" });
     habitsBtn.addEventListener("click", () => {
       this.showHabits = !this.showHabits;
-      void this.render();
+      void this.host.setShowHabits(this.showHabits).then(() => this.render());
     });
 
     // Sort Menu Button

@@ -434,8 +434,8 @@ export class ProjectBoard {
   private card(parent: HTMLElement, task: any, projectColor?: string, movable = true) {
     const bound = this.host.binding(task);
     const priority = taskPriority(task.priority);
-    const isNote = String(task.kind ?? task.type ?? "").toUpperCase() === "NOTE";
-    const isPinned = Boolean(task.pinned ?? task.isPinned ?? task.pin);
+    const isNote = String(task.kind ?? task.type ?? task.taskType ?? "").toUpperCase() === "NOTE";
+    const isPinned = Boolean(task.pinned ?? task.isPinned ?? task.pin ?? task.pinnedTime ?? task.pinnedAt ?? task.pinTime);
     const isCompleted = Number(task.status ?? 0) !== 0;
 
     const tone = projectColor || (

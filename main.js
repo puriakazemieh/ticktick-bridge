@@ -138,7 +138,7 @@ var init_project_board = __esm({
     ALL_BOARD_VIEW_ID = "ticktick:view:all";
     INBOX_BOARD_VIEW_ID = "ticktick:view:inbox";
     TAG_BOARD_VIEW_PREFIX = "ticktick:view:tag:";
-    isPinned = (task) => Boolean(task?.pinned ?? task?.isPinned ?? task?.pin);
+    isPinned = (task) => Boolean(task?.pinned ?? task?.isPinned ?? task?.pin ?? task?.pinnedTime ?? task?.pinnedAt ?? task?.pinTime);
     groupName = (priority) => ({ 5: "High", 3: "Medium", 1: "Low" })[Number(priority)] ?? "No priority";
   }
 });
@@ -1563,6 +1563,7 @@ var PlanningCalendar = class {
     this.element = element;
     this.host = host;
     this.day = todayInZone(host.timeZone);
+    this.showHabits = host.showHabits();
   }
   mode = "week";
   day;
@@ -1680,7 +1681,7 @@ var PlanningCalendar = class {
     habitsBtn.createSpan({ text: this.showHabits ? "\u0639\u0627\u062F\u062A\u200C\u0647\u0627: \u0631\u0648\u0634\u0646" : "\u0646\u0645\u0627\u06CC\u0634 \u0639\u0627\u062F\u062A\u200C\u0647\u0627" });
     habitsBtn.addEventListener("click", () => {
       this.showHabits = !this.showHabits;
-      void this.render();
+      void this.host.setShowHabits(this.showHabits).then(() => this.render());
     });
     const sortLabels = {
       ticktick: "\u062A\u0631\u062A\u06CC\u0628 TickTick",
@@ -2765,8 +2766,8 @@ var ProjectBoard = class {
   card(parent, task, projectColor, movable = true) {
     const bound = this.host.binding(task);
     const priority = taskPriority(task.priority);
-    const isNote = String(task.kind ?? task.type ?? "").toUpperCase() === "NOTE";
-    const isPinned2 = Boolean(task.pinned ?? task.isPinned ?? task.pin);
+    const isNote = String(task.kind ?? task.type ?? task.taskType ?? "").toUpperCase() === "NOTE";
+    const isPinned2 = Boolean(task.pinned ?? task.isPinned ?? task.pin ?? task.pinnedTime ?? task.pinnedAt ?? task.pinTime);
     const isCompleted = Number(task.status ?? 0) !== 0;
     const tone = projectColor || (Number(task.priority) === 5 ? "var(--color-red, #e74c3c)" : Number(task.priority) === 3 ? "var(--color-orange, #e67e22)" : Number(task.priority) === 1 ? "var(--color-blue, #3498db)" : "var(--interactive-accent)");
     const card = parent.createDiv({
@@ -3013,6 +3014,7 @@ var DEFAULT_SETTINGS = {
   showRibbonIcons: false,
   plannerFirstWeekday: 6,
   plannerShowCompleted: false,
+  plannerShowHabits: false,
   ticktickNotesFolder: "TickTick Notes",
   experimentalChecklistReadOnly: true,
   boardLastProjectId: "",
@@ -3220,7 +3222,12 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       edit: async (task) => this.editTaskFromSurface(task),
       create: async (initial) => this.createTaskFromSurface(initial),
       habits: (day) => this.cachedHabitsForDay(day),
-      checkInHabit: async (habit, day) => this.checkInHabit(String(habit.id), day, { value: Math.max(1, Number(habit.goal ?? 1)), goal: Math.max(1, Number(habit.goal ?? 1)), status: 2 })
+      checkInHabit: async (habit, day) => this.checkInHabit(String(habit.id), day, { value: Math.max(1, Number(habit.goal ?? 1)), goal: Math.max(1, Number(habit.goal ?? 1)), status: 2 }),
+      showHabits: () => this.settings.plannerShowHabits,
+      setShowHabits: async (value) => {
+        this.settings.plannerShowHabits = value;
+        await this.saveSettings();
+      }
     };
   }
   projectBoardHost() {

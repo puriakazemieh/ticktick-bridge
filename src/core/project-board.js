@@ -95,8 +95,8 @@ export function virtualBoardData(selection, tasks = [], projects = []) {
   };
 }
 
-const isNote = task => String(task?.kind ?? task?.type ?? "").toUpperCase() === "NOTE";
-const isPinned = task => Boolean(task?.pinned ?? task?.isPinned ?? task?.pin);
+const isNote = task => String(task?.kind ?? task?.type ?? task?.taskType ?? "").toUpperCase() === "NOTE";
+const isPinned = task => Boolean(task?.pinned ?? task?.isPinned ?? task?.pin ?? task?.pinnedTime ?? task?.pinnedAt ?? task?.pinTime);
 const groupName = priority => ({ 5: "High", 3: "Medium", 1: "Low" }[Number(priority)] ?? "No priority");
 export function boardColumns(data, showCompleted = false) {
   const columns = data.columns.length ? data.columns : [{ id: "", name: "Tasks", synthetic: true, sortOrder: 0 }];
