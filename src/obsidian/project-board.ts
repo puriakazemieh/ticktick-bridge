@@ -1,5 +1,5 @@
 import { App, Menu, Notice, setIcon } from "obsidian";
-import { boardColumns, RECURRING_BOARD_VIEW_ID, sidebarTree, virtualBoardData, virtualBoardEntries } from "../core/project-board.js";
+import { ALL_BOARD_VIEW_ID, boardColumns, INBOX_BOARD_VIEW_ID, RECURRING_BOARD_VIEW_ID, sidebarTree, virtualBoardData, virtualBoardEntries } from "../core/project-board.js";
 import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
 import { ProjectEditorModal } from "./project-editor-modal";
@@ -24,8 +24,8 @@ type Host = {
   edit: (task: any) => Promise<any>;
   moveToColumn: (task: any, columnId: string) => Promise<any>;
   showCompleted: () => boolean;
-  preferences: () => { selected: string; collapsed: string[] };
-  savePreferences: (value: { selected: string; collapsed: string[] }) => Promise<void>;
+  preferences: () => { selected: string; collapsed: string[]; sidebarCollapsed?: boolean };
+  savePreferences: (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean }) => Promise<void>;
 };
 
 export class ProjectBoard {
@@ -33,6 +33,7 @@ export class ProjectBoard {
   private collapsed = new Set<string>();
   private initialized = false;
   private sortMode = "ticktick";
+  private sidebarCollapsed = false;
 
   constructor(private element: HTMLElement, private host: Host) {}
 
@@ -41,6 +42,7 @@ export class ProjectBoard {
       const saved = this.host.preferences();
       this.selected = saved.selected;
       this.collapsed = new Set(saved.collapsed);
+      this.sidebarCollapsed = Boolean(saved.sidebarCollapsed);
       this.initialized = true;
     }
 
@@ -50,33 +52,44 @@ export class ProjectBoard {
 
     try {
       const projects = await this.host.projects();
-      if (!this.selected && projects[0]) {
-        this.selected = String(projects[0].id);
-      }
+      if (!this.selected) this.selected = ALL_BOARD_VIEW_ID;
 
       // ── 1. Sidebar Rail ──
-      const rail = root.createDiv({ cls: "ticktick-project-rail" });
+      const rail = root.createDiv({ cls: `ticktick-project-rail ${this.sidebarCollapsed ? "is-collapsed" : ""}` });
 
       const railHeader = rail.createDiv({ cls: "ticktick-rail-header" });
       const headerIcon = railHeader.createSpan({ cls: "ticktick-rail-icon" });
       setIcon(headerIcon, "folders");
       railHeader.createSpan({ text: "پروژه‌ها و لیست‌ها" });
+      const collapseBtn = railHeader.createEl("button", { cls: "ticktick-rail-collapse", attr: { type: "button", "aria-label": this.sidebarCollapsed ? "باز کردن فهرست" : "جمع کردن فهرست" } });
+      setIcon(collapseBtn, this.sidebarCollapsed ? "panel-right-open" : "panel-right-close");
+      collapseBtn.addEventListener("click", () => { this.sidebarCollapsed = !this.sidebarCollapsed; void this.persistAndRender(); });
+
+      if (this.sidebarCollapsed) {
+        rail.createEl("button", { cls: "ticktick-rail-expand-label", text: "لیست‌ها", attr: { type: "button" } }).addEventListener("click", () => { this.sidebarCollapsed = false; void this.persistAndRender(); });
+      } else {
 
       // All Projects button
       const allBtn = rail.createEl("button", {
-        cls: `ticktick-project-row ticktick-all-projects-btn ${!this.selected ? "is-selected" : ""}`,
+        cls: `ticktick-project-row ticktick-all-projects-btn ${this.selected === ALL_BOARD_VIEW_ID ? "is-selected" : ""}`,
         attr: { type: "button", "aria-label": "همهٔ لیست‌ها" }
       });
       const allIcon = allBtn.createSpan({ cls: "ticktick-project-row-icon" });
       setIcon(allIcon, "layers");
       allBtn.createSpan({ cls: "ticktick-project-name", text: "همهٔ لیست‌ها" });
-      allBtn.createSpan({ cls: "ticktick-project-count", text: String(this.host.tasks().length) });
+      allBtn.createSpan({ cls: "ticktick-project-count", text: String(virtualBoardEntries(this.host.tasks()).all.count) });
       allBtn.addEventListener("click", () => {
-        this.selected = "";
+        this.selected = ALL_BOARD_VIEW_ID;
         void this.persistAndRender();
       });
 
       const virtual = virtualBoardEntries(this.host.tasks());
+      const inbox = rail.createEl("button", { cls: `ticktick-project-row ${this.selected === INBOX_BOARD_VIEW_ID ? "is-selected" : ""}`, attr: { type: "button", "aria-label": `ورودی، ${virtual.inbox.count} تسک باز` } });
+      const inboxIcon = inbox.createSpan({ cls: "ticktick-project-row-icon" });
+      setIcon(inboxIcon, "inbox");
+      inbox.createSpan({ cls: "ticktick-project-name", text: "ورودی" });
+      inbox.createSpan({ cls: "ticktick-project-count", text: String(virtual.inbox.count) });
+      inbox.addEventListener("click", () => { this.selected = INBOX_BOARD_VIEW_ID; void this.persistAndRender(); });
       const viewHeading = rail.createEl("button", {
         cls: `ticktick-project-group ${this.collapsed.has("virtual-views") ? "is-collapsed" : ""}`,
         attr: { type: "button" }
@@ -182,6 +195,7 @@ export class ProjectBoard {
           newProjectBtn.disabled = false;
         }
       });
+      }
 
       // ── 2. Main Board Area ──
       const main = root.createDiv({ cls: "ticktick-project-main" });
@@ -413,13 +427,15 @@ export class ProjectBoard {
   }
 
   private async persistAndRender() {
-    await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed] });
+    await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: this.sidebarCollapsed });
     await this.render();
   }
 
   private card(parent: HTMLElement, task: any, projectColor?: string, movable = true) {
     const bound = this.host.binding(task);
     const priority = taskPriority(task.priority);
+    const isNote = String(task.kind ?? task.type ?? "").toUpperCase() === "NOTE";
+    const isPinned = Boolean(task.pinned ?? task.isPinned ?? task.pin);
     const isCompleted = Number(task.status ?? 0) !== 0;
 
     const tone = projectColor || (
@@ -430,7 +446,7 @@ export class ProjectBoard {
     );
 
     const card = parent.createDiv({
-      cls: `ticktick-project-card priority-${priority.value} ${isCompleted ? "is-completed" : ""}`,
+      cls: `ticktick-project-card priority-${priority.value} ${isCompleted ? "is-completed" : ""} ${isNote ? "is-note" : ""}`,
       attr: {
         role: "button",
         tabindex: "0",
@@ -451,13 +467,14 @@ export class ProjectBoard {
 
     // Top Row: Checkbox, Title, Priority Chip
     const top = card.createDiv({ cls: "ticktick-project-card-top" });
-    const check = top.createEl("input", {
-      type: "checkbox",
-      cls: "ticktick-project-check",
-      attr: { "aria-label": `تکمیل ${task.title}` }
+    const check = isNote ? null : top.createEl("input", {
+      type: "checkbox", cls: "ticktick-project-check", attr: { "aria-label": `تکمیل ${task.title}` }
     });
-    check.checked = isCompleted;
-    check.disabled = !bound || isCompleted;
+    if (check) { check.checked = isCompleted; check.disabled = !bound || isCompleted; }
+    if (isNote) {
+      const noteIcon = top.createSpan({ cls: "ticktick-project-note-icon", attr: { title: "یادداشت TickTick" } });
+      setIcon(noteIcon, "file-text");
+    }
 
     const titleEl = top.createDiv({
       cls: "ticktick-project-card-title",
@@ -474,6 +491,10 @@ export class ProjectBoard {
         text: priority.label,
         attr: { title: `اولویت: ${priority.label}` }
       });
+    }
+    if (isPinned) {
+      const pin = top.createSpan({ cls: "ticktick-project-pin", attr: { title: "پین‌شده" } });
+      setIcon(pin, "pin");
     }
 
     // Description
@@ -530,8 +551,8 @@ export class ProjectBoard {
       }
     });
 
-    check.addEventListener("click", event => event.stopPropagation());
-    check.addEventListener("change", async () => {
+    check?.addEventListener("click", event => event.stopPropagation());
+    check?.addEventListener("change", async () => {
       check.disabled = true;
       try {
         await this.host.complete(task);

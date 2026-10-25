@@ -23,6 +23,8 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/core/project-board.js
 var project_board_exports = {};
 __export(project_board_exports, {
+  ALL_BOARD_VIEW_ID: () => ALL_BOARD_VIEW_ID,
+  INBOX_BOARD_VIEW_ID: () => INBOX_BOARD_VIEW_ID,
   RECURRING_BOARD_VIEW_ID: () => RECURRING_BOARD_VIEW_ID,
   boardColumns: () => boardColumns,
   normalizeProjectData: () => normalizeProjectData,
@@ -68,6 +70,8 @@ function virtualBoardEntries(tasks = []) {
     }
   }
   return {
+    all: { id: ALL_BOARD_VIEW_ID, name: "\u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627", count: open.length },
+    inbox: { id: INBOX_BOARD_VIEW_ID, name: "\u0648\u0631\u0648\u062F\u06CC", count: open.filter((task) => String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId).length },
     recurring: { id: RECURRING_BOARD_VIEW_ID, name: "\u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647\u200C\u0647\u0627", count: open.filter((task) => Boolean(task.repeatFlag)).length },
     tags: [...tags.entries()].sort(([left], [right]) => left.localeCompare(right, "fa")).map(([name, count]) => ({ id: `${TAG_BOARD_VIEW_PREFIX}${encodeURIComponent(name)}`, name, count }))
   };
@@ -76,7 +80,13 @@ function virtualBoardData(selection, tasks = [], projects = []) {
   const entries = virtualBoardEntries(tasks);
   let name = "";
   let matching = [];
-  if (selection === RECURRING_BOARD_VIEW_ID) {
+  if (selection === ALL_BOARD_VIEW_ID) {
+    name = entries.all.name;
+    matching = tasks;
+  } else if (selection === INBOX_BOARD_VIEW_ID) {
+    name = entries.inbox.name;
+    matching = tasks.filter((task) => String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId);
+  } else if (selection === RECURRING_BOARD_VIEW_ID) {
     name = entries.recurring.name;
     matching = tasks.filter((task) => Boolean(task.repeatFlag));
   } else if (String(selection ?? "").startsWith(TAG_BOARD_VIEW_PREFIX)) {
@@ -99,7 +109,7 @@ function virtualBoardData(selection, tasks = [], projects = []) {
     const projectId = String(task.projectId ?? "");
     if (known.has(projectId)) continue;
     known.add(projectId);
-    columns.push({ id: projectId, name: String(task.projectName ?? "\u0628\u062F\u0648\u0646 \u067E\u0631\u0648\u0698\u0647"), sortOrder: columns.length, synthetic: true });
+    columns.push({ id: projectId, name: projectId.toLowerCase() === "inbox" || !projectId ? "\u0648\u0631\u0648\u062F\u06CC" : String(task.projectName ?? "\u0628\u062F\u0648\u0646 \u067E\u0631\u0648\u0698\u0647"), sortOrder: columns.length, synthetic: true });
   }
   return {
     project: { id: selection, name, virtual: true },
@@ -111,16 +121,24 @@ function boardColumns(data, showCompleted = false) {
   const columns = data.columns.length ? data.columns : [{ id: "", name: "Tasks", synthetic: true, sortOrder: 0 }];
   return columns.map((column) => {
     const matching = data.tasks.filter((task) => String(task.columnId ?? "") === String(column.id) && (showCompleted || Number(task.status ?? 0) === 0));
-    const groups = ["High", "Medium", "Low", "No priority", ...showCompleted ? ["Completed"] : []].map((name) => ({ name, tasks: matching.filter((task) => Number(task.status ?? 0) !== 0 ? name === "Completed" : groupName(task.priority) === name).sort((a, b) => Number(a.sortOrder ?? a.order ?? 0) - Number(b.sortOrder ?? b.order ?? 0) || String(a.title).localeCompare(String(b.title), "fa")) })).filter((group) => group.tasks.length);
+    const ordered = matching.slice().sort((a, b) => Number(isPinned(b)) - Number(isPinned(a)) || Number(a.sortOrder ?? a.order ?? 0) - Number(b.sortOrder ?? b.order ?? 0) || String(a.title).localeCompare(String(b.title), "fa"));
+    const groups = ["Pinned", "High", "Medium", "Low", "No priority", ...showCompleted ? ["Completed"] : []].map((name) => ({ name, tasks: ordered.filter((task) => {
+      if (name === "Pinned") return isPinned(task);
+      if (isPinned(task)) return false;
+      return Number(task.status ?? 0) !== 0 ? name === "Completed" : groupName(task.priority) === name;
+    }) })).filter((group) => group.tasks.length);
     return { ...column, count: matching.length, groups };
   });
 }
-var RECURRING_BOARD_VIEW_ID, TAG_BOARD_VIEW_PREFIX, groupName;
+var RECURRING_BOARD_VIEW_ID, ALL_BOARD_VIEW_ID, INBOX_BOARD_VIEW_ID, TAG_BOARD_VIEW_PREFIX, isPinned, groupName;
 var init_project_board = __esm({
   "src/core/project-board.js"() {
     "use strict";
     RECURRING_BOARD_VIEW_ID = "ticktick:view:recurring";
+    ALL_BOARD_VIEW_ID = "ticktick:view:all";
+    INBOX_BOARD_VIEW_ID = "ticktick:view:inbox";
     TAG_BOARD_VIEW_PREFIX = "ticktick:view:tag:";
+    isPinned = (task) => Boolean(task?.pinned ?? task?.isPinned ?? task?.pin);
     groupName = (priority) => ({ 5: "High", 3: "Medium", 1: "Low" })[Number(priority)] ?? "No priority";
   }
 });
@@ -951,6 +969,39 @@ TickTick: ${JSON.stringify(item.remote)}` });
     this.contentEl.empty();
   }
 };
+var PendingMutationConflictModal = class extends import_obsidian2.Modal {
+  constructor(app, operations, resolve) {
+    super(app);
+    this.operations = operations;
+    this.resolve = resolve;
+  }
+  onOpen() {
+    this.titleEl.setText("\u062A\u063A\u06CC\u06CC\u0631\u0647\u0627\u06CC \u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u0628\u0631\u0631\u0633\u06CC");
+    this.contentEl.createEl("p", { text: "\u0627\u06CC\u0646 \u062A\u063A\u06CC\u06CC\u0631\u0647\u0627 \u0628\u0647\u200C\u0635\u0648\u0631\u062A \u0645\u062D\u0644\u06CC \u062D\u0641\u0638 \u0634\u062F\u0647\u200C\u0627\u0646\u062F\u060C \u0627\u0645\u0627 TickTick \u0622\u0646\u200C\u0647\u0627 \u0631\u0627 \u062F\u0631 \u0622\u062E\u0631\u06CC\u0646 \u0627\u0631\u0633\u0627\u0644 \u0646\u067E\u0630\u06CC\u0631\u0641\u062A\u0647 \u0627\u0633\u062A." });
+    if (!this.operations.length) {
+      this.contentEl.createEl("p", { text: "\u062A\u0639\u0627\u0631\u0636\u06CC \u0628\u0631\u0627\u06CC \u0645\u062F\u06CC\u0631\u06CC\u062A \u0628\u0627\u0642\u06CC \u0646\u0645\u0627\u0646\u062F\u0647 \u0627\u0633\u062A." });
+      return;
+    }
+    for (const operation of this.operations) {
+      const payload = operation.payload ?? {};
+      const card = this.contentEl.createDiv({ cls: "ticktick-conflict-card" });
+      card.createEl("strong", { text: String(payload.title ?? payload.id ?? "\u062A\u063A\u06CC\u06CC\u0631 \u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646") });
+      card.createEl("small", { text: `\u0639\u0645\u0644\u06CC\u0627\u062A: ${operation.type} \xB7 \u062B\u0628\u062A \u0645\u062D\u0644\u06CC: ${new Date(operation.queuedAt ?? Date.now()).toLocaleString("fa-IR")}` });
+      const controls = card.createDiv({ cls: "modal-button-container" });
+      controls.createEl("button", { text: "\u062A\u0644\u0627\u0634 \u062F\u0648\u0628\u0627\u0631\u0647", cls: "mod-cta" }).addEventListener("click", async () => {
+        await this.resolve(operation, "retry");
+        this.close();
+      });
+      controls.createEl("button", { text: "\u062D\u0630\u0641 \u062A\u063A\u06CC\u06CC\u0631 \u0645\u062D\u0644\u06CC" }).addEventListener("click", async () => {
+        await this.resolve(operation, "discard");
+        this.close();
+      });
+    }
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
 
 // src/obsidian/planning-calendar.ts
 var import_obsidian4 = require("obsidian");
@@ -1241,6 +1292,7 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
 function enhanceHorizontalScroll(element) {
   let pointerId = null;
   let originX = 0;
+  let originY = 0;
   let originLeft = 0;
   let moved = false;
   const interactive = [
@@ -1269,14 +1321,15 @@ function enhanceHorizontalScroll(element) {
     if (event.pointerType !== "touch" && event.target instanceof HTMLElement && event.target.closest(interactive)) return;
     pointerId = event.pointerId;
     originX = event.clientX;
+    originY = event.clientY;
     originLeft = element.scrollLeft;
     moved = false;
-    if (event.pointerType === "touch") event.stopPropagation();
   });
   element.addEventListener("pointermove", (event) => {
     if (pointerId !== event.pointerId) return;
     const distance = event.clientX - originX;
-    if (!moved && Math.abs(distance) > 4) {
+    const verticalDistance = event.clientY - originY;
+    if (!moved && Math.abs(distance) > 6 && Math.abs(distance) > Math.abs(verticalDistance)) {
       moved = true;
       element.addClass("is-horizontal-dragging");
       try {
@@ -1517,6 +1570,7 @@ var PlanningCalendar = class {
   tags = /* @__PURE__ */ new Set();
   sortMode = "ticktick";
   colorMode = "project";
+  showHabits = false;
   draggingTaskId = "";
   draggingSourceDay = "";
   async render() {
@@ -1617,6 +1671,17 @@ var PlanningCalendar = class {
   renderFilters(root) {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" });
     const tasks = this.host.tasks();
+    const habitsBtn = filters.createEl("button", {
+      cls: `ticktick-filter-chip ${this.showHabits ? "is-filtered" : ""}`,
+      attr: { type: "button", "aria-pressed": String(this.showHabits) }
+    });
+    const habitsIcon = habitsBtn.createSpan({ cls: "ticktick-chip-icon" });
+    (0, import_obsidian4.setIcon)(habitsIcon, "activity");
+    habitsBtn.createSpan({ text: this.showHabits ? "\u0639\u0627\u062F\u062A\u200C\u0647\u0627: \u0631\u0648\u0634\u0646" : "\u0646\u0645\u0627\u06CC\u0634 \u0639\u0627\u062F\u062A\u200C\u0647\u0627" });
+    habitsBtn.addEventListener("click", () => {
+      this.showHabits = !this.showHabits;
+      void this.render();
+    });
     const sortLabels = {
       ticktick: "\u062A\u0631\u062A\u06CC\u0628 TickTick",
       time: "\u0633\u0627\u0639\u062A",
@@ -1813,6 +1878,7 @@ var PlanningCalendar = class {
       } else {
         for (const task of singleDayTasks) this.renderTask(column, task);
       }
+      this.renderHabits(column, day);
     }
   }
   renderMonth(root, tasks) {
@@ -1903,6 +1969,7 @@ var PlanningCalendar = class {
             dayLabel
           ).open());
         }
+        this.renderHabits(cell, day, true);
       }
     }
   }
@@ -1976,6 +2043,36 @@ var PlanningCalendar = class {
       bar.addEventListener("dragend", () => {
         bar.removeClass("is-dragging");
         this.clearTaskDrag();
+      });
+    }
+  }
+  /** Habits live beside the date they belong to, but remain opt-in so a busy
+   * calendar can stay task-only.  They are resolved from the local mirror and
+   * therefore do not add a TickTick request while rendering. */
+  renderHabits(parent, day, compact = false) {
+    if (!this.showHabits) return;
+    const habits = this.host.habits(day);
+    if (!habits.length) return;
+    const section = parent.createDiv({ cls: `ticktick-planner-habits ${compact ? "is-compact" : ""}` });
+    section.createDiv({ cls: "ticktick-planner-habits-label", text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627" });
+    for (const habit of habits) {
+      const complete = Number(habit.checkin?.status ?? 0) === 2 || Number(habit.checkin?.value ?? 0) >= Math.max(1, Number(habit.goal ?? 1));
+      const row = section.createEl("label", { cls: `ticktick-planner-habit ${complete ? "is-complete" : ""}` });
+      const check = row.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062B\u0628\u062A \u0639\u0627\u062F\u062A ${habit.name}` } });
+      check.checked = complete;
+      check.disabled = complete;
+      row.createSpan({ text: String(habit.name ?? "\u0639\u0627\u062F\u062A") });
+      check.addEventListener("change", async () => {
+        check.disabled = true;
+        try {
+          await this.host.checkInHabit(habit, day);
+          new import_obsidian4.Notice("\u0639\u0627\u062F\u062A \u062B\u0628\u062A \u0648 \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F.");
+          await this.render();
+        } catch (error) {
+          check.checked = false;
+          check.disabled = false;
+          new import_obsidian4.Notice(error instanceof Error ? error.message : "\u062B\u0628\u062A \u0639\u0627\u062F\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+        }
       });
     }
   }
@@ -2202,14 +2299,14 @@ var PlanningCalendar = class {
    * ancestry of a card. Range lanes and RTL grids can otherwise make a card
    * appear over a neighbouring day while retaining another column's parent. */
   visualDropDay(surface, event) {
-    const x = event.clientX;
-    if (Number.isFinite(x) && x > 0) {
-      const headers = surface.querySelectorAll(
-        ".ticktick-planner-day-header[data-day], .ticktick-planner-month-header[data-day]"
+    const x = event.clientX, y = event.clientY;
+    if (Number.isFinite(x) && x > 0 && Number.isFinite(y) && y > 0) {
+      const targets = surface.querySelectorAll(
+        ".ticktick-planner-day[data-day], .ticktick-planner-month-cell[data-day], .ticktick-planner-day-header[data-day], .ticktick-planner-month-header[data-day]"
       );
-      for (const header of headers) {
-        const rect = header.getBoundingClientRect();
-        if (x >= rect.left && x <= rect.right) return header.dataset.day;
+      for (const target of targets) {
+        const rect = target.getBoundingClientRect();
+        if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return target.dataset.day;
       }
     }
     return event.target instanceof Element ? event.target.closest("[data-day]")?.dataset.day : void 0;
@@ -2300,11 +2397,13 @@ var ProjectBoard = class {
   collapsed = /* @__PURE__ */ new Set();
   initialized = false;
   sortMode = "ticktick";
+  sidebarCollapsed = false;
   async render() {
     if (!this.initialized) {
       const saved = this.host.preferences();
       this.selected = saved.selected;
       this.collapsed = new Set(saved.collapsed);
+      this.sidebarCollapsed = Boolean(saved.sidebarCollapsed);
       this.initialized = true;
     }
     this.element.empty();
@@ -2312,131 +2411,151 @@ var ProjectBoard = class {
     const root = this.element.createDiv({ cls: "ticktick-project-board-root" });
     try {
       const projects = await this.host.projects();
-      if (!this.selected && projects[0]) {
-        this.selected = String(projects[0].id);
-      }
-      const rail = root.createDiv({ cls: "ticktick-project-rail" });
+      if (!this.selected) this.selected = ALL_BOARD_VIEW_ID;
+      const rail = root.createDiv({ cls: `ticktick-project-rail ${this.sidebarCollapsed ? "is-collapsed" : ""}` });
       const railHeader = rail.createDiv({ cls: "ticktick-rail-header" });
       const headerIcon = railHeader.createSpan({ cls: "ticktick-rail-icon" });
       (0, import_obsidian6.setIcon)(headerIcon, "folders");
       railHeader.createSpan({ text: "\u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627 \u0648 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
-      const allBtn = rail.createEl("button", {
-        cls: `ticktick-project-row ticktick-all-projects-btn ${!this.selected ? "is-selected" : ""}`,
-        attr: { type: "button", "aria-label": "\u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" }
-      });
-      const allIcon = allBtn.createSpan({ cls: "ticktick-project-row-icon" });
-      (0, import_obsidian6.setIcon)(allIcon, "layers");
-      allBtn.createSpan({ cls: "ticktick-project-name", text: "\u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
-      allBtn.createSpan({ cls: "ticktick-project-count", text: String(this.host.tasks().length) });
-      allBtn.addEventListener("click", () => {
-        this.selected = "";
+      const collapseBtn = railHeader.createEl("button", { cls: "ticktick-rail-collapse", attr: { type: "button", "aria-label": this.sidebarCollapsed ? "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u0641\u0647\u0631\u0633\u062A" : "\u062C\u0645\u0639 \u06A9\u0631\u062F\u0646 \u0641\u0647\u0631\u0633\u062A" } });
+      (0, import_obsidian6.setIcon)(collapseBtn, this.sidebarCollapsed ? "panel-right-open" : "panel-right-close");
+      collapseBtn.addEventListener("click", () => {
+        this.sidebarCollapsed = !this.sidebarCollapsed;
         void this.persistAndRender();
       });
-      const virtual = virtualBoardEntries(this.host.tasks());
-      const viewHeading = rail.createEl("button", {
-        cls: `ticktick-project-group ${this.collapsed.has("virtual-views") ? "is-collapsed" : ""}`,
-        attr: { type: "button" }
-      });
-      const viewChevron = viewHeading.createSpan({ cls: "ticktick-group-chevron" });
-      (0, import_obsidian6.setIcon)(viewChevron, this.collapsed.has("virtual-views") ? "chevron-left" : "chevron-down");
-      viewHeading.createSpan({ cls: "ticktick-group-title", text: "\u0646\u0645\u0627\u06CC\u0634\u200C\u0647\u0627" });
-      viewHeading.addEventListener("click", () => {
-        this.collapsed.has("virtual-views") ? this.collapsed.delete("virtual-views") : this.collapsed.add("virtual-views");
-        void this.persistAndRender();
-      });
-      if (!this.collapsed.has("virtual-views")) {
-        const recurring = rail.createEl("button", {
-          cls: `ticktick-project-row ${this.selected === RECURRING_BOARD_VIEW_ID ? "is-selected" : ""}`,
-          attr: { type: "button", "aria-label": `\u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647\u200C\u0647\u0627\u060C ${virtual.recurring.count} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
-        });
-        const recurringIcon = recurring.createSpan({ cls: "ticktick-project-row-icon" });
-        (0, import_obsidian6.setIcon)(recurringIcon, "repeat-2");
-        recurring.createSpan({ cls: "ticktick-project-name", text: virtual.recurring.name });
-        recurring.createSpan({ cls: "ticktick-project-count", text: String(virtual.recurring.count) });
-        recurring.addEventListener("click", () => {
-          this.selected = RECURRING_BOARD_VIEW_ID;
+      if (this.sidebarCollapsed) {
+        rail.createEl("button", { cls: "ticktick-rail-expand-label", text: "\u0644\u06CC\u0633\u062A\u200C\u0647\u0627", attr: { type: "button" } }).addEventListener("click", () => {
+          this.sidebarCollapsed = false;
           void this.persistAndRender();
         });
-      }
-      const tagHeading = rail.createEl("button", {
-        cls: `ticktick-project-group ${this.collapsed.has("virtual-tags") ? "is-collapsed" : ""}`,
-        attr: { type: "button" }
-      });
-      const tagChevron = tagHeading.createSpan({ cls: "ticktick-group-chevron" });
-      (0, import_obsidian6.setIcon)(tagChevron, this.collapsed.has("virtual-tags") ? "chevron-left" : "chevron-down");
-      tagHeading.createSpan({ cls: "ticktick-group-title", text: "\u0628\u0631\u0686\u0633\u0628\u200C\u0647\u0627" });
-      tagHeading.addEventListener("click", () => {
-        this.collapsed.has("virtual-tags") ? this.collapsed.delete("virtual-tags") : this.collapsed.add("virtual-tags");
-        void this.persistAndRender();
-      });
-      if (!this.collapsed.has("virtual-tags")) {
-        for (const tag of virtual.tags) {
-          const row = rail.createEl("button", {
-            cls: `ticktick-project-row ticktick-tag-view-row ${this.selected === tag.id ? "is-selected" : ""}`,
-            attr: { type: "button", "aria-label": `\u0628\u0631\u0686\u0633\u0628 ${tag.name}\u060C ${tag.count} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
-          });
-          const tagIcon = row.createSpan({ cls: "ticktick-project-row-icon" });
-          (0, import_obsidian6.setIcon)(tagIcon, "tag");
-          row.createSpan({ cls: "ticktick-project-name", text: `#${tag.name}` });
-          row.createSpan({ cls: "ticktick-project-count", text: String(tag.count) });
-          row.addEventListener("click", () => {
-            this.selected = tag.id;
-            void this.persistAndRender();
-          });
-        }
-      }
-      for (const group of sidebarTree(projects, this.host.tasks())) {
-        const key = group.name || "flat";
-        const groupHeading = rail.createEl("button", {
-          cls: `ticktick-project-group ${this.collapsed.has(key) ? "is-collapsed" : ""}`,
+      } else {
+        const allBtn = rail.createEl("button", {
+          cls: `ticktick-project-row ticktick-all-projects-btn ${this.selected === ALL_BOARD_VIEW_ID ? "is-selected" : ""}`,
+          attr: { type: "button", "aria-label": "\u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" }
+        });
+        const allIcon = allBtn.createSpan({ cls: "ticktick-project-row-icon" });
+        (0, import_obsidian6.setIcon)(allIcon, "layers");
+        allBtn.createSpan({ cls: "ticktick-project-name", text: "\u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
+        allBtn.createSpan({ cls: "ticktick-project-count", text: String(virtualBoardEntries(this.host.tasks()).all.count) });
+        allBtn.addEventListener("click", () => {
+          this.selected = ALL_BOARD_VIEW_ID;
+          void this.persistAndRender();
+        });
+        const virtual = virtualBoardEntries(this.host.tasks());
+        const inbox = rail.createEl("button", { cls: `ticktick-project-row ${this.selected === INBOX_BOARD_VIEW_ID ? "is-selected" : ""}`, attr: { type: "button", "aria-label": `\u0648\u0631\u0648\u062F\u06CC\u060C ${virtual.inbox.count} \u062A\u0633\u06A9 \u0628\u0627\u0632` } });
+        const inboxIcon = inbox.createSpan({ cls: "ticktick-project-row-icon" });
+        (0, import_obsidian6.setIcon)(inboxIcon, "inbox");
+        inbox.createSpan({ cls: "ticktick-project-name", text: "\u0648\u0631\u0648\u062F\u06CC" });
+        inbox.createSpan({ cls: "ticktick-project-count", text: String(virtual.inbox.count) });
+        inbox.addEventListener("click", () => {
+          this.selected = INBOX_BOARD_VIEW_ID;
+          void this.persistAndRender();
+        });
+        const viewHeading = rail.createEl("button", {
+          cls: `ticktick-project-group ${this.collapsed.has("virtual-views") ? "is-collapsed" : ""}`,
           attr: { type: "button" }
         });
-        const groupChevron = groupHeading.createSpan({ cls: "ticktick-group-chevron" });
-        (0, import_obsidian6.setIcon)(groupChevron, this.collapsed.has(key) ? "chevron-left" : "chevron-down");
-        groupHeading.createSpan({ cls: "ticktick-group-title", text: group.name || "\u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
-        groupHeading.addEventListener("click", () => {
-          this.collapsed.has(key) ? this.collapsed.delete(key) : this.collapsed.add(key);
+        const viewChevron = viewHeading.createSpan({ cls: "ticktick-group-chevron" });
+        (0, import_obsidian6.setIcon)(viewChevron, this.collapsed.has("virtual-views") ? "chevron-left" : "chevron-down");
+        viewHeading.createSpan({ cls: "ticktick-group-title", text: "\u0646\u0645\u0627\u06CC\u0634\u200C\u0647\u0627" });
+        viewHeading.addEventListener("click", () => {
+          this.collapsed.has("virtual-views") ? this.collapsed.delete("virtual-views") : this.collapsed.add("virtual-views");
           void this.persistAndRender();
         });
-        if (this.collapsed.has(key)) continue;
-        for (const project2 of group.projects) {
-          const row = rail.createEl("button", {
-            cls: `ticktick-project-row ${this.selected === String(project2.id) ? "is-selected" : ""}`,
-            attr: { type: "button", "aria-label": `${project2.name}\u060C ${project2.openCount} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
+        if (!this.collapsed.has("virtual-views")) {
+          const recurring = rail.createEl("button", {
+            cls: `ticktick-project-row ${this.selected === RECURRING_BOARD_VIEW_ID ? "is-selected" : ""}`,
+            attr: { type: "button", "aria-label": `\u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647\u200C\u0647\u0627\u060C ${virtual.recurring.count} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
           });
-          const dot = row.createSpan({ cls: "ticktick-project-dot" });
-          dot.style.setProperty("--project-color", project2.color ?? "var(--interactive-accent)");
-          row.createSpan({ cls: "ticktick-project-name", text: project2.name });
-          row.createSpan({ cls: "ticktick-project-count", text: String(project2.openCount) });
-          row.addEventListener("click", () => {
-            this.selected = String(project2.id);
+          const recurringIcon = recurring.createSpan({ cls: "ticktick-project-row-icon" });
+          (0, import_obsidian6.setIcon)(recurringIcon, "repeat-2");
+          recurring.createSpan({ cls: "ticktick-project-name", text: virtual.recurring.name });
+          recurring.createSpan({ cls: "ticktick-project-count", text: String(virtual.recurring.count) });
+          recurring.addEventListener("click", () => {
+            this.selected = RECURRING_BOARD_VIEW_ID;
             void this.persistAndRender();
           });
         }
-      }
-      const newProjectBtn = rail.createEl("button", {
-        cls: "ticktick-new-project-btn",
-        attr: { type: "button" }
-      });
-      const plusIcon = newProjectBtn.createSpan({ cls: "ticktick-btn-icon" });
-      (0, import_obsidian6.setIcon)(plusIcon, "folder-plus");
-      newProjectBtn.createSpan({ text: "+ \u0644\u06CC\u0633\u062A \u062C\u062F\u06CC\u062F\u2026" });
-      newProjectBtn.addEventListener("click", async () => {
-        const draft = await new ProjectEditorModal(this.host.app).openAndWait();
-        if (!draft) return;
-        newProjectBtn.disabled = true;
-        try {
-          const project2 = await this.host.createProject(draft);
-          this.selected = String(project2?.id ?? "");
-          await this.host.refresh();
-          await this.persistAndRender();
-          new import_obsidian6.Notice("\u0644\u06CC\u0633\u062A \u062F\u0631 TickTick \u0633\u0627\u062E\u062A\u0647 \u0634\u062F.");
-        } catch (error) {
-          new import_obsidian6.Notice(error instanceof Error ? error.message : "\u0633\u0627\u062E\u062A \u0644\u06CC\u0633\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
-        } finally {
-          newProjectBtn.disabled = false;
+        const tagHeading = rail.createEl("button", {
+          cls: `ticktick-project-group ${this.collapsed.has("virtual-tags") ? "is-collapsed" : ""}`,
+          attr: { type: "button" }
+        });
+        const tagChevron = tagHeading.createSpan({ cls: "ticktick-group-chevron" });
+        (0, import_obsidian6.setIcon)(tagChevron, this.collapsed.has("virtual-tags") ? "chevron-left" : "chevron-down");
+        tagHeading.createSpan({ cls: "ticktick-group-title", text: "\u0628\u0631\u0686\u0633\u0628\u200C\u0647\u0627" });
+        tagHeading.addEventListener("click", () => {
+          this.collapsed.has("virtual-tags") ? this.collapsed.delete("virtual-tags") : this.collapsed.add("virtual-tags");
+          void this.persistAndRender();
+        });
+        if (!this.collapsed.has("virtual-tags")) {
+          for (const tag of virtual.tags) {
+            const row = rail.createEl("button", {
+              cls: `ticktick-project-row ticktick-tag-view-row ${this.selected === tag.id ? "is-selected" : ""}`,
+              attr: { type: "button", "aria-label": `\u0628\u0631\u0686\u0633\u0628 ${tag.name}\u060C ${tag.count} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
+            });
+            const tagIcon = row.createSpan({ cls: "ticktick-project-row-icon" });
+            (0, import_obsidian6.setIcon)(tagIcon, "tag");
+            row.createSpan({ cls: "ticktick-project-name", text: `#${tag.name}` });
+            row.createSpan({ cls: "ticktick-project-count", text: String(tag.count) });
+            row.addEventListener("click", () => {
+              this.selected = tag.id;
+              void this.persistAndRender();
+            });
+          }
         }
-      });
+        for (const group of sidebarTree(projects, this.host.tasks())) {
+          const key = group.name || "flat";
+          const groupHeading = rail.createEl("button", {
+            cls: `ticktick-project-group ${this.collapsed.has(key) ? "is-collapsed" : ""}`,
+            attr: { type: "button" }
+          });
+          const groupChevron = groupHeading.createSpan({ cls: "ticktick-group-chevron" });
+          (0, import_obsidian6.setIcon)(groupChevron, this.collapsed.has(key) ? "chevron-left" : "chevron-down");
+          groupHeading.createSpan({ cls: "ticktick-group-title", text: group.name || "\u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
+          groupHeading.addEventListener("click", () => {
+            this.collapsed.has(key) ? this.collapsed.delete(key) : this.collapsed.add(key);
+            void this.persistAndRender();
+          });
+          if (this.collapsed.has(key)) continue;
+          for (const project2 of group.projects) {
+            const row = rail.createEl("button", {
+              cls: `ticktick-project-row ${this.selected === String(project2.id) ? "is-selected" : ""}`,
+              attr: { type: "button", "aria-label": `${project2.name}\u060C ${project2.openCount} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
+            });
+            const dot = row.createSpan({ cls: "ticktick-project-dot" });
+            dot.style.setProperty("--project-color", project2.color ?? "var(--interactive-accent)");
+            row.createSpan({ cls: "ticktick-project-name", text: project2.name });
+            row.createSpan({ cls: "ticktick-project-count", text: String(project2.openCount) });
+            row.addEventListener("click", () => {
+              this.selected = String(project2.id);
+              void this.persistAndRender();
+            });
+          }
+        }
+        const newProjectBtn = rail.createEl("button", {
+          cls: "ticktick-new-project-btn",
+          attr: { type: "button" }
+        });
+        const plusIcon = newProjectBtn.createSpan({ cls: "ticktick-btn-icon" });
+        (0, import_obsidian6.setIcon)(plusIcon, "folder-plus");
+        newProjectBtn.createSpan({ text: "+ \u0644\u06CC\u0633\u062A \u062C\u062F\u06CC\u062F\u2026" });
+        newProjectBtn.addEventListener("click", async () => {
+          const draft = await new ProjectEditorModal(this.host.app).openAndWait();
+          if (!draft) return;
+          newProjectBtn.disabled = true;
+          try {
+            const project2 = await this.host.createProject(draft);
+            this.selected = String(project2?.id ?? "");
+            await this.host.refresh();
+            await this.persistAndRender();
+            new import_obsidian6.Notice("\u0644\u06CC\u0633\u062A \u062F\u0631 TickTick \u0633\u0627\u062E\u062A\u0647 \u0634\u062F.");
+          } catch (error) {
+            new import_obsidian6.Notice(error instanceof Error ? error.message : "\u0633\u0627\u062E\u062A \u0644\u06CC\u0633\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+          } finally {
+            newProjectBtn.disabled = false;
+          }
+        });
+      }
       const main = root.createDiv({ cls: "ticktick-project-main" });
       const project = projects.find((item) => String(item.id) === this.selected);
       const virtualData = virtualBoardData(this.selected, this.host.tasks(), projects);
@@ -2640,16 +2759,18 @@ var ProjectBoard = class {
     }
   }
   async persistAndRender() {
-    await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed] });
+    await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: this.sidebarCollapsed });
     await this.render();
   }
   card(parent, task, projectColor, movable = true) {
     const bound = this.host.binding(task);
     const priority = taskPriority(task.priority);
+    const isNote = String(task.kind ?? task.type ?? "").toUpperCase() === "NOTE";
+    const isPinned2 = Boolean(task.pinned ?? task.isPinned ?? task.pin);
     const isCompleted = Number(task.status ?? 0) !== 0;
     const tone = projectColor || (Number(task.priority) === 5 ? "var(--color-red, #e74c3c)" : Number(task.priority) === 3 ? "var(--color-orange, #e67e22)" : Number(task.priority) === 1 ? "var(--color-blue, #3498db)" : "var(--interactive-accent)");
     const card = parent.createDiv({
-      cls: `ticktick-project-card priority-${priority.value} ${isCompleted ? "is-completed" : ""}`,
+      cls: `ticktick-project-card priority-${priority.value} ${isCompleted ? "is-completed" : ""} ${isNote ? "is-note" : ""}`,
       attr: {
         role: "button",
         tabindex: "0",
@@ -2667,13 +2788,19 @@ var ProjectBoard = class {
     });
     card.addEventListener("dragend", () => card.removeClass("is-dragging"));
     const top = card.createDiv({ cls: "ticktick-project-card-top" });
-    const check = top.createEl("input", {
+    const check = isNote ? null : top.createEl("input", {
       type: "checkbox",
       cls: "ticktick-project-check",
       attr: { "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${task.title}` }
     });
-    check.checked = isCompleted;
-    check.disabled = !bound || isCompleted;
+    if (check) {
+      check.checked = isCompleted;
+      check.disabled = !bound || isCompleted;
+    }
+    if (isNote) {
+      const noteIcon = top.createSpan({ cls: "ticktick-project-note-icon", attr: { title: "\u06CC\u0627\u062F\u062F\u0627\u0634\u062A TickTick" } });
+      (0, import_obsidian6.setIcon)(noteIcon, "file-text");
+    }
     const titleEl = top.createDiv({
       cls: "ticktick-project-card-title",
       text: String(task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646")
@@ -2688,6 +2815,10 @@ var ProjectBoard = class {
         text: priority.label,
         attr: { title: `\u0627\u0648\u0644\u0648\u06CC\u062A: ${priority.label}` }
       });
+    }
+    if (isPinned2) {
+      const pin = top.createSpan({ cls: "ticktick-project-pin", attr: { title: "\u067E\u06CC\u0646\u200C\u0634\u062F\u0647" } });
+      (0, import_obsidian6.setIcon)(pin, "pin");
     }
     const description = taskDescription(task);
     if (description) {
@@ -2739,8 +2870,8 @@ var ProjectBoard = class {
         details();
       }
     });
-    check.addEventListener("click", (event) => event.stopPropagation());
-    check.addEventListener("change", async () => {
+    check?.addEventListener("click", (event) => event.stopPropagation());
+    check?.addEventListener("change", async () => {
       check.disabled = true;
       try {
         await this.host.complete(task);
@@ -2885,7 +3016,8 @@ var DEFAULT_SETTINGS = {
   ticktickNotesFolder: "TickTick Notes",
   experimentalChecklistReadOnly: true,
   boardLastProjectId: "",
-  boardCollapsedGroups: []
+  boardCollapsedGroups: [],
+  boardSidebarCollapsed: false
 };
 var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   settings = DEFAULT_SETTINGS;
@@ -3037,15 +3169,23 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   async openMarkdownSyncConflicts() {
     const conflicts = await this.markdownSync.conflicts();
     if (conflicts.length) {
-      if (!conflicts[0].diff?.conflicts?.length) {
-        new import_obsidian8.Notice(`${conflicts[0].message} \u2014 \u0627\u06CC\u0646 \u0645\u0648\u0631\u062F \u0642\u0631\u0646\u0637\u06CC\u0646\u0647 \u0634\u062F\u0647 \u0648 \u062F\u0631 \u06AF\u0632\u0627\u0631\u0634 \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F\u0647 \u0627\u0633\u062A.`);
-        return conflicts;
-      }
-      const choice = await new MarkdownConflictModal(this.app, conflicts[0]).openAndWait();
-      await this.markdownSync.resolve(conflicts[0], choice);
-      new import_obsidian8.Notice("\u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u0645\u0627 \u062B\u0628\u062A \u0634\u062F\u061B \u06AF\u0632\u0627\u0631\u0634 \u062F\u0631 /.ticktick/reports/ \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
-    } else new import_obsidian8.Notice("\u062A\u0639\u0627\u0631\u0636 Markdown sync \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F.");
+      const actionable = conflicts.find((conflict) => conflict.diff?.conflicts?.length);
+      if (actionable) {
+        const choice = await new MarkdownConflictModal(this.app, actionable).openAndWait();
+        await this.markdownSync.resolve(actionable, choice);
+        new import_obsidian8.Notice("\u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u0645\u0627 \u062B\u0628\u062A \u0634\u062F\u061B \u06AF\u0632\u0627\u0631\u0634 \u062F\u0631 /.ticktick/reports/ \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
+      } else new import_obsidian8.Notice(`${conflicts.length} \u0645\u0648\u0631\u062F Markdown \u062F\u0631 \u0642\u0631\u0646\u0637\u06CC\u0646\u0647 \u0627\u0633\u062A\u061B \u062C\u0632\u0626\u06CC\u0627\u062A \u062F\u0631 \u06AF\u0632\u0627\u0631\u0634 /.ticktick/reports/ \u062B\u0628\u062A \u0634\u062F\u0647 \u0627\u0633\u062A.`);
+    }
+    if (this.cache.conflicts.length) new PendingMutationConflictModal(this.app, this.cache.conflicts, (operation, choice) => this.resolveQueuedConflict(operation, choice)).open();
+    else if (!conflicts.length) new import_obsidian8.Notice("\u062A\u0639\u0627\u0631\u0636\u06CC \u0628\u0631\u0627\u06CC \u0645\u062F\u06CC\u0631\u06CC\u062A \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F.");
     return conflicts;
+  }
+  async resolveQueuedConflict(operation, choice) {
+    this.cache.conflicts = this.cache.conflicts.filter((item) => item.id !== operation.id);
+    if (choice === "retry") this.cache.pending.push({ ...operation, queuedAt: (/* @__PURE__ */ new Date()).toISOString() });
+    await this.saveSettings();
+    await this.refreshLocalSurfaces();
+    new import_obsidian8.Notice(choice === "retry" ? "\u062A\u063A\u06CC\u06CC\u0631 \u062F\u0648\u0628\u0627\u0631\u0647 \u0628\u0647 \u0635\u0641 \u0627\u0645\u0646 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0631\u0641\u062A." : "\u062A\u063A\u06CC\u06CC\u0631 \u0645\u062D\u0644\u06CC \u0627\u0632 \u0635\u0641 \u062A\u0639\u0627\u0631\u0636 \u062D\u0630\u0641 \u0634\u062F.");
   }
   async repairMarkdownBindings() {
     const result = await this.markdownSync.repairLegacyBindings();
@@ -3078,7 +3218,9 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       binding: (task) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task) => this.loadTaskDetails(task),
       edit: async (task) => this.editTaskFromSurface(task),
-      create: async (initial) => this.createTaskFromSurface(initial)
+      create: async (initial) => this.createTaskFromSurface(initial),
+      habits: (day) => this.cachedHabitsForDay(day),
+      checkInHabit: async (habit, day) => this.checkInHabit(String(habit.id), day, { value: Math.max(1, Number(habit.goal ?? 1)), goal: Math.max(1, Number(habit.goal ?? 1)), status: 2 })
     };
   }
   projectBoardHost() {
@@ -3102,10 +3244,11 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       edit: async (task) => this.editTaskFromSurface(task),
       moveToColumn: async (task, columnId) => this.moveTaskToBoardColumn(task, columnId),
       showCompleted: () => this.settings.plannerShowCompleted,
-      preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups }),
+      preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups, sidebarCollapsed: this.settings.boardSidebarCollapsed }),
       savePreferences: async (value) => {
         this.settings.boardLastProjectId = value.selected;
         this.settings.boardCollapsedGroups = value.collapsed;
+        this.settings.boardSidebarCollapsed = value.sidebarCollapsed;
         await this.saveSettings();
       }
     };
@@ -4293,6 +4436,9 @@ var TickTickControlView = class extends import_obsidian8.ItemView {
         cls: "ticktick-control-desc",
         text: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0645\u0644 \u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627 \u0648 \u0631\u06A9\u0648\u0631\u062F\u0647\u0627 \u0631\u0627 \u0628\u062F\u0648\u0646 \u0641\u06CC\u0644\u062A\u0631 \u062A\u0627\u0631\u06CC\u062E \u062F\u0631\u06CC\u0627\u0641\u062A \u0648 \u0645\u062D\u0644\u06CC cache \u0645\u06CC\u200C\u06A9\u0646\u062F. Preview \u0647\u06CC\u0686 \u062A\u063A\u06CC\u06CC\u0631\u06CC \u0646\u0645\u06CC\u200C\u0646\u0648\u06CC\u0633\u062F\u061B Apply \u0641\u0642\u0637 \u067E\u0633 \u0627\u0632 \u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u0645\u0627 \u0627\u062C\u0631\u0627 \u0645\u06CC\u200C\u0634\u0648\u062F."
       });
+      if (this.plugin.cacheConflictCount()) {
+        card.createEl("p", { cls: "ticktick-control-desc", text: `${this.plugin.cacheConflictCount()} \u062A\u063A\u06CC\u06CC\u0631 \u0645\u062D\u0644\u06CC \u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u062A\u0635\u0645\u06CC\u0645 \u0627\u0633\u062A\u061B \u0627\u0632 \u062F\u06A9\u0645\u0647\u0654 \xAB\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u062A\u0639\u0627\u0631\u0636\u200C\u0647\u0627\xBB \u0628\u0631\u0627\u06CC \u062F\u06CC\u062F\u0646 \u0648 \u0645\u062F\u06CC\u0631\u06CC\u062A \u0622\u0646\u200C\u0647\u0627 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646.` });
+      }
       const actions = card.createDiv({ cls: "ticktick-control-actions" });
       this.button(actions, "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0645\u0644 TickTick", "refresh-cw", async () => this.plugin.syncNow(), true);
       this.button(actions, "Preview Markdown", "file-search", async () => this.plugin.previewMarkdownSync());

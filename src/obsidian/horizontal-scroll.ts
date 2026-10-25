@@ -3,6 +3,7 @@
 export function enhanceHorizontalScroll(element: HTMLElement) {
   let pointerId: number | null = null;
   let originX = 0;
+  let originY = 0;
   let originLeft = 0;
   let moved = false;
   const interactive = [
@@ -34,15 +35,19 @@ export function enhanceHorizontalScroll(element: HTMLElement) {
     if (event.pointerType !== "touch" && event.target instanceof HTMLElement && event.target.closest(interactive)) return;
     pointerId = event.pointerId;
     originX = event.clientX;
+    originY = event.clientY;
     originLeft = element.scrollLeft;
     moved = false;
-    if (event.pointerType === "touch") event.stopPropagation();
   });
 
   element.addEventListener("pointermove", event => {
     if (pointerId !== event.pointerId) return;
     const distance = event.clientX - originX;
-    if (!moved && Math.abs(distance) > 4) {
+    const verticalDistance = event.clientY - originY;
+    // Never claim a vertical gesture.  On tablets this used to capture a
+    // small sideways wobble while scrolling and made the page/drawer feel
+    // stuck.  Horizontal panning begins only after a clearly horizontal move.
+    if (!moved && Math.abs(distance) > 6 && Math.abs(distance) > Math.abs(verticalDistance)) {
       moved = true;
       element.addClass("is-horizontal-dragging");
       try {

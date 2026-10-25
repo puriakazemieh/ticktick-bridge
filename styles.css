@@ -55,6 +55,15 @@
   max-height: calc(100vh - 12rem);
   overflow-y: auto;
 }
+.ticktick-project-rail.is-collapsed { min-width: 3.2rem; width: 3.2rem; padding-inline: .35rem; overflow: hidden; }
+.ticktick-project-rail.is-collapsed .ticktick-rail-header > span:not(.ticktick-rail-icon),
+.ticktick-project-rail.is-collapsed > :not(.ticktick-rail-header):not(.ticktick-rail-expand-label) { display: none; }
+.ticktick-rail-collapse { margin-inline-start: auto; padding: .25rem !important; }
+.ticktick-rail-expand-label { writing-mode: vertical-rl; min-height: 5rem; margin: .35rem auto; }
+.ticktick-project-card.is-note { border-inline-start-color: var(--color-blue, var(--interactive-accent)); background: color-mix(in srgb, var(--background-secondary) 88%, var(--color-blue) 12%); }
+.ticktick-project-note-icon, .ticktick-project-pin { display: inline-flex; color: var(--text-muted); margin-inline-start: .25rem; }
+.ticktick-project-pin { color: var(--color-yellow, #d49a2a); }
+.ticktick-conflict-card { border: 1px solid var(--background-modifier-border); border-radius: .55rem; padding: .65rem; margin: .6rem 0; display: grid; gap: .35rem; direction: rtl; text-align: right; }
 
 .ticktick-rail-header {
   display: flex;
@@ -2656,7 +2665,8 @@
   /* Preserve native vertical scrolling on touch devices. The JS helper only
      captures an actual horizontal drag, so the Obsidian drawer remains safe. */
   touch-action: pan-y;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 .ticktick-planner-days-shell,
@@ -2676,6 +2686,13 @@
 .ticktick-planner-days::-webkit-scrollbar-thumb, .ticktick-planner-month::-webkit-scrollbar-thumb, .ticktick-project-columns::-webkit-scrollbar-thumb { min-width: 3.5rem; border: 3px solid var(--background-secondary); border-radius: 999px; background: color-mix(in srgb, var(--interactive-accent) 72%, var(--text-muted)); }
 .ticktick-planner-days::-webkit-scrollbar-thumb:hover, .ticktick-planner-month::-webkit-scrollbar-thumb:hover, .ticktick-project-columns::-webkit-scrollbar-thumb:hover { background: var(--interactive-accent); }
 .ticktick-planner-days.is-horizontal-dragging, .ticktick-planner-month.is-horizontal-dragging, .ticktick-project-columns.is-horizontal-dragging { cursor: grabbing; user-select: none; scroll-snap-type: none; }
+.ticktick-planner-habits { border-top: 1px dashed var(--background-modifier-border); margin-top: .45rem; padding-top: .4rem; display: grid; gap: .28rem; }
+.ticktick-planner-habits-label { color: var(--text-muted); font-size: .68rem; font-weight: 700; }
+.ticktick-planner-habit { display: flex; align-items: center; gap: .35rem; min-width: 0; color: var(--text-normal); font-size: .72rem; cursor: pointer; }
+.ticktick-planner-habit span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ticktick-planner-habit.is-complete { color: var(--text-muted); text-decoration: line-through; }
+.ticktick-planner-habits.is-compact { gap: .18rem; margin-top: .25rem; padding-top: .25rem; }
+.ticktick-planner-habits.is-compact .ticktick-planner-habit { font-size: .64rem; }
 
 /* Keep the progress/icon on the right in the daily panel regardless of the
    active Obsidian theme's LTR/RTL rules. */

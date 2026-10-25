@@ -4,7 +4,7 @@ import { TickTickClient } from "../core/ticktick-client.js";
 import { normalizeWebSessionCookie, parseWebHabitCheckins } from "../core/ticktick-web-habits.js";
 import { ManagedStorage } from "./managed-storage";
 import { MarkdownSync } from "./markdown-sync";
-import { MarkdownConflictModal } from "./conflict-modal";
+import { MarkdownConflictModal, PendingMutationConflictModal } from "./conflict-modal";
 import { PlanningCalendar } from "./planning-calendar";
 import { ProjectBoard } from "./project-board";
 import { NoteImport, NoteImportModal } from "./note-import";
@@ -45,6 +45,7 @@ interface BridgeSettings {
   experimentalChecklistReadOnly: boolean;
   boardLastProjectId: string;
   boardCollapsedGroups: string[];
+  boardSidebarCollapsed: boolean;
 }
 
 type CachedHabitCheckin = { stamp: number; value: number; goal: number; status: number };
@@ -79,6 +80,7 @@ const DEFAULT_SETTINGS: BridgeSettings = {
   experimentalChecklistReadOnly: true,
   boardLastProjectId: "",
   boardCollapsedGroups: [],
+  boardSidebarCollapsed: false,
 };
 
 export default class TickTickBridgePlugin extends Plugin {
@@ -233,12 +235,24 @@ export default class TickTickBridgePlugin extends Plugin {
   async openMarkdownSyncConflicts() {
     const conflicts = await this.markdownSync.conflicts();
     if (conflicts.length) {
-      if (!conflicts[0].diff?.conflicts?.length) { new Notice(`${conflicts[0].message} — این مورد قرنطینه شده و در گزارش ذخیره شده است.`); return conflicts; }
-      const choice = await new MarkdownConflictModal(this.app, conflicts[0]).openAndWait();
-      await this.markdownSync.resolve(conflicts[0], choice);
-      new Notice("انتخاب شما ثبت شد؛ گزارش در /.ticktick/reports/ ذخیره شد.");
-    } else new Notice("تعارض Markdown sync وجود ندارد.");
+      const actionable = conflicts.find(conflict => conflict.diff?.conflicts?.length);
+      if (actionable) {
+        const choice = await new MarkdownConflictModal(this.app, actionable).openAndWait();
+        await this.markdownSync.resolve(actionable, choice);
+        new Notice("انتخاب شما ثبت شد؛ گزارش در /.ticktick/reports/ ذخیره شد.");
+      } else new Notice(`${conflicts.length} مورد Markdown در قرنطینه است؛ جزئیات در گزارش /.ticktick/reports/ ثبت شده است.`);
+    }
+    if (this.cache.conflicts.length) new PendingMutationConflictModal(this.app, this.cache.conflicts, (operation, choice) => this.resolveQueuedConflict(operation, choice)).open();
+    else if (!conflicts.length) new Notice("تعارضی برای مدیریت وجود ندارد.");
     return conflicts;
+  }
+
+  private async resolveQueuedConflict(operation: PendingMutation, choice: "retry" | "discard") {
+    this.cache.conflicts = this.cache.conflicts.filter(item => item.id !== operation.id);
+    if (choice === "retry") this.cache.pending.push({ ...operation, queuedAt: new Date().toISOString() });
+    await this.saveSettings();
+    await this.refreshLocalSurfaces();
+    new Notice(choice === "retry" ? "تغییر دوباره به صف امن همگام‌سازی رفت." : "تغییر محلی از صف تعارض حذف شد.");
   }
   async repairMarkdownBindings() {
     const result = await this.markdownSync.repairLegacyBindings();
@@ -270,6 +284,8 @@ export default class TickTickBridgePlugin extends Plugin {
       load: async (task: any) => this.loadTaskDetails(task),
       edit: async (task: any) => this.editTaskFromSurface(task),
       create: async (initial: any) => this.createTaskFromSurface(initial),
+      habits: (day: string) => this.cachedHabitsForDay(day),
+      checkInHabit: async (habit: any, day: string) => this.checkInHabit(String(habit.id), day, { value: Math.max(1, Number(habit.goal ?? 1)), goal: Math.max(1, Number(habit.goal ?? 1)), status: 2 }),
     };
   }
 
@@ -292,8 +308,8 @@ export default class TickTickBridgePlugin extends Plugin {
       edit: async (task: any) => this.editTaskFromSurface(task),
       moveToColumn: async (task: any, columnId: string) => this.moveTaskToBoardColumn(task, columnId),
       showCompleted: () => this.settings.plannerShowCompleted,
-      preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups }),
-      savePreferences: async (value: { selected: string; collapsed: string[] }) => { this.settings.boardLastProjectId = value.selected; this.settings.boardCollapsedGroups = value.collapsed; await this.saveSettings(); },
+      preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups, sidebarCollapsed: this.settings.boardSidebarCollapsed }),
+      savePreferences: async (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean }) => { this.settings.boardLastProjectId = value.selected; this.settings.boardCollapsedGroups = value.collapsed; this.settings.boardSidebarCollapsed = value.sidebarCollapsed; await this.saveSettings(); },
     };
   }
 
@@ -1497,6 +1513,9 @@ class TickTickControlView extends ItemView {
         cls: "ticktick-control-desc",
         text: "همگام‌سازی کامل همهٔ لیست‌ها و رکوردها را بدون فیلتر تاریخ دریافت و محلی cache می‌کند. Preview هیچ تغییری نمی‌نویسد؛ Apply فقط پس از انتخاب شما اجرا می‌شود."
       });
+      if (this.plugin.cacheConflictCount()) {
+        card.createEl("p", { cls: "ticktick-control-desc", text: `${this.plugin.cacheConflictCount()} تغییر محلی نیازمند تصمیم است؛ از دکمهٔ «باز کردن تعارض‌ها» برای دیدن و مدیریت آن‌ها استفاده کن.` });
+      }
 
       const actions = card.createDiv({ cls: "ticktick-control-actions" });
       this.button(actions, "همگام‌سازی کامل TickTick", "refresh-cw", async () => this.plugin.syncNow(), true);

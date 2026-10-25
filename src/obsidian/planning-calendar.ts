@@ -19,6 +19,8 @@ type PlannerHost = {
   load: (task: any) => Promise<any>;
   edit: (task: any) => Promise<any>;
   create: (initial: any) => Promise<any>;
+  habits: (day: string) => any[];
+  checkInHabit: (habit: any, day: string) => Promise<any>;
 };
 
 type Mode = "day" | "week" | "month";
@@ -206,6 +208,7 @@ export class PlanningCalendar {
   private tags = new Set<string>();
   private sortMode = "ticktick";
   private colorMode: ColorMode = "project";
+  private showHabits = false;
   private draggingTaskId = "";
   private draggingSourceDay = "";
 
@@ -336,6 +339,18 @@ export class PlanningCalendar {
   private renderFilters(root: HTMLElement) {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" });
     const tasks = this.host.tasks();
+
+    const habitsBtn = filters.createEl("button", {
+      cls: `ticktick-filter-chip ${this.showHabits ? "is-filtered" : ""}`,
+      attr: { type: "button", "aria-pressed": String(this.showHabits) }
+    });
+    const habitsIcon = habitsBtn.createSpan({ cls: "ticktick-chip-icon" });
+    setIcon(habitsIcon, "activity");
+    habitsBtn.createSpan({ text: this.showHabits ? "عادت‌ها: روشن" : "نمایش عادت‌ها" });
+    habitsBtn.addEventListener("click", () => {
+      this.showHabits = !this.showHabits;
+      void this.render();
+    });
 
     // Sort Menu Button
     const sortLabels: Record<string, string> = {
@@ -562,6 +577,7 @@ export class PlanningCalendar {
       } else {
         for (const task of singleDayTasks) this.renderTask(column, task);
       }
+      this.renderHabits(column, day);
     }
   }
 
@@ -665,6 +681,7 @@ export class PlanningCalendar {
             dayLabel
           ).open());
         }
+        this.renderHabits(cell, day, true);
       }
     }
   }
@@ -745,6 +762,37 @@ export class PlanningCalendar {
         event.dataTransfer?.setData("text/plain", String(task.id));
       });
       bar.addEventListener("dragend", () => { bar.removeClass("is-dragging"); this.clearTaskDrag(); });
+    }
+  }
+
+  /** Habits live beside the date they belong to, but remain opt-in so a busy
+   * calendar can stay task-only.  They are resolved from the local mirror and
+   * therefore do not add a TickTick request while rendering. */
+  private renderHabits(parent: HTMLElement, day: string, compact = false) {
+    if (!this.showHabits) return;
+    const habits = this.host.habits(day);
+    if (!habits.length) return;
+    const section = parent.createDiv({ cls: `ticktick-planner-habits ${compact ? "is-compact" : ""}` });
+    section.createDiv({ cls: "ticktick-planner-habits-label", text: "عادت‌ها" });
+    for (const habit of habits) {
+      const complete = Number(habit.checkin?.status ?? 0) === 2 || Number(habit.checkin?.value ?? 0) >= Math.max(1, Number(habit.goal ?? 1));
+      const row = section.createEl("label", { cls: `ticktick-planner-habit ${complete ? "is-complete" : ""}` });
+      const check = row.createEl("input", { type: "checkbox", attr: { "aria-label": `ثبت عادت ${habit.name}` } });
+      check.checked = complete;
+      check.disabled = complete;
+      row.createSpan({ text: String(habit.name ?? "عادت") });
+      check.addEventListener("change", async () => {
+        check.disabled = true;
+        try {
+          await this.host.checkInHabit(habit, day);
+          new Notice("عادت ثبت و همگام شد.");
+          await this.render();
+        } catch (error) {
+          check.checked = false;
+          check.disabled = false;
+          new Notice(error instanceof Error ? error.message : "ثبت عادت ناموفق بود.");
+        }
+      });
     }
   }
 
@@ -1014,14 +1062,17 @@ export class PlanningCalendar {
    * ancestry of a card. Range lanes and RTL grids can otherwise make a card
    * appear over a neighbouring day while retaining another column's parent. */
   private visualDropDay(surface: HTMLElement, event: DragEvent) {
-    const x = event.clientX;
-    if (Number.isFinite(x) && x > 0) {
-      const headers = surface.querySelectorAll<HTMLElement>(
-        ".ticktick-planner-day-header[data-day], .ticktick-planner-month-header[data-day]",
+    const x = event.clientX, y = event.clientY;
+    if (Number.isFinite(x) && x > 0 && Number.isFinite(y) && y > 0) {
+      // Month headers repeat for each week.  Matching only the x coordinate
+      // always selected the first week's Monday/Tuesday; use the actual cell
+      // rectangle first so cross-week drops preserve their intended date.
+      const targets = surface.querySelectorAll<HTMLElement>(
+        ".ticktick-planner-day[data-day], .ticktick-planner-month-cell[data-day], .ticktick-planner-day-header[data-day], .ticktick-planner-month-header[data-day]",
       );
-      for (const header of headers) {
-        const rect = header.getBoundingClientRect();
-        if (x >= rect.left && x <= rect.right) return header.dataset.day;
+      for (const target of targets) {
+        const rect = target.getBoundingClientRect();
+        if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return target.dataset.day;
       }
     }
     return event.target instanceof Element

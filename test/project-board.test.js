@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { boardColumns, normalizeProjectData, RECURRING_BOARD_VIEW_ID, sidebarTree, virtualBoardData, virtualBoardEntries } from "../src/core/project-board.js";
+import { ALL_BOARD_VIEW_ID, boardColumns, INBOX_BOARD_VIEW_ID, normalizeProjectData, RECURRING_BOARD_VIEW_ID, sidebarTree, virtualBoardData, virtualBoardEntries } from "../src/core/project-board.js";
 test("board normalizes flat data and synthesizes a display-only Tasks column", () => {
   const data = normalizeProjectData({ tasks: [{ id: "1", title: "کار فارسی", priority: 5, status: 0 }] }, { id: "p", name: "شخصی", color: "#f00" });
   const columns = boardColumns(data); assert.equal(columns[0].name, "Tasks"); assert.equal(columns[0].groups[0].name, "High"); assert.equal(data.tasks[0].projectName, "شخصی");
@@ -36,4 +36,17 @@ test("virtual board entries expose recurring tasks and cached tags by project", 
   assert.equal(board.project.name, "تکرارشونده‌ها");
   assert.deepEqual(board.columns.map(column => column.name), ["کار"]);
   assert.equal(board.tasks[0].columnId, "p1");
+});
+test("all-list and inbox views are local virtual boards and keep pinned cards first", () => {
+  const tasks = [
+    { id: "inbox", title: "ورودی", projectId: "inbox", status: 0 },
+    { id: "pinned", title: "مهم", projectId: "p", status: 0, pinned: true },
+    { id: "note", title: "یادداشت", projectId: "p", status: 0, kind: "NOTE" },
+  ];
+  const entries = virtualBoardEntries(tasks);
+  assert.equal(entries.all.count, 3); assert.equal(entries.inbox.count, 1);
+  assert.equal(virtualBoardData(INBOX_BOARD_VIEW_ID, tasks, []).project.name, "ورودی");
+  const all = virtualBoardData(ALL_BOARD_VIEW_ID, tasks, [{ id: "p", name: "کار" }]);
+  assert.equal(all.project.name, "همهٔ لیست‌ها");
+  assert.equal(boardColumns(normalizeProjectData({ columns: [{ id: "c", name: "کار" }], tasks: [{ ...tasks[1], columnId: "c" }, { ...tasks[2], columnId: "c" }] }))[0].groups[0].name, "Pinned");
 });

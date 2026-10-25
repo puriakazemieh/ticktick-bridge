@@ -17,3 +17,25 @@ export class MarkdownConflictModal extends Modal {
   }
   onClose() { this.contentEl.empty(); }
 }
+
+/** Offline writes can conflict with a remote deletion or edit.  Unlike a toast,
+ * this screen keeps the exact queued change visible and lets the user choose a
+ * safe next action. */
+export class PendingMutationConflictModal extends Modal {
+  constructor(app: App, private operations: any[], private resolve: (operation: any, choice: "retry" | "discard") => Promise<void>) { super(app); }
+  onOpen() {
+    this.titleEl.setText("تغییرهای نیازمند بررسی");
+    this.contentEl.createEl("p", { text: "این تغییرها به‌صورت محلی حفظ شده‌اند، اما TickTick آن‌ها را در آخرین ارسال نپذیرفته است." });
+    if (!this.operations.length) { this.contentEl.createEl("p", { text: "تعارضی برای مدیریت باقی نمانده است." }); return; }
+    for (const operation of this.operations) {
+      const payload = operation.payload ?? {};
+      const card = this.contentEl.createDiv({ cls: "ticktick-conflict-card" });
+      card.createEl("strong", { text: String(payload.title ?? payload.id ?? "تغییر بدون عنوان") });
+      card.createEl("small", { text: `عملیات: ${operation.type} · ثبت محلی: ${new Date(operation.queuedAt ?? Date.now()).toLocaleString("fa-IR")}` });
+      const controls = card.createDiv({ cls: "modal-button-container" });
+      controls.createEl("button", { text: "تلاش دوباره", cls: "mod-cta" }).addEventListener("click", async () => { await this.resolve(operation, "retry"); this.close(); });
+      controls.createEl("button", { text: "حذف تغییر محلی" }).addEventListener("click", async () => { await this.resolve(operation, "discard"); this.close(); });
+    }
+  }
+  onClose() { this.contentEl.empty(); }
+}

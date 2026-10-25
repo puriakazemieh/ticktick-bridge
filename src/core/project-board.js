@@ -30,6 +30,8 @@ export function sidebarTree(projects, tasks = []) {
 }
 
 export const RECURRING_BOARD_VIEW_ID = "ticktick:view:recurring";
+export const ALL_BOARD_VIEW_ID = "ticktick:view:all";
+export const INBOX_BOARD_VIEW_ID = "ticktick:view:inbox";
 const TAG_BOARD_VIEW_PREFIX = "ticktick:view:tag:";
 
 /** Virtual board entries are derived from the local TickTick cache. They never
@@ -45,6 +47,8 @@ export function virtualBoardEntries(tasks = []) {
     }
   }
   return {
+    all: { id: ALL_BOARD_VIEW_ID, name: "همهٔ لیست‌ها", count: open.length },
+    inbox: { id: INBOX_BOARD_VIEW_ID, name: "ورودی", count: open.filter(task => String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId).length },
     recurring: { id: RECURRING_BOARD_VIEW_ID, name: "تکرارشونده‌ها", count: open.filter(task => Boolean(task.repeatFlag)).length },
     tags: [...tags.entries()]
       .sort(([left], [right]) => left.localeCompare(right, "fa"))
@@ -56,7 +60,13 @@ export function virtualBoardData(selection, tasks = [], projects = []) {
   const entries = virtualBoardEntries(tasks);
   let name = "";
   let matching = [];
-  if (selection === RECURRING_BOARD_VIEW_ID) {
+  if (selection === ALL_BOARD_VIEW_ID) {
+    name = entries.all.name;
+    matching = tasks;
+  } else if (selection === INBOX_BOARD_VIEW_ID) {
+    name = entries.inbox.name;
+    matching = tasks.filter(task => String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId);
+  } else if (selection === RECURRING_BOARD_VIEW_ID) {
     name = entries.recurring.name;
     matching = tasks.filter(task => Boolean(task.repeatFlag));
   } else if (String(selection ?? "").startsWith(TAG_BOARD_VIEW_PREFIX)) {
@@ -76,7 +86,7 @@ export function virtualBoardData(selection, tasks = [], projects = []) {
     const projectId = String(task.projectId ?? "");
     if (known.has(projectId)) continue;
     known.add(projectId);
-    columns.push({ id: projectId, name: String(task.projectName ?? "بدون پروژه"), sortOrder: columns.length, synthetic: true });
+    columns.push({ id: projectId, name: projectId.toLowerCase() === "inbox" || !projectId ? "ورودی" : String(task.projectName ?? "بدون پروژه"), sortOrder: columns.length, synthetic: true });
   }
   return {
     project: { id: selection, name, virtual: true },
@@ -85,12 +95,19 @@ export function virtualBoardData(selection, tasks = [], projects = []) {
   };
 }
 
+const isNote = task => String(task?.kind ?? task?.type ?? "").toUpperCase() === "NOTE";
+const isPinned = task => Boolean(task?.pinned ?? task?.isPinned ?? task?.pin);
 const groupName = priority => ({ 5: "High", 3: "Medium", 1: "Low" }[Number(priority)] ?? "No priority");
 export function boardColumns(data, showCompleted = false) {
   const columns = data.columns.length ? data.columns : [{ id: "", name: "Tasks", synthetic: true, sortOrder: 0 }];
   return columns.map(column => {
     const matching = data.tasks.filter(task => String(task.columnId ?? "") === String(column.id) && (showCompleted || Number(task.status ?? 0) === 0));
-    const groups = ["High", "Medium", "Low", "No priority", ...(showCompleted ? ["Completed"] : [])].map(name => ({ name, tasks: matching.filter(task => Number(task.status ?? 0) !== 0 ? name === "Completed" : groupName(task.priority) === name).sort((a, b) => Number(a.sortOrder ?? a.order ?? 0) - Number(b.sortOrder ?? b.order ?? 0) || String(a.title).localeCompare(String(b.title), "fa")) })).filter(group => group.tasks.length);
+    const ordered = matching.slice().sort((a, b) => Number(isPinned(b)) - Number(isPinned(a)) || Number(a.sortOrder ?? a.order ?? 0) - Number(b.sortOrder ?? b.order ?? 0) || String(a.title).localeCompare(String(b.title), "fa"));
+    const groups = ["Pinned", "High", "Medium", "Low", "No priority", ...(showCompleted ? ["Completed"] : [])].map(name => ({ name, tasks: ordered.filter(task => {
+      if (name === "Pinned") return isPinned(task);
+      if (isPinned(task)) return false;
+      return Number(task.status ?? 0) !== 0 ? name === "Completed" : groupName(task.priority) === name;
+    }) })).filter(group => group.tasks.length);
     return { ...column, count: matching.length, groups };
   });
 }
