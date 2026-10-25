@@ -476,7 +476,17 @@ export default class TickTickBridgePlugin extends Plugin {
 
   private async refreshCacheFromTickTick(today: string) {
     const client = this.client();
-    const [projects, webTasks, habits, sections] = await Promise.all([client.listProjects(), this.webOpenTasks(), client.listHabits(), client.listHabitSections()]);
+    const cacheAvailable = this.hasCache();
+    // Once a full mirror exists, the web batch feed is sufficient for normal
+    // task refreshes. Re-reading projects, habits and sections through the
+    // token API every 30 seconds is both redundant and likely to trigger a
+    // 429. The token API remains the source for first-run hydration and all
+    // mutations, while the visible cache stays usable if the web feed is
+    // unavailable for a moment.
+    const webTasks = await this.webOpenTasks();
+    const projects = cacheAvailable ? this.cache.projects : await client.listProjects();
+    const habits = cacheAvailable ? this.cache.habits : await client.listHabits();
+    const sections = cacheAvailable ? [] : await client.listHabitSections();
     const projectBoards: Record<string, any> = {};
     const taskIndex = new Map<string, any>();
     // The web batch endpoint is the compact, current task feed. Calling
@@ -525,8 +535,11 @@ export default class TickTickBridgePlugin extends Plugin {
     }
     const activeHabits = habits.filter((habit: { status?: number }) => habit.status === undefined || habit.status === 0);
     const fromDay = shiftIsoDay(today, -90);
-    const officialDocuments = activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit: { id: string }) => habit.id), fromDay, today) : [];
-    const checkins: Record<string, CachedHabitCheckin[]> = {};
+    // The cache already holds the history. Avoid an additional token API read
+    // during normal refreshes; the web endpoint below updates the recent
+    // check-ins and is intentionally best-effort.
+    const officialDocuments = !cacheAvailable && activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit: { id: string }) => habit.id), fromDay, today) : [];
+    const checkins: Record<string, CachedHabitCheckin[]> = { ...this.cache.habitCheckins };
     for (const document of officialDocuments ?? []) {
       const habitId = String(document?.habitId ?? "");
       if (!habitId) continue;
@@ -541,7 +554,7 @@ export default class TickTickBridgePlugin extends Plugin {
       tasks,
       projects,
       projectBoards,
-      habits: activeHabits.map((habit: any) => ({ ...habit, sectionName: sectionNames.get(habit.sectionId) ?? "بدون دسته" })),
+      habits: activeHabits.map((habit: any) => ({ ...habit, sectionName: sectionNames.get(habit.sectionId) ?? habit.sectionName ?? "بدون دسته" })),
       habitCheckins: checkins,
       pending: this.cache.pending,
       conflicts: this.cache.conflicts,

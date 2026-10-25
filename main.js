@@ -3270,7 +3270,11 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   }
   async refreshCacheFromTickTick(today) {
     const client = this.client();
-    const [projects, webTasks, habits, sections] = await Promise.all([client.listProjects(), this.webOpenTasks(), client.listHabits(), client.listHabitSections()]);
+    const cacheAvailable = this.hasCache();
+    const webTasks = await this.webOpenTasks();
+    const projects = cacheAvailable ? this.cache.projects : await client.listProjects();
+    const habits = cacheAvailable ? this.cache.habits : await client.listHabits();
+    const sections = cacheAvailable ? [] : await client.listHabitSections();
     const projectBoards = {};
     const taskIndex = /* @__PURE__ */ new Map();
     for (const task of this.cache.tasks) {
@@ -3310,8 +3314,8 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     }
     const activeHabits = habits.filter((habit) => habit.status === void 0 || habit.status === 0);
     const fromDay = shiftIsoDay(today, -90);
-    const officialDocuments = activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit) => habit.id), fromDay, today) : [];
-    const checkins = {};
+    const officialDocuments = !cacheAvailable && activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit) => habit.id), fromDay, today) : [];
+    const checkins = { ...this.cache.habitCheckins };
     for (const document of officialDocuments ?? []) {
       const habitId = String(document?.habitId ?? "");
       if (!habitId) continue;
@@ -3325,7 +3329,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       tasks,
       projects,
       projectBoards,
-      habits: activeHabits.map((habit) => ({ ...habit, sectionName: sectionNames.get(habit.sectionId) ?? "\u0628\u062F\u0648\u0646 \u062F\u0633\u062A\u0647" })),
+      habits: activeHabits.map((habit) => ({ ...habit, sectionName: sectionNames.get(habit.sectionId) ?? habit.sectionName ?? "\u0628\u062F\u0648\u0646 \u062F\u0633\u062A\u0647" })),
       habitCheckins: checkins,
       pending: this.cache.pending,
       conflicts: this.cache.conflicts
