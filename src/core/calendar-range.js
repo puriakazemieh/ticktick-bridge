@@ -77,7 +77,12 @@ function excluded(task, day) {
 }
 
 /** Whether this exact cell contains an occurrence. Unlike the daily agenda,
- * calendar cells never repeat an overdue one-off task in later days. */
+ * calendar cells never repeat an overdue one-off task in later days.
+ *
+ * TickTick advances a recurring task's `dueDate` to its next unfinished
+ * occurrence when an occurrence is completed. The calendar must therefore
+ * display that next actionable day once, rather than expanding the RRULE into
+ * prior completed days (or every later matching weekday). */
 export function taskOccursOnCalendarDay(task, day, timeZone = "Asia/Tehran", showCompleted = false) {
   if (Number(task?.status ?? 0) !== 0) return showCompleted && taskDay(task, timeZone) === day;
   const due = toDateKey(task?.dueDate, task?.timeZone || timeZone);
@@ -85,6 +90,9 @@ export function taskOccursOnCalendarDay(task, day, timeZone = "Asia/Tehran", sho
   const anchor = start ?? due;
   if (!anchor) return false;
   if (!task?.repeatFlag) return start && due ? day >= start && day <= due : day === anchor;
+  // `dueDate` is the current, unfinished TickTick recurrence. For malformed
+  // legacy records without it, fall back to the original start date.
+  if (due) return day === due;
   if (day < anchor || excluded(task, day)) return false;
   const rule = ruleParts(task); const frequency = rule.FREQ ?? "DAILY"; const interval = Math.max(1, Number(rule.INTERVAL ?? 1));
   const until = ruleDate(rule.UNTIL); if (until && day > until) return false;

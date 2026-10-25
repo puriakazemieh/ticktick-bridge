@@ -23,16 +23,31 @@ test("calendar separates all-day, timed, overdue, recurring, and completed tasks
   const buckets = planningBuckets(tasks, "2026-03-21");
   assert.equal(buckets.allDay.length, 2); assert.equal(buckets.timed[0].id, "t"); assert.equal(buckets.overdue[0].id, "o"); assert.equal(buckets.recurring[0].id, "r");
   assert.deepEqual(tasksForCalendarDay(tasks, "2026-03-21").map(task => task.id), ["a", "r", "t"]);
-  assert.deepEqual(tasksForCalendarDay(tasks, "2026-03-22").map(task => task.id), ["r"]);
+  assert.deepEqual(tasksForCalendarDay(tasks, "2026-03-22").map(task => task.id), []);
 });
 
-test("calendar expands date ranges and recurring occurrences without duplicating one-off tasks", () => {
+test("calendar shows a recurring task only on TickTick's next unfinished due day", () => {
+  const recurring = {
+    id: "habit-like-task",
+    status: 0,
+    // Saturday and Sunday occurrences were completed; TickTick advanced this
+    // active task to Monday even though its repeat rule also matches them.
+    dueDate: "2026-10-26",
+    repeatFlag: "RRULE:FREQ=WEEKLY;WKST=SA;BYDAY=SA,SU,MO,TU,WE",
+  };
+  assert.equal(taskOccursOnCalendarDay(recurring, "2026-10-24"), false);
+  assert.equal(taskOccursOnCalendarDay(recurring, "2026-10-25"), false);
+  assert.equal(taskOccursOnCalendarDay(recurring, "2026-10-26"), true);
+  assert.equal(taskOccursOnCalendarDay(recurring, "2026-10-27"), false);
+});
+
+test("calendar expands date ranges but keeps recurring cards on their next due day", () => {
   const ranged = { id: "range", startDate: "2026-10-24", dueDate: "2026-10-27", status: 0 };
   const weekly = { id: "weekly", dueDate: "2026-10-24", status: 0, repeatFlag: "RRULE:FREQ=WEEKLY;BYDAY=SA,MO" };
   const dated = { id: "dated", dueDate: "2026-10-24", status: 0 };
   assert.equal(taskOccursOnCalendarDay(ranged, "2026-10-26"), true);
   assert.equal(taskOccursOnCalendarDay(ranged, "2026-10-28"), false);
-  assert.equal(taskOccursOnCalendarDay(weekly, "2026-10-26"), true);
+  assert.equal(taskOccursOnCalendarDay(weekly, "2026-10-26"), false);
   assert.equal(taskOccursOnCalendarDay(weekly, "2026-10-25"), false);
   assert.equal(taskOccursOnCalendarDay(dated, "2026-10-25"), false);
   assert.deepEqual(taskDateRange(ranged), { start: "2026-10-24", end: "2026-10-27" });

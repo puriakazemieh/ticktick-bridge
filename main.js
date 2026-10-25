@@ -1052,6 +1052,7 @@ function taskOccursOnCalendarDay(task, day, timeZone = "Asia/Tehran", showComple
   const anchor = start ?? due;
   if (!anchor) return false;
   if (!task?.repeatFlag) return start && due ? day >= start && day <= due : day === anchor;
+  if (due) return day === due;
   if (day < anchor || excluded(task, day)) return false;
   const rule = ruleParts(task);
   const frequency = rule.FREQ ?? "DAILY";
