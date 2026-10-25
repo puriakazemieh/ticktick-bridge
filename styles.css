@@ -2653,7 +2653,9 @@
   scrollbar-gutter: stable both-edges;
   scrollbar-color: var(--interactive-accent) var(--background-secondary);
   scrollbar-width: auto;
-  touch-action: pan-x;
+  /* Preserve native vertical scrolling on touch devices. The JS helper only
+     captures an actual horizontal drag, so the Obsidian drawer remains safe. */
+  touch-action: pan-y;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }

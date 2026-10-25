@@ -2876,7 +2876,7 @@ var DEFAULT_SETTINGS = {
   timeZone: "Asia/Tehran",
   dailyNoteFolder: "Journal",
   syncIntervalMinutes: 0,
-  syncIntervalSeconds: 0,
+  syncIntervalSeconds: 30,
   checkboxImportTag: "ticktick",
   scheduledCheckboxProjectId: "",
   showRibbonIcons: false,
@@ -3148,13 +3148,20 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     return action.id;
   }
   configureAutomaticSync() {
-    if (this.syncTimer !== null) window.clearInterval(this.syncTimer);
+    if (this.syncTimer !== null) window.clearTimeout(this.syncTimer);
     this.syncTimer = null;
     const seconds = Number(this.settings.syncIntervalSeconds);
     const legacyMinutes = Number(this.settings.syncIntervalMinutes);
     const delay = Number.isFinite(seconds) && seconds >= 30 ? seconds * 1e3 : Number.isFinite(legacyMinutes) && legacyMinutes >= 1 ? legacyMinutes * 6e4 : 0;
     if (!delay) return;
-    this.syncTimer = window.setInterval(() => void this.syncNow({ quiet: true }), delay);
+    this.syncTimer = window.setTimeout(async () => {
+      this.syncTimer = null;
+      try {
+        await this.syncNow({ quiet: true, scheduled: true });
+      } finally {
+        this.configureAutomaticSync();
+      }
+    }, delay);
   }
   configureRibbonIcons() {
     this.ribbonIcons.forEach((icon) => icon.remove());
@@ -3195,7 +3202,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     this.syncRibbonIcon.toggleClass("is-syncing", syncing);
     this.syncRibbonIcon.setAttribute("aria-label", syncing ? "TickTick Bridge: \u062F\u0631 \u062D\u0627\u0644 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC\u2026" : "TickTick Bridge: \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0628\u0627 TickTick");
   }
-  async syncNow({ quiet = false } = {}) {
+  async syncNow({ quiet = false, scheduled = false } = {}) {
     if (this.syncInProgress) {
       if (!quiet) new import_obsidian8.Notice("\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC TickTick \u0647\u0645\u06CC\u0646 \u062D\u0627\u0644\u0627 \u062F\u0631 \u062D\u0627\u0644 \u0627\u0646\u062C\u0627\u0645 \u0627\u0633\u062A.");
       return;
@@ -3229,6 +3236,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     } finally {
       this.setSyncRibbonState(false);
       this.syncInProgress = false;
+      if (!scheduled) this.configureAutomaticSync();
     }
   }
   hasCache() {
@@ -4906,7 +4914,7 @@ var TickTickBridgeSettings = class extends import_obsidian8.PluginSettingTab {
         button.setDisabled(false);
       }
     }));
-    new import_obsidian8.Setting(containerEl).setName("\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631").setDesc("\u0641\u0627\u0635\u0644\u0647\u0654 \u0632\u0645\u0627\u0646\u06CC \u0628\u0631 \u062D\u0633\u0628 \u062B\u0627\u0646\u06CC\u0647 (\u062D\u062F\u0627\u0642\u0644 \u06F3\u06F0 \u062B\u0627\u0646\u06CC\u0647). \u0635\u0641\u0631 \u06CC\u0639\u0646\u06CC \u062E\u0627\u0645\u0648\u0634. \u0646\u0645\u0627\u06CC\u0634 \u0627\u0632 \u0646\u0633\u062E\u0647\u0654 \u0645\u062D\u0644\u06CC \u0641\u0648\u0631\u06CC \u0627\u0633\u062A \u0648 \u0627\u06CC\u0646 \u0632\u0645\u0627\u0646 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC \u0622\u0646 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((input) => {
+    new import_obsidian8.Setting(containerEl).setName("\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631").setDesc("\u0641\u0627\u0635\u0644\u0647\u0654 \u0632\u0645\u0627\u0646\u06CC \u0628\u0631 \u062D\u0633\u0628 \u062B\u0627\u0646\u06CC\u0647 (\u067E\u06CC\u0634\u200C\u0641\u0631\u0636 \u0648 \u062D\u062F\u0627\u0642\u0644: \u06F3\u06F0 \u062B\u0627\u0646\u06CC\u0647). \u0635\u0641\u0631 \u06CC\u0639\u0646\u06CC \u062E\u0627\u0645\u0648\u0634. sync \u0628\u0639\u062F\u06CC \u0641\u0642\u0637 \u067E\u0633 \u0627\u0632 \u067E\u0627\u06CC\u0627\u0646 sync \u0642\u0628\u0644\u06CC \u0648 \u06AF\u0630\u0634\u062A \u0627\u06CC\u0646 \u0645\u062F\u062A \u0622\u063A\u0627\u0632 \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((input) => {
       input.inputEl.type = "number";
       input.inputEl.min = "0";
       input.setValue(String(this.plugin.settings.syncIntervalSeconds || this.plugin.settings.syncIntervalMinutes * 60)).onChange(async (value) => {

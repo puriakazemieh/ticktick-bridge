@@ -68,7 +68,7 @@ const DEFAULT_SETTINGS: BridgeSettings = {
   timeZone: "Asia/Tehran",
   dailyNoteFolder: "Journal",
   syncIntervalMinutes: 0,
-  syncIntervalSeconds: 0,
+  syncIntervalSeconds: 30,
   checkboxImportTag: "ticktick",
   scheduledCheckboxProjectId: "",
   showRibbonIcons: false,
@@ -336,13 +336,21 @@ export default class TickTickBridgePlugin extends Plugin {
   }
 
   configureAutomaticSync() {
-    if (this.syncTimer !== null) window.clearInterval(this.syncTimer);
+    if (this.syncTimer !== null) window.clearTimeout(this.syncTimer);
     this.syncTimer = null;
     const seconds = Number(this.settings.syncIntervalSeconds);
     const legacyMinutes = Number(this.settings.syncIntervalMinutes);
     const delay = Number.isFinite(seconds) && seconds >= 30 ? seconds * 1_000 : Number.isFinite(legacyMinutes) && legacyMinutes >= 1 ? legacyMinutes * 60_000 : 0;
     if (!delay) return;
-    this.syncTimer = window.setInterval(() => void this.syncNow({ quiet: true }), delay);
+    this.syncTimer = window.setTimeout(async () => {
+      this.syncTimer = null;
+      try {
+        await this.syncNow({ quiet: true, scheduled: true });
+      } finally {
+        // Start the next countdown only after this sync attempt has ended.
+        this.configureAutomaticSync();
+      }
+    }, delay);
   }
 
   configureRibbonIcons() {
@@ -389,7 +397,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.syncRibbonIcon.setAttribute("aria-label", syncing ? "TickTick Bridge: در حال همگام‌سازی…" : "TickTick Bridge: همگام‌سازی با TickTick");
   }
 
-  async syncNow({ quiet = false }: { quiet?: boolean } = {}) {
+  async syncNow({ quiet = false, scheduled = false }: { quiet?: boolean; scheduled?: boolean } = {}) {
     // An interval may fire again while a slow TickTick request is still in
     // flight.  Allowing those runs to overlap can apply an older response
     // after a newer one and needlessly redraw the page.
@@ -429,6 +437,7 @@ export default class TickTickBridgePlugin extends Plugin {
     } finally {
       this.setSyncRibbonState(false);
       this.syncInProgress = false;
+      if (!scheduled) this.configureAutomaticSync();
     }
   }
 
@@ -2140,7 +2149,7 @@ class TickTickBridgeSettings extends PluginSettingTab {
           button.setDisabled(false);
         }
       }));
-    new Setting(containerEl).setName("همگام‌سازی خودکار").setDesc("فاصلهٔ زمانی بر حسب ثانیه (حداقل ۳۰ ثانیه). صفر یعنی خاموش. نمایش از نسخهٔ محلی فوری است و این زمان فقط برای تازه‌سازی آن استفاده می‌شود.").addText(input => {
+    new Setting(containerEl).setName("همگام‌سازی خودکار").setDesc("فاصلهٔ زمانی بر حسب ثانیه (پیش‌فرض و حداقل: ۳۰ ثانیه). صفر یعنی خاموش. sync بعدی فقط پس از پایان sync قبلی و گذشت این مدت آغاز می‌شود.").addText(input => {
       input.inputEl.type = "number";
       input.inputEl.min = "0";
       input.setValue(String(this.plugin.settings.syncIntervalSeconds || this.plugin.settings.syncIntervalMinutes * 60)).onChange(async value => {
