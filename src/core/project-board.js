@@ -28,6 +28,63 @@ export function sidebarTree(projects, tasks = []) {
     .sort((left, right) => groupRank(left.name) - groupRank(right.name) || left.index - right.index)
     .map(({ name, projects }) => ({ name, projects }));
 }
+
+export const RECURRING_BOARD_VIEW_ID = "ticktick:view:recurring";
+const TAG_BOARD_VIEW_PREFIX = "ticktick:view:tag:";
+
+/** Virtual board entries are derived from the local TickTick cache. They never
+ * represent remote projects, so selecting one must not enable project edits or
+ * cross-column moves. */
+export function virtualBoardEntries(tasks = []) {
+  const open = tasks.filter(task => Number(task?.status ?? 0) === 0);
+  const tags = new Map();
+  for (const task of open) {
+    for (const tag of Array.isArray(task.tags) ? task.tags : []) {
+      const name = String(tag ?? "").trim();
+      if (name) tags.set(name, (tags.get(name) ?? 0) + 1);
+    }
+  }
+  return {
+    recurring: { id: RECURRING_BOARD_VIEW_ID, name: "تکرارشونده‌ها", count: open.filter(task => Boolean(task.repeatFlag)).length },
+    tags: [...tags.entries()]
+      .sort(([left], [right]) => left.localeCompare(right, "fa"))
+      .map(([name, count]) => ({ id: `${TAG_BOARD_VIEW_PREFIX}${encodeURIComponent(name)}`, name, count })),
+  };
+}
+
+export function virtualBoardData(selection, tasks = [], projects = []) {
+  const entries = virtualBoardEntries(tasks);
+  let name = "";
+  let matching = [];
+  if (selection === RECURRING_BOARD_VIEW_ID) {
+    name = entries.recurring.name;
+    matching = tasks.filter(task => Boolean(task.repeatFlag));
+  } else if (String(selection ?? "").startsWith(TAG_BOARD_VIEW_PREFIX)) {
+    const tag = decodeURIComponent(String(selection).slice(TAG_BOARD_VIEW_PREFIX.length));
+    const entry = entries.tags.find(item => item.name === tag);
+    if (!entry) return null;
+    name = `#${tag}`;
+    matching = tasks.filter(task => (task.tags ?? []).some(value => String(value) === tag));
+  } else return null;
+
+  const usedProjectIds = new Set(matching.map(task => String(task.projectId ?? "")));
+  const columns = projects.filter(project => usedProjectIds.has(String(project.id))).map((project, index) => ({
+    id: String(project.id), name: String(project.name ?? "بدون پروژه"), color: project.color, sortOrder: index, synthetic: true,
+  }));
+  const known = new Set(columns.map(column => column.id));
+  for (const task of matching) {
+    const projectId = String(task.projectId ?? "");
+    if (known.has(projectId)) continue;
+    known.add(projectId);
+    columns.push({ id: projectId, name: String(task.projectName ?? "بدون پروژه"), sortOrder: columns.length, synthetic: true });
+  }
+  return {
+    project: { id: selection, name, virtual: true },
+    columns,
+    tasks: matching.map(task => ({ ...task, columnId: String(task.projectId ?? "") })),
+  };
+}
+
 const groupName = priority => ({ 5: "High", 3: "Medium", 1: "Low" }[Number(priority)] ?? "No priority");
 export function boardColumns(data, showCompleted = false) {
   const columns = data.columns.length ? data.columns : [{ id: "", name: "Tasks", synthetic: true, sortOrder: 0 }];

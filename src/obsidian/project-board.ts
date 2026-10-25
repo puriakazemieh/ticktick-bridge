@@ -1,5 +1,5 @@
 import { App, Menu, Notice, setIcon } from "obsidian";
-import { boardColumns, sidebarTree } from "../core/project-board.js";
+import { boardColumns, RECURRING_BOARD_VIEW_ID, sidebarTree, virtualBoardData, virtualBoardEntries } from "../core/project-board.js";
 import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
 import { ProjectEditorModal } from "./project-editor-modal";
@@ -76,6 +76,55 @@ export class ProjectBoard {
         void this.persistAndRender();
       });
 
+      const virtual = virtualBoardEntries(this.host.tasks());
+      const viewHeading = rail.createEl("button", {
+        cls: `ticktick-project-group ${this.collapsed.has("virtual-views") ? "is-collapsed" : ""}`,
+        attr: { type: "button" }
+      });
+      const viewChevron = viewHeading.createSpan({ cls: "ticktick-group-chevron" });
+      setIcon(viewChevron, this.collapsed.has("virtual-views") ? "chevron-left" : "chevron-down");
+      viewHeading.createSpan({ cls: "ticktick-group-title", text: "نمایش‌ها" });
+      viewHeading.addEventListener("click", () => {
+        this.collapsed.has("virtual-views") ? this.collapsed.delete("virtual-views") : this.collapsed.add("virtual-views");
+        void this.persistAndRender();
+      });
+      if (!this.collapsed.has("virtual-views")) {
+        const recurring = rail.createEl("button", {
+          cls: `ticktick-project-row ${this.selected === RECURRING_BOARD_VIEW_ID ? "is-selected" : ""}`,
+          attr: { type: "button", "aria-label": `تکرارشونده‌ها، ${virtual.recurring.count} تسک باز` }
+        });
+        const recurringIcon = recurring.createSpan({ cls: "ticktick-project-row-icon" });
+        setIcon(recurringIcon, "repeat-2");
+        recurring.createSpan({ cls: "ticktick-project-name", text: virtual.recurring.name });
+        recurring.createSpan({ cls: "ticktick-project-count", text: String(virtual.recurring.count) });
+        recurring.addEventListener("click", () => { this.selected = RECURRING_BOARD_VIEW_ID; void this.persistAndRender(); });
+      }
+
+      const tagHeading = rail.createEl("button", {
+        cls: `ticktick-project-group ${this.collapsed.has("virtual-tags") ? "is-collapsed" : ""}`,
+        attr: { type: "button" }
+      });
+      const tagChevron = tagHeading.createSpan({ cls: "ticktick-group-chevron" });
+      setIcon(tagChevron, this.collapsed.has("virtual-tags") ? "chevron-left" : "chevron-down");
+      tagHeading.createSpan({ cls: "ticktick-group-title", text: "برچسب‌ها" });
+      tagHeading.addEventListener("click", () => {
+        this.collapsed.has("virtual-tags") ? this.collapsed.delete("virtual-tags") : this.collapsed.add("virtual-tags");
+        void this.persistAndRender();
+      });
+      if (!this.collapsed.has("virtual-tags")) {
+        for (const tag of virtual.tags) {
+          const row = rail.createEl("button", {
+            cls: `ticktick-project-row ticktick-tag-view-row ${this.selected === tag.id ? "is-selected" : ""}`,
+            attr: { type: "button", "aria-label": `برچسب ${tag.name}، ${tag.count} تسک باز` }
+          });
+          const tagIcon = row.createSpan({ cls: "ticktick-project-row-icon" });
+          setIcon(tagIcon, "tag");
+          row.createSpan({ cls: "ticktick-project-name", text: `#${tag.name}` });
+          row.createSpan({ cls: "ticktick-project-count", text: String(tag.count) });
+          row.addEventListener("click", () => { this.selected = tag.id; void this.persistAndRender(); });
+        }
+      }
+
       // Groups and projects tree
       for (const group of sidebarTree(projects, this.host.tasks())) {
         const key = group.name || "flat";
@@ -138,7 +187,9 @@ export class ProjectBoard {
       const main = root.createDiv({ cls: "ticktick-project-main" });
 
       const project = projects.find(item => String(item.id) === this.selected);
-      if (!project) {
+      const virtualData = virtualBoardData(this.selected, this.host.tasks(), projects);
+      const displayProject = virtualData?.project ?? project;
+      if (!displayProject) {
         const emptyState = main.createDiv({ cls: "ticktick-board-empty" });
         const emptyIcon = emptyState.createSpan({ cls: "ticktick-empty-icon" });
         setIcon(emptyIcon, "folder-open");
@@ -150,20 +201,21 @@ export class ProjectBoard {
       // Project Header Bar
       const projectHeader = main.createDiv({ cls: "ticktick-project-header" });
       const headerInfo = projectHeader.createDiv({ cls: "ticktick-project-header-info" });
-      if (project.color) {
+      if (displayProject.color) {
         const pDot = headerInfo.createSpan({ cls: "ticktick-header-dot" });
-        pDot.style.setProperty("--project-color", project.color);
+        pDot.style.setProperty("--project-color", displayProject.color);
       }
-      headerInfo.createEl("h2", { cls: "ticktick-project-title", text: project.name });
+      headerInfo.createEl("h2", { cls: "ticktick-project-title", text: displayProject.name });
       headerInfo.createSpan({
         cls: "ticktick-project-badge",
-        text: `${project.openCount ?? 0} تسک باز`
+        text: `${virtualData ? virtualData.tasks.filter(task => Number(task.status ?? 0) === 0).length : project?.openCount ?? 0} تسک باز`
       });
 
       // Toolbar Controls
       const toolbar = projectHeader.createDiv({ cls: "ticktick-project-toolbar" });
 
       // Add Task Button (CTA)
+      if (project) {
       const addTaskBtn = toolbar.createEl("button", {
         cls: "ticktick-toolbar-btn ticktick-toolbar-btn-cta",
         attr: { type: "button", "aria-label": "افزودن تسک جدید" }
@@ -185,6 +237,7 @@ export class ProjectBoard {
           addTaskBtn.disabled = false;
         }
       });
+      }
 
       // Sort Menu Dropdown Pill
       const sortLabels: Record<string, string> = {
@@ -255,6 +308,7 @@ export class ProjectBoard {
       });
 
       // Edit Project Button
+      if (project) {
       const editBtn = toolbar.createEl("button", {
         cls: "ticktick-toolbar-btn",
         attr: { type: "button", "aria-label": "ویرایش لیست" }
@@ -300,9 +354,10 @@ export class ProjectBoard {
           new Notice(error instanceof Error ? error.message : "حذف لیست ناموفق بود.");
         }
       });
+      }
 
       // ── 3. Kanban Columns ──
-      const data = await this.host.board(project);
+      const data = virtualData ?? await this.host.board(project);
       const columns = main.createDiv({ cls: "ticktick-project-columns" });
       enhanceHorizontalScroll(columns);
       scrollToStart(columns);
@@ -314,12 +369,13 @@ export class ProjectBoard {
         colHeader.createEl("strong", { cls: "ticktick-column-name", text: column.name });
         colHeader.createSpan({ cls: "ticktick-column-count", text: String(column.count) });
 
+        const movableColumn = Boolean(project) && !column.synthetic;
         if (column.synthetic) {
           shell.createEl("small", { cls: "ticktick-column-hint", text: "ستون نمایشی؛ جابه‌جایی غیرفعال است" });
         }
 
         shell.addEventListener("dragover", event => {
-          if (column.synthetic) return;
+          if (!movableColumn) return;
           event.preventDefault();
           event.dataTransfer!.dropEffect = "move";
           shell.addClass("is-drag-over");
@@ -330,7 +386,7 @@ export class ProjectBoard {
         shell.addEventListener("drop", event => {
           event.preventDefault();
           shell.removeClass("is-drag-over");
-          if (column.synthetic) {
+          if (!movableColumn) {
             new Notice("این ستون نمایشی است و مقصد انتقال نیست.");
             return;
           }
@@ -346,7 +402,7 @@ export class ProjectBoard {
             listWrap.createEl("h4", { cls: "ticktick-group-heading", text: group.name });
           }
           for (const task of sortPlanningTasks(group.tasks, this.sortMode)) {
-            this.card(listWrap, task, project.color);
+            this.card(listWrap, task, displayProject.color, Boolean(project));
           }
         }
       }
@@ -360,7 +416,7 @@ export class ProjectBoard {
     await this.render();
   }
 
-  private card(parent: HTMLElement, task: any, projectColor?: string) {
+  private card(parent: HTMLElement, task: any, projectColor?: string, movable = true) {
     const bound = this.host.binding(task);
     const priority = taskPriority(task.priority);
     const isCompleted = Number(task.status ?? 0) !== 0;
@@ -381,10 +437,11 @@ export class ProjectBoard {
         title: "برای دیدن جزئیات کلیک کنید"
       }
     });
-    card.draggable = true;
+    card.draggable = movable;
     card.style.setProperty("--ticktick-task-tone", tone);
 
     card.addEventListener("dragstart", event => {
+      if (!movable) return;
       card.addClass("is-dragging");
       event.dataTransfer!.effectAllowed = "move";
       event.dataTransfer?.setData("text/ticktick-board-task", String(task.id));
