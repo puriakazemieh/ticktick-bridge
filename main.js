@@ -3215,40 +3215,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       const refreshed = await this.refreshCacheFromTickTick(day);
       const tasks = this.cachedTasksForDay(day);
       const habits = this.cachedHabitsForDay(day);
-      this.habitCheckinCache.clear();
-      for (const [element, day2] of this.taskBlocks) {
-        if (!element.isConnected) {
-          this.taskBlocks.delete(element);
-          this.taskBlockSignatures.delete(element);
-          continue;
-        }
-        const signature = this.taskBlockSignature(day2);
-        if (this.taskBlockSignatures.get(element) !== signature) {
-          await this.renderTodayBlock(element, day2);
-          this.taskBlockSignatures.set(element, signature);
-        }
-      }
-      for (const [element, context] of this.habitBlocks) {
-        if (!element.isConnected) {
-          this.habitBlocks.delete(element);
-          this.habitBlockSignatures.delete(element);
-          this.dashboardStates.delete(element);
-          continue;
-        }
-        const signature = this.habitBlockSignature(element, context);
-        if (this.habitBlockSignatures.get(element) !== signature) {
-          await this.renderHabitBlock(element, context.dashboard, context.day);
-          this.habitBlockSignatures.set(element, signature);
-        }
-      }
-      for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
-        const view = leaf.view;
-        if (typeof view.render === "function") await view.render();
-      }
-      for (const leaf of this.app.workspace.getLeavesOfType(HABIT_VIEW_TYPE)) {
-        const view = leaf.view;
-        if (typeof view.render === "function") await view.render();
-      }
+      await this.refreshLocalSurfaces();
       if (!quiet && refreshed.remote) {
         const notes = this.cache.tasks.filter((task) => String(task.kind ?? "").toUpperCase() === "NOTE").length;
         new import_obsidian8.Notice(`\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0645\u0644 \u0634\u062F: ${this.cache.projects.length} \u0644\u06CC\u0633\u062A\u060C ${this.cache.tasks.length} \u0631\u06A9\u0648\u0631\u062F (${notes} Note) \u0648 ${habits.length} \u0639\u0627\u062F\u062A \u0627\u0645\u0631\u0648\u0632.`);
@@ -3265,6 +3232,43 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   }
   hasCache() {
     return Boolean(this.cache.savedAt);
+  }
+  /** Re-render every open local surface after a cache mutation. This deliberately
+   * performs no TickTick request, so a drag in week/month is immediately
+   * reflected in daily-note blocks, boards and other open views. */
+  async refreshLocalSurfaces() {
+    this.habitCheckinCache.clear();
+    for (const [element, day] of this.taskBlocks) {
+      if (!element.isConnected) {
+        this.taskBlocks.delete(element);
+        this.taskBlockSignatures.delete(element);
+        continue;
+      }
+      const signature = this.taskBlockSignature(day);
+      if (this.taskBlockSignatures.get(element) !== signature) {
+        await this.renderTodayBlock(element, day);
+        this.taskBlockSignatures.set(element, signature);
+      }
+    }
+    for (const [element, context] of this.habitBlocks) {
+      if (!element.isConnected) {
+        this.habitBlocks.delete(element);
+        this.habitBlockSignatures.delete(element);
+        this.dashboardStates.delete(element);
+        continue;
+      }
+      const signature = this.habitBlockSignature(element, context);
+      if (this.habitBlockSignatures.get(element) !== signature) {
+        await this.renderHabitBlock(element, context.dashboard, context.day);
+        this.habitBlockSignatures.set(element, signature);
+      }
+    }
+    for (const type of [VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE]) {
+      for (const leaf of this.app.workspace.getLeavesOfType(type)) {
+        const view = leaf.view;
+        if (typeof view.render === "function") await view.render();
+      }
+    }
   }
   taskBlockSignature(day) {
     const targetDay = day ?? todayInZone(this.settings.timeZone);
@@ -3366,9 +3370,20 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       return client.checkInHabit(payload.habitId, payload.day, payload.checkin);
     };
     const applyLocal = () => {
-      if (type === "create") this.cache.tasks.push({ ...payload, id: `offline-${operation.id}`, status: 0 });
-      if (type === "update") this.cache.tasks = this.cache.tasks.map((task) => task.id === payload.id ? { ...task, ...payload } : task);
-      if (type === "complete" || type === "delete") this.cache.tasks = this.cache.tasks.filter((task) => task.id !== payload.id);
+      if (type === "create") {
+        const task = { ...payload, id: `offline-${operation.id}`, status: 0 };
+        this.cache.tasks.push(task);
+        const board = this.cache.projectBoards[String(task.projectId ?? "")];
+        if (board) board.tasks = [...board.tasks ?? [], task];
+      }
+      if (type === "update") {
+        this.cache.tasks = this.cache.tasks.map((task) => task.id === payload.id ? { ...task, ...payload } : task);
+        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).map((task) => task.id === payload.id ? { ...task, ...payload } : task);
+      }
+      if (type === "complete" || type === "delete") {
+        this.cache.tasks = this.cache.tasks.filter((task) => task.id !== payload.id);
+        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).filter((task) => task.id !== payload.id);
+      }
       if (type === "habit") {
         const stamp = Number(String(payload.day).replaceAll("-", ""));
         const previous = this.cache.habitCheckins[payload.habitId] ?? [];
@@ -3379,6 +3394,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       this.cache.pending.push(operation);
       applyLocal();
       await this.saveSettings();
+      await this.refreshLocalSurfaces();
       new import_obsidian8.Notice("\u0622\u0641\u0644\u0627\u06CC\u0646 \u0647\u0633\u062A\u06CC\u061B \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0631 \u0635\u0641 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
       return { queued: true };
     }
@@ -3386,6 +3402,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       this.cache.pending.push(operation);
       applyLocal();
       await this.saveSettings();
+      await this.refreshLocalSurfaces();
       new import_obsidian8.Notice(`TickTick \u0645\u0648\u0642\u062A\u0627\u064B \u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u06AF\u0630\u0627\u0634\u062A\u0647 \u0627\u0633\u062A\u061B \u062A\u063A\u06CC\u06CC\u0631 \u0645\u062D\u0644\u06CC \u062D\u0641\u0638 \u0634\u062F \u0648 \u062D\u062F\u0648\u062F ${this.rateLimitWaitSeconds()} \u062B\u0627\u0646\u06CC\u0647\u0654 \u062F\u06CC\u06AF\u0631 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0627\u0631\u0633\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F.`);
       return { queued: true };
     }
@@ -3393,6 +3410,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       const result = await execute();
       applyLocal();
       await this.saveSettings();
+      await this.refreshLocalSurfaces();
       return { queued: false, result };
     } catch (error) {
       const status = Number(error?.status ?? 0);
@@ -3401,6 +3419,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       this.cache.pending.push(operation);
       applyLocal();
       await this.saveSettings();
+      await this.refreshLocalSurfaces();
       new import_obsidian8.Notice(status === 429 ? `TickTick \u0645\u0648\u0642\u062A\u0627\u064B \u0645\u062D\u062F\u0648\u062F\u06CC\u062A \u06AF\u0630\u0627\u0634\u062A\u0647 \u0627\u0633\u062A\u061B \u062A\u063A\u06CC\u06CC\u0631 \u0645\u062D\u0644\u06CC \u062D\u0641\u0638 \u0634\u062F \u0648 \u062D\u062F\u0648\u062F ${this.rateLimitWaitSeconds()} \u062B\u0627\u0646\u06CC\u0647\u0654 \u062F\u06CC\u06AF\u0631 \u062E\u0648\u062F\u06A9\u0627\u0631 \u0627\u0631\u0633\u0627\u0644 \u0645\u06CC\u200C\u0634\u0648\u062F.` : "\u0627\u062A\u0635\u0627\u0644 TickTick \u0628\u0631\u0642\u0631\u0627\u0631 \u0646\u06CC\u0633\u062A\u061B \u062A\u063A\u06CC\u06CC\u0631 \u062F\u0631 \u0635\u0641 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
       return { queued: true };
     }
@@ -3419,7 +3438,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
         else await client.checkInHabit(operation.payload.habitId, operation.payload.day, operation.payload.checkin);
       } catch (error) {
         const status = Number(error?.status ?? 0);
-        if (status > 0 && status < 500) {
+        if (status > 0 && status < 500 && status !== 429) {
           this.cache.conflicts.push(operation);
           new import_obsidian8.Notice("\u06CC\u06A9 \u062A\u063A\u06CC\u06CC\u0631 \u0622\u0641\u0644\u0627\u06CC\u0646 \u0628\u0627 \u0646\u0633\u062E\u0647\u0654 TickTick \u062A\u062F\u0627\u062E\u0644 \u062F\u0627\u0634\u062A \u0648 \u0627\u0631\u0633\u0627\u0644 \u0646\u0634\u062F.");
         } else {

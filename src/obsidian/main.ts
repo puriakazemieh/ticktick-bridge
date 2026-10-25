@@ -416,40 +416,7 @@ export default class TickTickBridgePlugin extends Plugin {
       const refreshed = await this.refreshCacheFromTickTick(day);
       const tasks = this.cachedTasksForDay(day);
       const habits = this.cachedHabitsForDay(day);
-      this.habitCheckinCache.clear();
-      for (const [element, day] of this.taskBlocks) {
-        if (!element.isConnected) {
-          this.taskBlocks.delete(element);
-          this.taskBlockSignatures.delete(element);
-          continue;
-        }
-        const signature = this.taskBlockSignature(day);
-        if (this.taskBlockSignatures.get(element) !== signature) {
-          await this.renderTodayBlock(element, day);
-          this.taskBlockSignatures.set(element, signature);
-        }
-      }
-      for (const [element, context] of this.habitBlocks) {
-        if (!element.isConnected) {
-          this.habitBlocks.delete(element);
-          this.habitBlockSignatures.delete(element);
-          this.dashboardStates.delete(element);
-          continue;
-        }
-        const signature = this.habitBlockSignature(element, context);
-        if (this.habitBlockSignatures.get(element) !== signature) {
-          await this.renderHabitBlock(element, context.dashboard, context.day);
-          this.habitBlockSignatures.set(element, signature);
-        }
-      }
-      for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
-        const view = leaf.view as unknown as { render?: () => Promise<void> | void };
-        if (typeof view.render === "function") await view.render();
-      }
-      for (const leaf of this.app.workspace.getLeavesOfType(HABIT_VIEW_TYPE)) {
-        const view = leaf.view as unknown as { render?: () => Promise<void> | void };
-        if (typeof view.render === "function") await view.render();
-      }
+      await this.refreshLocalSurfaces();
       if (!quiet && refreshed.remote) {
         const notes = this.cache.tasks.filter(task => String(task.kind ?? "").toUpperCase() === "NOTE").length;
         new Notice(`همگام‌سازی کامل شد: ${this.cache.projects.length} لیست، ${this.cache.tasks.length} رکورد (${notes} Note) و ${habits.length} عادت امروز.`);
@@ -466,6 +433,44 @@ export default class TickTickBridgePlugin extends Plugin {
   }
 
   private hasCache() { return Boolean(this.cache.savedAt); }
+
+  /** Re-render every open local surface after a cache mutation. This deliberately
+   * performs no TickTick request, so a drag in week/month is immediately
+   * reflected in daily-note blocks, boards and other open views. */
+  private async refreshLocalSurfaces() {
+    this.habitCheckinCache.clear();
+    for (const [element, day] of this.taskBlocks) {
+      if (!element.isConnected) {
+        this.taskBlocks.delete(element);
+        this.taskBlockSignatures.delete(element);
+        continue;
+      }
+      const signature = this.taskBlockSignature(day);
+      if (this.taskBlockSignatures.get(element) !== signature) {
+        await this.renderTodayBlock(element, day);
+        this.taskBlockSignatures.set(element, signature);
+      }
+    }
+    for (const [element, context] of this.habitBlocks) {
+      if (!element.isConnected) {
+        this.habitBlocks.delete(element);
+        this.habitBlockSignatures.delete(element);
+        this.dashboardStates.delete(element);
+        continue;
+      }
+      const signature = this.habitBlockSignature(element, context);
+      if (this.habitBlockSignatures.get(element) !== signature) {
+        await this.renderHabitBlock(element, context.dashboard, context.day);
+        this.habitBlockSignatures.set(element, signature);
+      }
+    }
+    for (const type of [VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE]) {
+      for (const leaf of this.app.workspace.getLeavesOfType(type)) {
+        const view = leaf.view as unknown as { render?: () => Promise<void> | void };
+        if (typeof view.render === "function") await view.render();
+      }
+    }
+  }
 
   private taskBlockSignature(day?: string) {
     const targetDay = day ?? todayInZone(this.settings.timeZone);
@@ -589,9 +594,20 @@ export default class TickTickBridgePlugin extends Plugin {
       return client.checkInHabit(payload.habitId, payload.day, payload.checkin);
     };
     const applyLocal = () => {
-      if (type === "create") this.cache.tasks.push({ ...payload, id: `offline-${operation.id}`, status: 0 });
-      if (type === "update") this.cache.tasks = this.cache.tasks.map(task => task.id === payload.id ? { ...task, ...payload } : task);
-      if (type === "complete" || type === "delete") this.cache.tasks = this.cache.tasks.filter(task => task.id !== payload.id);
+      if (type === "create") {
+        const task = { ...payload, id: `offline-${operation.id}`, status: 0 };
+        this.cache.tasks.push(task);
+        const board = this.cache.projectBoards[String(task.projectId ?? "")];
+        if (board) board.tasks = [...(board.tasks ?? []), task];
+      }
+      if (type === "update") {
+        this.cache.tasks = this.cache.tasks.map(task => task.id === payload.id ? { ...task, ...payload } : task);
+        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).map((task: any) => task.id === payload.id ? { ...task, ...payload } : task);
+      }
+      if (type === "complete" || type === "delete") {
+        this.cache.tasks = this.cache.tasks.filter(task => task.id !== payload.id);
+        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).filter((task: any) => task.id !== payload.id);
+      }
       if (type === "habit") {
         const stamp = Number(String(payload.day).replaceAll("-", ""));
         const previous = this.cache.habitCheckins[payload.habitId] ?? [];
@@ -602,6 +618,7 @@ export default class TickTickBridgePlugin extends Plugin {
       this.cache.pending.push(operation);
       applyLocal();
       await this.saveSettings();
+      await this.refreshLocalSurfaces();
       new Notice("آفلاین هستی؛ تغییر در صف همگام‌سازی ذخیره شد.");
       return { queued: true };
     }
@@ -609,6 +626,7 @@ export default class TickTickBridgePlugin extends Plugin {
       this.cache.pending.push(operation);
       applyLocal();
       await this.saveSettings();
+      await this.refreshLocalSurfaces();
       new Notice(`TickTick موقتاً محدودیت گذاشته است؛ تغییر محلی حفظ شد و حدود ${this.rateLimitWaitSeconds()} ثانیهٔ دیگر خودکار ارسال می‌شود.`);
       return { queued: true };
     }
@@ -616,6 +634,7 @@ export default class TickTickBridgePlugin extends Plugin {
       const result = await execute();
       applyLocal();
       await this.saveSettings();
+      await this.refreshLocalSurfaces();
       return { queued: false, result };
     } catch (error) {
       const status = Number((error as { status?: number })?.status ?? 0);
@@ -627,6 +646,7 @@ export default class TickTickBridgePlugin extends Plugin {
       this.cache.pending.push(operation);
       applyLocal();
       await this.saveSettings();
+      await this.refreshLocalSurfaces();
       new Notice(status === 429
         ? `TickTick موقتاً محدودیت گذاشته است؛ تغییر محلی حفظ شد و حدود ${this.rateLimitWaitSeconds()} ثانیهٔ دیگر خودکار ارسال می‌شود.`
         : "اتصال TickTick برقرار نیست؛ تغییر در صف همگام‌سازی ذخیره شد.");
@@ -650,7 +670,7 @@ export default class TickTickBridgePlugin extends Plugin {
         const status = Number((error as { status?: number })?.status ?? 0);
         // 4xx means the remote item changed or disappeared. Keep a recoverable
         // record instead of overwriting the remote version silently.
-        if (status > 0 && status < 500) {
+        if (status > 0 && status < 500 && status !== 429) {
           this.cache.conflicts.push(operation);
           new Notice("یک تغییر آفلاین با نسخهٔ TickTick تداخل داشت و ارسال نشد.");
         } else {
