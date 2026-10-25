@@ -13,6 +13,7 @@ Generated on 2026-10-14 against commit `b86e322`. Execute in this order. Each ex
 | 005 | Ship experimental checklist and subtask editing behind a safety gate | P2 | L | 001, 002 | TODO |
 | 006 | Migrate local habits and unify the habit dashboard | P2 | M | 001 | TODO |
 | 007 | Import selected TickTick Notes into managed Obsidian files | P2 | L | 001 | TODO |
+| 008 | Build cache-first smart planning views and project execution tools | P1 | L | 001, current cache/mutation layer | TODO |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED` (include a reason) | `REJECTED` (include a reason).
 
@@ -22,6 +23,7 @@ Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED` (include a reason) | 
 - Plan 002 supplies durable task bindings, field baselines, conflict reporting, and safe write primitives. Calendar, Kanban, and checklist writes must call these primitives, never call `TickTickClient` directly.
 - Plans 003 and 004 may be developed in parallel after Plan 002, but their UI commands and view types must be registered without collisions.
 - Plan 005 deliberately follows Plan 002: checklist item IDs are not stable enough to treat as ordinary task fields without a durable operation journal.
+- Plan 008 follows the existing local-cache and mutation-journal work. Its first delivery is smart board views; later phases add shared filters, backlog planning, timeline, bulk actions, review and an explicitly experimental hierarchy probe.
 
 ## Product decisions fixed by this plan set
 
