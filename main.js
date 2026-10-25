@@ -1199,11 +1199,12 @@ function enhanceHorizontalScroll(element) {
   ].join(", ");
   element.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || element.scrollWidth <= element.clientWidth) return;
-    if (event.target instanceof HTMLElement && event.target.closest(interactive)) return;
+    if (event.pointerType !== "touch" && event.target instanceof HTMLElement && event.target.closest(interactive)) return;
     pointerId = event.pointerId;
     originX = event.clientX;
     originLeft = element.scrollLeft;
     moved = false;
+    if (event.pointerType === "touch") event.stopPropagation();
   });
   element.addEventListener("pointermove", (event) => {
     if (pointerId !== event.pointerId) return;
@@ -1218,6 +1219,8 @@ function enhanceHorizontalScroll(element) {
     }
     if (moved) {
       element.scrollLeft = originLeft - distance;
+      event.preventDefault();
+      event.stopPropagation();
     }
   });
   const release = (event) => {
@@ -1236,6 +1239,11 @@ function enhanceHorizontalScroll(element) {
   };
   element.addEventListener("pointerup", release);
   element.addEventListener("pointercancel", release);
+  element.addEventListener("touchmove", (event) => {
+    if (!moved || event.touches.length !== 1) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }, { passive: false });
   element.addEventListener("click", (event) => {
     if (moved) {
       event.preventDefault();

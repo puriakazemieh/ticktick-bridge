@@ -29,12 +29,14 @@ export function enhanceHorizontalScroll(element: HTMLElement) {
 
   element.addEventListener("pointerdown", event => {
     if (event.button !== 0 || element.scrollWidth <= element.clientWidth) return;
-    if (event.target instanceof HTMLElement && event.target.closest(interactive)) return;
+    // On touch, allow a swipe starting on a task card; a tap still reaches the
+    // card because we only cancel its click after a real horizontal drag.
+    if (event.pointerType !== "touch" && event.target instanceof HTMLElement && event.target.closest(interactive)) return;
     pointerId = event.pointerId;
     originX = event.clientX;
     originLeft = element.scrollLeft;
     moved = false;
-    // Do NOT call setPointerCapture here; wait until user actually drags.
+    if (event.pointerType === "touch") event.stopPropagation();
   });
 
   element.addEventListener("pointermove", event => {
@@ -49,6 +51,8 @@ export function enhanceHorizontalScroll(element: HTMLElement) {
     }
     if (moved) {
       element.scrollLeft = originLeft - distance;
+      event.preventDefault();
+      event.stopPropagation();
     }
   });
 
@@ -66,6 +70,15 @@ export function enhanceHorizontalScroll(element: HTMLElement) {
 
   element.addEventListener("pointerup", release);
   element.addEventListener("pointercancel", release);
+
+  // Obsidian's mobile/tablet sidebar gesture listens high in the tree. Keep
+  // horizontal movement that starts on these surfaces from becoming a drawer
+  // gesture while leaving vertical page scrolling untouched.
+  element.addEventListener("touchmove", event => {
+    if (!moved || event.touches.length !== 1) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }, { passive: false });
 
   element.addEventListener("click", event => {
     if (moved) {

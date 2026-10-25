@@ -2628,8 +2628,8 @@
   scrollbar-gutter: stable both-edges;
   scrollbar-color: var(--interactive-accent) var(--background-secondary);
   scrollbar-width: auto;
-  touch-action: pan-x pan-y;
-  overscroll-behavior-inline: contain;
+  touch-action: pan-x;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 .ticktick-planner-days-shell,
