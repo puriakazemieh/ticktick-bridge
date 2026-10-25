@@ -3701,10 +3701,12 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
           });
         }
         const navigator2 = controls.createDiv({ cls: "ticktick-dashboard-date" });
-        const previous = navigator2.createEl("button", { text: "\u2039", attr: { type: "button", "aria-label": "\u0631\u0648\u0632 \u0642\u0628\u0644" } });
+        const previous = navigator2.createEl("button", { cls: "mod-icon", attr: { type: "button", "aria-label": "\u0631\u0648\u0632 \u0642\u0628\u0644", title: "\u0631\u0648\u0632 \u0642\u0628\u0644" } });
+        (0, import_obsidian8.setIcon)(previous, "chevron-right");
         const now = navigator2.createEl("button", { text: "\u0627\u0645\u0631\u0648\u0632", attr: { type: "button" } });
         navigator2.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", year: "numeric", month: "long", day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00`)) });
-        const next = navigator2.createEl("button", { text: "\u203A", attr: { type: "button", "aria-label": "\u0631\u0648\u0632 \u0628\u0639\u062F" } });
+        const next = navigator2.createEl("button", { cls: "mod-icon", attr: { type: "button", "aria-label": "\u0631\u0648\u0632 \u0628\u0639\u062F", title: "\u0631\u0648\u0632 \u0628\u0639\u062F" } });
+        (0, import_obsidian8.setIcon)(next, "chevron-left");
         previous.addEventListener("click", () => {
           this.dashboardStates.set(element, { ...state, day: shiftIsoDay(day, -1) });
           void this.renderHabitBlock(element, true);
