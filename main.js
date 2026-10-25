@@ -1513,9 +1513,9 @@ var PlanningCalendar = class {
     const step = this.mode === "week" ? 7 : 1;
     const prevBtn = nav.createEl("button", {
       cls: "ticktick-nav-btn mod-icon",
+      text: "\u203A",
       attr: { type: "button", "aria-label": "\u0642\u0628\u0644\u06CC" }
     });
-    (0, import_obsidian4.setIcon)(prevBtn, "chevron-right");
     prevBtn.addEventListener("click", () => {
       this.day = this.mode === "month" ? shiftPersianMonth(this.day, -1) : shiftCalendarDay(this.day, -step);
       void this.render();
@@ -1531,9 +1531,9 @@ var PlanningCalendar = class {
     });
     const nextBtn = nav.createEl("button", {
       cls: "ticktick-nav-btn mod-icon",
+      text: "\u2039",
       attr: { type: "button", "aria-label": "\u0628\u0639\u062F\u06CC" }
     });
-    (0, import_obsidian4.setIcon)(nextBtn, "chevron-left");
     nextBtn.addEventListener("click", () => {
       this.day = this.mode === "month" ? shiftPersianMonth(this.day, 1) : shiftCalendarDay(this.day, step);
       void this.render();
