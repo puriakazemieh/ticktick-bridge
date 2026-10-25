@@ -1005,11 +1005,11 @@ export default class TickTickBridgePlugin extends Plugin {
         }
         const navigator = controls.createDiv({ cls: "ticktick-dashboard-date" });
         const previous = navigator.createEl("button", { cls: "mod-icon", attr: { type: "button", "aria-label": "روز قبل", title: "روز قبل" } });
-        setIcon(previous, "chevron-right");
+        setIcon(previous, "chevron-left");
         const now = navigator.createEl("button", { text: "امروز", attr: { type: "button" } });
         navigator.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", year: "numeric", month: "long", day: "numeric" }).format(new Date(`${day}T12:00:00`)) });
         const next = navigator.createEl("button", { cls: "mod-icon", attr: { type: "button", "aria-label": "روز بعد", title: "روز بعد" } });
-        setIcon(next, "chevron-left");
+        setIcon(next, "chevron-right");
         previous.addEventListener("click", () => {
           this.dashboardStates.set(element, { ...state!, day: shiftIsoDay(day, -1) });
           void this.renderHabitBlock(element, true);

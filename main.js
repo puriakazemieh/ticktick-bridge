@@ -1742,6 +1742,7 @@ var PlanningCalendar = class {
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
     enhanceHorizontalScroll(grid);
     scrollToStart(grid);
+    this.bindCalendarDrop(grid, tasks);
     const showRangeBars = days.length > 1;
     const shell = grid.createDiv({ cls: "ticktick-planner-days-shell" });
     const headers = shell.createDiv({ cls: "ticktick-planner-days-headers" });
@@ -1805,6 +1806,7 @@ var PlanningCalendar = class {
     const grid = root.createDiv({ cls: "ticktick-planner-month" });
     enhanceHorizontalScroll(grid);
     scrollToStart(grid);
+    this.bindCalendarDrop(grid, tasks);
     const days = persianMonthRange(this.day, this.host.firstWeekday);
     const weekdayBar = grid.createDiv({ cls: "ticktick-planner-month-weekdays-bar" });
     const sampleWeek = days.slice(0, 7);
@@ -2154,6 +2156,30 @@ var PlanningCalendar = class {
   draggedTask(event, tasks) {
     const id = event.dataTransfer?.getData("text/ticktick-task") || event.dataTransfer?.getData("text/plain") || this.draggingTaskId;
     return tasks.find((item) => String(item.id) === String(id));
+  }
+  /** Capture drops before a theme, card, or embedded Obsidian view can stop
+   * propagation. Cells still keep their local listeners for visual feedback. */
+  bindCalendarDrop(surface, tasks) {
+    const targetDay = (event) => event.target instanceof Element ? event.target.closest("[data-day]")?.dataset.day : void 0;
+    surface.addEventListener("dragover", (event) => {
+      const day = targetDay(event);
+      if (!day) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      surface.querySelectorAll(".is-drag-over").forEach((item) => item.removeClass("is-drag-over"));
+      surface.querySelector(`[data-day="${day}"]`)?.addClass("is-drag-over");
+    }, true);
+    surface.addEventListener("drop", (event) => {
+      const day = targetDay(event);
+      if (!day) return;
+      event.preventDefault();
+      event.stopPropagation();
+      surface.querySelectorAll(".is-drag-over").forEach((item) => item.removeClass("is-drag-over"));
+      const task = this.draggedTask(event, tasks);
+      if (task) void this.dropTask(task, day);
+      else new import_obsidian4.Notice("\u062A\u0633\u06A9\u0650 \u062F\u0631 \u062D\u0627\u0644 \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F\u061B \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u06A9\u0646.");
+    }, true);
   }
 };
 
@@ -3718,11 +3744,11 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
         }
         const navigator2 = controls.createDiv({ cls: "ticktick-dashboard-date" });
         const previous = navigator2.createEl("button", { cls: "mod-icon", attr: { type: "button", "aria-label": "\u0631\u0648\u0632 \u0642\u0628\u0644", title: "\u0631\u0648\u0632 \u0642\u0628\u0644" } });
-        (0, import_obsidian8.setIcon)(previous, "chevron-right");
+        (0, import_obsidian8.setIcon)(previous, "chevron-left");
         const now = navigator2.createEl("button", { text: "\u0627\u0645\u0631\u0648\u0632", attr: { type: "button" } });
         navigator2.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", year: "numeric", month: "long", day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00`)) });
         const next = navigator2.createEl("button", { cls: "mod-icon", attr: { type: "button", "aria-label": "\u0631\u0648\u0632 \u0628\u0639\u062F", title: "\u0631\u0648\u0632 \u0628\u0639\u062F" } });
-        (0, import_obsidian8.setIcon)(next, "chevron-left");
+        (0, import_obsidian8.setIcon)(next, "chevron-right");
         previous.addEventListener("click", () => {
           this.dashboardStates.set(element, { ...state, day: shiftIsoDay(day, -1) });
           void this.renderHabitBlock(element, true);

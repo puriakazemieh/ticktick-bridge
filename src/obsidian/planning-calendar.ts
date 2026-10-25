@@ -493,6 +493,7 @@ export class PlanningCalendar {
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
     enhanceHorizontalScroll(grid);
     scrollToStart(grid);
+    this.bindCalendarDrop(grid, tasks);
     const showRangeBars = days.length > 1;
 
     const shell = grid.createDiv({ cls: "ticktick-planner-days-shell" });
@@ -568,6 +569,7 @@ export class PlanningCalendar {
     const grid = root.createDiv({ cls: "ticktick-planner-month" });
     enhanceHorizontalScroll(grid);
     scrollToStart(grid);
+    this.bindCalendarDrop(grid, tasks);
     const days = persianMonthRange(this.day, this.host.firstWeekday);
 
     // Weekday name bar at top of month view
@@ -973,5 +975,32 @@ export class PlanningCalendar {
       || event.dataTransfer?.getData("text/plain")
       || this.draggingTaskId;
     return tasks.find(item => String(item.id) === String(id));
+  }
+
+  /** Capture drops before a theme, card, or embedded Obsidian view can stop
+   * propagation. Cells still keep their local listeners for visual feedback. */
+  private bindCalendarDrop(surface: HTMLElement, tasks: any[]) {
+    const targetDay = (event: DragEvent) => event.target instanceof Element
+      ? event.target.closest<HTMLElement>("[data-day]")?.dataset.day
+      : undefined;
+    surface.addEventListener("dragover", event => {
+      const day = targetDay(event);
+      if (!day) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      surface.querySelectorAll(".is-drag-over").forEach(item => item.removeClass("is-drag-over"));
+      surface.querySelector<HTMLElement>(`[data-day=\"${day}\"]`)?.addClass("is-drag-over");
+    }, true);
+    surface.addEventListener("drop", event => {
+      const day = targetDay(event);
+      if (!day) return;
+      event.preventDefault();
+      event.stopPropagation();
+      surface.querySelectorAll(".is-drag-over").forEach(item => item.removeClass("is-drag-over"));
+      const task = this.draggedTask(event, tasks);
+      if (task) void this.dropTask(task, day);
+      else new Notice("تسکِ در حال جابه‌جایی پیدا نشد؛ دوباره تلاش کن.");
+    }, true);
   }
 }
