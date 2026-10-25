@@ -1168,7 +1168,10 @@ class TodayTasksView extends ItemView {
     contentEl.empty();
     contentEl.addClass("ticktick-today-tasks-panel");
     const header = contentEl.createDiv({ cls: "ticktick-panel-header" });
+    header.addClass("ticktick-today-header");
     header.createEl("h2", { text: "تسک‌های امروز" });
+    const currentPersianDate = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", year: "numeric", month: "long", day: "numeric" }).format(new Date(`${todayInZone(this.plugin.settings.timeZone)}T12:00:00Z`));
+    header.createSpan({ cls: "ticktick-panel-subtitle", text: currentPersianDate });
     const refresh = header.createEl("button", { text: "بروزرسانی" });
     refresh.addEventListener("click", async () => {
       refresh.disabled = true;
@@ -1277,7 +1280,7 @@ class TodayHabitsView extends ItemView {
 class PlanningView extends ItemView {
   constructor(leaf: WorkspaceLeaf, private plugin: TickTickBridgePlugin) { super(leaf); }
   getViewType() { return PLANNER_VIEW_TYPE; }
-  getDisplayText() { return "برنامه‌ریزی TickTick"; }
+  getDisplayText() { return "تقویم برنامه‌ریزی TickTick"; }
   getIcon() { return "calendar-days"; }
   async onOpen() { await this.render(); }
   async render() {
@@ -1309,25 +1312,145 @@ class TickTickControlView extends ItemView {
   async setState(state: { screen?: ControlScreen }) { this.screen = state?.screen ?? "sync"; await this.render(); }
   async onOpen() { await this.render(); }
   async render() {
-    this.contentEl.empty(); this.contentEl.addClass("ticktick-control-page");
+    this.contentEl.empty();
+    this.contentEl.addClass("ticktick-control-page");
+
+    // ── Segmented Navigation Bar ──
     const nav = this.contentEl.createDiv({ cls: "ticktick-control-nav" });
-    const choices: Array<[ControlScreen, string]> = [["sync", "همگام‌سازی"], ["habits", "عادت‌های محلی"], ["notes", "TickTick Notes"], ["checklists", "Checklist"], ["reports", "گزارش‌ها"]];
-    for (const [screen, label] of choices) { const button = nav.createEl("button", { text: label, cls: this.screen === screen ? "is-active" : "" }); button.addEventListener("click", () => { this.screen = screen; void this.render(); }); }
-    const body = this.contentEl.createDiv({ cls: "ticktick-control-body" });
+    const choices: Array<[ControlScreen, string, string]> = [
+      ["sync", "همگام‌سازی", "arrow-down-up"],
+      ["habits", "عادت‌های محلی", "activity"],
+      ["notes", "TickTick Notes", "file-text"],
+      ["checklists", "Checklist", "list-checks"],
+      ["reports", "گزارش‌ها", "bar-chart-2"]
+    ];
+
+    for (const [screen, label, iconName] of choices) {
+      const button = nav.createEl("button", {
+        cls: `ticktick-control-tab ${this.screen === screen ? "is-active" : ""}`,
+        attr: { type: "button" }
+      });
+      const icon = button.createSpan({ cls: "ticktick-tab-icon" });
+      setIcon(icon, iconName);
+      button.createSpan({ text: label });
+      button.addEventListener("click", () => {
+        this.screen = screen;
+        void this.render();
+      });
+    }
+
+    // ── Content Card ──
+    const card = this.contentEl.createDiv({ cls: "ticktick-control-card" });
+
     if (this.screen === "sync") {
-      body.createEl("h2", { text: "همگام‌سازی و تعارض‌ها" }); body.createEl("p", { text: "همگام‌سازی کامل همهٔ لیست‌ها و رکوردها را بدون فیلتر تاریخ دریافت و محلی cache می‌کند. Preview هیچ تغییری نمی‌نویسد؛ Apply فقط پس از انتخاب شما اجرا می‌شود." });
-      this.button(body, "همگام‌سازی کامل TickTick", async () => this.plugin.syncNow(), true); this.button(body, "Preview Markdown", async () => this.plugin.previewMarkdownSync()); this.button(body, "Apply Preview", async () => this.plugin.applyMarkdownSync()); this.button(body, "باز کردن تعارض‌ها", async () => this.plugin.openMarkdownSyncConflicts());
+      const header = card.createDiv({ cls: "ticktick-control-header" });
+      const hIcon = header.createSpan({ cls: "ticktick-header-icon" });
+      setIcon(hIcon, "arrow-down-up");
+      header.createEl("h2", { text: "همگام‌سازی و تعارض‌ها" });
+
+      card.createEl("p", {
+        cls: "ticktick-control-desc",
+        text: "همگام‌سازی کامل همهٔ لیست‌ها و رکوردها را بدون فیلتر تاریخ دریافت و محلی cache می‌کند. Preview هیچ تغییری نمی‌نویسد؛ Apply فقط پس از انتخاب شما اجرا می‌شود."
+      });
+
+      const actions = card.createDiv({ cls: "ticktick-control-actions" });
+      this.button(actions, "همگام‌سازی کامل TickTick", "refresh-cw", async () => this.plugin.syncNow(), true);
+      this.button(actions, "Preview Markdown", "file-search", async () => this.plugin.previewMarkdownSync());
+      this.button(actions, "Apply Preview", "upload-cloud", async () => this.plugin.applyMarkdownSync());
+      this.button(actions, "باز کردن تعارض‌ها", "git-pull-request", async () => this.plugin.openMarkdownSyncConflicts(), false, true);
+
     } else if (this.screen === "habits") {
-      body.createEl("h2", { text: "عادت‌های محلی" }); body.createEl("p", { text: "این بررسی فقط‌خواندنی است؛ فایل‌های محلی تغییر یا حذف نمی‌شوند." }); this.button(body, "مرور عادت‌های محلی", async () => this.plugin.reviewLocalHabits());
+      const header = card.createDiv({ cls: "ticktick-control-header" });
+      const hIcon = header.createSpan({ cls: "ticktick-header-icon" });
+      setIcon(hIcon, "activity");
+      header.createEl("h2", { text: "عادت‌های محلی" });
+
+      card.createEl("p", {
+        cls: "ticktick-control-desc",
+        text: "این بررسی فقط‌خواندنی است؛ فایل‌های محلی تغییر یا حذف نمی‌شوند و وضعیت عادت‌ها در والت ابزیدیان بررسی می‌شود."
+      });
+
+      const actions = card.createDiv({ cls: "ticktick-control-actions" });
+      this.button(actions, "مرور عادت‌های محلی", "activity", async () => this.plugin.reviewLocalHabits(), true);
+
     } else if (this.screen === "notes") {
-      body.createEl("h2", { text: "انتقال انتخابی TickTick Notes" }); body.createEl("p", { text: "فقط Noteهای دارای kind: NOTE پس از انتخاب شما وارد فولدر TickTick Notes می‌شوند؛ فایل موجود overwrite نمی‌شود." }); this.button(body, "انتخاب و انتقال Noteها", async () => this.plugin.previewTickTickNotes(), true);
+      const header = card.createDiv({ cls: "ticktick-control-header" });
+      const hIcon = header.createSpan({ cls: "ticktick-header-icon" });
+      setIcon(hIcon, "file-text");
+      header.createEl("h2", { text: "انتقال انتخابی TickTick Notes" });
+
+      card.createEl("p", {
+        cls: "ticktick-control-desc",
+        text: "فقط Noteهای دارای kind: NOTE پس از انتخاب شما وارد فولدر TickTick Notes می‌شوند؛ فایل‌های موجود overwrite نمی‌شوند."
+      });
+
+      const actions = card.createDiv({ cls: "ticktick-control-actions" });
+      this.button(actions, "انتخاب و انتقال Noteها", "file-text", async () => this.plugin.previewTickTickNotes(), true);
+
     } else if (this.screen === "checklists") {
-      body.createEl("h2", { text: "Checklist و Subtask" }); body.createEl("p", { text: "Checklistها در کارت task نمایش داده می‌شوند اما فعلاً فقط‌خواندنی‌اند؛ ویرایش child item تا تأیید رسمی API TickTick فعال نمی‌شود." }); this.button(body, "باز کردن تسک‌های امروز", async () => this.plugin.openTodayView());
+      const header = card.createDiv({ cls: "ticktick-control-header" });
+      const hIcon = header.createSpan({ cls: "ticktick-header-icon" });
+      setIcon(hIcon, "list-checks");
+      header.createEl("h2", { text: "Checklist و Subtask" });
+
+      card.createEl("p", {
+        cls: "ticktick-control-desc",
+        text: "Checklistها در کارت task نمایش داده می‌شوند اما فعلاً فقط‌خواندنی‌اند؛ ویرایش child item تا تأیید رسمی API TickTick فعال نمی‌شود."
+      });
+
+      const actions = card.createDiv({ cls: "ticktick-control-actions" });
+      this.button(actions, "باز کردن تسک‌های امروز", "calendar-check", async () => this.plugin.openTodayView(), true);
+
     } else {
-      body.createEl("h2", { text: "گزارش‌ها و backup" }); const latest = await this.plugin.latestManagedReport(); body.createEl("p", { text: latest?.path ?? "هنوز گزارشی وجود ندارد." }); if (latest) body.createEl("pre", { text: JSON.stringify(latest.report, null, 2) });
+      const header = card.createDiv({ cls: "ticktick-control-header" });
+      const hIcon = header.createSpan({ cls: "ticktick-header-icon" });
+      setIcon(hIcon, "bar-chart-2");
+      header.createEl("h2", { text: "گزارش‌ها و پشتیبان‌گیری" });
+
+      const latest = await this.plugin.latestManagedReport();
+      if (latest?.path) {
+        const badgeRow = card.createDiv({ cls: "ticktick-report-badge-row" });
+        badgeRow.createSpan({ cls: "ticktick-report-badge", text: `آخرین گزارش: ${latest.path}` });
+      } else {
+        card.createEl("p", { cls: "ticktick-control-desc", text: "هنوز گزارشی ایجاد نشده است." });
+      }
+
+      if (latest?.report) {
+        const pre = card.createEl("pre", { cls: "ticktick-report-pre" });
+        pre.setText(JSON.stringify(latest.report, null, 2));
+      }
     }
   }
-  private button(parent: HTMLElement, label: string, action: () => Promise<any>, cta = false) { const button = parent.createEl("button", { text: label, cls: cta ? "mod-cta" : "" }); button.addEventListener("click", async () => { button.disabled = true; try { await action(); } catch (error) { new Notice(error instanceof Error ? error.message : "عملیات ناموفق بود."); } finally { button.disabled = false; } }); }
+
+  private button(
+    parent: HTMLElement,
+    label: string,
+    iconName: string,
+    action: () => Promise<any>,
+    cta = false,
+    danger = false
+  ) {
+    const button = parent.createEl("button", {
+      cls: `ticktick-control-btn ${cta ? "mod-cta" : ""} ${danger ? "mod-danger" : ""}`,
+      attr: { type: "button" }
+    });
+    const btnIcon = button.createSpan({ cls: "ticktick-btn-icon" });
+    setIcon(btnIcon, iconName);
+    button.createSpan({ text: label });
+
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      btnIcon.addClass("is-spinning");
+      try {
+        await action();
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : "عملیات ناموفق بود.");
+      } finally {
+        button.disabled = false;
+        btnIcon.removeClass("is-spinning");
+      }
+    });
+  }
 }
 
 type TaskDraft = {
