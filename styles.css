@@ -881,7 +881,6 @@
   font-size: 1.1rem;
 }
 
-.ticktick-local-habit { outline: 1px dashed var(--text-muted); }
 .ticktick-habit-source { color: var(--text-muted); font-size: .65rem; margin-top: .12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ticktick-checklist-readonly { margin-top: .35rem; color: var(--text-muted); font-size: .72rem; }.ticktick-checklist-readonly summary { cursor: pointer; }.ticktick-checklist-readonly div { padding: .12rem .25rem; }
 /* ── Control Center Page ── */

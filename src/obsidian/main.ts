@@ -7,7 +7,6 @@ import { MarkdownSync } from "./markdown-sync";
 import { MarkdownConflictModal } from "./conflict-modal";
 import { PlanningCalendar } from "./planning-calendar";
 import { ProjectBoard } from "./project-board";
-import { HabitMigration } from "./habit-migration";
 import { NoteImport, NoteImportModal } from "./note-import";
 import { checklistSummary } from "../core/checklist.js";
 import { mergeTaskDetails, taskDescription } from "../core/task-description.js";
@@ -19,7 +18,7 @@ const PLANNER_VIEW_TYPE = "ticktick-bridge-planner";
 const PROJECT_BOARD_VIEW_TYPE = "ticktick-bridge-project-board";
 const CONTROL_VIEW_TYPE = "ticktick-bridge-control";
 type DashboardMode = "day" | "week" | "month" | "stats";
-type ControlScreen = "sync" | "habits" | "notes" | "checklists" | "reports";
+type ControlScreen = "sync" | "notes" | "checklists" | "reports";
 
 function currentPlatformName() {
   if (Platform.isWin) return "Windows";
@@ -42,7 +41,6 @@ interface BridgeSettings {
   showRibbonIcons: boolean;
   plannerFirstWeekday: number;
   plannerShowCompleted: boolean;
-  localHabitFolder: string;
   ticktickNotesFolder: string;
   experimentalChecklistReadOnly: boolean;
   boardLastProjectId: string;
@@ -76,7 +74,6 @@ const DEFAULT_SETTINGS: BridgeSettings = {
   showRibbonIcons: false,
   plannerFirstWeekday: 6,
   plannerShowCompleted: false,
-  localHabitFolder: "برنامه‌ریزی/Habits",
   ticktickNotesFolder: "TickTick Notes",
   experimentalChecklistReadOnly: true,
   boardLastProjectId: "",
@@ -104,7 +101,6 @@ export default class TickTickBridgePlugin extends Plugin {
   private syncInProgress = false;
   private managedStorage!: ManagedStorage;
   private markdownSync!: MarkdownSync;
-  private habitMigration!: HabitMigration;
   private noteImport!: NoteImport;
   private lastManagedReport = "هنوز گزارشی ثبت نشده است.";
 
@@ -117,6 +113,7 @@ export default class TickTickBridgePlugin extends Plugin {
       projectDependencies: _legacyProjectDependencies,
       projectTaskCatalog: _legacyProjectTaskCatalog,
       cache: savedCache,
+      localHabitFolder: _legacyLocalHabitFolder,
       ...activeSettings
     } = legacySettings;
     this.settings = { ...DEFAULT_SETTINGS, ...activeSettings };
@@ -127,7 +124,6 @@ export default class TickTickBridgePlugin extends Plugin {
     this.cache = normalizeCache(privateCache ?? savedCache);
     this.markdownSync = new MarkdownSync(this.app, this.managedStorage, () => this.client(), () => this.settings, () => this.scheduledCheckboxProjectId());
     await this.markdownSync.initialize();
-    this.habitMigration = new HabitMigration(this.app, this.managedStorage, () => this.settings.localHabitFolder);
     this.noteImport = new NoteImport(this.app, this.managedStorage, () => this.settings.ticktickNotesFolder);
     if (!privateCache || "projectRoot" in legacySettings || "projectDependencies" in legacySettings || "projectTaskCatalog" in legacySettings) await this.saveSettings();
     // Remove any restored workspace leaf from the retired project-planning view.
@@ -164,8 +160,6 @@ export default class TickTickBridgePlugin extends Plugin {
     this.configureRibbonIcons();
     this.addCommand({ id: "open-today-tasks", name: "Open today's TickTick tasks", callback: () => this.openTodayView() });
     this.addCommand({ id: "open-today-habits", name: "Open today's TickTick habits", callback: () => this.openHabitView() });
-    this.addCommand({ id: "review-local-habits", name: "Review local habits for TickTick migration", callback: () => this.reviewLocalHabits() });
-    this.addCommand({ id: "migrate-local-habits", name: "Migrate selected local habits to TickTick", callback: () => this.migrateLocalHabits() });
     this.addCommand({ id: "open-ticktick-sync-center", name: "Open TickTick sync center", callback: () => this.openControlPage("sync") });
     this.addCommand({ id: "preview-ticktick-notes", name: "Preview TickTick Notes import", callback: () => this.openControlPage("notes") });
     this.addCommand({ id: "open-weekly-planner", name: "Open TickTick weekly planner", callback: () => this.openPlannerView() });
@@ -249,12 +243,6 @@ export default class TickTickBridgePlugin extends Plugin {
     return result;
   }
 
-  async reviewLocalHabits() {
-    const rows = await this.habitMigration.preview(this.cache.habits);
-    new Notice(`پیش‌نمایش عادت‌های محلی: ${rows.length} مورد؛ ${rows.filter(row => row.needsMapping).length} مورد نیازمند نگاشت دستی است. هیچ داده‌ای تغییر نکرد.`);
-    return rows;
-  }
-  async migrateLocalHabits() { return this.habitMigration.apply(); }
   async previewTickTickNotes() {
     const rows = this.noteImport.preview(this.cache.tasks);
     if (rows.length) new NoteImportModal(this.app, this.noteImport, this.cache.tasks).open();
@@ -382,7 +370,6 @@ export default class TickTickBridgePlugin extends Plugin {
     menu.addItem(item => item.setTitle("برد پروژه‌ها").setIcon("kanban-square").onClick(() => void this.openProjectBoardView()));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("مرکز همگام‌سازی و تعارض‌ها").setIcon("arrow-down-up").onClick(() => void this.openControlPage("sync")));
-    menu.addItem(item => item.setTitle("پیش‌نمایش عادت‌های محلی").setIcon("activity").onClick(() => void this.openControlPage("habits")));
     menu.addItem(item => item.setTitle("پیش‌نمایش انتقال TickTick Notes").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
     menu.addItem(item => item.setTitle("Checklistهای task (فقط‌خواندنی)").setIcon("list-checks").onClick(() => void this.openControlPage("checklists")));
     menu.addItem(item => item.setTitle("آخرین گزارش و backup").setIcon("shield-check").onClick(() => void this.openControlPage("reports")));
@@ -977,11 +964,6 @@ export default class TickTickBridgePlugin extends Plugin {
         });
         return { ...habit, checkin, ...(history ? { history } : {}) };
       });
-      const localHabits = (await this.habitMigration.localHabits()).map(habit => {
-        const checkin = habit.history.find(entry => entry.date === day);
-        return { ...habit, id: habit.id, source: "local", repeatRule: habit.cadence === "weekly" ? "RRULE:FREQ=WEEKLY" : "RRULE:FREQ=DAILY", checkin: checkin ? { value: checkin.value, goal: habit.goal, status: checkin.completed ? 2 : 0 } : null };
-      });
-      habits = [...habits, ...localHabits];
       if (dashboard && state?.mode === "day") habits = habits.filter((habit: { history?: Array<{ date: string }> }) => habit.history?.some((entry: { date: string }) => entry.date === day));
       if (dashboard) {
         const controls = root.createDiv({ cls: "ticktick-dashboard-controls" });
@@ -1043,15 +1025,13 @@ export default class TickTickBridgePlugin extends Plugin {
           return map[group] || "var(--interactive-accent)";
         };
         const card = cardHost!.createEl("button", { cls: `daily-habit-card${dashboard ? " ticktick-dashboard-habit-card" : ""}${completed ? " is-done" : ""}`, attr: { type: "button", "aria-label": `ثبت عادت ${habit.name}` } });
-        const localOnly = habit.source === "local";
-        if (localOnly) card.addClass("ticktick-local-habit");
         card.style.setProperty("--card-tone", habitGroupTone(habitDashboardSection(habit)));
         const icon = card.createDiv({ cls: "daily-habit-progress" });
         icon.style.setProperty("--ticktick-progress", `${Math.round(progress * 360)}deg`);
         icon.createDiv({ cls: "daily-habit-icon", text: habitIcon(habit.iconRes ?? habit.icon) });
         const text = card.createDiv({ cls: "daily-habit-text" });
         text.createDiv({ cls: "daily-habit-title", text: habit.name });
-        text.createDiv({ cls: "ticktick-habit-source", text: localOnly ? `محلی · ${habit.sourcePath}` : "TickTick" });
+        text.createDiv({ cls: "ticktick-habit-source", text: "TickTick" });
         const historyComplete = (habit.history ?? []).filter((entry: { completed: boolean }) => entry.completed).length;
         const streak = habitStreak(habit.history ?? []);
         const progressLabel = goal > 1 ? `${currentValue}/${goal} ${habit.unit ?? ""}`.trim() : completed ? "انجام شد" : "برای ثبت بزن";
@@ -1065,7 +1045,6 @@ export default class TickTickBridgePlugin extends Plugin {
           }
         }
         card.addEventListener("click", async () => {
-          if (localOnly) { new Notice("عادت محلی فقط خواندنی است؛ writeback پیش‌فرض خاموش است."); return; }
           card.disabled = true;
           try {
             const nextValue = completed ? 0 : Math.min(goal, currentValue + step);
@@ -1319,7 +1298,6 @@ class TickTickControlView extends ItemView {
     const nav = this.contentEl.createDiv({ cls: "ticktick-control-nav" });
     const choices: Array<[ControlScreen, string, string]> = [
       ["sync", "همگام‌سازی", "arrow-down-up"],
-      ["habits", "عادت‌های محلی", "activity"],
       ["notes", "TickTick Notes", "file-text"],
       ["checklists", "Checklist", "list-checks"],
       ["reports", "گزارش‌ها", "bar-chart-2"]
@@ -1358,20 +1336,6 @@ class TickTickControlView extends ItemView {
       this.button(actions, "Preview Markdown", "file-search", async () => this.plugin.previewMarkdownSync());
       this.button(actions, "Apply Preview", "upload-cloud", async () => this.plugin.applyMarkdownSync());
       this.button(actions, "باز کردن تعارض‌ها", "git-pull-request", async () => this.plugin.openMarkdownSyncConflicts(), false, true);
-
-    } else if (this.screen === "habits") {
-      const header = card.createDiv({ cls: "ticktick-control-header" });
-      const hIcon = header.createSpan({ cls: "ticktick-header-icon" });
-      setIcon(hIcon, "activity");
-      header.createEl("h2", { text: "عادت‌های محلی" });
-
-      card.createEl("p", {
-        cls: "ticktick-control-desc",
-        text: "این بررسی فقط‌خواندنی است؛ فایل‌های محلی تغییر یا حذف نمی‌شوند و وضعیت عادت‌ها در والت ابزیدیان بررسی می‌شود."
-      });
-
-      const actions = card.createDiv({ cls: "ticktick-control-actions" });
-      this.button(actions, "مرور عادت‌های محلی", "activity", async () => this.plugin.reviewLocalHabits(), true);
 
     } else if (this.screen === "notes") {
       const header = card.createDiv({ cls: "ticktick-control-header" });
@@ -2045,10 +2009,6 @@ class TickTickBridgeSettings extends PluginSettingTab {
         try { await this.plugin.syncNow(); } finally { button.setDisabled(false); }
       }));
     new Setting(containerEl).setName("تقویم برنامه‌ریزی").setDesc("هفته و شبکهٔ ماه همیشه از شنبه شروع می‌شوند و تسک تکمیل‌شده به‌صورت پیش‌فرض پنهان است.").addToggle(toggle => toggle.setValue(this.plugin.settings.plannerShowCompleted).setTooltip("نمایش تسک‌های تکمیل‌شده در تقویم").onChange(async value => { this.plugin.settings.plannerShowCompleted = value; await this.plugin.saveSettings(); }));
-    new Setting(containerEl).setName("عادت‌های محلی").setDesc("منبع فقط‌خواندنی برای داشبورد و پیش‌نمایش مهاجرت؛ فایل‌ها هرگز خودکار تغییر یا حذف نمی‌شوند.").addText(input => input
-      .setValue(this.plugin.settings.localHabitFolder)
-      .onChange(async value => { this.plugin.settings.localHabitFolder = value.trim().replace(/^\/+|\/+$/g, ""); await this.plugin.saveSettings(); }))
-      .addButton(button => button.setButtonText("مرور عادت‌ها").onClick(async () => { button.setDisabled(true); try { await this.plugin.reviewLocalHabits(); } finally { button.setDisabled(false); } }));
     new Setting(containerEl).setName("آیکون‌های اضافی نوار کناری").setDesc("آیکون همگام‌سازی همیشه نمایش داده می‌شود. با روشن‌کردن این گزینه، میانبر تسک‌ها و عادت‌ها هم نمایش داده می‌شوند.").addToggle(toggle => toggle
       .setValue(this.plugin.settings.showRibbonIcons)
       .onChange(async value => {
