@@ -980,9 +980,7 @@ export class PlanningCalendar {
   /** Capture drops before a theme, card, or embedded Obsidian view can stop
    * propagation. Cells still keep their local listeners for visual feedback. */
   private bindCalendarDrop(surface: HTMLElement, tasks: any[]) {
-    const targetDay = (event: DragEvent) => event.target instanceof Element
-      ? event.target.closest<HTMLElement>("[data-day]")?.dataset.day
-      : undefined;
+    const targetDay = (event: DragEvent) => this.visualDropDay(surface, event);
     surface.addEventListener("dragover", event => {
       const day = targetDay(event);
       if (!day) return;
@@ -1002,5 +1000,24 @@ export class PlanningCalendar {
       if (task) void this.dropTask(task, day);
       else new Notice("تسکِ در حال جابه‌جایی پیدا نشد؛ دوباره تلاش کن.");
     }, true);
+  }
+
+  /** Resolve the destination from the visible date header instead of the DOM
+   * ancestry of a card. Range lanes and RTL grids can otherwise make a card
+   * appear over a neighbouring day while retaining another column's parent. */
+  private visualDropDay(surface: HTMLElement, event: DragEvent) {
+    const x = event.clientX;
+    if (Number.isFinite(x) && x > 0) {
+      const headers = surface.querySelectorAll<HTMLElement>(
+        ".ticktick-planner-day-header[data-day], .ticktick-planner-month-header[data-day]",
+      );
+      for (const header of headers) {
+        const rect = header.getBoundingClientRect();
+        if (x >= rect.left && x <= rect.right) return header.dataset.day;
+      }
+    }
+    return event.target instanceof Element
+      ? event.target.closest<HTMLElement>("[data-day]")?.dataset.day
+      : undefined;
   }
 }
