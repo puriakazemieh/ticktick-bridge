@@ -50,3 +50,8 @@ test("all-list and inbox views are local virtual boards and keep pinned cards fi
   assert.equal(all.project.name, "همهٔ لیست‌ها");
   assert.equal(boardColumns(normalizeProjectData({ columns: [{ id: "c", name: "کار" }], tasks: [{ ...tasks[1], columnId: "c" }, { ...tasks[2], columnId: "c" }] }))[0].groups[0].name, "Pinned");
 });
+test("inbox view recognises TickTick's account-specific inbox project id", () => {
+  const tasks = [{ id: "i", projectId: "inbox115250281", isInbox: true, status: 0, title: "یادداشت" }];
+  assert.equal(virtualBoardEntries(tasks).inbox.count, 1);
+  assert.equal(virtualBoardData(INBOX_BOARD_VIEW_ID, tasks, []).tasks[0].projectId, "inbox115250281");
+});

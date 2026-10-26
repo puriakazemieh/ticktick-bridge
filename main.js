@@ -71,7 +71,7 @@ function virtualBoardEntries(tasks = []) {
   }
   return {
     all: { id: ALL_BOARD_VIEW_ID, name: "\u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627", count: open.length },
-    inbox: { id: INBOX_BOARD_VIEW_ID, name: "\u0648\u0631\u0648\u062F\u06CC", count: open.filter((task) => String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId).length },
+    inbox: { id: INBOX_BOARD_VIEW_ID, name: "\u0648\u0631\u0648\u062F\u06CC", count: open.filter((task) => Boolean(task.isInbox) || String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId).length },
     recurring: { id: RECURRING_BOARD_VIEW_ID, name: "\u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647\u200C\u0647\u0627", count: open.filter((task) => Boolean(task.repeatFlag)).length },
     tags: [...tags.entries()].sort(([left], [right]) => left.localeCompare(right, "fa")).map(([name, count]) => ({ id: `${TAG_BOARD_VIEW_PREFIX}${encodeURIComponent(name)}`, name, count }))
   };
@@ -85,7 +85,7 @@ function virtualBoardData(selection, tasks = [], projects = []) {
     matching = tasks;
   } else if (selection === INBOX_BOARD_VIEW_ID) {
     name = entries.inbox.name;
-    matching = tasks.filter((task) => String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId);
+    matching = tasks.filter((task) => Boolean(task.isInbox) || String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId);
   } else if (selection === RECURRING_BOARD_VIEW_ID) {
     name = entries.recurring.name;
     matching = tasks.filter((task) => Boolean(task.repeatFlag));
@@ -3609,8 +3609,9 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     if (!projectBoards.inbox && !this.cache.tasks.some((task) => String(task?.projectId ?? "").toLowerCase() === "inbox")) {
       try {
         const inbox = normalizeProjectData(await client.getProjectData("inbox"), { id: "inbox", name: "\u0648\u0631\u0648\u062F\u06CC" });
+        inbox.tasks = inbox.tasks.map((task) => ({ ...task, isInbox: true, projectName: "\u0648\u0631\u0648\u062F\u06CC" }));
         projectBoards.inbox = inbox;
-        for (const task of inbox.tasks) taskIndex.set(`inbox:${String(task.id ?? "")}`, task);
+        for (const task of inbox.tasks) taskIndex.set(`${String(task.projectId ?? "inbox")}:${String(task.id ?? "")}`, task);
       } catch {
       }
     }
@@ -3623,7 +3624,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     const tasks = [...taskIndex.values()];
     for (const [projectId, board] of Object.entries(projectBoards)) {
       const prior = new Map((board.tasks ?? []).map((task) => [String(task.id), task]));
-      board.tasks = tasks.filter((task) => String(task?.projectId ?? "") === projectId).map((task) => mergeTaskDetails(prior.get(String(task.id)), task));
+      board.tasks = tasks.filter((task) => projectId === "inbox" ? Boolean(task.isInbox) : String(task?.projectId ?? "") === projectId).map((task) => mergeTaskDetails(prior.get(String(task.id)), task));
     }
     const activeHabits = habits.filter((habit) => habit.status === void 0 || habit.status === 0);
     const fromDay = shiftIsoDay(today, -90);

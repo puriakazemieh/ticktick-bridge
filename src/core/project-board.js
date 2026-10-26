@@ -48,7 +48,7 @@ export function virtualBoardEntries(tasks = []) {
   }
   return {
     all: { id: ALL_BOARD_VIEW_ID, name: "همهٔ لیست‌ها", count: open.length },
-    inbox: { id: INBOX_BOARD_VIEW_ID, name: "ورودی", count: open.filter(task => String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId).length },
+    inbox: { id: INBOX_BOARD_VIEW_ID, name: "ورودی", count: open.filter(task => Boolean(task.isInbox) || String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId).length },
     recurring: { id: RECURRING_BOARD_VIEW_ID, name: "تکرارشونده‌ها", count: open.filter(task => Boolean(task.repeatFlag)).length },
     tags: [...tags.entries()]
       .sort(([left], [right]) => left.localeCompare(right, "fa"))
@@ -65,7 +65,7 @@ export function virtualBoardData(selection, tasks = [], projects = []) {
     matching = tasks;
   } else if (selection === INBOX_BOARD_VIEW_ID) {
     name = entries.inbox.name;
-    matching = tasks.filter(task => String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId);
+    matching = tasks.filter(task => Boolean(task.isInbox) || String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId);
   } else if (selection === RECURRING_BOARD_VIEW_ID) {
     name = entries.recurring.name;
     matching = tasks.filter(task => Boolean(task.repeatFlag));

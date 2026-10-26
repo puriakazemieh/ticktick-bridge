@@ -586,8 +586,13 @@ export default class TickTickBridgePlugin extends Plugin {
     if (!projectBoards.inbox && !this.cache.tasks.some(task => String(task?.projectId ?? "").toLowerCase() === "inbox")) {
       try {
         const inbox = normalizeProjectData(await client.getProjectData("inbox"), { id: "inbox", name: "ورودی" });
+        // The API's Inbox tasks carry an account-specific project id (for
+        // example `inbox115…`), not the literal endpoint id `inbox`. Keep
+        // that real id for complete/update calls, but mark membership so the
+        // synthetic Inbox board can recognise and retain its cards.
+        inbox.tasks = inbox.tasks.map((task: any) => ({ ...task, isInbox: true, projectName: "ورودی" }));
         projectBoards.inbox = inbox;
-        for (const task of inbox.tasks) taskIndex.set(`inbox:${String(task.id ?? "")}`, task);
+        for (const task of inbox.tasks) taskIndex.set(`${String(task.projectId ?? "inbox")}:${String(task.id ?? "")}`, task);
       } catch {
         // Some accounts expose Inbox only from the web batch feed. It remains
         // safe to continue and populate it from that feed when available.
@@ -605,7 +610,7 @@ export default class TickTickBridgePlugin extends Plugin {
     for (const [projectId, board] of Object.entries(projectBoards)) {
       const prior = new Map<string, any>((board.tasks ?? []).map((task: any) => [String(task.id), task]));
       board.tasks = tasks
-        .filter(task => String(task?.projectId ?? "") === projectId)
+        .filter(task => projectId === "inbox" ? Boolean(task.isInbox) : String(task?.projectId ?? "") === projectId)
         .map(task => mergeTaskDetails(prior.get(String(task.id)), task));
     }
     const activeHabits = habits.filter((habit: { status?: number }) => habit.status === undefined || habit.status === 0);
