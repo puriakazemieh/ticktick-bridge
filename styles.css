@@ -3582,6 +3582,73 @@
   align-self: start !important;
 }
 
+/* Hallmark · component: daily habit card · genre: modern-minimal · theme: vault-native
+ * states: default · hover · focus · active · disabled · loading · error · success
+ * contrast: pass (uses the active Obsidian theme tokens)
+ * pre-emit critique: P4 H5 E5 S5 R5 V4
+ * Component-scope: macrostructure intentionally skipped. */
+/* A title is the primary thing a person scans in their daily note.  Vault
+   themes often force it to a clipped one-line label, so make the local card
+   own a stable two-line text area instead. */
+.daily-habit-list .daily-habit-card {
+  grid-template-rows: minmax(2.65rem, auto) minmax(1rem, auto) minmax(1rem, auto) auto !important;
+  align-content: start !important;
+  min-height: 6.35rem !important;
+  border-inline-start: 3px solid color-mix(in srgb, var(--card-tone, var(--interactive-accent)) 78%, transparent) !important;
+}
+
+.daily-habit-list .daily-habit-card .daily-habit-text {
+  grid-template-rows: minmax(2.65rem, auto) minmax(1rem, auto) !important;
+  align-content: start !important;
+  overflow: visible !important;
+}
+
+.daily-habit-list .daily-habit-card .daily-habit-title {
+  display: -webkit-box !important;
+  min-width: 0 !important;
+  min-height: 2.6rem;
+  overflow: hidden !important;
+  overflow-wrap: anywhere;
+  text-overflow: clip !important;
+  white-space: normal !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.3rem !important;
+}
+
+.daily-habit-list .daily-habit-card .ticktick-habit-source,
+.daily-habit-list .daily-habit-card .daily-habit-state {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.daily-habit-list .daily-habit-card:hover,
+.daily-habit-list .daily-habit-card.is-hover {
+  border-inline-start-color: var(--card-tone, var(--interactive-accent)) !important;
+}
+
+.daily-habit-list .daily-habit-card:focus-visible,
+.daily-habit-list .daily-habit-card.is-focus {
+  outline: 2px solid var(--interactive-accent) !important;
+  outline-offset: 2px !important;
+}
+
+.daily-habit-list .daily-habit-card:active,
+.daily-habit-list .daily-habit-card.is-active { transform: translateY(1px) !important; }
+.daily-habit-list .daily-habit-card:disabled { cursor: not-allowed; opacity: 0.5; }
+.daily-habit-list .daily-habit-card.is-loading { cursor: progress; opacity: 0.7; }
+.daily-habit-list .daily-habit-card.is-error { border-color: var(--color-red) !important; }
+.daily-habit-list .daily-habit-card.is-success { border-color: var(--color-green) !important; }
+
+@media (max-width: 420px) {
+  .daily-habit-list .daily-habit-card {
+    min-height: 6.6rem !important;
+    padding: .7rem !important;
+  }
+}
+
 .ticktick-recurring-board {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
