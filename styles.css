@@ -2739,6 +2739,48 @@
 .ticktick-habit-calendar-loading { color: var(--text-muted); font-size: .72rem; text-align: center; padding-top: .55rem; }
 @media (max-width: 420px) { .ticktick-habit-detail-summary { grid-template-columns: auto minmax(0, 1fr); }.ticktick-habit-detail-progress { grid-column: 1 / -1; text-align: right; }.ticktick-habit-stage-control { align-items: stretch; }.ticktick-habit-stage-buttons { width: 100%; grid-template-columns: 2.4rem minmax(0, 1fr) 2.4rem; } }
 
+/* Hallmark · component: habit details modal header · genre: modern-minimal · theme: vault-native
+ * states: default · hover · focus · active · disabled · loading · error · success
+ * contrast: pass (uses the active Obsidian theme tokens)
+ * pre-emit critique: P4 H5 E5 S5 R5 V4
+ * Component-scope: macrostructure intentionally skipped. */
+/* Vault themes sometimes absolutely position strong/span elements. Keep the
+   identity block self-contained so long TickTick names never overlap. */
+.modal.ticktick-habit-details-modal .ticktick-habit-detail-summary > *,
+.modal.ticktick-habit-details-modal .ticktick-habit-detail-identity > * {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+}
+
+.modal.ticktick-habit-details-modal .ticktick-habit-detail-identity {
+  align-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.modal.ticktick-habit-details-modal .ticktick-habit-detail-identity strong {
+  display: -webkit-box !important;
+  min-width: 0;
+  overflow: hidden !important;
+  overflow-wrap: anywhere;
+  text-overflow: clip !important;
+  white-space: normal !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.3 !important;
+}
+
+.modal.ticktick-habit-details-modal .ticktick-habit-detail-identity span {
+  display: block !important;
+  min-width: 0;
+  overflow: hidden !important;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
 /* Keep the progress/icon on the right in the daily panel regardless of the
    active Obsidian theme's LTR/RTL rules. */
 .daily-habit-list:not(.ticktick-dashboard-habits) .daily-habit-cards {

@@ -212,10 +212,32 @@ class HabitDetailsModal extends Modal {
   private selectedDay: string;
   private history = new Map<string, any>();
   private loading = false;
-  constructor(app: App, private habit: any, private host: PlannerHost, day: string) { super(app); this.month = day; this.selectedDay = day; }
-  onOpen() { this.modalEl.addClass("ticktick-habit-details-modal"); void this.loadDetailsAndMonth(); }
-  private async loadDetailsAndMonth() {
-    try { this.habit = { ...this.habit, ...(await this.host.loadHabit(this.habit)) }; } catch { /* cached habit remains usable offline */ }
+  constructor(app: App, private habit: any, private host: PlannerHost, day: string) {
+    super(app);
+    this.month = day;
+    this.selectedDay = day;
+    // The planner already supplied its local history when the habit was
+    // clicked. Show it immediately; network reads are only a later refresh.
+    this.history = new Map((Array.isArray(habit?.history) ? habit.history : [])
+      .filter((entry: any) => entry?.date)
+      .map((entry: any) => [String(entry.date), entry]));
+    if (habit?.checkin) this.history.set(day, { date: day, value: Number(habit.checkin.value ?? 0), completed: Number(habit.checkin.status ?? 0) === 2 });
+  }
+  onOpen() {
+    this.modalEl.addClass("ticktick-habit-details-modal");
+    this.render();
+    void this.refreshInBackground();
+  }
+  private async refreshInBackground() {
+    // Never delay opening the modal for TickTick. A successful remote response
+    // quietly replaces the local snapshot; failure leaves the local view intact.
+    try {
+      const fresh = await this.host.loadHabit(this.habit);
+      if (fresh && typeof fresh === "object") {
+        this.habit = { ...this.habit, ...fresh };
+        this.render();
+      }
+    } catch { /* cached habit remains usable offline */ }
     await this.loadMonth();
   }
   private monthDays() { return persianMonthRange(this.month, this.host.firstWeekday).filter(day => isSamePersianMonth(day, this.month)); }

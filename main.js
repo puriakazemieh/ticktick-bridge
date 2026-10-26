@@ -1603,6 +1603,8 @@ var HabitDetailsModal = class extends import_obsidian4.Modal {
     this.host = host;
     this.month = day;
     this.selectedDay = day;
+    this.history = new Map((Array.isArray(habit?.history) ? habit.history : []).filter((entry) => entry?.date).map((entry) => [String(entry.date), entry]));
+    if (habit?.checkin) this.history.set(day, { date: day, value: Number(habit.checkin.value ?? 0), completed: Number(habit.checkin.status ?? 0) === 2 });
   }
   month;
   selectedDay;
@@ -1610,11 +1612,16 @@ var HabitDetailsModal = class extends import_obsidian4.Modal {
   loading = false;
   onOpen() {
     this.modalEl.addClass("ticktick-habit-details-modal");
-    void this.loadDetailsAndMonth();
+    this.render();
+    void this.refreshInBackground();
   }
-  async loadDetailsAndMonth() {
+  async refreshInBackground() {
     try {
-      this.habit = { ...this.habit, ...await this.host.loadHabit(this.habit) };
+      const fresh = await this.host.loadHabit(this.habit);
+      if (fresh && typeof fresh === "object") {
+        this.habit = { ...this.habit, ...fresh };
+        this.render();
+      }
     } catch {
     }
     await this.loadMonth();
