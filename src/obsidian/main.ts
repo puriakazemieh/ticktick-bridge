@@ -296,6 +296,9 @@ export default class TickTickBridgePlugin extends Plugin {
         return this.checkInHabit(String(habit.id), day, { value: next, goal, status: next >= goal ? 2 : undefined });
       },
       habitWithHistory: (habitId: string, day: string) => this.cachedHabitsWithHistory(day, 28).find(habit => String(habit.id) === habitId),
+      habitHistory: async (habitId: string, from: string, to: string) => this.habitHistoryRange(habitId, from, to),
+      setHabitProgress: async (habit: any, day: string, value: number, goal: number) => this.checkInHabit(String(habit.id), day, { value: Math.max(0, value), goal: Math.max(1, goal), status: value >= goal ? 2 : undefined }),
+      loadHabit: async (habit: any) => this.loadHabitDetails(habit),
       showHabits: () => this.settings.plannerShowHabits,
       setShowHabits: async (value: boolean) => { this.settings.plannerShowHabits = value; await this.saveSettings(); },
     };
@@ -869,6 +872,47 @@ export default class TickTickBridgePlugin extends Plugin {
         }),
       };
     });
+  }
+
+  /** Load one habit's requested calendar range on demand. This keeps routine
+   * sync cache-first, while month navigation can safely fetch older history. */
+  private async habitHistoryRange(habitId: string, from: string, to: string) {
+    const habit = this.cache.habits.find(item => String(item.id) === habitId);
+    if (!habit) return [];
+    let entries = this.cache.habitCheckins[habitId] ?? [];
+    if (navigator.onLine && Date.now() >= this.rateLimitedUntil) {
+      try {
+        const documents = await this.client().getHabitCheckins([habitId], from, to);
+        const remote = (documents ?? []).find((document: any) => String(document?.habitId) === habitId)?.checkins ?? [];
+        if (remote.length || entries.length) {
+          const byStamp = new Map(entries.map(entry => [Number(entry.stamp), entry]));
+          for (const entry of remote) byStamp.set(Number(entry.stamp), { stamp: Number(entry.stamp), value: Number(entry.value ?? 0), goal: Number(entry.goal ?? habit.goal ?? 1), status: Number(entry.status ?? 0) });
+          entries = [...byStamp.values()];
+          this.cache.habitCheckins[habitId] = entries;
+          await this.saveSettings();
+        }
+      } catch {
+        // Cached history is still valuable when TickTick is temporarily busy.
+      }
+    }
+    const dates: string[] = [];
+    for (let day = from; day <= to; day = shiftIsoDay(day, 1)) dates.push(day);
+    const goal = Math.max(1, Number(habit.goal ?? habit.target ?? 1));
+    return dates.filter(day => isHabitScheduledForCachedDay(habit, day)).map(day => {
+      const entry = entries.find(item => Number(item.stamp) === Number(day.replaceAll("-", "")));
+      const value = Number(entry?.value ?? 0);
+      return { date: day, value, completed: Number(entry?.status ?? 0) === 2 || value >= goal };
+    });
+  }
+
+  private async loadHabitDetails(habit: any) {
+    if (!habit?.id || !navigator.onLine || Date.now() < this.rateLimitedUntil) return habit;
+    const fresh = await this.client().getHabit(String(habit.id));
+    if (fresh && typeof fresh === "object") {
+      this.cache.habits = this.cache.habits.map(item => String(item.id) === String(habit.id) ? { ...item, ...fresh } : item);
+      await this.saveSettings();
+    }
+    return fresh;
   }
 
   client() {

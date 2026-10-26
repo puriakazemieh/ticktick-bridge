@@ -22,6 +22,9 @@ type PlannerHost = {
   habits: (day: string) => any[];
   checkInHabit: (habit: any, day: string) => Promise<any>;
   habitWithHistory: (habitId: string, day: string) => any | undefined;
+  habitHistory: (habitId: string, from: string, to: string) => Promise<any[]>;
+  setHabitProgress: (habit: any, day: string, value: number, goal: number) => Promise<any>;
+  loadHabit: (habit: any) => Promise<any>;
   showHabits: () => boolean;
   setShowHabits: (value: boolean) => Promise<void>;
 };
@@ -205,25 +208,89 @@ class TaskOverflowModal extends Modal {
 }
 
 class HabitDetailsModal extends Modal {
-  constructor(app: App, private habit: any) { super(app); }
-  onOpen() {
-    this.modalEl.addClass("ticktick-habit-details-modal");
+  private month: string;
+  private selectedDay: string;
+  private history = new Map<string, any>();
+  private loading = false;
+  constructor(app: App, private habit: any, private host: PlannerHost, day: string) { super(app); this.month = day; this.selectedDay = day; }
+  onOpen() { this.modalEl.addClass("ticktick-habit-details-modal"); void this.loadDetailsAndMonth(); }
+  private async loadDetailsAndMonth() {
+    try { this.habit = { ...this.habit, ...(await this.host.loadHabit(this.habit)) }; } catch { /* cached habit remains usable offline */ }
+    await this.loadMonth();
+  }
+  private monthDays() { return persianMonthRange(this.month, this.host.firstWeekday).filter(day => isSamePersianMonth(day, this.month)); }
+  private async loadMonth() {
+    this.loading = true; this.render();
+    const days = this.monthDays();
+    try {
+      const entries = await this.host.habitHistory(String(this.habit.id), days[0], days.at(-1)!);
+      this.history = new Map(entries.map((entry: any) => [entry.date, entry]));
+    } finally { this.loading = false; this.render(); }
+  }
+  private selectedEntry() { return this.history.get(this.selectedDay) ?? { date: this.selectedDay, value: 0, completed: false }; }
+  private render() {
+    this.contentEl.empty();
     this.titleEl.setText(String(this.habit.name ?? "عادت"));
-    const goal = Math.max(1, Number(this.habit.checkin?.goal ?? this.habit.goal ?? this.habit.target ?? 1));
-    const current = Number(this.habit.checkin?.value ?? 0);
-    this.contentEl.createEl("p", { text: `پیشرفت روز انتخابی: ${current}/${goal}${this.habit.unit ? ` ${this.habit.unit}` : ""}` });
-    const description = String(this.habit.description ?? this.habit.desc ?? this.habit.content ?? "").trim();
-    if (description) this.contentEl.createDiv({ cls: "ticktick-habit-details-description", text: description });
-    const history = this.habit.history ?? [];
-    if (history.length) {
-      this.contentEl.createEl("strong", { text: "۲۸ روز اخیر" });
-      const grid = this.contentEl.createDiv({ cls: "ticktick-habit-history-calendar" });
-      for (const entry of history) {
-        const day = grid.createDiv({ cls: `ticktick-habit-history-day ${entry.completed ? "is-complete" : "is-missed"}` });
-        day.setText(new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(new Date(`${entry.date}T12:00:00Z`)));
-        day.setAttribute("title", `${entry.date}: ${entry.completed ? "انجام شد" : "انجام نشده"}${entry.value ? ` (${entry.value}/${goal})` : ""}`);
-      }
+    const goal = Math.max(1, Number(this.habit.goal ?? this.habit.target ?? 1));
+    const selected = this.selectedEntry(); const value = Number(selected.value ?? 0);
+    const shell = this.contentEl.createDiv({ cls: "ticktick-habit-detail-shell" });
+    const summary = shell.createDiv({ cls: "ticktick-habit-detail-summary" });
+    summary.createDiv({ cls: "ticktick-habit-detail-icon", text: String(this.habit.iconRes ?? this.habit.icon ?? "✓") });
+    const identity = summary.createDiv({ cls: "ticktick-habit-detail-identity" });
+    identity.createEl("strong", { text: String(this.habit.name ?? "عادت") });
+    identity.createSpan({ text: this.habit.sectionName ?? "TickTick" });
+    const progress = summary.createDiv({ cls: "ticktick-habit-detail-progress" });
+    progress.createEl("strong", { text: `${value}/${goal}` });
+    progress.createSpan({ text: this.habit.unit || (goal > 1 ? "مرحله" : "ثبت") });
+
+    const description = String(this.habit.description ?? this.habit.desc ?? this.habit.content ?? this.habit.notes ?? "").trim();
+    if (description) {
+      const box = shell.createDiv({ cls: "ticktick-habit-detail-description" });
+      box.createEl("strong", { text: "توضیحات" });
+      box.createDiv({ text: description });
     }
+
+    const stage = shell.createDiv({ cls: "ticktick-habit-stage-control" });
+    stage.createSpan({ text: `ثبت ${new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${this.selectedDay}T12:00:00Z`))}` });
+    const controls = stage.createDiv({ cls: "ticktick-habit-stage-buttons" });
+    const decrease = controls.createEl("button", { text: "−", attr: { type: "button", "aria-label": "کم‌کردن یک مرحله" } });
+    const count = controls.createEl("span", { text: `${value} از ${goal}` });
+    const increase = controls.createEl("button", { text: "+", cls: "mod-cta", attr: { type: "button", "aria-label": "افزودن یک مرحله" } });
+    decrease.disabled = value <= 0 || this.loading;
+    increase.disabled = value >= goal || this.loading;
+    const setValue = async (next: number) => {
+      decrease.disabled = increase.disabled = true;
+      try {
+        await this.host.setHabitProgress(this.habit, this.selectedDay, next, goal);
+        this.history.set(this.selectedDay, { date: this.selectedDay, value: next, completed: next >= goal });
+        new Notice(next >= goal ? "عادت کامل و همگام شد." : `پیشرفت عادت: ${next}/${goal}`);
+      } catch (error) { new Notice(error instanceof Error ? error.message : "ثبت عادت ناموفق بود."); }
+      this.render();
+    };
+    decrease.addEventListener("click", () => void setValue(value - 1));
+    increase.addEventListener("click", () => void setValue(value + 1));
+    count.setAttribute("aria-live", "polite");
+
+    const calendar = shell.createDiv({ cls: "ticktick-habit-detail-calendar" });
+    const nav = calendar.createDiv({ cls: "ticktick-habit-calendar-nav" });
+    const previous = nav.createEl("button", { text: "‹", attr: { type: "button", "aria-label": "ماه قبل" } });
+    nav.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { year: "numeric", month: "long" }).format(new Date(`${this.month}T12:00:00Z`)) });
+    const next = nav.createEl("button", { text: "›", attr: { type: "button", "aria-label": "ماه بعد" } });
+    previous.addEventListener("click", () => { this.month = shiftPersianMonth(this.month, -1); void this.loadMonth(); });
+    next.addEventListener("click", () => { this.month = shiftPersianMonth(this.month, 1); void this.loadMonth(); });
+    const weekday = calendar.createDiv({ cls: "ticktick-habit-calendar-weekdays" });
+    for (const label of ["ش", "ی", "د", "س", "چ", "پ", "ج"]) weekday.createSpan({ text: label });
+    const grid = calendar.createDiv({ cls: "ticktick-habit-history-calendar" });
+    const days = this.monthDays();
+    const firstOffset = (new Date(`${days[0]}T12:00:00Z`).getUTCDay() - this.host.firstWeekday + 7) % 7;
+    for (let index = 0; index < firstOffset; index++) grid.createSpan({ cls: "ticktick-habit-history-blank" });
+    for (const dayKey of days) {
+      const entry = this.history.get(dayKey); const done = Boolean(entry?.completed); const scheduled = this.habit.repeatRule ? this.host.habits(dayKey).some(habit => String(habit.id) === String(this.habit.id)) : true;
+      const day = grid.createEl("button", { cls: `ticktick-habit-history-day ${done ? "is-complete" : ""} ${scheduled ? "is-scheduled" : "is-unscheduled"} ${dayKey === this.selectedDay ? "is-selected" : ""}`, text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(new Date(`${dayKey}T12:00:00Z`)), attr: { type: "button", title: `${dayKey}${done ? " · انجام شده" : scheduled ? " · انجام نشده" : " · بدون برنامه"}` } });
+      day.disabled = !scheduled;
+      day.addEventListener("click", () => { this.selectedDay = dayKey; this.render(); });
+    }
+    if (this.loading) calendar.createDiv({ cls: "ticktick-habit-calendar-loading", text: "در حال خواندن تاریخچهٔ این ماه…" });
   }
   onClose() { this.contentEl.empty(); }
 }
@@ -839,7 +906,7 @@ export class PlanningCalendar {
       const title = row.createSpan({ text: `${String(habit.name ?? "عادت")}${goal > 1 ? ` · ${current}/${goal}` : ""}` });
       title.setAttribute("role", "button");
       title.setAttribute("title", "نمایش جزئیات عادت");
-      title.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); new HabitDetailsModal(this.host.app, this.host.habitWithHistory(String(habit.id), day) ?? habit).open(); });
+      title.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); new HabitDetailsModal(this.host.app, this.host.habitWithHistory(String(habit.id), day) ?? habit, this.host, day).open(); });
       check.addEventListener("change", async () => {
         check.disabled = true;
         try {
