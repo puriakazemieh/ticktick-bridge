@@ -33,6 +33,7 @@
   width: 100%;
   min-width: 0;
 }
+.ticktick-project-board-root.is-rail-collapsed { grid-template-columns: 3.2rem minmax(0, 1fr); }
 
 .ticktick-project-main {
   min-width: 0;
@@ -167,6 +168,8 @@
   cursor: pointer;
   width: 100%;
   text-align: right;
+  justify-content: flex-start;
+  direction: rtl;
 }
 
 .ticktick-group-chevron svg {
@@ -397,6 +400,13 @@
   justify-content: space-between;
   padding-bottom: 0.45rem;
   border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+}
+.ticktick-column-add { margin-inline-start: auto; padding: .2rem !important; min-width: 1.55rem; min-height: 1.55rem; }
+@media (max-width: 900px) {
+  .ticktick-project-board-root { grid-template-columns: 3.2rem minmax(0, 1fr); }
+  .ticktick-project-rail { min-width: 3.2rem; width: 3.2rem; padding-inline: .35rem; overflow: hidden; }
+  .ticktick-project-rail .ticktick-rail-header > span:not(.ticktick-rail-icon),
+  .ticktick-project-rail > :not(.ticktick-rail-header):not(.ticktick-rail-expand-label) { display: none; }
 }
 
 .ticktick-column-name {
@@ -2693,6 +2703,11 @@
 .ticktick-planner-habit.is-complete { color: var(--text-muted); text-decoration: line-through; }
 .ticktick-planner-habits.is-compact { gap: .18rem; margin-top: .25rem; padding-top: .25rem; }
 .ticktick-planner-habits.is-compact .ticktick-planner-habit { font-size: .64rem; }
+.ticktick-habit-details-description { white-space: pre-wrap; line-height: 1.7; margin: .7rem 0; }
+.ticktick-habit-history-calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: .35rem; margin-top: .55rem; direction: rtl; }
+.ticktick-habit-history-day { text-align: center; padding: .35rem; border-radius: .35rem; font-size: .72rem; background: var(--background-secondary); }
+.ticktick-habit-history-day.is-complete { background: color-mix(in srgb, var(--color-green) 38%, var(--background-secondary)); }
+.ticktick-habit-history-day.is-missed { color: var(--text-muted); }
 
 /* Keep the progress/icon on the right in the daily panel regardless of the
    active Obsidian theme's LTR/RTL rules. */

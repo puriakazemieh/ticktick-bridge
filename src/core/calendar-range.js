@@ -112,6 +112,33 @@ export function taskOccursOnCalendarDay(task, day, timeZone = "Asia/Tehran", sho
   if (frequency === "YEARLY") return value.getUTCFullYear() >= base.getUTCFullYear() && (value.getUTCFullYear() - base.getUTCFullYear()) % interval === 0 && value.getUTCMonth() === base.getUTCMonth() && value.getUTCDate() === base.getUTCDate();
   return day === anchor;
 }
+/** Expand the future occurrences of a recurring task for the calendar's
+ * optional "all occurrences" view.  The normal calendar intentionally shows
+ * only TickTick's next actionable occurrence. */
+export function recurringTaskOccursOnDay(task, day, timeZone = "Asia/Tehran") {
+  if (Number(task?.status ?? 0) !== 0 || !task?.repeatFlag || excluded(task, day)) return false;
+  const due = toDateKey(task?.dueDate, task?.timeZone || timeZone);
+  const start = toDateKey(task?.startDate, task?.timeZone || timeZone);
+  const anchor = start ?? due;
+  if (!anchor || day < anchor) return false;
+  const rule = ruleParts(task); const frequency = rule.FREQ ?? "DAILY"; const interval = Math.max(1, Number(rule.INTERVAL ?? 1));
+  const until = ruleDate(rule.UNTIL); if (until && day > until) return false;
+  const distance = dayNumber(day) - dayNumber(anchor);
+  if (frequency === "DAILY") return distance % interval === 0;
+  if (frequency === "WEEKLY") {
+    const weeks = Math.floor(distance / 7); if (weeks % interval) return false;
+    const days = rule.BYDAY ? rule.BYDAY.split(",").map(value => value.replace(/^[-+]?\d+/, "")) : [weekdayCode(anchor)];
+    return days.includes(weekdayCode(day));
+  }
+  const value = new Date(`${day}T12:00:00Z`); const base = new Date(`${anchor}T12:00:00Z`);
+  if (frequency === "MONTHLY") {
+    const months = (value.getUTCFullYear() - base.getUTCFullYear()) * 12 + value.getUTCMonth() - base.getUTCMonth();
+    const dates = (rule.BYMONTHDAY ?? String(base.getUTCDate())).split(",").map(Number);
+    return months >= 0 && months % interval === 0 && dates.includes(value.getUTCDate());
+  }
+  if (frequency === "YEARLY") return value.getUTCFullYear() >= base.getUTCFullYear() && (value.getUTCFullYear() - base.getUTCFullYear()) % interval === 0 && value.getUTCMonth() === base.getUTCMonth() && value.getUTCDate() === base.getUTCDate();
+  return day === anchor;
+}
 export function sortPlanningTasks(tasks, mode = "ticktick") {
   const byTickTick = (left, right) => Number(left.sortOrder ?? left.order ?? 0) - Number(right.sortOrder ?? right.order ?? 0)
     || taskTime(left).localeCompare(taskTime(right)) || Number(right.priority ?? 0) - Number(left.priority ?? 0)

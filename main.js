@@ -1128,6 +1128,35 @@ function taskOccursOnCalendarDay(task, day, timeZone = "Asia/Tehran", showComple
   if (frequency === "YEARLY") return value.getUTCFullYear() >= base.getUTCFullYear() && (value.getUTCFullYear() - base.getUTCFullYear()) % interval === 0 && value.getUTCMonth() === base.getUTCMonth() && value.getUTCDate() === base.getUTCDate();
   return day === anchor;
 }
+function recurringTaskOccursOnDay(task, day, timeZone = "Asia/Tehran") {
+  if (Number(task?.status ?? 0) !== 0 || !task?.repeatFlag || excluded(task, day)) return false;
+  const due = toDateKey(task?.dueDate, task?.timeZone || timeZone);
+  const start = toDateKey(task?.startDate, task?.timeZone || timeZone);
+  const anchor = start ?? due;
+  if (!anchor || day < anchor) return false;
+  const rule = ruleParts(task);
+  const frequency = rule.FREQ ?? "DAILY";
+  const interval = Math.max(1, Number(rule.INTERVAL ?? 1));
+  const until = ruleDate(rule.UNTIL);
+  if (until && day > until) return false;
+  const distance = dayNumber(day) - dayNumber(anchor);
+  if (frequency === "DAILY") return distance % interval === 0;
+  if (frequency === "WEEKLY") {
+    const weeks = Math.floor(distance / 7);
+    if (weeks % interval) return false;
+    const days = rule.BYDAY ? rule.BYDAY.split(",").map((value2) => value2.replace(/^[-+]?\d+/, "")) : [weekdayCode(anchor)];
+    return days.includes(weekdayCode(day));
+  }
+  const value = /* @__PURE__ */ new Date(`${day}T12:00:00Z`);
+  const base = /* @__PURE__ */ new Date(`${anchor}T12:00:00Z`);
+  if (frequency === "MONTHLY") {
+    const months = (value.getUTCFullYear() - base.getUTCFullYear()) * 12 + value.getUTCMonth() - base.getUTCMonth();
+    const dates = (rule.BYMONTHDAY ?? String(base.getUTCDate())).split(",").map(Number);
+    return months >= 0 && months % interval === 0 && dates.includes(value.getUTCDate());
+  }
+  if (frequency === "YEARLY") return value.getUTCFullYear() >= base.getUTCFullYear() && (value.getUTCFullYear() - base.getUTCFullYear()) % interval === 0 && value.getUTCMonth() === base.getUTCMonth() && value.getUTCDate() === base.getUTCDate();
+  return day === anchor;
+}
 function sortPlanningTasks(tasks, mode = "ticktick") {
   const byTickTick = (left, right) => Number(left.sortOrder ?? left.order ?? 0) - Number(right.sortOrder ?? right.order ?? 0) || taskTime(left).localeCompare(taskTime(right)) || Number(right.priority ?? 0) - Number(left.priority ?? 0) || String(left.title ?? "").localeCompare(String(right.title ?? ""), "fa");
   return [...tasks].sort((left, right) => {
@@ -1195,6 +1224,15 @@ function formatPersianDate(value, timeZone = "Asia/Tehran") {
 }
 
 // src/obsidian/task-details-modal.ts
+function repeatSummary(flag) {
+  const rule = String(flag ?? "").toUpperCase().replace(/^RRULE:/, "");
+  if (!rule) return "";
+  const fields2 = Object.fromEntries(rule.split(";").map((part) => part.split("=", 2)).filter(([key, value]) => key && value));
+  const labels = { MO: "\u062F\u0648\u0634\u0646\u0628\u0647", TU: "\u0633\u0647\u200C\u0634\u0646\u0628\u0647", WE: "\u0686\u0647\u0627\u0631\u0634\u0646\u0628\u0647", TH: "\u067E\u0646\u062C\u0634\u0646\u0628\u0647", FR: "\u062C\u0645\u0639\u0647", SA: "\u0634\u0646\u0628\u0647", SU: "\u06CC\u06A9\u0634\u0646\u0628\u0647" };
+  const days = String(fields2.BYDAY ?? "").split(",").map((day) => labels[day.replace(/^[-+]?\d+/, "")]).filter(Boolean);
+  if (days.length) return `\u{1F501} \u062A\u06A9\u0631\u0627\u0631: ${days.join("\u060C ")}`;
+  return { DAILY: "\u{1F501} \u0647\u0631 \u0631\u0648\u0632", WEEKLY: "\u{1F501} \u0647\u0631 \u0647\u0641\u062A\u0647", MONTHLY: "\u{1F501} \u0647\u0631 \u0645\u0627\u0647", YEARLY: "\u{1F501} \u0647\u0631 \u0633\u0627\u0644" }[fields2.FREQ] ?? "\u{1F501} \u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647";
+}
 var TaskDetailsModal = class extends import_obsidian3.Modal {
   constructor(app, task, actions = {}) {
     super(app);
@@ -1225,7 +1263,7 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
     this.titleEl.setText(String(this.task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"));
     const meta = this.contentEl.createDiv({ cls: "ticktick-task-details-meta" });
     const priority = taskPriority(this.task.priority);
-    for (const value of [this.task.projectName, this.task.dueDate ? `\u{1F4C5} ${formatPersianDate(this.task.dueDate, this.task.timeZone)}` : "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", `${priority.icon} \u0627\u0648\u0644\u0648\u06CC\u062A ${priority.label}`, this.task.repeatFlag ? "\u{1F501} \u062A\u06A9\u0631\u0627\u0631" : ""]) if (value) meta.createSpan({ text: String(value) });
+    for (const value of [this.task.projectName, this.task.dueDate ? `\u{1F4C5} ${formatPersianDate(this.task.dueDate, this.task.timeZone)}` : "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", `${priority.icon} \u0627\u0648\u0644\u0648\u06CC\u062A ${priority.label}`, repeatSummary(this.task.repeatFlag)]) if (value) meta.createSpan({ text: String(value) });
     const description = taskDescription(this.task);
     const descriptionBox = this.contentEl.createDiv({ cls: "ticktick-task-details-description" });
     descriptionBox.createEl("strong", { text: "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A" });
@@ -1558,6 +1596,34 @@ var TaskOverflowModal = class extends import_obsidian4.Modal {
     this.contentEl.empty();
   }
 };
+var HabitDetailsModal = class extends import_obsidian4.Modal {
+  constructor(app, habit) {
+    super(app);
+    this.habit = habit;
+  }
+  onOpen() {
+    this.modalEl.addClass("ticktick-habit-details-modal");
+    this.titleEl.setText(String(this.habit.name ?? "\u0639\u0627\u062F\u062A"));
+    const goal = Math.max(1, Number(this.habit.checkin?.goal ?? this.habit.goal ?? this.habit.target ?? 1));
+    const current = Number(this.habit.checkin?.value ?? 0);
+    this.contentEl.createEl("p", { text: `\u067E\u06CC\u0634\u0631\u0641\u062A \u0631\u0648\u0632 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC: ${current}/${goal}${this.habit.unit ? ` ${this.habit.unit}` : ""}` });
+    const description = String(this.habit.description ?? this.habit.desc ?? this.habit.content ?? "").trim();
+    if (description) this.contentEl.createDiv({ cls: "ticktick-habit-details-description", text: description });
+    const history = this.habit.history ?? [];
+    if (history.length) {
+      this.contentEl.createEl("strong", { text: "\u06F2\u06F8 \u0631\u0648\u0632 \u0627\u062E\u06CC\u0631" });
+      const grid = this.contentEl.createDiv({ cls: "ticktick-habit-history-calendar" });
+      for (const entry of history) {
+        const day = grid.createDiv({ cls: `ticktick-habit-history-day ${entry.completed ? "is-complete" : "is-missed"}` });
+        day.setText(new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(/* @__PURE__ */ new Date(`${entry.date}T12:00:00Z`)));
+        day.setAttribute("title", `${entry.date}: ${entry.completed ? "\u0627\u0646\u062C\u0627\u0645 \u0634\u062F" : "\u0627\u0646\u062C\u0627\u0645 \u0646\u0634\u062F\u0647"}${entry.value ? ` (${entry.value}/${goal})` : ""}`);
+      }
+    }
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
 var PlanningCalendar = class {
   constructor(element, host) {
     this.element = element;
@@ -1572,9 +1638,13 @@ var PlanningCalendar = class {
   sortMode = "ticktick";
   colorMode = "project";
   showHabits = false;
+  showHabitsForAllDays = false;
+  showAllRecurring = false;
   draggingTaskId = "";
   draggingSourceDay = "";
   async render() {
+    const scrollHost = this.element.closest(".view-content, .workspace-leaf-content") ?? this.element.parentElement;
+    const scrollTop = scrollHost?.scrollTop ?? 0;
     this.element.empty();
     this.element.addClass("ticktick-planner");
     const root = this.element.createDiv({ cls: "ticktick-planner-root" });
@@ -1668,6 +1738,9 @@ var PlanningCalendar = class {
     } else {
       this.renderDays(root, this.mode === "week" ? weekRange(this.day, this.host.firstWeekday) : [this.day], tasks);
     }
+    if (scrollHost && scrollTop) requestAnimationFrame(() => {
+      scrollHost.scrollTop = scrollTop;
+    });
   }
   renderFilters(root) {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" });
@@ -1682,6 +1755,22 @@ var PlanningCalendar = class {
     habitsBtn.addEventListener("click", () => {
       this.showHabits = !this.showHabits;
       void this.host.setShowHabits(this.showHabits).then(() => this.render());
+    });
+    if (this.showHabits) {
+      const scopeBtn = filters.createEl("button", { cls: "ticktick-filter-chip", attr: { type: "button" } });
+      (0, import_obsidian4.setIcon)(scopeBtn.createSpan({ cls: "ticktick-chip-icon" }), "calendar-days");
+      scopeBtn.createSpan({ text: this.showHabitsForAllDays ? "\u0639\u0627\u062F\u062A\u200C\u0647\u0627: \u0647\u0645\u0647\u0654 \u0631\u0648\u0632\u0647\u0627" : "\u0639\u0627\u062F\u062A\u200C\u0647\u0627: \u0641\u0642\u0637 \u0631\u0648\u0632 \u0627\u0646\u062A\u062E\u0627\u0628\u06CC" });
+      scopeBtn.addEventListener("click", () => {
+        this.showHabitsForAllDays = !this.showHabitsForAllDays;
+        void this.render();
+      });
+    }
+    const recurringBtn = filters.createEl("button", { cls: `ticktick-filter-chip ${this.showAllRecurring ? "is-filtered" : ""}`, attr: { type: "button" } });
+    (0, import_obsidian4.setIcon)(recurringBtn.createSpan({ cls: "ticktick-chip-icon" }), "repeat-2");
+    recurringBtn.createSpan({ text: this.showAllRecurring ? "\u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647\u200C\u0647\u0627: \u0647\u0645\u0647\u0654 \u0631\u062E\u062F\u0627\u062F\u0647\u0627" : "\u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647\u200C\u0647\u0627: \u0631\u062E\u062F\u0627\u062F \u0628\u0639\u062F\u06CC" });
+    recurringBtn.addEventListener("click", () => {
+      this.showAllRecurring = !this.showAllRecurring;
+      void this.render();
     });
     const sortLabels = {
       ticktick: "\u062A\u0631\u062A\u06CC\u0628 TickTick",
@@ -1840,7 +1929,7 @@ var PlanningCalendar = class {
       const monthName = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { month: "short" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`));
       dayDateWrapper.createSpan({ cls: `ticktick-day-num-badge ${isToday ? "is-today-badge" : ""}`, text: dayNumber2 });
       dayDateWrapper.createSpan({ cls: "ticktick-month-name", text: monthName });
-      const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
+      const items = this.itemsForDay(tasks, day);
       const dayBottom = header.createDiv({ cls: "ticktick-planner-day-bottom" });
       dayBottom.createSpan({ cls: "ticktick-planner-counter", text: `${items.length} \u062A\u0633\u06A9` });
       const add = dayBottom.createEl("button", {
@@ -1857,7 +1946,7 @@ var PlanningCalendar = class {
     for (const day of days) {
       const isToday = day === today;
       const column = columns.createDiv({ cls: `ticktick-planner-day ${isToday ? "is-today" : ""}`, attr: { "data-day": day } });
-      const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
+      const items = this.itemsForDay(tasks, day);
       column.addEventListener("dragover", (event) => {
         event.preventDefault();
         if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
@@ -1879,7 +1968,7 @@ var PlanningCalendar = class {
       } else {
         for (const task of singleDayTasks) this.renderTask(column, task);
       }
-      this.renderHabits(column, day);
+      if (this.showHabitsForAllDays || day === this.day) this.renderHabits(column, day);
     }
   }
   renderMonth(root, tasks) {
@@ -1909,7 +1998,7 @@ var PlanningCalendar = class {
         const numWrapper = header.createDiv({ cls: "ticktick-month-num-wrap" });
         const dayNum = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`));
         numWrapper.createSpan({ cls: `ticktick-day-num-badge ${isToday ? "is-today-badge" : ""}`, text: dayNum });
-        const items = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
+        const items = this.itemsForDay(tasks, day);
         if (items.length) {
           header.createSpan({ cls: "ticktick-planner-counter", text: String(items.length) });
         }
@@ -1970,7 +2059,7 @@ var PlanningCalendar = class {
             dayLabel
           ).open());
         }
-        this.renderHabits(cell, day, true);
+        if (this.showHabitsForAllDays || day === this.day) this.renderHabits(cell, day, true);
       }
     }
   }
@@ -2047,6 +2136,13 @@ var PlanningCalendar = class {
       });
     }
   }
+  itemsForDay(tasks, day) {
+    const normal = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
+    if (!this.showAllRecurring) return normal;
+    const known = new Set(normal.map((task) => String(task.id)));
+    const extras = tasks.filter((task) => !known.has(String(task.id)) && recurringTaskOccursOnDay(task, day, this.host.timeZone));
+    return sortPlanningTasks([...normal, ...extras], this.sortMode);
+  }
   /** Habits live beside the date they belong to, but remain opt-in so a busy
    * calendar can stay task-only.  They are resolved from the local mirror and
    * therefore do not add a TickTick request while rendering. */
@@ -2057,17 +2153,26 @@ var PlanningCalendar = class {
     const section = parent.createDiv({ cls: `ticktick-planner-habits ${compact ? "is-compact" : ""}` });
     section.createDiv({ cls: "ticktick-planner-habits-label", text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627" });
     for (const habit of habits) {
-      const complete = Number(habit.checkin?.status ?? 0) === 2 || Number(habit.checkin?.value ?? 0) >= Math.max(1, Number(habit.goal ?? 1));
+      const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
+      const current = Number(habit.checkin?.value ?? 0);
+      const complete = Number(habit.checkin?.status ?? 0) === 2 || current >= goal;
       const row = section.createEl("label", { cls: `ticktick-planner-habit ${complete ? "is-complete" : ""}` });
       const check = row.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062B\u0628\u062A \u0639\u0627\u062F\u062A ${habit.name}` } });
       check.checked = complete;
       check.disabled = complete;
-      row.createSpan({ text: String(habit.name ?? "\u0639\u0627\u062F\u062A") });
+      const title = row.createSpan({ text: `${String(habit.name ?? "\u0639\u0627\u062F\u062A")}${goal > 1 ? ` \xB7 ${current}/${goal}` : ""}` });
+      title.setAttribute("role", "button");
+      title.setAttribute("title", "\u0646\u0645\u0627\u06CC\u0634 \u062C\u0632\u0626\u06CC\u0627\u062A \u0639\u0627\u062F\u062A");
+      title.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        new HabitDetailsModal(this.host.app, this.host.habitWithHistory(String(habit.id), day) ?? habit).open();
+      });
       check.addEventListener("change", async () => {
         check.disabled = true;
         try {
           await this.host.checkInHabit(habit, day);
-          new import_obsidian4.Notice("\u0639\u0627\u062F\u062A \u062B\u0628\u062A \u0648 \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F.");
+          new import_obsidian4.Notice(complete ? "\u062B\u0628\u062A \u0639\u0627\u062F\u062A \u0628\u0631\u062F\u0627\u0634\u062A\u0647 \u0634\u062F." : current + 1 >= goal ? "\u0639\u0627\u062F\u062A \u06A9\u0627\u0645\u0644 \u0648 \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F." : `\u06CC\u06A9 \u0645\u0631\u062D\u0644\u0647 \u062B\u0628\u062A \u0634\u062F: ${current + 1}/${goal}`);
           await this.render();
         } catch (error) {
           check.checked = false;
@@ -2404,16 +2509,18 @@ var ProjectBoard = class {
       const saved = this.host.preferences();
       this.selected = saved.selected;
       this.collapsed = new Set(saved.collapsed);
-      this.sidebarCollapsed = Boolean(saved.sidebarCollapsed);
+      this.sidebarCollapsed = saved.sidebarPreferenceInitialized ? Boolean(saved.sidebarCollapsed) : true;
       this.initialized = true;
+      if (!saved.sidebarPreferenceInitialized) void this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: true, sidebarPreferenceInitialized: true });
     }
     this.element.empty();
     this.element.addClass("ticktick-project-board");
     const root = this.element.createDiv({ cls: "ticktick-project-board-root" });
     try {
       const projects = await this.host.projects();
-      if (!this.selected) this.selected = ALL_BOARD_VIEW_ID;
+      if (!this.selected || this.selected === "ticktick:view:all") this.selected = String(projects[0]?.id ?? INBOX_BOARD_VIEW_ID);
       const rail = root.createDiv({ cls: `ticktick-project-rail ${this.sidebarCollapsed ? "is-collapsed" : ""}` });
+      root.toggleClass("is-rail-collapsed", this.sidebarCollapsed);
       const railHeader = rail.createDiv({ cls: "ticktick-rail-header" });
       const headerIcon = railHeader.createSpan({ cls: "ticktick-rail-icon" });
       (0, import_obsidian6.setIcon)(headerIcon, "folders");
@@ -2430,18 +2537,6 @@ var ProjectBoard = class {
           void this.persistAndRender();
         });
       } else {
-        const allBtn = rail.createEl("button", {
-          cls: `ticktick-project-row ticktick-all-projects-btn ${this.selected === ALL_BOARD_VIEW_ID ? "is-selected" : ""}`,
-          attr: { type: "button", "aria-label": "\u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" }
-        });
-        const allIcon = allBtn.createSpan({ cls: "ticktick-project-row-icon" });
-        (0, import_obsidian6.setIcon)(allIcon, "layers");
-        allBtn.createSpan({ cls: "ticktick-project-name", text: "\u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
-        allBtn.createSpan({ cls: "ticktick-project-count", text: String(virtualBoardEntries(this.host.tasks()).all.count) });
-        allBtn.addEventListener("click", () => {
-          this.selected = ALL_BOARD_VIEW_ID;
-          void this.persistAndRender();
-        });
         const virtual = virtualBoardEntries(this.host.tasks());
         const inbox = rail.createEl("button", { cls: `ticktick-project-row ${this.selected === INBOX_BOARD_VIEW_ID ? "is-selected" : ""}`, attr: { type: "button", "aria-label": `\u0648\u0631\u0648\u062F\u06CC\u060C ${virtual.inbox.count} \u062A\u0633\u06A9 \u0628\u0627\u0632` } });
         const inboxIcon = inbox.createSpan({ cls: "ticktick-project-row-icon" });
@@ -2721,6 +2816,23 @@ var ProjectBoard = class {
         colHeader.createEl("strong", { cls: "ticktick-column-name", text: column.name });
         colHeader.createSpan({ cls: "ticktick-column-count", text: String(column.count) });
         const movableColumn = Boolean(project) && !column.synthetic;
+        if (movableColumn) {
+          const addToColumn = colHeader.createEl("button", { cls: "ticktick-column-add mod-icon", attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 ${column.name}`, title: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0627\u06CC\u0646 \u0633\u062A\u0648\u0646" } });
+          (0, import_obsidian6.setIcon)(addToColumn, "plus");
+          addToColumn.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            addToColumn.disabled = true;
+            try {
+              await this.host.createTask({ projectId: project.id, columnId: column.id });
+              new import_obsidian6.Notice(`\u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F \u0628\u0647 \u0633\u062A\u0648\u0646 \xAB${column.name}\xBB \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.`);
+              await this.render();
+            } catch (error) {
+              new import_obsidian6.Notice(error instanceof Error ? error.message : "\u0633\u0627\u062E\u062A \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+            } finally {
+              addToColumn.disabled = false;
+            }
+          });
+        }
         if (column.synthetic) {
           shell.createEl("small", { cls: "ticktick-column-hint", text: "\u0633\u062A\u0648\u0646 \u0646\u0645\u0627\u06CC\u0634\u06CC\u061B \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062A" });
         }
@@ -2760,7 +2872,7 @@ var ProjectBoard = class {
     }
   }
   async persistAndRender() {
-    await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: this.sidebarCollapsed });
+    await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: this.sidebarCollapsed, sidebarPreferenceInitialized: true });
     await this.render();
   }
   card(parent, task, projectColor, movable = true) {
@@ -3019,7 +3131,8 @@ var DEFAULT_SETTINGS = {
   experimentalChecklistReadOnly: true,
   boardLastProjectId: "",
   boardCollapsedGroups: [],
-  boardSidebarCollapsed: false
+  boardSidebarCollapsed: true,
+  boardSidebarPreferenceInitialized: false
 };
 var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   settings = DEFAULT_SETTINGS;
@@ -3222,7 +3335,13 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       edit: async (task) => this.editTaskFromSurface(task),
       create: async (initial) => this.createTaskFromSurface(initial),
       habits: (day) => this.cachedHabitsForDay(day),
-      checkInHabit: async (habit, day) => this.checkInHabit(String(habit.id), day, { value: Math.max(1, Number(habit.goal ?? 1)), goal: Math.max(1, Number(habit.goal ?? 1)), status: 2 }),
+      checkInHabit: async (habit, day) => {
+        const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
+        const current = Number(habit.checkin?.value ?? 0);
+        const next = current >= goal ? 0 : Math.min(goal, current + Math.max(1, Number(habit.step ?? 1)));
+        return this.checkInHabit(String(habit.id), day, { value: next, goal, status: next >= goal ? 2 : void 0 });
+      },
+      habitWithHistory: (habitId, day) => this.cachedHabitsWithHistory(day, 28).find((habit) => String(habit.id) === habitId),
       showHabits: () => this.settings.plannerShowHabits,
       setShowHabits: async (value) => {
         this.settings.plannerShowHabits = value;
@@ -3251,11 +3370,12 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       edit: async (task) => this.editTaskFromSurface(task),
       moveToColumn: async (task, columnId) => this.moveTaskToBoardColumn(task, columnId),
       showCompleted: () => this.settings.plannerShowCompleted,
-      preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups, sidebarCollapsed: this.settings.boardSidebarCollapsed }),
+      preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups, sidebarCollapsed: this.settings.boardSidebarCollapsed, sidebarPreferenceInitialized: this.settings.boardSidebarPreferenceInitialized }),
       savePreferences: async (value) => {
         this.settings.boardLastProjectId = value.selected;
         this.settings.boardCollapsedGroups = value.collapsed;
         this.settings.boardSidebarCollapsed = value.sidebarCollapsed;
+        this.settings.boardSidebarPreferenceInitialized = value.sidebarPreferenceInitialized ?? true;
         await this.saveSettings();
       }
     };
@@ -3371,7 +3491,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
         if (!quiet) new import_obsidian8.Notice("\u062A\u063A\u06CC\u06CC\u0631\u0647\u0627 \u062F\u0631 \u0635\u0641 \u0627\u0645\u0646 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0645\u0627\u0646\u062F\u0646\u062F\u061B TickTick \u0641\u0639\u0644\u0627\u064B \u062F\u0631\u062E\u0648\u0627\u0633\u062A \u062A\u0627\u0632\u0647 \u0646\u0645\u06CC\u200C\u067E\u0630\u06CC\u0631\u062F.");
         return;
       }
-      const refreshed = await this.refreshCacheFromTickTick(day);
+      const refreshed = await this.refreshCacheFromTickTick(day, !scheduled);
       const tasks = this.cachedTasksForDay(day);
       const habits = this.cachedHabitsForDay(day);
       await this.refreshLocalSurfaces();
@@ -3453,12 +3573,12 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
   cacheConflictCount() {
     return this.cache.conflicts.length;
   }
-  async refreshCacheFromTickTick(today) {
+  async refreshCacheFromTickTick(today, hydrateHabits = false) {
     const client = this.client();
     const cacheAvailable = this.hasCache();
     const webTasks = await this.webOpenTasks();
     const projects = cacheAvailable ? this.cache.projects : await client.listProjects();
-    const habits = cacheAvailable ? this.cache.habits : await client.listHabits();
+    let habits = !cacheAvailable || hydrateHabits ? await client.listHabits() : this.cache.habits;
     const sections = cacheAvailable ? [] : await client.listHabitSections();
     const projectBoards = {};
     const taskIndex = /* @__PURE__ */ new Map();
@@ -3486,6 +3606,14 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
         taskIndex.set(key, mergeTaskDetails(taskIndex.get(key), task));
       }
     }
+    if (!projectBoards.inbox && !this.cache.tasks.some((task) => String(task?.projectId ?? "").toLowerCase() === "inbox")) {
+      try {
+        const inbox = normalizeProjectData(await client.getProjectData("inbox"), { id: "inbox", name: "\u0648\u0631\u0648\u062F\u06CC" });
+        projectBoards.inbox = inbox;
+        for (const task of inbox.tasks) taskIndex.set(`inbox:${String(task.id ?? "")}`, task);
+      } catch {
+      }
+    }
     for (const task of webTasks ?? []) {
       const projectId = String(task.projectId ?? "");
       const key = `${projectId}:${task.id}`;
@@ -3508,6 +3636,13 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
     }
     const webCheckins = await this.webHabitCheckins(activeHabits.map((habit) => habit.id), today, 91);
     if (webCheckins) for (const [habitId, entries] of webCheckins) checkins[habitId] = entries;
+    if (webCheckins) {
+      habits = habits.map((habit) => {
+        const recent = (webCheckins.get(String(habit.id)) ?? []).at(-1);
+        const goal = Number(recent?.goal ?? 0);
+        return goal > 0 ? { ...habit, goal } : habit;
+      });
+    }
     const sectionNames = new Map(sections.map((section) => [section.id, section.name]));
     this.cache = {
       savedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -4344,6 +4479,7 @@ var PlanningView = class extends import_obsidian8.ItemView {
     super(leaf);
     this.plugin = plugin;
   }
+  planner;
   getViewType() {
     return PLANNER_VIEW_TYPE;
   }
@@ -4357,9 +4493,9 @@ var PlanningView = class extends import_obsidian8.ItemView {
     await this.render();
   }
   async render() {
-    this.contentEl.empty();
     this.contentEl.addClass("ticktick-planner-panel");
-    await new PlanningCalendar(this.contentEl, this.plugin.plannerHost()).render();
+    this.planner ??= new PlanningCalendar(this.contentEl, this.plugin.plannerHost());
+    await this.planner.render();
   }
 };
 var ProjectBoardView = class extends import_obsidian8.ItemView {
@@ -4367,6 +4503,7 @@ var ProjectBoardView = class extends import_obsidian8.ItemView {
     super(leaf);
     this.plugin = plugin;
   }
+  board;
   getViewType() {
     return PROJECT_BOARD_VIEW_TYPE;
   }
@@ -4380,9 +4517,9 @@ var ProjectBoardView = class extends import_obsidian8.ItemView {
     await this.render();
   }
   async render() {
-    this.contentEl.empty();
     this.contentEl.addClass("ticktick-project-board-panel");
-    await new ProjectBoard(this.contentEl, this.plugin.projectBoardHost()).render();
+    this.board ??= new ProjectBoard(this.contentEl, this.plugin.projectBoardHost());
+    await this.board.render();
   }
 };
 var TickTickControlView = class extends import_obsidian8.ItemView {

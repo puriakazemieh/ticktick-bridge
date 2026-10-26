@@ -4,6 +4,16 @@ import { taskPriority } from "./task-priority";
 import { mergeTaskDetails, taskDescription } from "../core/task-description.js";
 import { formatPersianDate } from "../core/persian-date.js";
 
+function repeatSummary(flag: unknown) {
+  const rule = String(flag ?? "").toUpperCase().replace(/^RRULE:/, "");
+  if (!rule) return "";
+  const fields = Object.fromEntries(rule.split(";").map(part => part.split("=", 2)).filter(([key, value]) => key && value));
+  const labels: Record<string, string> = { MO: "دوشنبه", TU: "سه‌شنبه", WE: "چهارشنبه", TH: "پنجشنبه", FR: "جمعه", SA: "شنبه", SU: "یکشنبه" };
+  const days = String(fields.BYDAY ?? "").split(",").map(day => labels[day.replace(/^[-+]?\d+/, "")]).filter(Boolean);
+  if (days.length) return `🔁 تکرار: ${days.join("، ")}`;
+  return ({ DAILY: "🔁 هر روز", WEEKLY: "🔁 هر هفته", MONTHLY: "🔁 هر ماه", YEARLY: "🔁 هر سال" } as Record<string, string>)[fields.FREQ] ?? "🔁 تکرارشونده";
+}
+
 type TaskActions = {
   complete?: () => Promise<void>;
   edit?: (task: any) => Promise<any>;
@@ -40,7 +50,7 @@ export class TaskDetailsModal extends Modal {
     this.titleEl.setText(String(this.task.title ?? "بدون عنوان"));
     const meta = this.contentEl.createDiv({ cls: "ticktick-task-details-meta" });
     const priority = taskPriority(this.task.priority);
-    for (const value of [this.task.projectName, this.task.dueDate ? `📅 ${formatPersianDate(this.task.dueDate, this.task.timeZone)}` : "بدون تاریخ", `${priority.icon} اولویت ${priority.label}`, this.task.repeatFlag ? "🔁 تکرار" : ""]) if (value) meta.createSpan({ text: String(value) });
+    for (const value of [this.task.projectName, this.task.dueDate ? `📅 ${formatPersianDate(this.task.dueDate, this.task.timeZone)}` : "بدون تاریخ", `${priority.icon} اولویت ${priority.label}`, repeatSummary(this.task.repeatFlag)]) if (value) meta.createSpan({ text: String(value) });
     const description = taskDescription(this.task);
     const descriptionBox = this.contentEl.createDiv({ cls: "ticktick-task-details-description" });
     descriptionBox.createEl("strong", { text: "توضیحات" });

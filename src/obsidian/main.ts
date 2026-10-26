@@ -47,6 +47,7 @@ interface BridgeSettings {
   boardLastProjectId: string;
   boardCollapsedGroups: string[];
   boardSidebarCollapsed: boolean;
+  boardSidebarPreferenceInitialized: boolean;
 }
 
 type CachedHabitCheckin = { stamp: number; value: number; goal: number; status: number };
@@ -82,7 +83,8 @@ const DEFAULT_SETTINGS: BridgeSettings = {
   experimentalChecklistReadOnly: true,
   boardLastProjectId: "",
   boardCollapsedGroups: [],
-  boardSidebarCollapsed: false,
+  boardSidebarCollapsed: true,
+  boardSidebarPreferenceInitialized: false,
 };
 
 export default class TickTickBridgePlugin extends Plugin {
@@ -287,7 +289,13 @@ export default class TickTickBridgePlugin extends Plugin {
       edit: async (task: any) => this.editTaskFromSurface(task),
       create: async (initial: any) => this.createTaskFromSurface(initial),
       habits: (day: string) => this.cachedHabitsForDay(day),
-      checkInHabit: async (habit: any, day: string) => this.checkInHabit(String(habit.id), day, { value: Math.max(1, Number(habit.goal ?? 1)), goal: Math.max(1, Number(habit.goal ?? 1)), status: 2 }),
+      checkInHabit: async (habit: any, day: string) => {
+        const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
+        const current = Number(habit.checkin?.value ?? 0);
+        const next = current >= goal ? 0 : Math.min(goal, current + Math.max(1, Number(habit.step ?? 1)));
+        return this.checkInHabit(String(habit.id), day, { value: next, goal, status: next >= goal ? 2 : undefined });
+      },
+      habitWithHistory: (habitId: string, day: string) => this.cachedHabitsWithHistory(day, 28).find(habit => String(habit.id) === habitId),
       showHabits: () => this.settings.plannerShowHabits,
       setShowHabits: async (value: boolean) => { this.settings.plannerShowHabits = value; await this.saveSettings(); },
     };
@@ -312,8 +320,8 @@ export default class TickTickBridgePlugin extends Plugin {
       edit: async (task: any) => this.editTaskFromSurface(task),
       moveToColumn: async (task: any, columnId: string) => this.moveTaskToBoardColumn(task, columnId),
       showCompleted: () => this.settings.plannerShowCompleted,
-      preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups, sidebarCollapsed: this.settings.boardSidebarCollapsed }),
-      savePreferences: async (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean }) => { this.settings.boardLastProjectId = value.selected; this.settings.boardCollapsedGroups = value.collapsed; this.settings.boardSidebarCollapsed = value.sidebarCollapsed; await this.saveSettings(); },
+      preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups, sidebarCollapsed: this.settings.boardSidebarCollapsed, sidebarPreferenceInitialized: this.settings.boardSidebarPreferenceInitialized }),
+      savePreferences: async (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean; sidebarPreferenceInitialized?: boolean }) => { this.settings.boardLastProjectId = value.selected; this.settings.boardCollapsedGroups = value.collapsed; this.settings.boardSidebarCollapsed = value.sidebarCollapsed; this.settings.boardSidebarPreferenceInitialized = value.sidebarPreferenceInitialized ?? true; await this.saveSettings(); },
     };
   }
 
@@ -443,7 +451,7 @@ export default class TickTickBridgePlugin extends Plugin {
         if (!quiet) new Notice("تغییرها در صف امن همگام‌سازی ماندند؛ TickTick فعلاً درخواست تازه نمی‌پذیرد.");
         return;
       }
-      const refreshed = await this.refreshCacheFromTickTick(day);
+      const refreshed = await this.refreshCacheFromTickTick(day, !scheduled);
       const tasks = this.cachedTasksForDay(day);
       const habits = this.cachedHabitsForDay(day);
       await this.refreshLocalSurfaces();
@@ -528,7 +536,7 @@ export default class TickTickBridgePlugin extends Plugin {
 
   cacheConflictCount() { return this.cache.conflicts.length; }
 
-  private async refreshCacheFromTickTick(today: string) {
+  private async refreshCacheFromTickTick(today: string, hydrateHabits = false) {
     const client = this.client();
     const cacheAvailable = this.hasCache();
     // Once a full mirror exists, the web batch feed is sufficient for normal
@@ -539,7 +547,7 @@ export default class TickTickBridgePlugin extends Plugin {
     // unavailable for a moment.
     const webTasks = await this.webOpenTasks();
     const projects = cacheAvailable ? this.cache.projects : await client.listProjects();
-    const habits = cacheAvailable ? this.cache.habits : await client.listHabits();
+    let habits = (!cacheAvailable || hydrateHabits) ? await client.listHabits() : this.cache.habits;
     const sections = cacheAvailable ? [] : await client.listHabitSections();
     const projectBoards: Record<string, any> = {};
     const taskIndex = new Map<string, any>();
@@ -572,6 +580,19 @@ export default class TickTickBridgePlugin extends Plugin {
         taskIndex.set(key, mergeTaskDetails(taskIndex.get(key), task));
       }
     }
+    // Inbox is not returned by the official project list, but it is a normal
+    // TickTick task container. Hydrate it once into the private mirror so the
+    // board's «ورودی» item is backed by real tasks, not an empty placeholder.
+    if (!projectBoards.inbox && !this.cache.tasks.some(task => String(task?.projectId ?? "").toLowerCase() === "inbox")) {
+      try {
+        const inbox = normalizeProjectData(await client.getProjectData("inbox"), { id: "inbox", name: "ورودی" });
+        projectBoards.inbox = inbox;
+        for (const task of inbox.tasks) taskIndex.set(`inbox:${String(task.id ?? "")}`, task);
+      } catch {
+        // Some accounts expose Inbox only from the web batch feed. It remains
+        // safe to continue and populate it from that feed when available.
+      }
+    }
     for (const task of webTasks ?? []) {
       const projectId = String(task.projectId ?? ""); const key = `${projectId}:${task.id}`;
       const prior = taskIndex.get(key);
@@ -602,6 +623,16 @@ export default class TickTickBridgePlugin extends Plugin {
     // The web feed is the most up-to-date source for today's habit state.
     const webCheckins = await this.webHabitCheckins(activeHabits.map((habit: { id: string }) => habit.id), today, 91);
     if (webCheckins) for (const [habitId, entries] of webCheckins) checkins[habitId] = entries;
+    // The habit check-in record carries TickTick's current goal. Prefer that
+    // fresh value over a stale cache so a 3-step habit is never written back
+    // as 2 steps by a subsequent local check-in.
+    if (webCheckins) {
+      habits = habits.map((habit: any) => {
+        const recent = (webCheckins.get(String(habit.id)) ?? []).at(-1);
+        const goal = Number(recent?.goal ?? 0);
+        return goal > 0 ? { ...habit, goal } : habit;
+      });
+    }
     const sectionNames = new Map(sections.map((section: { id: string; name: string }) => [section.id, section.name]));
     this.cache = {
       savedAt: new Date().toISOString(),
@@ -1444,27 +1475,32 @@ class TodayHabitsView extends ItemView {
 }
 
 class PlanningView extends ItemView {
+  private planner?: PlanningCalendar;
   constructor(leaf: WorkspaceLeaf, private plugin: TickTickBridgePlugin) { super(leaf); }
   getViewType() { return PLANNER_VIEW_TYPE; }
   getDisplayText() { return "تقویم برنامه‌ریزی TickTick"; }
   getIcon() { return "calendar-days"; }
   async onOpen() { await this.render(); }
   async render() {
-    this.contentEl.empty();
     this.contentEl.addClass("ticktick-planner-panel");
-    await new PlanningCalendar(this.contentEl, this.plugin.plannerHost()).render();
+    // Keep navigation mode/date/filter state across local cache updates and
+    // scheduled syncs. Recreating this object forced month view back to week.
+    this.planner ??= new PlanningCalendar(this.contentEl, this.plugin.plannerHost());
+    await this.planner.render();
   }
 }
 
 class ProjectBoardView extends ItemView {
+  private board?: ProjectBoard;
   constructor(leaf: WorkspaceLeaf, private plugin: TickTickBridgePlugin) { super(leaf); }
   getViewType() { return PROJECT_BOARD_VIEW_TYPE; }
   getDisplayText() { return "برد پروژه‌های TickTick"; }
   getIcon() { return "kanban-square"; }
   async onOpen() { await this.render(); }
   async render() {
-    this.contentEl.empty(); this.contentEl.addClass("ticktick-project-board-panel");
-    await new ProjectBoard(this.contentEl, this.plugin.projectBoardHost()).render();
+    this.contentEl.addClass("ticktick-project-board-panel");
+    this.board ??= new ProjectBoard(this.contentEl, this.plugin.projectBoardHost());
+    await this.board.render();
   }
 }
 

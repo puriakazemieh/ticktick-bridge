@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isSamePersianMonth, monthRange, persianMonthRange, planningBuckets, shiftPersianMonth, taskDateRange, taskOccursOnCalendarDay, tasksForCalendarDay, weekRange } from "../src/core/calendar-range.js";
+import { isSamePersianMonth, monthRange, persianMonthRange, planningBuckets, recurringTaskOccursOnDay, shiftPersianMonth, taskDateRange, taskOccursOnCalendarDay, tasksForCalendarDay, weekRange } from "../src/core/calendar-range.js";
 
 test("calendar ranges begin on configurable weekday and month always has 42 cells", () => {
   assert.deepEqual(weekRange("2026-03-21", 1), ["2026-03-16", "2026-03-17", "2026-03-18", "2026-03-19", "2026-03-20", "2026-03-21", "2026-03-22"]);
@@ -39,6 +39,12 @@ test("calendar shows a recurring task only on TickTick's next unfinished due day
   assert.equal(taskOccursOnCalendarDay(recurring, "2026-10-25"), false);
   assert.equal(taskOccursOnCalendarDay(recurring, "2026-10-26"), true);
   assert.equal(taskOccursOnCalendarDay(recurring, "2026-10-27"), false);
+});
+test("optional recurring expansion shows only future rule occurrences", () => {
+  const recurring = { id: "repeat", status: 0, dueDate: "2026-10-26", repeatFlag: "RRULE:FREQ=WEEKLY;BYDAY=MO,WE" };
+  assert.equal(recurringTaskOccursOnDay(recurring, "2026-10-25"), false);
+  assert.equal(recurringTaskOccursOnDay(recurring, "2026-10-26"), true);
+  assert.equal(recurringTaskOccursOnDay(recurring, "2026-10-28"), true);
 });
 
 test("calendar expands date ranges but keeps recurring cards on their next due day", () => {

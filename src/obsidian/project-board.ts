@@ -1,5 +1,5 @@
 import { App, Menu, Notice, setIcon } from "obsidian";
-import { ALL_BOARD_VIEW_ID, boardColumns, INBOX_BOARD_VIEW_ID, RECURRING_BOARD_VIEW_ID, sidebarTree, virtualBoardData, virtualBoardEntries } from "../core/project-board.js";
+import { boardColumns, INBOX_BOARD_VIEW_ID, RECURRING_BOARD_VIEW_ID, sidebarTree, virtualBoardData, virtualBoardEntries } from "../core/project-board.js";
 import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
 import { ProjectEditorModal } from "./project-editor-modal";
@@ -24,8 +24,8 @@ type Host = {
   edit: (task: any) => Promise<any>;
   moveToColumn: (task: any, columnId: string) => Promise<any>;
   showCompleted: () => boolean;
-  preferences: () => { selected: string; collapsed: string[]; sidebarCollapsed?: boolean };
-  savePreferences: (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean }) => Promise<void>;
+  preferences: () => { selected: string; collapsed: string[]; sidebarCollapsed?: boolean; sidebarPreferenceInitialized?: boolean };
+  savePreferences: (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean; sidebarPreferenceInitialized?: boolean }) => Promise<void>;
 };
 
 export class ProjectBoard {
@@ -42,8 +42,9 @@ export class ProjectBoard {
       const saved = this.host.preferences();
       this.selected = saved.selected;
       this.collapsed = new Set(saved.collapsed);
-      this.sidebarCollapsed = Boolean(saved.sidebarCollapsed);
+      this.sidebarCollapsed = saved.sidebarPreferenceInitialized ? Boolean(saved.sidebarCollapsed) : true;
       this.initialized = true;
+      if (!saved.sidebarPreferenceInitialized) void this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: true, sidebarPreferenceInitialized: true });
     }
 
     this.element.empty();
@@ -52,10 +53,13 @@ export class ProjectBoard {
 
     try {
       const projects = await this.host.projects();
-      if (!this.selected) this.selected = ALL_BOARD_VIEW_ID;
+      // The board opens focused on a real list.  "همهٔ لیست‌ها" was a
+      // confusing synthetic board and is intentionally no longer shown.
+      if (!this.selected || this.selected === "ticktick:view:all") this.selected = String(projects[0]?.id ?? INBOX_BOARD_VIEW_ID);
 
       // ── 1. Sidebar Rail ──
       const rail = root.createDiv({ cls: `ticktick-project-rail ${this.sidebarCollapsed ? "is-collapsed" : ""}` });
+      root.toggleClass("is-rail-collapsed", this.sidebarCollapsed);
 
       const railHeader = rail.createDiv({ cls: "ticktick-rail-header" });
       const headerIcon = railHeader.createSpan({ cls: "ticktick-rail-icon" });
@@ -68,20 +72,6 @@ export class ProjectBoard {
       if (this.sidebarCollapsed) {
         rail.createEl("button", { cls: "ticktick-rail-expand-label", text: "لیست‌ها", attr: { type: "button" } }).addEventListener("click", () => { this.sidebarCollapsed = false; void this.persistAndRender(); });
       } else {
-
-      // All Projects button
-      const allBtn = rail.createEl("button", {
-        cls: `ticktick-project-row ticktick-all-projects-btn ${this.selected === ALL_BOARD_VIEW_ID ? "is-selected" : ""}`,
-        attr: { type: "button", "aria-label": "همهٔ لیست‌ها" }
-      });
-      const allIcon = allBtn.createSpan({ cls: "ticktick-project-row-icon" });
-      setIcon(allIcon, "layers");
-      allBtn.createSpan({ cls: "ticktick-project-name", text: "همهٔ لیست‌ها" });
-      allBtn.createSpan({ cls: "ticktick-project-count", text: String(virtualBoardEntries(this.host.tasks()).all.count) });
-      allBtn.addEventListener("click", () => {
-        this.selected = ALL_BOARD_VIEW_ID;
-        void this.persistAndRender();
-      });
 
       const virtual = virtualBoardEntries(this.host.tasks());
       const inbox = rail.createEl("button", { cls: `ticktick-project-row ${this.selected === INBOX_BOARD_VIEW_ID ? "is-selected" : ""}`, attr: { type: "button", "aria-label": `ورودی، ${virtual.inbox.count} تسک باز` } });
@@ -385,6 +375,20 @@ export class ProjectBoard {
         colHeader.createSpan({ cls: "ticktick-column-count", text: String(column.count) });
 
         const movableColumn = Boolean(project) && !column.synthetic;
+        if (movableColumn) {
+          const addToColumn = colHeader.createEl("button", { cls: "ticktick-column-add mod-icon", attr: { type: "button", "aria-label": `افزودن تسک به ستون ${column.name}`, title: "افزودن تسک به این ستون" } });
+          setIcon(addToColumn, "plus");
+          addToColumn.addEventListener("click", async event => {
+            event.stopPropagation(); addToColumn.disabled = true;
+            try {
+              await this.host.createTask({ projectId: project.id, columnId: column.id });
+              new Notice(`تسک جدید به ستون «${column.name}» اضافه شد.`);
+              await this.render();
+            } catch (error) {
+              new Notice(error instanceof Error ? error.message : "ساخت تسک ناموفق بود.");
+            } finally { addToColumn.disabled = false; }
+          });
+        }
         if (column.synthetic) {
           shell.createEl("small", { cls: "ticktick-column-hint", text: "ستون نمایشی؛ جابه‌جایی غیرفعال است" });
         }
@@ -427,7 +431,7 @@ export class ProjectBoard {
   }
 
   private async persistAndRender() {
-    await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: this.sidebarCollapsed });
+    await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: this.sidebarCollapsed, sidebarPreferenceInitialized: true });
     await this.render();
   }
 
