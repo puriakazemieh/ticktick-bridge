@@ -3458,6 +3458,7 @@ var ProjectBoard = class {
         title: "\u0628\u0631\u0627\u06CC \u062F\u06CC\u062F\u0646 \u062C\u0632\u0626\u06CC\u0627\u062A \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F"
       }
     });
+    card.dataset.taskId = String(task.id);
     card.draggable = movable;
     card.style.setProperty("--ticktick-task-tone", tone);
     card.addEventListener("dragstart", (event) => {
@@ -3475,7 +3476,8 @@ var ProjectBoard = class {
     });
     if (check) {
       check.checked = isCompleted;
-      check.disabled = !bound || isCompleted;
+      check.disabled = isCompleted;
+      check.setAttribute("draggable", "false");
     }
     if (isNote) {
       const noteIcon = top.createSpan({ cls: "ticktick-project-note-icon", attr: { title: "\u06CC\u0627\u062F\u062F\u0627\u0634\u062A TickTick" } });
@@ -3535,6 +3537,7 @@ var ProjectBoard = class {
     const details = () => new TaskDetailsModal(this.host.app, task, {
       complete: async () => {
         await this.host.complete(task);
+        await this.render();
       },
       load: (item) => this.host.load(item),
       edit: (item) => this.host.edit(item),
@@ -3550,18 +3553,20 @@ var ProjectBoard = class {
         details();
       }
     });
+    check?.addEventListener("mousedown", (event) => event.stopPropagation());
     check?.addEventListener("click", (event) => event.stopPropagation());
     check?.addEventListener("change", async () => {
       check.disabled = true;
       card.addClass("is-completed");
-      if (!this.host.showCompleted()) {
+      const hideCompleted = !this.host.showCompleted();
+      if (hideCompleted) {
         card.addClass("is-leaving");
       }
       try {
         await this.host.complete(task);
         task.status = 2;
-        new import_obsidian8.Notice("\u062A\u0633\u06A9 \u0628\u0627 \u0645\u0633\u06CC\u0631 \u0627\u0645\u0646 Markdown sync \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F.");
-        if (!this.host.showCompleted()) {
+        new import_obsidian8.Notice(bound ? "\u062A\u0633\u06A9 \u062F\u0631 \u0641\u0627\u06CC\u0644 \u0645\u0627\u0631\u06A9\u200C\u062F\u0627\u0648\u0646 \u0648 TickTick \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F." : "\u062A\u0633\u06A9 \u062F\u0631 TickTick \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F.");
+        if (hideCompleted) {
           setTimeout(() => {
             const col = card.closest(".ticktick-project-column");
             const badge = col?.querySelector(".ticktick-column-count");

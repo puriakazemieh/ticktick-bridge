@@ -562,6 +562,7 @@ for (const habit of habits) {
         title: "برای دیدن جزئیات کلیک کنید"
       }
     });
+    card.dataset.taskId = String(task.id);
     card.draggable = movable;
     card.style.setProperty("--ticktick-task-tone", tone);
 
@@ -578,7 +579,11 @@ for (const habit of habits) {
     const check = isNote ? null : top.createEl("input", {
       type: "checkbox", cls: "ticktick-project-check", attr: { "aria-label": `تکمیل ${task.title}` }
     });
-    if (check) { check.checked = isCompleted; check.disabled = !bound || isCompleted; }
+    if (check) {
+      check.checked = isCompleted;
+      check.disabled = isCompleted;
+      check.setAttribute("draggable", "false");
+    }
     if (isNote) {
       const noteIcon = top.createSpan({ cls: "ticktick-project-note-icon", attr: { title: "یادداشت TickTick" } });
       setIcon(noteIcon, "file-text");
@@ -642,7 +647,10 @@ for (const habit of habits) {
     }
 
     const details = () => new TaskDetailsModal(this.host.app, task, {
-      complete: async () => { await this.host.complete(task); },
+      complete: async () => {
+        await this.host.complete(task);
+        await this.render();
+      },
       load: item => this.host.load(item),
       edit: item => this.host.edit(item),
       changed: async () => {
@@ -659,18 +667,20 @@ for (const habit of habits) {
       }
     });
 
+    check?.addEventListener("mousedown", event => event.stopPropagation());
     check?.addEventListener("click", event => event.stopPropagation());
     check?.addEventListener("change", async () => {
       check.disabled = true;
       card.addClass("is-completed");
-      if (!this.host.showCompleted()) {
+      const hideCompleted = !this.host.showCompleted();
+      if (hideCompleted) {
         card.addClass("is-leaving");
       }
       try {
         await this.host.complete(task);
         task.status = 2;
-        new Notice("تسک با مسیر امن Markdown sync تکمیل شد.");
-        if (!this.host.showCompleted()) {
+        new Notice(bound ? "تسک در فایل مارک‌داون و TickTick تکمیل شد." : "تسک در TickTick تکمیل شد.");
+        if (hideCompleted) {
           setTimeout(() => {
             const col = card.closest(".ticktick-project-column");
             const badge = col?.querySelector(".ticktick-column-count");
