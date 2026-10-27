@@ -53,11 +53,32 @@ export function shiftPersianMonth(day, amount) {
   return shiftCalendarDay(start, Math.min(current.day, length) - 1);
 }
 function taskDay(task, timeZone) { return toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone); }
+function isMidnightInZone(value, timeZone) {
+  if (!value || !String(value).includes("T")) return false;
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return false;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant).filter(part => part.type !== "literal").map(part => [part.type, part.value]));
+  return parts.hour === "00" && parts.minute === "00";
+}
 /** A task with distinct start/end dates can be painted as one continuous calendar bar.
  * TickTick keeps this visual span even when the task also has a repeat rule. */
 export function taskDateRange(task, timeZone = "Asia/Tehran") {
-  let start = toDateKey(task?.startDate, task?.timeZone || timeZone);
-  const end = toDateKey(task?.dueDate, task?.timeZone || timeZone);
+  const zone = task?.timeZone || timeZone;
+  let start = toDateKey(task?.startDate, zone);
+  let end = toDateKey(task?.dueDate, zone);
+  // TickTick serializes an all-day range's end as local midnight immediately
+  // after its last visible day. For example, Sat–Fri is stored as Sat 00:00
+  // through the following Sat 00:00. Render the end as the preceding Friday.
+  // Timed tasks and plain date keys intentionally keep their original end.
+  if (start && end && start < end && task?.isAllDay !== false
+    && isMidnightInZone(task?.startDate, zone) && isMidnightInZone(task?.dueDate, zone)) {
+    end = shiftCalendarDay(end, -1);
+  }
   // TickTick moves the due date of an unfinished recurring range but may leave
   // its original start date untouched. Fold that stale span into its current
   // recurrence period so a Saturday–Friday task stays one week long.

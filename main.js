@@ -1070,9 +1070,25 @@ function shiftPersianMonth(day, amount) {
 function taskDay(task, timeZone) {
   return toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone);
 }
+function isMidnightInZone(value, timeZone) {
+  if (!value || !String(value).includes("T")) return false;
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return false;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(instant).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return parts.hour === "00" && parts.minute === "00";
+}
 function taskDateRange(task, timeZone = "Asia/Tehran") {
-  let start = toDateKey(task?.startDate, task?.timeZone || timeZone);
-  const end = toDateKey(task?.dueDate, task?.timeZone || timeZone);
+  const zone = task?.timeZone || timeZone;
+  let start = toDateKey(task?.startDate, zone);
+  let end = toDateKey(task?.dueDate, zone);
+  if (start && end && start < end && task?.isAllDay !== false && isMidnightInZone(task?.startDate, zone) && isMidnightInZone(task?.dueDate, zone)) {
+    end = shiftCalendarDay(end, -1);
+  }
   if (start && end && start < end && task?.repeatFlag) {
     const rule = ruleParts(task);
     const frequency = rule.FREQ ?? "";

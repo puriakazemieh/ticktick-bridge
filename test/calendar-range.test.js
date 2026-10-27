@@ -61,6 +61,17 @@ test("calendar expands date ranges but keeps recurring cards on their next due d
   // TickTick can advance a recurring range's due date while retaining an old
   // start date. An exact multiple of a week must still yield one visible bar.
   assert.deepEqual(taskDateRange({ id: "weekly-range", startDate: "2026-10-17", dueDate: "2026-10-31", status: 0, repeatFlag: "RRULE:FREQ=WEEKLY" }), { start: "2026-10-25", end: "2026-10-31" });
+  // TickTick's all-day Tehran range is an exclusive end boundary. Its
+  // Saturday–Friday UI range arrives as midnight Saturday through midnight
+  // the following Saturday, and must not begin one day late in Obsidian.
+  assert.deepEqual(taskDateRange({
+    id: "persian-weekly-range",
+    startDate: "2026-10-30T20:30:00.000+0000",
+    dueDate: "2026-11-06T20:30:00.000+0000",
+    status: 0,
+    isAllDay: true,
+    repeatFlag: "RRULE:FREQ=WEEKLY;WKST=SA",
+  }), { start: "2026-10-31", end: "2026-11-06" });
 });
 
 test("calendar display sorting supports TickTick order, priority, time, and title", () => {
