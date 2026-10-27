@@ -58,6 +58,9 @@ test("calendar expands date ranges but keeps recurring cards on their next due d
   assert.equal(taskOccursOnCalendarDay(dated, "2026-10-25"), false);
   assert.deepEqual(taskDateRange(ranged), { start: "2026-10-24", end: "2026-10-27" });
   assert.deepEqual(taskDateRange({ ...weekly, startDate: "2026-10-24", dueDate: "2026-10-27" }), { start: "2026-10-24", end: "2026-10-27" });
+  // TickTick can advance a recurring range's due date while retaining an old
+  // start date. An exact multiple of a week must still yield one visible bar.
+  assert.deepEqual(taskDateRange({ id: "weekly-range", startDate: "2026-10-17", dueDate: "2026-10-31", status: 0, repeatFlag: "RRULE:FREQ=WEEKLY" }), { start: "2026-10-25", end: "2026-10-31" });
 });
 
 test("calendar display sorting supports TickTick order, priority, time, and title", () => {

@@ -65,7 +65,13 @@ export function taskDateRange(task, timeZone = "Asia/Tehran") {
     const rule = ruleParts(task); const frequency = rule.FREQ ?? ""; const interval = Math.max(1, Number(rule.INTERVAL ?? 1));
     const period = frequency === "WEEKLY" ? interval * 7 : frequency === "DAILY" ? interval : 0;
     const span = dayNumber(end) - dayNumber(start);
-    if (period > 0 && span >= period) start = shiftCalendarDay(end, -(span % period));
+    if (period > 0 && span >= period) {
+      // A span exactly divisible by the recurrence period used to produce an
+      // identical start/end pair (and therefore no range at all). Keep one
+      // visible occurrence instead, capped to the current period.
+      const currentSpan = span % period || Math.max(1, period - 1);
+      start = shiftCalendarDay(end, -currentSpan);
+    }
   }
   return start && end && start < end ? { start, end } : null;
 }
