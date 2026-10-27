@@ -930,24 +930,21 @@ export class PlanningCalendar {
       const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
       const current = Number(habit.checkin?.value ?? 0);
       const complete = Number(habit.checkin?.status ?? 0) === 2 || current >= goal;
-      const row = section.createEl("label", { cls: `ticktick-planner-habit ticktick-habit-card ${complete ? "is-complete is-success" : ""}` });
-      const check = row.createEl("input", { type: "checkbox", attr: { "aria-label": `ثبت عادت ${habit.name}` } });
-      check.checked = complete;
-      check.disabled = complete;
-      row.createSpan({ cls: "ticktick-planner-habit-icon", text: habitGlyph(habit) });
+      const row = section.createDiv({ cls: `ticktick-planner-habit ticktick-habit-card ${complete ? "is-complete is-success" : ""}`, attr: { role: "button", tabindex: "0", "aria-label": `جزئیات عادت ${habit.name}` } });
+      const icon = row.createEl("button", { cls: "ticktick-planner-habit-icon", text: habitGlyph(habit), attr: { type: "button", "aria-label": `ثبت یک مرحله از عادت ${habit.name}` } });
       const title = row.createSpan({ text: `${String(habit.name ?? "عادت")}${goal > 1 ? ` · ${current}/${goal}` : ""}` });
-      title.setAttribute("role", "button");
-      title.setAttribute("title", "نمایش جزئیات عادت");
-      title.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); new HabitDetailsModal(this.host.app, this.host.habitWithHistory(String(habit.id), day) ?? habit, this.host, day).open(); });
-      check.addEventListener("change", async () => {
-        check.disabled = true;
+      const openDetails = () => new HabitDetailsModal(this.host.app, this.host.habitWithHistory(String(habit.id), day) ?? habit, this.host, day).open();
+      row.addEventListener("click", openDetails);
+      row.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDetails(); } });
+      icon.addEventListener("click", async event => {
+        event.preventDefault(); event.stopPropagation();
+        icon.disabled = true;
         try {
           await this.host.checkInHabit(habit, day);
           new Notice(complete ? "ثبت عادت برداشته شد." : current + 1 >= goal ? "عادت کامل و همگام شد." : `یک مرحله ثبت شد: ${current + 1}/${goal}`);
           await this.render();
         } catch (error) {
-          check.checked = false;
-          check.disabled = false;
+          icon.disabled = false;
           new Notice(error instanceof Error ? error.message : "ثبت عادت ناموفق بود.");
         }
       });

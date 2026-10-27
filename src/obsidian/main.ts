@@ -318,6 +318,12 @@ export default class TickTickBridgePlugin extends Plugin {
       createTask: (initial: any) => this.createTaskFromSurface(initial),
       tasks: () => this.cache.tasks,
       habits: () => this.cache.habits,
+      checkInHabit: async (habit: any, day: string) => {
+        const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
+        const current = Number(habit.checkin?.value ?? 0);
+        const next = current >= goal ? 0 : Math.min(goal, current + Math.max(1, Number(habit.step ?? 1)));
+        return this.checkInHabit(String(habit.id), day, { value: next, goal, status: next >= goal ? 2 : undefined });
+      },
       habitHistory: (habitId: string, from: string, to: string) => this.cachedHabitHistoryRange(habitId, from, to),
       setHabitProgress: async (habit: any, day: string, value: number, goal: number) => this.checkInHabit(String(habit.id), day, { value: Math.max(0, value), goal: Math.max(1, goal), status: value >= goal ? 2 : undefined }),
       board: async (project: any) => this.cache.projectBoards[String(project.id)] ?? this.client().projectBoard(project),

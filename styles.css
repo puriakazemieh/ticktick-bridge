@@ -3790,6 +3790,26 @@
   .ticktick-habit-card { transition-duration: 0ms !important; }
 }
 
+/* Interactive variant of the shared habit card: the round icon records one
+   increment, while the rest of the card remains the details affordance. */
+.ticktick-planner-habit button.ticktick-planner-habit-icon {
+  grid-column: 1;
+  margin: 0;
+  padding: 0;
+  min-width: 1.35rem;
+  min-height: 1.35rem;
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 75%, var(--background-modifier-border));
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-primary));
+  cursor: pointer;
+}
+.ticktick-habit-board-card { cursor: pointer; }
+.ticktick-habit-board-card .ticktick-habit-board-icon { cursor: pointer; }
+.ticktick-habit-board-card .ticktick-habit-board-icon:active,
+.ticktick-planner-habit button.ticktick-planner-habit-icon:active { transform: scale(.92); }
+.ticktick-habit-board-card .ticktick-habit-board-icon:disabled,
+.ticktick-planner-habit button.ticktick-planner-habit-icon:disabled { cursor: progress; opacity: .6; }
+
 .ticktick-recurring-board {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

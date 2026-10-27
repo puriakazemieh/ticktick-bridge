@@ -31,6 +31,7 @@ type Host = {
   createTask: (initial: any) => Promise<any>;
   tasks: () => any[];
   habits: () => any[];
+  checkInHabit: (habit: any, day: string) => Promise<any>;
   habitHistory: (habitId: string, from: string, to: string) => any[];
   setHabitProgress: (habit: any, day: string, value: number, goal: number) => Promise<any>;
   firstWeekday: number;
@@ -478,17 +479,24 @@ export class ProjectBoard {
       const goal = Math.max(1, Number(habit.goal ?? habit.target ?? 1));
       const entry = (this.host.habitHistory(String(habit.id), today, today)[0] ?? {});
       const value = Number(entry.value ?? 0);
-      const card = cards.createEl("button", { cls: "ticktick-habit-board-card ticktick-habit-card", attr: { type: "button" } });
-      card.createSpan({ cls: "ticktick-habit-board-icon", text: habitGlyph(habit) });
+      const card = cards.createDiv({ cls: "ticktick-habit-board-card ticktick-habit-card", attr: { role: "button", tabindex: "0", "aria-label": `جزئیات عادت ${habit.name}` } });
+      const icon = card.createEl("button", { cls: "ticktick-habit-board-icon", text: habitGlyph(habit), attr: { type: "button", "aria-label": `ثبت یک مرحله از عادت ${habit.name}` } });
       const copy = card.createDiv({ cls: "ticktick-habit-board-copy" });
       copy.createEl("strong", { text: String(habit.name ?? "عادت") });
       copy.createSpan({ text: `${value}/${goal} ${habit.unit ?? (goal > 1 ? "مرحله" : "ثبت")}` });
-      card.addEventListener("click", () => new HabitDetailsModal(this.host.app, habit, {
+      const openDetails = () => new HabitDetailsModal(this.host.app, habit, {
         firstWeekday: this.host.firstWeekday,
         habits: day => this.host.habits().filter(item => String(item.id) === String(habit.id) || false),
         habitHistory: this.host.habitHistory,
         setHabitProgress: this.host.setHabitProgress,
-      }, today).open());
+      }, today).open();
+      card.addEventListener("click", openDetails);
+      card.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDetails(); } });
+      icon.addEventListener("click", async event => {
+        event.preventDefault(); event.stopPropagation(); icon.disabled = true;
+        try { await this.host.checkInHabit(habit, today); await this.render(); }
+        catch (error) { icon.disabled = false; new Notice(error instanceof Error ? error.message : "ثبت عادت ناموفق بود."); }
+      });
     }
   }
 

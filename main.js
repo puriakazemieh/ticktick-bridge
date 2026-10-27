@@ -2266,28 +2266,27 @@ var PlanningCalendar = class {
       const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
       const current = Number(habit.checkin?.value ?? 0);
       const complete = Number(habit.checkin?.status ?? 0) === 2 || current >= goal;
-      const row = section.createEl("label", { cls: `ticktick-planner-habit ticktick-habit-card ${complete ? "is-complete is-success" : ""}` });
-      const check = row.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062B\u0628\u062A \u0639\u0627\u062F\u062A ${habit.name}` } });
-      check.checked = complete;
-      check.disabled = complete;
-      row.createSpan({ cls: "ticktick-planner-habit-icon", text: habitGlyph(habit) });
+      const row = section.createDiv({ cls: `ticktick-planner-habit ticktick-habit-card ${complete ? "is-complete is-success" : ""}`, attr: { role: "button", tabindex: "0", "aria-label": `\u062C\u0632\u0626\u06CC\u0627\u062A \u0639\u0627\u062F\u062A ${habit.name}` } });
+      const icon = row.createEl("button", { cls: "ticktick-planner-habit-icon", text: habitGlyph(habit), attr: { type: "button", "aria-label": `\u062B\u0628\u062A \u06CC\u06A9 \u0645\u0631\u062D\u0644\u0647 \u0627\u0632 \u0639\u0627\u062F\u062A ${habit.name}` } });
       const title = row.createSpan({ text: `${String(habit.name ?? "\u0639\u0627\u062F\u062A")}${goal > 1 ? ` \xB7 ${current}/${goal}` : ""}` });
-      title.setAttribute("role", "button");
-      title.setAttribute("title", "\u0646\u0645\u0627\u06CC\u0634 \u062C\u0632\u0626\u06CC\u0627\u062A \u0639\u0627\u062F\u062A");
-      title.addEventListener("click", (event) => {
+      const openDetails = () => new HabitDetailsModal(this.host.app, this.host.habitWithHistory(String(habit.id), day) ?? habit, this.host, day).open();
+      row.addEventListener("click", openDetails);
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openDetails();
+        }
+      });
+      icon.addEventListener("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
-        new HabitDetailsModal(this.host.app, this.host.habitWithHistory(String(habit.id), day) ?? habit, this.host, day).open();
-      });
-      check.addEventListener("change", async () => {
-        check.disabled = true;
+        icon.disabled = true;
         try {
           await this.host.checkInHabit(habit, day);
           new import_obsidian4.Notice(complete ? "\u062B\u0628\u062A \u0639\u0627\u062F\u062A \u0628\u0631\u062F\u0627\u0634\u062A\u0647 \u0634\u062F." : current + 1 >= goal ? "\u0639\u0627\u062F\u062A \u06A9\u0627\u0645\u0644 \u0648 \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F." : `\u06CC\u06A9 \u0645\u0631\u062D\u0644\u0647 \u062B\u0628\u062A \u0634\u062F: ${current + 1}/${goal}`);
           await this.render();
         } catch (error) {
-          check.checked = false;
-          check.disabled = false;
+          icon.disabled = false;
           new import_obsidian4.Notice(error instanceof Error ? error.message : "\u062B\u0628\u062A \u0639\u0627\u062F\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
         }
       });
@@ -3026,17 +3025,36 @@ var ProjectBoard = class {
       const goal = Math.max(1, Number(habit.goal ?? habit.target ?? 1));
       const entry = this.host.habitHistory(String(habit.id), today, today)[0] ?? {};
       const value = Number(entry.value ?? 0);
-      const card = cards.createEl("button", { cls: "ticktick-habit-board-card ticktick-habit-card", attr: { type: "button" } });
-      card.createSpan({ cls: "ticktick-habit-board-icon", text: habitGlyph2(habit) });
+      const card = cards.createDiv({ cls: "ticktick-habit-board-card ticktick-habit-card", attr: { role: "button", tabindex: "0", "aria-label": `\u062C\u0632\u0626\u06CC\u0627\u062A \u0639\u0627\u062F\u062A ${habit.name}` } });
+      const icon = card.createEl("button", { cls: "ticktick-habit-board-icon", text: habitGlyph2(habit), attr: { type: "button", "aria-label": `\u062B\u0628\u062A \u06CC\u06A9 \u0645\u0631\u062D\u0644\u0647 \u0627\u0632 \u0639\u0627\u062F\u062A ${habit.name}` } });
       const copy = card.createDiv({ cls: "ticktick-habit-board-copy" });
       copy.createEl("strong", { text: String(habit.name ?? "\u0639\u0627\u062F\u062A") });
       copy.createSpan({ text: `${value}/${goal} ${habit.unit ?? (goal > 1 ? "\u0645\u0631\u062D\u0644\u0647" : "\u062B\u0628\u062A")}` });
-      card.addEventListener("click", () => new HabitDetailsModal(this.host.app, habit, {
+      const openDetails = () => new HabitDetailsModal(this.host.app, habit, {
         firstWeekday: this.host.firstWeekday,
         habits: (day) => this.host.habits().filter((item) => String(item.id) === String(habit.id) || false),
         habitHistory: this.host.habitHistory,
         setHabitProgress: this.host.setHabitProgress
-      }, today).open());
+      }, today).open();
+      card.addEventListener("click", openDetails);
+      card.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openDetails();
+        }
+      });
+      icon.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        icon.disabled = true;
+        try {
+          await this.host.checkInHabit(habit, today);
+          await this.render();
+        } catch (error) {
+          icon.disabled = false;
+          new import_obsidian6.Notice(error instanceof Error ? error.message : "\u062B\u0628\u062A \u0639\u0627\u062F\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+        }
+      });
     }
   }
   card(parent, task, projectColor, movable = true) {
@@ -3530,6 +3548,12 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
       createTask: (initial) => this.createTaskFromSurface(initial),
       tasks: () => this.cache.tasks,
       habits: () => this.cache.habits,
+      checkInHabit: async (habit, day) => {
+        const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
+        const current = Number(habit.checkin?.value ?? 0);
+        const next = current >= goal ? 0 : Math.min(goal, current + Math.max(1, Number(habit.step ?? 1)));
+        return this.checkInHabit(String(habit.id), day, { value: next, goal, status: next >= goal ? 2 : void 0 });
+      },
       habitHistory: (habitId, from, to) => this.cachedHabitHistoryRange(habitId, from, to),
       setHabitProgress: async (habit, day, value, goal) => this.checkInHabit(String(habit.id), day, { value: Math.max(0, value), goal: Math.max(1, goal), status: value >= goal ? 2 : void 0 }),
       board: async (project) => this.cache.projectBoards[String(project.id)] ?? this.client().projectBoard(project),
