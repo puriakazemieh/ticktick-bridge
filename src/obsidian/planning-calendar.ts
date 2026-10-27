@@ -309,8 +309,15 @@ export class HabitDetailsModal extends Modal {
     for (const dayKey of days) {
       const entry = this.history.get(dayKey); const done = Boolean(entry?.completed); const scheduled = this.habit.repeatRule ? this.host.habits(dayKey).some(habit => String(habit.id) === String(this.habit.id)) : true;
       const day = grid.createEl("button", { cls: `ticktick-habit-history-day ${done ? "is-complete" : ""} ${scheduled ? "is-scheduled" : "is-unscheduled"} ${dayKey === this.selectedDay ? "is-selected" : ""}`, text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(new Date(`${dayKey}T12:00:00Z`)), attr: { type: "button", title: `${dayKey}${done ? " · انجام شده" : scheduled ? " · انجام نشده" : " · بدون برنامه"}` } });
-      day.disabled = !scheduled;
-      day.addEventListener("click", () => { this.selectedDay = dayKey; this.render(); });
+      day.disabled = !scheduled || this.saving;
+      day.addEventListener("click", () => {
+        this.selectedDay = dayKey;
+        const dayValue = Number(entry?.value ?? 0);
+        // A day cell is also a quick check-in surface: every press records one
+        // stage for that exact date, while unscheduled dates stay unavailable.
+        if (dayValue < goal) void setValue(Math.min(goal, dayValue + Math.max(1, Number(this.habit.step ?? 1))));
+        else this.render();
+      });
     }
   }
   onClose() { this.contentEl.empty(); }

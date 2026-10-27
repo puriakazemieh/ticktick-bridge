@@ -1713,10 +1713,12 @@ var HabitDetailsModal = class extends import_obsidian4.Modal {
       const done = Boolean(entry?.completed);
       const scheduled = this.habit.repeatRule ? this.host.habits(dayKey).some((habit) => String(habit.id) === String(this.habit.id)) : true;
       const day = grid.createEl("button", { cls: `ticktick-habit-history-day ${done ? "is-complete" : ""} ${scheduled ? "is-scheduled" : "is-unscheduled"} ${dayKey === this.selectedDay ? "is-selected" : ""}`, text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(/* @__PURE__ */ new Date(`${dayKey}T12:00:00Z`)), attr: { type: "button", title: `${dayKey}${done ? " \xB7 \u0627\u0646\u062C\u0627\u0645 \u0634\u062F\u0647" : scheduled ? " \xB7 \u0627\u0646\u062C\u0627\u0645 \u0646\u0634\u062F\u0647" : " \xB7 \u0628\u062F\u0648\u0646 \u0628\u0631\u0646\u0627\u0645\u0647"}` } });
-      day.disabled = !scheduled;
+      day.disabled = !scheduled || this.saving;
       day.addEventListener("click", () => {
         this.selectedDay = dayKey;
-        this.render();
+        const dayValue = Number(entry?.value ?? 0);
+        if (dayValue < goal) void setValue(Math.min(goal, dayValue + Math.max(1, Number(this.habit.step ?? 1))));
+        else this.render();
       });
     }
   }
