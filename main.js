@@ -1743,9 +1743,14 @@ var PlanningCalendar = class {
   draggingTaskId = "";
   draggingSourceDay = "";
   displayedHabitIds = /* @__PURE__ */ new Set();
+  lastRenderedDay;
+  savedGridScrollLeft = 0;
   async render() {
     const scrollHost = this.element.closest(".view-content, .workspace-leaf-content") ?? this.element.parentElement;
     const scrollTop = scrollHost?.scrollTop ?? 0;
+    const scrollLeft = scrollHost?.scrollLeft ?? 0;
+    const existingGrid = this.element.querySelector(".ticktick-planner-days-grid, .ticktick-planner-month-grid");
+    this.savedGridScrollLeft = existingGrid?.scrollLeft ?? 0;
     this.displayedHabitIds.clear();
     this.element.empty();
     this.element.addClass("ticktick-planner");
@@ -1840,9 +1845,19 @@ var PlanningCalendar = class {
     } else {
       this.renderDays(root, this.mode === "week" ? weekRange(this.day, this.host.firstWeekday) : [this.day], tasks);
     }
-    if (scrollHost && scrollTop) requestAnimationFrame(() => {
-      scrollHost.scrollTop = scrollTop;
-    });
+    if (scrollHost && (scrollTop || scrollLeft)) {
+      requestAnimationFrame(() => {
+        if (scrollTop) scrollHost.scrollTop = scrollTop;
+        if (scrollLeft) scrollHost.scrollLeft = scrollLeft;
+      });
+    }
+    const newGrid = this.element.querySelector(".ticktick-planner-days-grid, .ticktick-planner-month-grid");
+    if (newGrid && this.savedGridScrollLeft > 0) {
+      requestAnimationFrame(() => {
+        newGrid.scrollLeft = this.savedGridScrollLeft;
+      });
+    }
+    this.lastRenderedDay = this.day;
   }
   renderFilters(root) {
     const filters = root.createDiv({ cls: "ticktick-planner-filters" });
@@ -2305,6 +2320,7 @@ var PlanningCalendar = class {
         tabindex: "0"
       }
     });
+    card.dataset.taskId = String(task.id);
     card.style.setProperty("--ticktick-task-tone", tone);
     const openDetails = () => new TaskDetailsModal(this.host.app, task, {
       complete: () => this.completeTask(task),
@@ -2383,6 +2399,7 @@ var PlanningCalendar = class {
         tabindex: "0"
       }
     });
+    card.dataset.taskId = String(task.id);
     card.style.setProperty("--ticktick-task-tone", tone);
     const openDetails = () => new TaskDetailsModal(this.host.app, task, {
       complete: () => this.completeTask(task),
@@ -2443,15 +2460,32 @@ var PlanningCalendar = class {
     return palette[hash % palette.length];
   }
   async completeTask(task, checkbox) {
+    if (checkbox) {
+      checkbox.disabled = true;
+      checkbox.checked = true;
+    }
+    const card = checkbox?.closest(".ticktick-planner-task, .ticktick-planner-month-task") || this.element.querySelector(`[data-task-id="${task.id}"]`);
+    if (card) {
+      card.addClass("is-completed");
+      if (!this.host.showCompleted) {
+        card.addClass("is-leaving");
+      }
+    }
     try {
       await this.host.complete(task);
+      task.status = 2;
       new import_obsidian4.Notice("\u062A\u0633\u06A9 \u062A\u06A9\u0645\u06CC\u0644 \u0648 \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F.");
-      await this.host.refresh();
-      await this.render();
+      if (card && !this.host.showCompleted) {
+        setTimeout(() => card.remove(), 220);
+      }
     } catch (error) {
       if (checkbox) {
         checkbox.checked = false;
         checkbox.disabled = false;
+      }
+      if (card) {
+        card.removeClass("is-completed");
+        card.removeClass("is-leaving");
       }
       new import_obsidian4.Notice(error instanceof Error ? error.message : "\u062A\u06A9\u0645\u06CC\u0644 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
     }
@@ -2625,6 +2659,8 @@ var ProjectBoard = class {
   initialized = false;
   sortMode = "ticktick";
   sidebarCollapsed = false;
+  lastSelectedProject = null;
+  savedColumnsScrollLeft = 0;
   async render() {
     if (!this.initialized) {
       const saved = this.host.preferences();
@@ -2634,6 +2670,8 @@ var ProjectBoard = class {
       this.initialized = true;
       if (!saved.sidebarPreferenceInitialized) void this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: true, sidebarPreferenceInitialized: true });
     }
+    const existingCols = this.element.querySelector(".ticktick-project-columns");
+    this.savedColumnsScrollLeft = existingCols?.scrollLeft ?? 0;
     this.element.empty();
     this.element.addClass("ticktick-project-board");
     const root = this.element.createDiv({ cls: "ticktick-project-board-root" });
@@ -2944,7 +2982,12 @@ var ProjectBoard = class {
       if (!data) return;
       const columns = main.createDiv({ cls: "ticktick-project-columns" });
       enhanceHorizontalScroll(columns);
-      scrollToStart(columns);
+      if (this.lastSelectedProject === this.selected && this.savedColumnsScrollLeft > 0) {
+        columns.scrollLeft = this.savedColumnsScrollLeft;
+      } else {
+        scrollToStart(columns);
+      }
+      this.lastSelectedProject = this.selected;
       for (const column of boardColumns(data, this.host.showCompleted())) {
         const shell = columns.createDiv({ cls: "ticktick-project-column" });
         const colHeader = shell.createDiv({ cls: "ticktick-column-header" });
@@ -2990,7 +3033,24 @@ var ProjectBoard = class {
           const id = event.dataTransfer?.getData("text/ticktick-board-task");
           const task = data.tasks.find((item) => String(item.id) === id);
           if (!task || String(task.columnId ?? "") === String(column.id)) return;
-          void this.moveTask(task, String(column.id));
+          const cardEl = this.element.querySelector(`[data-task-id="${task.id}"]`);
+          const sourceCol = cardEl?.closest(".ticktick-project-column");
+          const oldColumnId = task.columnId;
+          if (cardEl && listWrap) {
+            listWrap.appendChild(cardEl);
+            const srcBadge = sourceCol?.querySelector(".ticktick-column-count");
+            if (srcBadge) {
+              const count = parseInt(srcBadge.textContent || "0", 10);
+              if (count > 0) srcBadge.textContent = String(count - 1);
+            }
+            const tgtBadge = shell.querySelector(".ticktick-column-count");
+            if (tgtBadge) {
+              const count = parseInt(tgtBadge.textContent || "0", 10);
+              tgtBadge.textContent = String(count + 1);
+            }
+          }
+          task.columnId = String(column.id);
+          void this.moveTask(task, String(column.id), cardEl, sourceCol, oldColumnId);
         });
         const listWrap = shell.createDiv({ cls: "ticktick-column-cards" });
         for (const group of column.groups) {
@@ -3169,24 +3229,44 @@ var ProjectBoard = class {
     check?.addEventListener("click", (event) => event.stopPropagation());
     check?.addEventListener("change", async () => {
       check.disabled = true;
+      card.addClass("is-completed");
+      if (!this.host.showCompleted()) {
+        card.addClass("is-leaving");
+      }
       try {
         await this.host.complete(task);
+        task.status = 2;
         new import_obsidian6.Notice("\u062A\u0633\u06A9 \u0628\u0627 \u0645\u0633\u06CC\u0631 \u0627\u0645\u0646 Markdown sync \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F.");
-        await this.render();
+        if (!this.host.showCompleted()) {
+          setTimeout(() => {
+            const col = card.closest(".ticktick-project-column");
+            const badge = col?.querySelector(".ticktick-column-count");
+            card.remove();
+            if (badge) {
+              const current = parseInt(badge.textContent || "0", 10);
+              if (current > 0) badge.textContent = String(current - 1);
+            }
+          }, 220);
+        }
       } catch (error) {
+        card.removeClass("is-completed");
+        card.removeClass("is-leaving");
         check.checked = false;
         check.disabled = false;
         new import_obsidian6.Notice(error instanceof Error ? error.message : "\u062A\u06A9\u0645\u06CC\u0644 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
       }
     });
   }
-  async moveTask(task, columnId) {
+  async moveTask(task, columnId, optimisticCard, sourceCol, oldColumnId) {
     try {
       await this.host.moveToColumn(task, columnId);
       new import_obsidian6.Notice("\u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 \u062C\u062F\u06CC\u062F \u0645\u0646\u062A\u0642\u0644 \u0648 \u0628\u0627 TickTick \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F.");
-      await this.host.refresh();
-      await this.render();
     } catch (error) {
+      if (optimisticCard && sourceCol) {
+        const srcList = sourceCol.querySelector(".ticktick-column-cards");
+        srcList?.appendChild(optimisticCard);
+        task.columnId = oldColumnId;
+      }
       new import_obsidian6.Notice(error instanceof Error ? error.message : "\u0627\u0646\u062A\u0642\u0627\u0644 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
     }
   }
@@ -3722,6 +3802,39 @@ function openTaskEditor(app, projects, initial) {
 function confirmDelete(app, title) {
   return new DeleteConfirmationModal(app, title).openAndWait();
 }
+
+// src/obsidian/store.ts
+var BridgeEventBus = class {
+  listeners = /* @__PURE__ */ new Map();
+  on(event, listener) {
+    let handlers = this.listeners.get(event);
+    if (!handlers) {
+      handlers = /* @__PURE__ */ new Set();
+      this.listeners.set(event, handlers);
+    }
+    handlers.add(listener);
+    return () => this.off(event, listener);
+  }
+  off(event, listener) {
+    this.listeners.get(event)?.delete(listener);
+  }
+  emit(event, data) {
+    const handlers = this.listeners.get(event);
+    if (handlers) {
+      for (const handler of handlers) {
+        try {
+          handler(data);
+        } catch (err) {
+          console.error(`[TickTickBridge] Error in event listener for "${event}":`, err);
+        }
+      }
+    }
+  }
+  clear() {
+    this.listeners.clear();
+  }
+};
+var bridgeEvents = new BridgeEventBus();
 
 // src/obsidian/views/today-tasks-view.ts
 var import_obsidian10 = require("obsidian");
@@ -4887,6 +5000,7 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
     };
     this.rateLimitedUntil = 0;
     await this.saveSettings();
+    bridgeEvents.emit("sync:complete", { timestamp: (/* @__PURE__ */ new Date()).toISOString() });
     return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable };
   }
   async runMutation(type, payload) {
@@ -4919,23 +5033,38 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
         this.cache.tasks.push(task);
         const board = this.cache.projectBoards[task.projectId];
         if (board) board.tasks = [...board.tasks ?? [], task];
+        bridgeEvents.emit("task:created", { task });
       }
       if (type === "update") {
         const updatePayload = payload;
         this.cache.tasks = this.cache.tasks.map((task) => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
         for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).map((task) => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
+        bridgeEvents.emit("task:updated", { task: updatePayload });
       }
       if (type === "complete" || type === "delete") {
         const targetId = payload.id;
         this.cache.tasks = this.cache.tasks.filter((task) => task.id !== targetId);
         for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).filter((task) => task.id !== targetId);
+        if (type === "complete" && targetId) {
+          bridgeEvents.emit("task:completed", { taskId: targetId });
+        } else if (type === "delete" && targetId) {
+          bridgeEvents.emit("task:deleted", { taskId: targetId });
+        }
       }
       if (type === "habit") {
         const habitPayload = payload;
         const stamp = Number(String(habitPayload.day).replaceAll("-", ""));
         const previous = this.cache.habitCheckins[habitPayload.habitId] ?? [];
         this.cache.habitCheckins[habitPayload.habitId] = [...previous.filter((entry) => entry.stamp !== stamp), { stamp, value: 0, goal: 1, status: 0, ...habitPayload.checkin }];
+        bridgeEvents.emit("habit:checkin", {
+          habitId: habitPayload.habitId,
+          day: habitPayload.day,
+          value: Number(habitPayload.checkin?.value ?? 0),
+          goal: Number(habitPayload.checkin?.goal ?? 1),
+          status: Number(habitPayload.checkin?.status ?? 0)
+        });
       }
+      bridgeEvents.emit("state:changed", void 0);
     };
     if (!navigator.onLine) {
       this.cache.pending.push(operation);
@@ -5380,6 +5509,8 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
       for (const task of tasks) {
         const title = cleanTaskTitle(task.title);
         const row = cards.createDiv({ cls: "daily-task-row ticktick-task-card" });
+        row.dataset.taskId = String(task.id);
+        row.dataset.taskId = String(task.id);
         const check = row.createEl("input", { cls: "daily-task-checkbox", type: "checkbox", attr: { "aria-label": `\u0627\u0646\u062C\u0627\u0645 ${title}` } });
         const body = row.createDiv({ cls: "daily-task-main" });
         body.createSpan({ cls: "daily-task-title", text: title });
@@ -5402,11 +5533,23 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
         });
         check.addEventListener("change", async () => {
           check.disabled = true;
+          row.addClass("is-completed");
           try {
             await this.completeTask(task);
             new import_obsidian19.Notice("\u0646\u0648\u0628\u062A \u062A\u0633\u06A9 \u062F\u0631 TickTick \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F.");
-            await this.renderTodayBlock(element, dayOverride);
+            row.addClass("is-leaving");
+            setTimeout(() => {
+              row.remove();
+              if (!cards.querySelectorAll(".daily-task-row:not(.is-leaving)").length) {
+                cards.remove();
+                root.createDiv({ cls: "daily-task-empty", text: "\u062A\u0633\u06A9\u06CC \u0628\u0631\u0627\u06CC \u0627\u0645\u0631\u0648\u0632 \u06CC\u0627 \u0642\u0628\u0644 \u0627\u0632 \u0622\u0646 \u0646\u06CC\u0633\u062A." });
+              }
+              if (this.taskBlocks.has(element)) {
+                this.taskBlockSignatures.set(element, this.taskBlockSignature(dayOverride));
+              }
+            }, 220);
           } catch (error) {
+            row.removeClass("is-completed");
             check.checked = false;
             check.disabled = false;
             new import_obsidian19.Notice(error instanceof Error ? error.message : "\u062A\u06A9\u0645\u06CC\u0644 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
@@ -5426,11 +5569,22 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
         });
         remove.addEventListener("click", async () => {
           if (!await confirmDelete(this.app, title)) return;
+          row.addClass("is-leaving");
           try {
             await this.deleteTask(task);
             new import_obsidian19.Notice("\u062A\u0633\u06A9 \u0627\u0632 TickTick \u062D\u0630\u0641 \u0634\u062F.");
-            await this.renderTodayBlock(element, dayOverride);
+            setTimeout(() => {
+              row.remove();
+              if (!cards.querySelectorAll(".daily-task-row:not(.is-leaving)").length) {
+                cards.remove();
+                root.createDiv({ cls: "daily-task-empty", text: "\u062A\u0633\u06A9\u06CC \u0628\u0631\u0627\u06CC \u0627\u0645\u0631\u0648\u0632 \u06CC\u0627 \u0642\u0628\u0644 \u0627\u0632 \u0622\u0646 \u0646\u06CC\u0633\u062A." });
+              }
+              if (this.taskBlocks.has(element)) {
+                this.taskBlockSignatures.set(element, this.taskBlockSignature(dayOverride));
+              }
+            }, 220);
           } catch (error) {
+            row.removeClass("is-leaving");
             new import_obsidian19.Notice(error instanceof Error ? error.message : "\u062D\u0630\u0641 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
           }
         });

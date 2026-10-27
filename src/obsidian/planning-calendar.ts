@@ -338,6 +338,8 @@ export class PlanningCalendar {
   private draggingTaskId = "";
   private draggingSourceDay = "";
   private displayedHabitIds = new Set<string>();
+  private lastRenderedDay?: string;
+  private savedGridScrollLeft = 0;
 
   constructor(private element: HTMLElement, private host: PlannerHost) {
     this.day = todayInZone(host.timeZone);
@@ -350,6 +352,9 @@ export class PlanningCalendar {
     // back to the top of a month.
     const scrollHost = this.element.closest<HTMLElement>(".view-content, .workspace-leaf-content") ?? this.element.parentElement;
     const scrollTop = scrollHost?.scrollTop ?? 0;
+    const scrollLeft = scrollHost?.scrollLeft ?? 0;
+    const existingGrid = this.element.querySelector<HTMLElement>(".ticktick-planner-days-grid, .ticktick-planner-month-grid");
+    this.savedGridScrollLeft = existingGrid?.scrollLeft ?? 0;
     this.displayedHabitIds.clear();
     this.element.empty();
     this.element.addClass("ticktick-planner");
@@ -468,7 +473,19 @@ export class PlanningCalendar {
     } else {
       this.renderDays(root, this.mode === "week" ? weekRange(this.day, this.host.firstWeekday) : [this.day], tasks);
     }
-    if (scrollHost && scrollTop) requestAnimationFrame(() => { scrollHost.scrollTop = scrollTop; });
+    if (scrollHost && (scrollTop || scrollLeft)) {
+      requestAnimationFrame(() => {
+        if (scrollTop) scrollHost.scrollTop = scrollTop;
+        if (scrollLeft) scrollHost.scrollLeft = scrollLeft;
+      });
+    }
+    const newGrid = this.element.querySelector<HTMLElement>(".ticktick-planner-days-grid, .ticktick-planner-month-grid");
+    if (newGrid && this.savedGridScrollLeft > 0) {
+      requestAnimationFrame(() => {
+        newGrid.scrollLeft = this.savedGridScrollLeft;
+      });
+    }
+    this.lastRenderedDay = this.day;
   }
 
   private renderFilters(root: HTMLElement) {
@@ -974,6 +991,7 @@ export class PlanningCalendar {
         tabindex: "0"
       }
     });
+    card.dataset.taskId = String(task.id);
     card.style.setProperty("--ticktick-task-tone", tone);
 
     const openDetails = () => new TaskDetailsModal(this.host.app, task, {
@@ -1067,6 +1085,7 @@ export class PlanningCalendar {
         tabindex: "0"
       }
     });
+    card.dataset.taskId = String(task.id);
     card.style.setProperty("--ticktick-task-tone", tone);
 
     const openDetails = () => new TaskDetailsModal(this.host.app, task, {
@@ -1143,15 +1162,33 @@ export class PlanningCalendar {
   }
 
   private async completeTask(task: TickTickTask, checkbox?: HTMLInputElement) {
+    if (checkbox) {
+      checkbox.disabled = true;
+      checkbox.checked = true;
+    }
+    const card = (checkbox?.closest(".ticktick-planner-task, .ticktick-planner-month-task") as HTMLElement)
+      || this.element.querySelector<HTMLElement>(`[data-task-id="${task.id}"]`);
+    if (card) {
+      card.addClass("is-completed");
+      if (!this.host.showCompleted) {
+        card.addClass("is-leaving");
+      }
+    }
     try {
       await this.host.complete(task);
+      task.status = 2;
       new Notice("تسک تکمیل و همگام شد.");
-      await this.host.refresh();
-      await this.render();
+      if (card && !this.host.showCompleted) {
+        setTimeout(() => card.remove(), 220);
+      }
     } catch (error) {
       if (checkbox) {
         checkbox.checked = false;
         checkbox.disabled = false;
+      }
+      if (card) {
+        card.removeClass("is-completed");
+        card.removeClass("is-leaving");
       }
       new Notice(error instanceof Error ? error.message : "تکمیل ناموفق بود.");
     }

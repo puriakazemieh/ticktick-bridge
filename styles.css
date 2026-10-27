@@ -942,6 +942,27 @@
 .ticktick-panel-header h2 {
   margin: 0 !important;
 }
+.ticktick-project-card.is-leaving {
+  opacity: 0;
+  transform: scale(0.9) translateY(-6px);
+  max-height: 0;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-width: 0 !important;
+  overflow: hidden;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    max-height 220ms ease,
+    margin 220ms ease,
+    padding 220ms ease;
+  pointer-events: none;
+}
+.ticktick-column-count {
+  transition: transform 180ms ease, background-color 180ms ease;
+}
 
 /* src/styles/calendar.css */
 .ticktick-today-tasks-panel,
@@ -1055,6 +1076,8 @@
   box-shadow: 0 4px 20px color-mix(in srgb, var(--background-primary) 50%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  container-type: inline-size;
+  container-name: ticktick-planner;
 }
 .ticktick-planner-controls {
   display: flex;
@@ -2220,6 +2243,60 @@
 .ticktick-task-details-loading {
   color: var(--text-muted);
   padding: 1rem 0;
+}
+.ticktick-planner-task.is-leaving {
+  opacity: 0;
+  transform: scale(0.9) translateY(-6px);
+  max-height: 0;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-width: 0 !important;
+  overflow: hidden;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    max-height 220ms ease,
+    margin 220ms ease,
+    padding 220ms ease;
+  pointer-events: none;
+}
+@container ticktick-planner (max-width: 620px) {
+  .ticktick-planner-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+  .ticktick-planner-modes {
+    width: 100%;
+    justify-content: center;
+  }
+  .ticktick-planner-nav {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .ticktick-planner-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+@container ticktick-planner (max-width: 420px) {
+  .ticktick-planner-shell {
+    padding: 0.5rem;
+    border-radius: 0.75rem;
+  }
+  .ticktick-planner-mode-btn {
+    padding: 0.3rem 0.55rem;
+    font-size: 0.75rem;
+  }
+  .ticktick-planner-title {
+    font-size: 0.95rem;
+  }
+  .ticktick-planner-day-header {
+    font-size: 0.72rem;
+    padding: 0.25rem 0.35rem;
+  }
 }
 
 /* src/styles/habits.css */
@@ -3723,6 +3800,9 @@
 }
 
 /* src/styles/tasks.css */
+.daily-tasks-output {
+  container-type: inline-size;
+}
 .daily-task-toolbar {
   display: flex;
   align-items: center;
@@ -4003,6 +4083,46 @@
   to {
     opacity: 1;
     max-height: 20rem;
+  }
+}
+.ticktick-task-grid .ticktick-task-card.is-completed {
+  opacity: 0.55;
+  filter: grayscale(0.4);
+}
+.ticktick-task-grid .ticktick-task-card.is-completed .daily-task-title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.ticktick-task-grid .ticktick-task-card.is-leaving {
+  opacity: 0;
+  transform: scale(0.92) translateY(-8px);
+  max-height: 0;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-width: 0 !important;
+  overflow: hidden;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease,
+    max-height 220ms ease,
+    margin 220ms ease,
+    padding 220ms ease;
+  pointer-events: none;
+}
+@container (max-width: 620px) {
+  .ticktick-task-grid .ticktick-task-cards {
+    grid-template-columns: 1fr;
+  }
+}
+@container (max-width: 380px) {
+  .ticktick-task-grid .ticktick-task-card {
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    padding: 0.35rem 0.2rem 0.35rem 0.35rem;
+  }
+  .ticktick-task-grid .ticktick-task-card .daily-task-title {
+    font-size: 0.8rem;
   }
 }
 @media (max-width: 900px) {

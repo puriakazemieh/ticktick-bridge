@@ -55,6 +55,8 @@ export class ProjectBoard {
   private initialized = false;
   private sortMode = "ticktick";
   private sidebarCollapsed = false;
+  private lastSelectedProject: string | null = null;
+  private savedColumnsScrollLeft = 0;
 
   constructor(private element: HTMLElement, private host: ProjectBoardHost) {}
 
@@ -68,6 +70,8 @@ export class ProjectBoard {
       if (!saved.sidebarPreferenceInitialized) void this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: true, sidebarPreferenceInitialized: true });
     }
 
+    const existingCols = this.element.querySelector<HTMLElement>(".ticktick-project-columns");
+    this.savedColumnsScrollLeft = existingCols?.scrollLeft ?? 0;
     this.element.empty();
     this.element.addClass("ticktick-project-board");
     const root = this.element.createDiv({ cls: "ticktick-project-board-root" });
@@ -398,7 +402,12 @@ export class ProjectBoard {
       if (!data) return;
       const columns = main.createDiv({ cls: "ticktick-project-columns" });
       enhanceHorizontalScroll(columns);
-      scrollToStart(columns);
+      if (this.lastSelectedProject === this.selected && this.savedColumnsScrollLeft > 0) {
+        columns.scrollLeft = this.savedColumnsScrollLeft;
+      } else {
+        scrollToStart(columns);
+      }
+      this.lastSelectedProject = this.selected;
 
       for (const column of boardColumns(data, this.host.showCompleted())) {
         const shell = columns.createDiv({ cls: "ticktick-project-column" });
@@ -445,7 +454,24 @@ export class ProjectBoard {
           const id = event.dataTransfer?.getData("text/ticktick-board-task");
           const task = data.tasks.find((item: TickTickTask) => String(item.id) === id);
           if (!task || String(task.columnId ?? "") === String(column.id)) return;
-          void this.moveTask(task, String(column.id));
+          const cardEl = this.element.querySelector<HTMLElement>(`[data-task-id="${task.id}"]`);
+          const sourceCol = cardEl?.closest(".ticktick-project-column");
+          const oldColumnId = task.columnId;
+          if (cardEl && listWrap) {
+            listWrap.appendChild(cardEl);
+            const srcBadge = sourceCol?.querySelector(".ticktick-column-count");
+            if (srcBadge) {
+              const count = parseInt(srcBadge.textContent || "0", 10);
+              if (count > 0) srcBadge.textContent = String(count - 1);
+            }
+            const tgtBadge = shell.querySelector(".ticktick-column-count");
+            if (tgtBadge) {
+              const count = parseInt(tgtBadge.textContent || "0", 10);
+              tgtBadge.textContent = String(count + 1);
+            }
+          }
+          task.columnId = String(column.id);
+          void this.moveTask(task, String(column.id), cardEl, sourceCol, oldColumnId);
         });
 
         const listWrap = shell.createDiv({ cls: "ticktick-column-cards" });
@@ -625,11 +651,28 @@ export class ProjectBoard {
     check?.addEventListener("click", event => event.stopPropagation());
     check?.addEventListener("change", async () => {
       check.disabled = true;
+      card.addClass("is-completed");
+      if (!this.host.showCompleted()) {
+        card.addClass("is-leaving");
+      }
       try {
         await this.host.complete(task);
+        task.status = 2;
         new Notice("تسک با مسیر امن Markdown sync تکمیل شد.");
-        await this.render();
+        if (!this.host.showCompleted()) {
+          setTimeout(() => {
+            const col = card.closest(".ticktick-project-column");
+            const badge = col?.querySelector(".ticktick-column-count");
+            card.remove();
+            if (badge) {
+              const current = parseInt(badge.textContent || "0", 10);
+              if (current > 0) badge.textContent = String(current - 1);
+            }
+          }, 220);
+        }
       } catch (error) {
+        card.removeClass("is-completed");
+        card.removeClass("is-leaving");
         check.checked = false;
         check.disabled = false;
         new Notice(error instanceof Error ? error.message : "تکمیل ناموفق بود.");
@@ -637,13 +680,22 @@ export class ProjectBoard {
     });
   }
 
-  private async moveTask(task: TickTickTask, columnId: string) {
+  private async moveTask(
+    task: TickTickTask,
+    columnId: string,
+    optimisticCard?: HTMLElement | null,
+    sourceCol?: Element | null,
+    oldColumnId?: string | null
+  ) {
     try {
       await this.host.moveToColumn(task, columnId);
       new Notice("تسک به ستون جدید منتقل و با TickTick همگام شد.");
-      await this.host.refresh();
-      await this.render();
     } catch (error) {
+      if (optimisticCard && sourceCol) {
+        const srcList = sourceCol.querySelector(".ticktick-column-cards");
+        srcList?.appendChild(optimisticCard);
+        task.columnId = oldColumnId;
+      }
       new Notice(error instanceof Error ? error.message : "انتقال تسک ناموفق بود.");
     }
   }

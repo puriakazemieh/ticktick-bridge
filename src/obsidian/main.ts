@@ -38,6 +38,7 @@ import {
 } from "./helpers";
 
 import { openTaskEditor, confirmDelete } from "./modals/task-editor-modal";
+import { bridgeEvents } from "./store";
 import { TodayTasksView } from "./views/today-tasks-view";
 import { TodayHabitsView } from "./views/today-habits-view";
 import { PlanningView } from "./views/planning-view";
@@ -626,6 +627,7 @@ export default class TickTickBridgePlugin extends Plugin {
     };
     this.rateLimitedUntil = 0;
     await this.saveSettings();
+    bridgeEvents.emit("sync:complete", { timestamp: new Date().toISOString() });
     return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable };
   }
 
@@ -659,23 +661,38 @@ export default class TickTickBridgePlugin extends Plugin {
         this.cache.tasks.push(task);
         const board = this.cache.projectBoards[task.projectId];
         if (board) board.tasks = [...(board.tasks ?? []), task];
+        bridgeEvents.emit("task:created", { task });
       }
       if (type === "update") {
-        const updatePayload = payload as Partial<TickTickTask>;
+        const updatePayload = payload as Partial<TickTickTask> & { id: string };
         this.cache.tasks = this.cache.tasks.map(task => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
         for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).map((task: TickTickTask) => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
+        bridgeEvents.emit("task:updated", { task: updatePayload });
       }
       if (type === "complete" || type === "delete") {
         const targetId = (payload as { id?: string }).id;
         this.cache.tasks = this.cache.tasks.filter(task => task.id !== targetId);
         for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).filter((task: TickTickTask) => task.id !== targetId);
+        if (type === "complete" && targetId) {
+          bridgeEvents.emit("task:completed", { taskId: targetId });
+        } else if (type === "delete" && targetId) {
+          bridgeEvents.emit("task:deleted", { taskId: targetId });
+        }
       }
       if (type === "habit") {
         const habitPayload = payload as { habitId: string; day: string; checkin: Partial<CachedHabitCheckin> };
         const stamp = Number(String(habitPayload.day).replaceAll("-", ""));
         const previous = this.cache.habitCheckins[habitPayload.habitId] ?? [];
         this.cache.habitCheckins[habitPayload.habitId] = [...previous.filter(entry => entry.stamp !== stamp), { stamp, value: 0, goal: 1, status: 0, ...habitPayload.checkin }];
+        bridgeEvents.emit("habit:checkin", {
+          habitId: habitPayload.habitId,
+          day: habitPayload.day,
+          value: Number(habitPayload.checkin?.value ?? 0),
+          goal: Number(habitPayload.checkin?.goal ?? 1),
+          status: Number(habitPayload.checkin?.status ?? 0)
+        });
       }
+      bridgeEvents.emit("state:changed", undefined as void);
     };
     if (!navigator.onLine) {
       this.cache.pending.push(operation);
@@ -1147,6 +1164,8 @@ export default class TickTickBridgePlugin extends Plugin {
       for (const task of tasks) {
         const title = cleanTaskTitle(task.title);
         const row = cards.createDiv({ cls: "daily-task-row ticktick-task-card" });
+        row.dataset.taskId = String(task.id);
+        row.dataset.taskId = String(task.id);
         const check = row.createEl("input", { cls: "daily-task-checkbox", type: "checkbox", attr: { "aria-label": `انجام ${title}` } });
         const body = row.createDiv({ cls: "daily-task-main" });
         body.createSpan({ cls: "daily-task-title", text: title });
@@ -1169,11 +1188,23 @@ export default class TickTickBridgePlugin extends Plugin {
         });
         check.addEventListener("change", async () => {
           check.disabled = true;
+          row.addClass("is-completed");
           try {
             await this.completeTask(task);
             new Notice("نوبت تسک در TickTick تکمیل شد.");
-            await this.renderTodayBlock(element, dayOverride);
+            row.addClass("is-leaving");
+            setTimeout(() => {
+              row.remove();
+              if (!cards.querySelectorAll(".daily-task-row:not(.is-leaving)").length) {
+                cards.remove();
+                root.createDiv({ cls: "daily-task-empty", text: "تسکی برای امروز یا قبل از آن نیست." });
+              }
+              if (this.taskBlocks.has(element)) {
+                this.taskBlockSignatures.set(element, this.taskBlockSignature(dayOverride));
+              }
+            }, 220);
           } catch (error) {
+            row.removeClass("is-completed");
             check.checked = false;
             check.disabled = false;
             new Notice(error instanceof Error ? error.message : "تکمیل تسک ناموفق بود.");
@@ -1193,11 +1224,22 @@ export default class TickTickBridgePlugin extends Plugin {
         });
         remove.addEventListener("click", async () => {
           if (!await confirmDelete(this.app, title)) return;
+          row.addClass("is-leaving");
           try {
             await this.deleteTask(task);
             new Notice("تسک از TickTick حذف شد.");
-            await this.renderTodayBlock(element, dayOverride);
+            setTimeout(() => {
+              row.remove();
+              if (!cards.querySelectorAll(".daily-task-row:not(.is-leaving)").length) {
+                cards.remove();
+                root.createDiv({ cls: "daily-task-empty", text: "تسکی برای امروز یا قبل از آن نیست." });
+              }
+              if (this.taskBlocks.has(element)) {
+                this.taskBlockSignatures.set(element, this.taskBlockSignature(dayOverride));
+              }
+            }, 220);
           } catch (error) {
+            row.removeClass("is-leaving");
             new Notice(error instanceof Error ? error.message : "حذف تسک ناموفق بود.");
           }
         });
