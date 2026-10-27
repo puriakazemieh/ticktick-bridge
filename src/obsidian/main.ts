@@ -5,7 +5,8 @@ import { normalizeWebSessionCookie, parseWebHabitCheckins } from "../core/tickti
 import { ManagedStorage, VaultAdapter } from "./managed-storage";
 import { MarkdownSync } from "./markdown-sync";
 import { MarkdownConflictModal, PendingMutationConflictModal } from "./conflict-modal";
-import { PlanningCalendar } from "./planning-calendar";
+import { PlanningCalendar, HabitDetailsModal } from "./planning-calendar";
+import { renderUnifiedHabitCard } from "./habit-card";
 import { ProjectBoard } from "./project-board";
 import { NoteImport, NoteImportModal } from "./note-import";
 import { mergeTaskDetails, taskDescription } from "../core/task-description.js";
@@ -1319,11 +1320,6 @@ export default class TickTickBridgePlugin extends Plugin {
       const cards = dashboard ? null : root.createDiv({ cls: "daily-habit-cards" });
       const dashboardGroups = new Map<string, HTMLElement>();
       for (const habit of habits) {
-        const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
-        const currentValue = Number(habit.checkin?.value ?? 0);
-        const completed = habit.checkin?.status === 2 || currentValue >= goal;
-        const step = Math.max(1, Number(habit.step ?? 1));
-        const progress = Math.min(1, Math.max(0, currentValue / goal));
         let cardHost: HTMLElement | null = cards;
         if (dashboard) {
           const group = habitDashboardGroup(habit);
@@ -1337,48 +1333,43 @@ export default class TickTickBridgePlugin extends Plugin {
             dashboardGroups.set(group, cardHost);
           }
         }
-        const habitGroupTone = (group: string) => {
-          const map: Record<string, string> = { "زبان": "var(--pd-language, var(--color-yellow))", "شخصی": "var(--pd-personal, var(--color-green))", "سلامتی": "var(--pd-kotlin, var(--color-blue))" };
-          return map[group] || "var(--interactive-accent)";
-        };
-        const card = cardHost!.createEl("button", { cls: `daily-habit-card ticktick-habit-card${dashboard ? " ticktick-dashboard-habit-card" : ""}${completed ? " is-done is-success" : ""}`, attr: { type: "button", "aria-label": `ثبت عادت ${habit.name}` } });
-        card.style.setProperty("--card-tone", habitGroupTone(habitDashboardSection(habit)));
-        const icon = card.createDiv({ cls: "daily-habit-progress" });
-        icon.style.setProperty("--ticktick-progress", `${Math.round(progress * 360)}deg`);
-        icon.createDiv({ cls: "daily-habit-icon", text: habitIcon(habit.iconRes ?? habit.icon) });
-        const text = card.createDiv({ cls: "daily-habit-text" });
-        text.createDiv({ cls: "daily-habit-title", text: habit.name });
-        text.createDiv({ cls: "ticktick-habit-source", text: "TickTick" });
-        const historyComplete = (habit.history ?? []).filter((entry: { completed: boolean }) => entry.completed).length;
         const streak = habitStreak(habit.history ?? []);
-        const progressLabel = goal > 1 ? `${currentValue}/${goal} ${habit.unit ?? ""}`.trim() : completed ? "انجام شد" : "برای ثبت بزن";
-        card.createDiv({ cls: "daily-habit-state", text: dashboard ? state!.mode === "day" ? progressLabel : `🔥 ${streak}  ✓ ${historyComplete}/${habit.history?.length ?? 0}` : progressLabel });
-        if (dashboard && state!.mode !== "day" && habit.history) {
-          const history = card.createDiv({ cls: "ticktick-habit-history", attr: { "aria-label": "تاریخچهٔ عادت" } });
-          for (const entry of habit.history) {
-            const dot = history.createSpan({ cls: `ticktick-habit-history-dot${entry.completed ? " is-complete" : " is-missed"}` });
-            dot.setAttribute("aria-label", `${entry.date}: ${entry.completed ? "انجام شد" : "انجام نشد"}`);
-            dot.setAttribute("title", `${entry.date}: ${entry.completed ? "انجام شد" : "انجام نشد"}`);
-          }
-        }
-        card.addEventListener("click", async () => {
-          card.disabled = true;
-          try {
+        const historyComplete = (habit.history ?? []).filter((entry: { completed: boolean }) => entry.completed).length;
+        const showHistoryDots = Boolean(dashboard && state?.mode !== "day" && habit.history?.length);
+
+        renderUnifiedHabitCard(cardHost!, {
+          habit,
+          day,
+          variant: dashboard ? "dashboard" : "board",
+          streak,
+          historyComplete,
+          historyTotal: habit.history?.length ?? 0,
+          showHistoryDots,
+          onCheckIn: async (h, d) => {
+            const goal = Math.max(1, Number(h.checkin?.goal ?? h.goal ?? h.target ?? 1));
+            const currentValue = Number(h.checkin?.value ?? 0);
+            const completed = h.checkin?.status === 2 || currentValue >= goal;
+            const step = Math.max(1, Number(h.step ?? 1));
             const nextValue = completed ? 0 : Math.min(goal, currentValue + step);
-            // TickTick uses status 1 for a skipped habit.  Do not send a
-            // status for partial progress: its value/goal pair is enough and
-            // TickTick renders it as a partially filled circle.
             const nextStatus = completed ? 0 : nextValue >= goal ? 2 : undefined;
-            await this.checkInHabit(habit.id, day, {
+            await this.checkInHabit(h.id, d, {
               value: nextValue,
               goal,
               status: nextStatus,
             });
             new Notice(completed ? "ثبت امروز عادت در TickTick برداشته شد." : nextStatus === 2 ? "عادت در TickTick کامل شد." : `یک مرحله ثبت شد: ${nextValue}/${goal}`);
             await this.renderHabitBlock(element, dashboard, dayOverride);
-          } catch (error) {
-            card.disabled = false;
-            new Notice(error instanceof Error ? error.message : "ثبت عادت ناموفق بود.");
+          },
+          onOpenDetails: (h, d) => {
+            new HabitDetailsModal(this.app, h, {
+              firstWeekday: 6,
+              habits: (dayKey: string) => this.cachedHabitsForDay(dayKey),
+              habitHistory: (habitId, from, to) => this.cachedHabitHistoryRange(habitId, from, to),
+              setHabitProgress: async (habitItem, dayKey, val, goalVal) => {
+                await this.checkInHabit(String(habitItem.id), dayKey, { value: Math.max(0, val), goal: Math.max(1, goalVal), status: val >= goalVal ? 2 : undefined });
+                await this.renderHabitBlock(element, dashboard, dayOverride);
+              }
+            }, d).open();
           }
         });
       }

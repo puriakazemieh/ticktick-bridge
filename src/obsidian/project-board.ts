@@ -8,6 +8,7 @@ import { formatPersianDate } from "../core/persian-date.js";
 import { sortPlanningTasks } from "../core/calendar-range.js";
 import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
 import { HabitDetailsModal } from "./planning-calendar";
+import { renderUnifiedHabitCard } from "./habit-card";
 import type { TickTickTask, TickTickProject, TickTickHabit, CachedHabitCheckin, ProjectBoardData, HabitHistoryEntry } from "./types";
 
 const HABIT_BOARD_VIEW_ID = "ticktick:view:habits";
@@ -504,27 +505,36 @@ export class ProjectBoard {
     const cards = main.createDiv({ cls: "ticktick-habit-board-cards" });
     if (!habits.length) { cards.createDiv({ cls: "ticktick-board-empty", text: "عادتی در کش محلی نیست؛ یک بار همگام‌سازی کنید." }); return; }
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: this.host.timeZone }).format(new Date());
-    for (const habit of habits) {
+for (const habit of habits) {
       const goal = Math.max(1, Number(habit.goal ?? habit.target ?? 1));
       const entry = (this.host.habitHistory(String(habit.id), today, today)[0] ?? {});
       const value = Number(entry.value ?? 0);
-      const card = cards.createDiv({ cls: "ticktick-habit-board-card ticktick-habit-card", attr: { role: "button", tabindex: "0", "aria-label": `جزئیات عادت ${habit.name}` } });
-      const icon = card.createEl("button", { cls: "ticktick-habit-board-icon", text: habitGlyph(habit), attr: { type: "button", "aria-label": `ثبت یک مرحله از عادت ${habit.name}` } });
-      const copy = card.createDiv({ cls: "ticktick-habit-board-copy" });
-      copy.createEl("strong", { text: String(habit.name ?? "عادت") });
-      copy.createSpan({ text: `${value}/${goal} ${habit.unit ?? (goal > 1 ? "مرحله" : "ثبت")}` });
-      const openDetails = () => new HabitDetailsModal(this.host.app, habit, {
-        firstWeekday: this.host.firstWeekday,
-        habits: day => this.host.habits().filter(item => String(item.id) === String(habit.id) || false),
-        habitHistory: this.host.habitHistory,
-        setHabitProgress: this.host.setHabitProgress,
-      }, today).open();
-      card.addEventListener("click", openDetails);
-      card.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDetails(); } });
-      icon.addEventListener("click", async event => {
-        event.preventDefault(); event.stopPropagation(); icon.disabled = true;
-        try { await this.host.checkInHabit(habit, today); await this.render(); }
-        catch (error) { icon.disabled = false; new Notice(error instanceof Error ? error.message : "ثبت عادت ناموفق بود."); }
+      const completed = entry.completed || value >= goal;
+      const habitWithCheckin: TickTickHabit = {
+        ...habit,
+        checkin: {
+          value,
+          goal,
+          status: completed ? 2 : 0,
+          ...habit.checkin
+        }
+      };
+      renderUnifiedHabitCard(cards, {
+        habit: habitWithCheckin,
+        day: today,
+        variant: "board",
+        onCheckIn: async (h, d) => {
+          await this.host.checkInHabit(h, d);
+          await this.render();
+        },
+        onOpenDetails: (h, d) => {
+          new HabitDetailsModal(this.host.app, habit, {
+            firstWeekday: this.host.firstWeekday,
+            habits: day => this.host.habits().filter(item => String(item.id) === String(habit.id) || false),
+            habitHistory: this.host.habitHistory,
+            setHabitProgress: this.host.setHabitProgress,
+          }, d).open();
+        }
       });
     }
   }

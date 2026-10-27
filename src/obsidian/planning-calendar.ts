@@ -1,4 +1,5 @@
 import { App, Menu, Modal, Notice, setIcon } from "obsidian";
+import { renderUnifiedHabitCard } from "./habit-card";
 import { isSamePersianMonth, persianMonthRange, recurringTaskOccursOnDay, shiftCalendarDay, shiftPersianMonth, sortPlanningTasks, taskDateRange, tasksForCalendarDay, weekRange } from "../core/calendar-range.js";
 import { formatPersianDate } from "../core/persian-date.js";
 import { todayInZone } from "../core/date.js";
@@ -952,26 +953,21 @@ export class PlanningCalendar {
     if (!habits.length) return;
     const section = parent.createDiv({ cls: `ticktick-planner-habits ${compact ? "is-compact" : ""}` });
     section.createDiv({ cls: "ticktick-planner-habits-label", text: "عادت‌ها" });
-    for (const habit of habits) {
-      const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
-      const current = Number(habit.checkin?.value ?? 0);
-      const complete = Number(habit.checkin?.status ?? 0) === 2 || current >= goal;
-      const row = section.createDiv({ cls: `ticktick-planner-habit ticktick-habit-card ${complete ? "is-complete is-success" : ""}`, attr: { role: "button", tabindex: "0", "aria-label": `جزئیات عادت ${habit.name}` } });
-      const icon = row.createEl("button", { cls: "ticktick-planner-habit-icon", text: habitGlyph(habit), attr: { type: "button", "aria-label": `ثبت یک مرحله از عادت ${habit.name}` } });
-      const title = row.createSpan({ text: `${String(habit.name ?? "عادت")}${goal > 1 ? ` · ${current}/${goal}` : ""}` });
-      const openDetails = () => new HabitDetailsModal(this.host.app, this.host.habitWithHistory(String(habit.id), day) ?? habit, this.host, day).open();
-      row.addEventListener("click", openDetails);
-      row.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDetails(); } });
-      icon.addEventListener("click", async event => {
-        event.preventDefault(); event.stopPropagation();
-        icon.disabled = true;
-        try {
-          await this.host.checkInHabit(habit, day);
+for (const habit of habits) {
+      renderUnifiedHabitCard(section, {
+        habit,
+        day,
+        variant: "planner",
+        onCheckIn: async (h, d) => {
+          const goal = Math.max(1, Number(h.checkin?.goal ?? h.goal ?? h.target ?? 1));
+          const current = Number(h.checkin?.value ?? 0);
+          const complete = Number(h.checkin?.status ?? 0) === 2 || current >= goal;
+          await this.host.checkInHabit(h, d);
           new Notice(complete ? "ثبت عادت برداشته شد." : current + 1 >= goal ? "عادت کامل و همگام شد." : `یک مرحله ثبت شد: ${current + 1}/${goal}`);
           await this.render();
-        } catch (error) {
-          icon.disabled = false;
-          new Notice(error instanceof Error ? error.message : "ثبت عادت ناموفق بود.");
+        },
+        onOpenDetails: (h, d) => {
+          new HabitDetailsModal(this.host.app, this.host.habitWithHistory(String(h.id), d) ?? h, this.host, d).open();
         }
       });
     }
