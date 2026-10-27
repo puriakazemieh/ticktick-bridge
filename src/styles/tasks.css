@@ -1,0 +1,288 @@
+/* ─── Daily task toolbar ─── */
+.daily-task-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+  direction: rtl;
+}
+
+.daily-task-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 1.1rem;
+  color: var(--text-on-accent);
+  background: linear-gradient(135deg, var(--interactive-accent), color-mix(in srgb, var(--interactive-accent) 78%, #7c3aed));
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 35%, transparent);
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+
+.daily-task-add:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--interactive-accent) 45%, transparent);
+}
+
+.daily-task-add:active { transform: translateY(0); }
+.daily-task-add:disabled { opacity: 0.55; cursor: wait; transform: none; }
+
+/* ─── Empty state ─── */
+.daily-task-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 2.2rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+  background: var(--background-secondary);
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: 0.85rem;
+}
+
+.daily-task-empty::before {
+  content: "✨";
+  font-size: 1.6rem;
+}
+
+/* ─── Daily TickTick tasks: glassmorphism card grid ─── */
+.ticktick-task-grid .ticktick-task-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.8rem), 1fr));
+  gap: 0.45rem;
+}
+
+.ticktick-task-grid .ticktick-task-card {
+  display: grid;
+  grid-template-columns: 2.45rem minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0.1rem 0.3rem;
+  min-height: 2.9rem;
+  position: relative;
+  padding: 0.4rem 0.2rem 0.4rem 0.5rem;
+  overflow: hidden;
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--background-secondary) 96%, var(--interactive-accent)),
+    color-mix(in srgb, var(--background-secondary) 88%, var(--interactive-accent)));
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 25%, var(--background-modifier-border));
+  border-radius: 0.85rem;
+  box-shadow:
+    0 1px 3px color-mix(in srgb, var(--background-primary) 55%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
+  direction: rtl;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition:
+    transform 200ms cubic-bezier(.22,1,.36,1),
+    box-shadow 200ms cubic-bezier(.22,1,.36,1),
+    border-color 200ms ease,
+    background 200ms ease;
+}
+
+/* Gradient accent strip on the left */
+.ticktick-task-grid .ticktick-task-card::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0.22rem;
+  content: "";
+  background: linear-gradient(to bottom, var(--interactive-accent), color-mix(in srgb, var(--interactive-accent) 55%, #7c3aed));
+  border-radius: 0 0 0 0.85rem;
+}
+
+.ticktick-task-grid .ticktick-task-card:hover {
+  border-color: color-mix(in srgb, var(--interactive-accent) 55%, var(--background-modifier-border));
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--background-secondary) 92%, var(--interactive-accent)),
+    color-mix(in srgb, var(--background-secondary) 82%, var(--interactive-accent)));
+  box-shadow:
+    0 6px 20px color-mix(in srgb, var(--interactive-accent) 15%, transparent),
+    0 2px 6px color-mix(in srgb, var(--background-primary) 35%, transparent);
+  transform: translateY(-2px);
+}
+
+.ticktick-task-grid .ticktick-task-card:focus-within {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--interactive-accent) 28%, transparent);
+}
+
+/* ─── Custom square checkbox ─── */
+.ticktick-task-grid .ticktick-task-card .daily-task-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  grid-column: 1;
+  grid-row: 1 / 3;
+  align-self: center;
+  justify-self: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  border: 2px solid color-mix(in srgb, var(--interactive-accent) 65%, var(--background-modifier-border));
+  border-radius: 0.28rem;
+  background: transparent;
+  cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  position: relative;
+}
+
+.ticktick-task-grid .ticktick-task-card .daily-task-checkbox:hover {
+  border-color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+}
+
+.ticktick-task-grid .ticktick-task-card .daily-task-checkbox:checked {
+  background: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+}
+
+.ticktick-task-grid .ticktick-task-card .daily-task-checkbox:checked::after {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-on-accent);
+  font-size: 0.7rem;
+  font-weight: bold;
+  animation: ticktick-check-pop 250ms cubic-bezier(.22,1,.36,1);
+}
+
+@keyframes ticktick-check-pop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.3); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.ticktick-task-grid .ticktick-task-card .daily-task-main {
+  grid-column: 2 / 4;
+  grid-row: 1;
+  text-align: right;
+  min-width: 0;
+}
+
+.ticktick-task-grid .ticktick-task-card .daily-task-title {
+  display: block;
+  /* Task names are user content, so they must be able to grow the first row
+     instead of being silently shortened inside the compact card. */
+  overflow: visible;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  font-size: 0.76rem;
+  font-weight: var(--font-semibold);
+  line-height: 1.5;
+  text-overflow: clip;
+  white-space: normal;
+  letter-spacing: -0.01em;
+}
+
+/* ─── Date badge with contextual coloring ─── */
+.ticktick-task-grid .ticktick-task-card .daily-task-date {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  width: fit-content;
+  padding: 0.05rem 0.35rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 0.3rem;
+  font-size: 0.6rem;
+  font-weight: 500;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.ticktick-task-grid .ticktick-task-card .daily-task-date.is-overdue {
+  color: var(--text-error, var(--color-red));
+  background: color-mix(in srgb, var(--color-red) 12%, var(--background-primary-alt));
+  border-color: color-mix(in srgb, var(--color-red) 25%, var(--background-modifier-border));
+}
+
+/* ─── Action buttons: pill-shaped with subtle hover ─── */
+.ticktick-task-grid .ticktick-task-card .daily-task-actions {
+  grid-column: 3;
+  grid-row: 2;
+  display: flex;
+  gap: 0.15rem;
+  justify-content: flex-start;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.ticktick-task-grid .ticktick-task-card .daily-task-action {
+  min-height: unset;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 65%, transparent);
+  border-radius: 50%;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.ticktick-task-grid .ticktick-task-card .daily-task-action svg { width: 0.75rem; height: 0.75rem; }
+
+.ticktick-task-grid .ticktick-task-card .daily-task-action:hover {
+  color: var(--text-normal);
+  background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary));
+  border-color: color-mix(in srgb, var(--interactive-accent) 35%, var(--background-modifier-border));
+  transform: translateY(-0.5px);
+}
+
+.ticktick-task-grid .ticktick-task-card .daily-task-action.is-danger {
+  color: color-mix(in srgb, var(--color-red) 85%, var(--text-muted));
+}
+
+.ticktick-task-grid .ticktick-task-card .daily-task-action.is-danger:hover {
+  color: var(--color-red);
+  background: color-mix(in srgb, var(--color-red) 10%, var(--background-primary));
+  border-color: color-mix(in srgb, var(--color-red) 30%, var(--background-modifier-border));
+}
+
+/* ─── Description panel: smooth slide-down ─── */
+.ticktick-task-grid .ticktick-task-card .daily-task-description {
+  grid-column: 1 / -1;
+  grid-row: 4;
+  margin-top: 0.35rem;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.74rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--background-primary) 75%, var(--background-secondary));
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
+  border-radius: 0.55rem;
+  overflow: hidden;
+  animation: ticktick-slide-down 220ms cubic-bezier(.22,1,.36,1);
+}
+
+.ticktick-task-grid .ticktick-task-card .daily-task-description.is-hidden {
+  display: none;
+}
+
+@keyframes ticktick-slide-down {
+  from { opacity: 0; max-height: 0; margin-top: 0; padding-top: 0; padding-bottom: 0; }
+  to { opacity: 1; max-height: 20rem; }
+}
+
+@media (max-width: 900px) {
+  .ticktick-task-grid .ticktick-task-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 620px) {
+  .ticktick-task-grid .ticktick-task-cards { grid-template-columns: 1fr; }
+}
+

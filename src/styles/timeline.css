@@ -1,0 +1,503 @@
+/* ─── Season Map (Project Dashboards) Glassmorphism ─── */
+.ticktick-project-dashboard .season-grid,
+.ticktick-project-dashboard .phase-rail {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+  direction: rtl;
+}
+
+@media (max-width: 600px) {
+  .ticktick-project-dashboard .season-grid,
+  .ticktick-project-dashboard .phase-rail {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ticktick-project-dashboard .season-card,
+.ticktick-project-dashboard .phase-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.1rem 1.2rem;
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--background-secondary) 96%, var(--interactive-accent)),
+    color-mix(in srgb, var(--background-secondary) 88%, var(--interactive-accent)));
+  border: 1px solid transparent !important;
+  border-radius: 0.95rem;
+  box-shadow:
+    0 2px 5px color-mix(in srgb, var(--background-primary) 45%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease, background 200ms ease;
+  overflow: hidden;
+}
+
+.ticktick-project-dashboard .season-card:hover,
+.ticktick-project-dashboard .phase-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 24px color-mix(in srgb, var(--interactive-accent) 12%, transparent),
+    0 2px 6px color-mix(in srgb, var(--background-primary) 35%, transparent);
+  border-color: color-mix(in srgb, var(--interactive-accent) 25%, transparent) !important;
+}
+
+/* Soft glowing radial gradient in the top right corner */
+.ticktick-project-dashboard .season-card::after,
+.ticktick-project-dashboard .phase-card::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -30%;
+  width: 150%;
+  height: 150%;
+  background: radial-gradient(circle at top right, var(--interactive-accent), transparent 50%);
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 300ms ease;
+}
+
+.ticktick-project-dashboard .season-card:hover::after,
+.ticktick-project-dashboard .phase-card:hover::after {
+  opacity: 0.25;
+}
+
+/* Specific glows and theme colors for different tones */
+.ticktick-project-dashboard .season-card.language,
+.ticktick-project-dashboard .phase-card.language { --card-tone: #f59e0b; }
+
+.ticktick-project-dashboard .season-card.personal,
+.ticktick-project-dashboard .phase-card.personal { --card-tone: #10b981; }
+
+.ticktick-project-dashboard .season-card.kotlin,
+.ticktick-project-dashboard .phase-card.kotlin { --card-tone: #3b82f6; }
+
+.ticktick-project-dashboard .season-card.products,
+.ticktick-project-dashboard .phase-card.products { --card-tone: #8b5cf6; }
+
+.ticktick-project-dashboard .season-card::after,
+.ticktick-project-dashboard .phase-card::after {
+  background: radial-gradient(circle at top right, var(--card-tone, var(--interactive-accent)), transparent 50%);
+}
+
+.ticktick-project-dashboard .season-card header,
+.ticktick-project-dashboard .phase-card .phase-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.95rem;
+  text-align: right;
+  border-bottom: none;
+  padding-bottom: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  position: relative;
+  z-index: 1;
+}
+
+.ticktick-project-dashboard .season-card header span {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-normal);
+}
+
+.ticktick-project-dashboard .season-card header small {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.ticktick-project-dashboard .season-lane,
+.ticktick-project-dashboard .phase-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 0 0 auto !important;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.85rem 1rem !important;
+  background: color-mix(in srgb, var(--card-tone, var(--interactive-accent)) 8%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--card-tone, var(--interactive-accent)) 25%, transparent);
+  border-radius: 0.65rem;
+  transition: all 180ms ease;
+  text-align: right;
+  overflow: hidden;
+}
+
+.ticktick-project-dashboard .season-lane:last-child,
+.ticktick-project-dashboard .phase-row:last-child {
+  margin-bottom: 0;
+}
+
+.ticktick-project-dashboard .season-lane:hover,
+.ticktick-project-dashboard .phase-row:hover {
+  background: color-mix(in srgb, var(--card-tone, var(--interactive-accent)) 12%, var(--background-primary));
+  border-color: color-mix(in srgb, var(--card-tone, var(--interactive-accent)) 40%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--card-tone, var(--interactive-accent)) 8%, transparent);
+}
+
+.ticktick-project-dashboard .season-link,
+.ticktick-project-dashboard .phase-link {
+  display: block !important;
+  width: 100%;
+  padding: 0 !important;
+  margin: 0;
+  height: max-content !important;
+  min-height: min-content;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-normal) !important;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  text-align: right;
+  cursor: pointer;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  position: relative;
+  z-index: 2;
+}
+
+/* Make the whole lane clickable by stretching the button's pseudo element */
+.ticktick-project-dashboard .season-link::after,
+.ticktick-project-dashboard .phase-link::after {
+  content: "";
+  position: absolute;
+  inset: -1.1rem -1.25rem;
+  z-index: 1;
+}
+
+.ticktick-project-dashboard .season-lane span,
+.ticktick-project-dashboard .phase-date {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: transparent;
+  padding: 0 !important;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  line-height: 1.2;
+  position: relative;
+  z-index: 2;
+}
+
+/* Subtle indicator dot next to the date */
+.ticktick-project-dashboard .season-lane span::before,
+.ticktick-project-dashboard .phase-date::before {
+  content: "";
+  display: inline-block;
+  width: 0.35rem;
+  height: 0.35rem;
+  background: var(--card-tone, var(--interactive-accent));
+  border-radius: 50%;
+  opacity: 0.7;
+}
+
+.ticktick-project-dashboard .phase-empty {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  padding: 1.5rem 0;
+}
+
+.ticktick-project-timeline-bar:hover,
+.ticktick-project-timeline-bar:focus-visible {
+  background: color-mix(in srgb, var(--interactive-accent) 42%, var(--background-primary-alt));
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 1px;
+}
+
+@media (max-width: 620px) {
+  .ticktick-project-plans { padding: 0.65rem; }
+  .ticktick-project-header { flex-wrap: wrap; }
+  .ticktick-project-header > div { order: -1; flex-basis: 100%; }
+  .ticktick-project-summary { grid-template-columns: 2.5rem minmax(0, 1fr); }
+  .ticktick-project-summary-due { grid-column: 2; }
+}
+
+.ticktick-recurring-column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.1rem 1.2rem;
+  background: color-mix(in srgb, var(--interactive-accent) 4%, var(--background-secondary));
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 10%, transparent);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+/* Daily and weekly are separate planning rhythms, not variants of one list. */
+.ticktick-recurring-daily { border-color: color-mix(in srgb, var(--color-green) 35%, var(--background-modifier-border)) !important; }
+.ticktick-recurring-weekly { border-color: color-mix(in srgb, var(--color-blue) 35%, var(--background-modifier-border)) !important; }
+
+.ticktick-recurring-column-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.95rem;
+  color: var(--text-normal);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.ticktick-recurring-column-heading small {
+  display: grid;
+  place-items: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+  border-radius: 50%;
+  font-size: 0.68rem;
+}
+
+.ticktick-recurring-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 0 0 auto !important;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.85rem 0.35rem !important;
+  background: color-mix(in srgb, var(--card-tone, var(--interactive-accent)) 8%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--card-tone, var(--interactive-accent)) 25%, transparent);
+  border-radius: 0.65rem;
+  transition: all 180ms ease;
+  text-align: right;
+  overflow: hidden;
+  cursor: pointer;
+  width: 100%;
+  height: auto !important;
+  min-height: max-content;
+}
+
+.ticktick-recurring-card:hover,
+.ticktick-recurring-card:focus-visible {
+  border-color: color-mix(in srgb, var(--card-tone, var(--interactive-accent)) 40%, transparent);
+  background: color-mix(in srgb, var(--card-tone, var(--interactive-accent)) 12%, var(--background-primary));
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--card-tone, var(--interactive-accent)) 8%, transparent);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.ticktick-recurring-card:disabled {
+  cursor: wait;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Hallmark · component: task editor modal · genre: modern glassmorphism
+ * states: default · hover · focus · active · disabled · loading · error · success
+ * contrast: pass (uses Obsidian semantic variables)
+ */
+
+/* --- Season Overview Timeline (Markdown Block) --- */
+.overview-board {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+  direction: rtl;
+}
+
+.overview-season {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.25rem;
+  background: color-mix(in srgb, var(--background-secondary) 50%, transparent);
+  border-radius: 0.95rem;
+  box-shadow:
+    0 2px 5px color-mix(in srgb, var(--background-primary) 45%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  position: relative;
+  overflow: hidden;
+}
+
+.overview-season::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -30%;
+  width: 100%;
+  height: 150%;
+  background: radial-gradient(circle at top right, var(--interactive-accent), transparent 60%);
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.overview-season h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-normal);
+  position: relative;
+  z-index: 1;
+}
+
+.overview-season-body {
+  display: flex;
+  gap: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.overview-project-labels {
+  display: flex;
+  flex-direction: column;
+  min-width: 6.5rem;
+  flex-shrink: 0;
+}
+
+.overview-label-spacer {
+  height: 1.85rem; /* matches overview-months height */
+  margin-bottom: 0.35rem;
+}
+
+.overview-project-name {
+  display: flex;
+  align-items: center;
+  height: 2.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+}
+
+.overview-calendar {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto;
+}
+
+.overview-months {
+  display: flex;
+  min-width: 0;
+  margin-bottom: 0.35rem;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--background-primary) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+  border-radius: 0.55rem;
+  height: 1.85rem;
+  min-height: 1.85rem;
+  flex-shrink: 0;
+}
+
+.overview-month {
+  min-width: 0;
+  padding: 0 0.25rem;
+  overflow: hidden;
+  color: var(--text-muted);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-inline-end: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+  font-size: 0.72rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.overview-month:last-child { border-inline-end: 0; }
+
+.overview-lanes {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background-image: repeating-linear-gradient(to left, transparent 0, transparent calc(25% - 1px), color-mix(in srgb, var(--background-modifier-border) 30%, transparent) calc(25% - 1px), color-mix(in srgb, var(--background-modifier-border) 30%, transparent) 25%);
+}
+
+.overview-lane {
+  position: relative;
+  height: 2.2rem;
+  border-bottom: 1px dashed color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+}
+
+.ticktick-project-overview-bar {
+  position: absolute;
+  top: 0.25rem;
+  height: 1.7rem;
+  padding: 0 0.5rem;
+  background: color-mix(in srgb, var(--overview-color, var(--interactive-accent)) 20%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--overview-color, var(--interactive-accent)) 60%, transparent);
+  color: var(--text-normal);
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+  cursor: pointer;
+  box-shadow: 0 2px 4px color-mix(in srgb, var(--background-primary) 30%, transparent);
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.ticktick-project-overview-bar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px color-mix(in srgb, var(--overview-color, var(--interactive-accent)) 15%, transparent);
+  border-color: var(--overview-color, var(--interactive-accent));
+}
+
+/* Ongoing routines are intentionally just time spans, not task cards. */
+.overview-routine-line {
+  position: absolute;
+  top: 1rem;
+  min-width: 0.7rem;
+  height: 0.22rem;
+  background: var(--overview-color, var(--interactive-accent));
+  border-radius: 999px;
+  box-shadow: 0 0 0.45rem color-mix(in srgb, var(--overview-color, var(--interactive-accent)) 36%, transparent);
+}
+
+.overview-routine-line::before,
+.overview-routine-line::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0.46rem;
+  height: 0.46rem;
+  background: inherit;
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+
+.overview-routine-line::before { right: 0; }
+.overview-routine-line::after { left: 0; }
+
+/* FinTrack remains visible as individual, read-only task spans. */
+.overview-bar.ticktick-project-overview-bar { cursor: default; }
+.overview-bar.ticktick-project-overview-bar:hover { transform: none; }
+
+@media (max-width: 600px) {
+  .overview-season-body { flex-direction: column; gap: 0.5rem; }
+  .overview-project-labels { display: none; }
+}
+.overview-season.ticktick-season-spring::after { background: radial-gradient(circle at top right, #10b981, transparent 60%); }
+.overview-season.ticktick-season-summer::after { background: radial-gradient(circle at top right, #f59e0b, transparent 60%); }
+.overview-season.ticktick-season-autumn::after { background: radial-gradient(circle at top right, #f97316, transparent 60%); }
+.overview-season.ticktick-season-winter::after { background: radial-gradient(circle at top right, #3b82f6, transparent 60%); }

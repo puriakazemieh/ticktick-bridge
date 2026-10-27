@@ -7,7 +7,9 @@
   "scripts": {
     "test": "node --test",
     "check": "tsc --noEmit",
-    "build": "esbuild src/obsidian/main.ts --bundle --platform=browser --target=es2022 --external:obsidian --format=cjs --outfile=main.js",
+    "build:js": "esbuild src/obsidian/main.ts --bundle --platform=browser --target=es2022 --external:obsidian --format=cjs --outfile=main.js",
+    "build:css": "esbuild src/styles/main.css --bundle --outfile=styles.css",
+    "build": "npm run build:css && npm run build:js",
     "deploy": "node scripts/deploy.mjs",
     "preview:projects": "node scripts/preview-project-sync.mjs"
   },

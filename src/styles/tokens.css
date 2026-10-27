@@ -1,0 +1,79 @@
+/* ══════════════════════════════════════════════════════════
+   TickTick Bridge — Design Tokens
+   Centralized design system variables for consistent UI,
+   theming, spacing, elevation, and RTL support.
+   ══════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── 1. Color System ── */
+  --tb-accent: var(--interactive-accent);
+  --tb-accent-hover: var(--interactive-accent-hover);
+  --tb-accent-faint: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+  --tb-accent-subtle: color-mix(in srgb, var(--interactive-accent) 25%, transparent);
+  
+  --tb-bg-primary: var(--background-primary);
+  --tb-bg-secondary: var(--background-secondary);
+  --tb-bg-secondary-alt: var(--background-secondary-alt);
+  --tb-bg-hover: var(--background-modifier-hover);
+  --tb-bg-active: var(--background-modifier-active-hover);
+  
+  --tb-border: var(--background-modifier-border);
+  --tb-border-subtle: color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
+  --tb-border-focus: var(--background-modifier-border-focus);
+  
+  --tb-text-normal: var(--text-normal);
+  --tb-text-muted: var(--text-muted);
+  --tb-text-faint: var(--text-faint);
+  --tb-text-on-accent: var(--text-on-accent);
+
+  /* ── Status & Priority Colors ── */
+  --tb-color-red: var(--color-red, #ef4444);
+  --tb-color-orange: var(--color-orange, #f59e0b);
+  --tb-color-yellow: var(--color-yellow, #d49a2a);
+  --tb-color-green: var(--color-green, #10b981);
+  --tb-color-blue: var(--color-blue, #3b82f6);
+  --tb-color-purple: var(--color-purple, #8b5cf6);
+
+  --tb-priority-high: var(--tb-color-red);
+  --tb-priority-medium: var(--tb-color-orange);
+  --tb-priority-low: var(--tb-color-blue);
+  --tb-priority-none: var(--tb-text-faint);
+
+  /* ── Seasonal Themes (Timeline / Roadmaps) ── */
+  --tb-season-spring: #10b981;
+  --tb-season-summer: #f59e0b;
+  --tb-season-autumn: #f97316;
+  --tb-season-winter: #3b82f6;
+
+  /* ── 2. Radii Scale ── */
+  --tb-radius-xs: 0.25rem;
+  --tb-radius-s: 0.35rem;
+  --tb-radius-m: 0.55rem;
+  --tb-radius-l: 0.75rem;
+  --tb-radius-xl: 0.85rem;
+  --tb-radius-2xl: 1.1rem;
+  --tb-radius-full: 9999px;
+
+  /* ── 3. Spacing Scale ── */
+  --tb-space-2xs: 0.15rem;
+  --tb-space-xs: 0.25rem;
+  --tb-space-s: 0.4rem;
+  --tb-space-m: 0.65rem;
+  --tb-space-l: 0.85rem;
+  --tb-space-xl: 1rem;
+  --tb-space-2xl: 1.5rem;
+
+  /* ── 4. Shadows & Elevation ── */
+  --tb-shadow-xs: 0 1px 2px color-mix(in srgb, var(--background-primary) 20%, transparent);
+  --tb-shadow-s: 0 1px 4px color-mix(in srgb, var(--background-primary) 30%, transparent);
+  --tb-shadow-m: 0 4px 12px color-mix(in srgb, var(--background-primary) 35%, transparent);
+  --tb-shadow-modal: 0 16px 36px rgba(0, 0, 0, 0.35);
+
+  /* ── 5. Transitions ── */
+  --tb-transition-fast: 120ms ease;
+  --tb-transition-normal: 180ms ease;
+  --tb-transition-slow: 250ms ease;
+
+  /* ── 6. Typography ── */
+  --tb-font-persian: var(--default-font, -apple-system, BlinkMacSystemFont, "Vazirmatn", "Shabnam", "IRANSans", "Segoe UI", Roboto, sans-serif);
+}
