@@ -353,7 +353,7 @@ export class PlanningCalendar {
     const scrollHost = this.element.closest<HTMLElement>(".view-content, .workspace-leaf-content") ?? this.element.parentElement;
     const scrollTop = scrollHost?.scrollTop ?? 0;
     const scrollLeft = scrollHost?.scrollLeft ?? 0;
-    const existingGrid = this.element.querySelector<HTMLElement>(".ticktick-planner-days-grid, .ticktick-planner-month-grid");
+    const existingGrid = this.element.querySelector<HTMLElement>(".ticktick-planner-days, .ticktick-planner-month");
     this.savedGridScrollLeft = existingGrid?.scrollLeft ?? 0;
     this.displayedHabitIds.clear();
     this.element.empty();
@@ -479,7 +479,7 @@ export class PlanningCalendar {
         if (scrollLeft) scrollHost.scrollLeft = scrollLeft;
       });
     }
-    const newGrid = this.element.querySelector<HTMLElement>(".ticktick-planner-days-grid, .ticktick-planner-month-grid");
+    const newGrid = this.element.querySelector<HTMLElement>(".ticktick-planner-days, .ticktick-planner-month");
     if (newGrid && this.savedGridScrollLeft > 0) {
       requestAnimationFrame(() => {
         newGrid.scrollLeft = this.savedGridScrollLeft;

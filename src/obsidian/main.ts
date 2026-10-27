@@ -631,7 +631,7 @@ export default class TickTickBridgePlugin extends Plugin {
     return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable };
   }
 
-  private async runMutation(type: PendingMutation["type"], payload: PendingMutation["payload"]) {
+  private async runMutation(type: PendingMutation["type"], payload: PendingMutation["payload"], originElement?: HTMLElement) {
     const operation = { id: crypto.randomUUID(), type, payload, queuedAt: new Date().toISOString() } as PendingMutation;
     const execute = async () => {
       const client = this.client();
@@ -793,8 +793,8 @@ export default class TickTickBridgePlugin extends Plugin {
 
   async createTask(task: Partial<TickTickTask>) { return this.runMutation("create", task); }
   async updateTask(task: Partial<TickTickTask>) { return this.runMutation("update", task); }
-  async completeTask(task: TickTickTask | { id: string; [key: string]: unknown }) { return this.runMutation("complete", task); }
-  async deleteTask(task: TickTickTask | { id: string; [key: string]: unknown }) { return this.runMutation("delete", task); }
+  async completeTask(task: TickTickTask | { id: string; [key: string]: unknown }, originElement?: HTMLElement) { return this.runMutation("complete", task, originElement); }
+  async deleteTask(task: TickTickTask | { id: string; [key: string]: unknown }, originElement?: HTMLElement) { return this.runMutation("delete", task, originElement); }
   async checkInHabit(habitId: string, day: string, checkin: Partial<CachedHabitCheckin> | Record<string, unknown>) { return this.runMutation("habit", { habitId, day, checkin }); }
   async createTaskFromSurface(initial: TaskDraft = {}) {
     const projects = await this.client().listProjects();
@@ -1165,7 +1165,6 @@ export default class TickTickBridgePlugin extends Plugin {
         const title = cleanTaskTitle(task.title);
         const row = cards.createDiv({ cls: "daily-task-row ticktick-task-card" });
         row.dataset.taskId = String(task.id);
-        row.dataset.taskId = String(task.id);
         const check = row.createEl("input", { cls: "daily-task-checkbox", type: "checkbox", attr: { "aria-label": `انجام ${title}` } });
         const body = row.createDiv({ cls: "daily-task-main" });
         body.createSpan({ cls: "daily-task-title", text: title });
@@ -1190,7 +1189,7 @@ export default class TickTickBridgePlugin extends Plugin {
           check.disabled = true;
           row.addClass("is-completed");
           try {
-            await this.completeTask(task);
+            await this.completeTask(task, element);
             new Notice("نوبت تسک در TickTick تکمیل شد.");
             row.addClass("is-leaving");
             setTimeout(() => {
@@ -1226,7 +1225,7 @@ export default class TickTickBridgePlugin extends Plugin {
           if (!await confirmDelete(this.app, title)) return;
           row.addClass("is-leaving");
           try {
-            await this.deleteTask(task);
+            await this.deleteTask(task, element);
             new Notice("تسک از TickTick حذف شد.");
             setTimeout(() => {
               row.remove();

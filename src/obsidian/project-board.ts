@@ -411,6 +411,7 @@ export class ProjectBoard {
 
       for (const column of boardColumns(data, this.host.showCompleted())) {
         const shell = columns.createDiv({ cls: "ticktick-project-column" });
+        shell.dataset.columnId = String(column.id);
 
         const colHeader = shell.createDiv({ cls: "ticktick-column-header" });
         colHeader.createEl("strong", { cls: "ticktick-column-name", text: column.name });

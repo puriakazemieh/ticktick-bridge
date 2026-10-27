@@ -1749,7 +1749,7 @@ var PlanningCalendar = class {
     const scrollHost = this.element.closest(".view-content, .workspace-leaf-content") ?? this.element.parentElement;
     const scrollTop = scrollHost?.scrollTop ?? 0;
     const scrollLeft = scrollHost?.scrollLeft ?? 0;
-    const existingGrid = this.element.querySelector(".ticktick-planner-days-grid, .ticktick-planner-month-grid");
+    const existingGrid = this.element.querySelector(".ticktick-planner-days, .ticktick-planner-month");
     this.savedGridScrollLeft = existingGrid?.scrollLeft ?? 0;
     this.displayedHabitIds.clear();
     this.element.empty();
@@ -1851,7 +1851,7 @@ var PlanningCalendar = class {
         if (scrollLeft) scrollHost.scrollLeft = scrollLeft;
       });
     }
-    const newGrid = this.element.querySelector(".ticktick-planner-days-grid, .ticktick-planner-month-grid");
+    const newGrid = this.element.querySelector(".ticktick-planner-days, .ticktick-planner-month");
     if (newGrid && this.savedGridScrollLeft > 0) {
       requestAnimationFrame(() => {
         newGrid.scrollLeft = this.savedGridScrollLeft;
@@ -2990,6 +2990,7 @@ var ProjectBoard = class {
       this.lastSelectedProject = this.selected;
       for (const column of boardColumns(data, this.host.showCompleted())) {
         const shell = columns.createDiv({ cls: "ticktick-project-column" });
+        shell.dataset.columnId = String(column.id);
         const colHeader = shell.createDiv({ cls: "ticktick-column-header" });
         colHeader.createEl("strong", { cls: "ticktick-column-name", text: column.name });
         colHeader.createSpan({ cls: "ticktick-column-count", text: String(column.count) });
@@ -5003,7 +5004,7 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
     bridgeEvents.emit("sync:complete", { timestamp: (/* @__PURE__ */ new Date()).toISOString() });
     return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable };
   }
-  async runMutation(type, payload) {
+  async runMutation(type, payload, originElement) {
     const operation = { id: crypto.randomUUID(), type, payload, queuedAt: (/* @__PURE__ */ new Date()).toISOString() };
     const execute = async () => {
       const client = this.client();
@@ -5155,11 +5156,11 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
   async updateTask(task) {
     return this.runMutation("update", task);
   }
-  async completeTask(task) {
-    return this.runMutation("complete", task);
+  async completeTask(task, originElement) {
+    return this.runMutation("complete", task, originElement);
   }
-  async deleteTask(task) {
-    return this.runMutation("delete", task);
+  async deleteTask(task, originElement) {
+    return this.runMutation("delete", task, originElement);
   }
   async checkInHabit(habitId, day, checkin) {
     return this.runMutation("habit", { habitId, day, checkin });
@@ -5510,7 +5511,6 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
         const title = cleanTaskTitle(task.title);
         const row = cards.createDiv({ cls: "daily-task-row ticktick-task-card" });
         row.dataset.taskId = String(task.id);
-        row.dataset.taskId = String(task.id);
         const check = row.createEl("input", { cls: "daily-task-checkbox", type: "checkbox", attr: { "aria-label": `\u0627\u0646\u062C\u0627\u0645 ${title}` } });
         const body = row.createDiv({ cls: "daily-task-main" });
         body.createSpan({ cls: "daily-task-title", text: title });
@@ -5535,7 +5535,7 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
           check.disabled = true;
           row.addClass("is-completed");
           try {
-            await this.completeTask(task);
+            await this.completeTask(task, element);
             new import_obsidian19.Notice("\u0646\u0648\u0628\u062A \u062A\u0633\u06A9 \u062F\u0631 TickTick \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F.");
             row.addClass("is-leaving");
             setTimeout(() => {
@@ -5571,7 +5571,7 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
           if (!await confirmDelete(this.app, title)) return;
           row.addClass("is-leaving");
           try {
-            await this.deleteTask(task);
+            await this.deleteTask(task, element);
             new import_obsidian19.Notice("\u062A\u0633\u06A9 \u0627\u0632 TickTick \u062D\u0630\u0641 \u0634\u062F.");
             setTimeout(() => {
               row.remove();
