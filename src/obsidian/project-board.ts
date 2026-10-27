@@ -11,6 +11,17 @@ import { HabitDetailsModal } from "./planning-calendar";
 
 const HABIT_BOARD_VIEW_ID = "ticktick:view:habits";
 
+function habitGlyph(habit: any) {
+  const value = String(habit?.iconRes ?? habit?.icon ?? "").toLowerCase();
+  if (/language|book|read|learn/.test(value)) return "📚";
+  if (/sport|run|fitness|exercise/.test(value)) return "🏃";
+  if (/meditat|mind|sleep/.test(value)) return "🧘";
+  if (/water|drink/.test(value)) return "💧";
+  if (/music|listen/.test(value)) return "🎵";
+  if (/write|note/.test(value)) return "✍️";
+  return "✓";
+}
+
 type Host = {
   app: App;
   projects: () => Promise<any[]>;
@@ -467,8 +478,8 @@ export class ProjectBoard {
       const goal = Math.max(1, Number(habit.goal ?? habit.target ?? 1));
       const entry = (this.host.habitHistory(String(habit.id), today, today)[0] ?? {});
       const value = Number(entry.value ?? 0);
-      const card = cards.createEl("button", { cls: "ticktick-habit-board-card", attr: { type: "button" } });
-      card.createSpan({ cls: "ticktick-habit-board-icon", text: "✓" });
+      const card = cards.createEl("button", { cls: "ticktick-habit-board-card ticktick-habit-card", attr: { type: "button" } });
+      card.createSpan({ cls: "ticktick-habit-board-icon", text: habitGlyph(habit) });
       const copy = card.createDiv({ cls: "ticktick-habit-board-copy" });
       copy.createEl("strong", { text: String(habit.name ?? "عادت") });
       copy.createSpan({ text: `${value}/${goal} ${habit.unit ?? (goal > 1 ? "مرحله" : "ثبت")}` });

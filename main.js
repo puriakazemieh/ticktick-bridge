@@ -2266,7 +2266,7 @@ var PlanningCalendar = class {
       const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
       const current = Number(habit.checkin?.value ?? 0);
       const complete = Number(habit.checkin?.status ?? 0) === 2 || current >= goal;
-      const row = section.createEl("label", { cls: `ticktick-planner-habit ${complete ? "is-complete" : ""}` });
+      const row = section.createEl("label", { cls: `ticktick-planner-habit ticktick-habit-card ${complete ? "is-complete is-success" : ""}` });
       const check = row.createEl("input", { type: "checkbox", attr: { "aria-label": `\u062B\u0628\u062A \u0639\u0627\u062F\u062A ${habit.name}` } });
       check.checked = complete;
       check.disabled = complete;
@@ -2606,6 +2606,16 @@ var ProjectEditorModal = class extends import_obsidian5.Modal {
 
 // src/obsidian/project-board.ts
 var HABIT_BOARD_VIEW_ID = "ticktick:view:habits";
+function habitGlyph2(habit) {
+  const value = String(habit?.iconRes ?? habit?.icon ?? "").toLowerCase();
+  if (/language|book|read|learn/.test(value)) return "\u{1F4DA}";
+  if (/sport|run|fitness|exercise/.test(value)) return "\u{1F3C3}";
+  if (/meditat|mind|sleep/.test(value)) return "\u{1F9D8}";
+  if (/water|drink/.test(value)) return "\u{1F4A7}";
+  if (/music|listen/.test(value)) return "\u{1F3B5}";
+  if (/write|note/.test(value)) return "\u270D\uFE0F";
+  return "\u2713";
+}
 var ProjectBoard = class {
   constructor(element, host) {
     this.element = element;
@@ -3016,8 +3026,8 @@ var ProjectBoard = class {
       const goal = Math.max(1, Number(habit.goal ?? habit.target ?? 1));
       const entry = this.host.habitHistory(String(habit.id), today, today)[0] ?? {};
       const value = Number(entry.value ?? 0);
-      const card = cards.createEl("button", { cls: "ticktick-habit-board-card", attr: { type: "button" } });
-      card.createSpan({ cls: "ticktick-habit-board-icon", text: "\u2713" });
+      const card = cards.createEl("button", { cls: "ticktick-habit-board-card ticktick-habit-card", attr: { type: "button" } });
+      card.createSpan({ cls: "ticktick-habit-board-icon", text: habitGlyph2(habit) });
       const copy = card.createDiv({ cls: "ticktick-habit-board-copy" });
       copy.createEl("strong", { text: String(habit.name ?? "\u0639\u0627\u062F\u062A") });
       copy.createSpan({ text: `${value}/${goal} ${habit.unit ?? (goal > 1 ? "\u0645\u0631\u062D\u0644\u0647" : "\u062B\u0628\u062A")}` });
@@ -4439,7 +4449,7 @@ var TickTickBridgePlugin = class extends import_obsidian8.Plugin {
           const map = { "\u0632\u0628\u0627\u0646": "var(--pd-language, var(--color-yellow))", "\u0634\u062E\u0635\u06CC": "var(--pd-personal, var(--color-green))", "\u0633\u0644\u0627\u0645\u062A\u06CC": "var(--pd-kotlin, var(--color-blue))" };
           return map[group] || "var(--interactive-accent)";
         };
-        const card = cardHost.createEl("button", { cls: `daily-habit-card${dashboard ? " ticktick-dashboard-habit-card" : ""}${completed ? " is-done" : ""}`, attr: { type: "button", "aria-label": `\u062B\u0628\u062A \u0639\u0627\u062F\u062A ${habit.name}` } });
+        const card = cardHost.createEl("button", { cls: `daily-habit-card ticktick-habit-card${dashboard ? " ticktick-dashboard-habit-card" : ""}${completed ? " is-done is-success" : ""}`, attr: { type: "button", "aria-label": `\u062B\u0628\u062A \u0639\u0627\u062F\u062A ${habit.name}` } });
         card.style.setProperty("--card-tone", habitGroupTone(habitDashboardSection(habit)));
         const icon = card.createDiv({ cls: "daily-habit-progress" });
         icon.style.setProperty("--ticktick-progress", `${Math.round(progress * 360)}deg`);

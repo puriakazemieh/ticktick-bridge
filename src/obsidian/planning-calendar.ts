@@ -930,7 +930,7 @@ export class PlanningCalendar {
       const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
       const current = Number(habit.checkin?.value ?? 0);
       const complete = Number(habit.checkin?.status ?? 0) === 2 || current >= goal;
-      const row = section.createEl("label", { cls: `ticktick-planner-habit ${complete ? "is-complete" : ""}` });
+      const row = section.createEl("label", { cls: `ticktick-planner-habit ticktick-habit-card ${complete ? "is-complete is-success" : ""}` });
       const check = row.createEl("input", { type: "checkbox", attr: { "aria-label": `ثبت عادت ${habit.name}` } });
       check.checked = complete;
       check.disabled = complete;

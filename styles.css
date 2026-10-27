@@ -3712,6 +3712,84 @@
 .ticktick-habit-board-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ticktick-habit-board-copy span { color: var(--text-muted); font-size: .74rem; }
 
+/* Hallmark · component: shared TickTick habit card · genre: modern-minimal · theme: vault-native
+ * states: default · hover · focus · active · disabled · loading · error · success
+ * contrast: pass (uses active Obsidian theme tokens)
+ * pre-emit critique: P5 H5 E5 S5 R5 V4
+ * Component-scope: macrostructure intentionally skipped. */
+/* One visual language across daily notes, dashboard, board and calendar:
+   icon → name → live progress. Calendar uses the compact variant only. */
+.ticktick-habit-card {
+  --ticktick-habit-accent: var(--interactive-accent);
+  color: var(--text-normal) !important;
+  border: 1px solid color-mix(in srgb, var(--ticktick-habit-accent) 32%, var(--background-modifier-border)) !important;
+  border-inline-start: 3px solid var(--ticktick-habit-accent) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ticktick-habit-accent) 12%, var(--background-primary)), var(--background-secondary)) !important;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--background-primary) 55%, transparent) !important;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+.ticktick-habit-card:hover, .ticktick-habit-card.is-hover {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ticktick-habit-accent) 18%, var(--background-primary)), var(--background-secondary)) !important;
+  border-color: color-mix(in srgb, var(--ticktick-habit-accent) 65%, var(--background-modifier-border)) !important;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ticktick-habit-accent) 15%, transparent) !important;
+  transform: translateY(-1px);
+}
+.ticktick-habit-card:focus-visible, .ticktick-habit-card.is-focus { outline: 2px solid var(--interactive-accent) !important; outline-offset: 2px; }
+.ticktick-habit-card:active, .ticktick-habit-card.is-active { transform: translateY(1px) !important; }
+.ticktick-habit-card:disabled { cursor: not-allowed; opacity: .52; }
+.ticktick-habit-card.is-loading { cursor: progress; opacity: .72; }
+.ticktick-habit-card.is-error { border-color: var(--color-red) !important; }
+.ticktick-habit-card.is-success, .ticktick-habit-card.is-done { border-inline-start-color: var(--color-green) !important; }
+
+.daily-habit-list .ticktick-habit-card .daily-habit-progress {
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+  border: 2px solid color-mix(in srgb, var(--ticktick-habit-accent) 65%, var(--background-modifier-border));
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ticktick-habit-accent) 14%, var(--background-primary));
+}
+.daily-habit-list .ticktick-habit-card .daily-habit-icon { font-size: 1.05rem; }
+.daily-habit-list .ticktick-habit-card .daily-habit-title { color: var(--text-normal) !important; font-weight: var(--font-semibold) !important; }
+.daily-habit-list .ticktick-habit-card .daily-habit-state { color: var(--text-muted) !important; font-variant-numeric: tabular-nums; }
+
+.ticktick-habit-board-cards { grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: .8rem; }
+.ticktick-habit-board-card.ticktick-habit-card {
+  grid-template-columns: 2.7rem minmax(0, 1fr);
+  min-height: 4.7rem;
+  padding: .8rem .9rem;
+  border-radius: .8rem;
+}
+.ticktick-habit-board-icon {
+  width: 2.55rem; height: 2.55rem; border-radius: .75rem;
+  font-size: 1.05rem;
+  color: var(--text-normal);
+  border: 1px solid color-mix(in srgb, var(--ticktick-habit-accent) 40%, var(--background-modifier-border));
+  background: color-mix(in srgb, var(--ticktick-habit-accent) 16%, var(--background-primary));
+}
+.ticktick-habit-board-copy strong { font-size: .9rem; font-weight: var(--font-semibold); overflow-wrap: anywhere; }
+.ticktick-habit-board-copy span { display: inline-flex; width: fit-content; padding: .12rem .4rem; border-radius: 999px; background: var(--background-primary); font-variant-numeric: tabular-nums; }
+
+.ticktick-planner-habits { gap: .34rem; }
+.ticktick-planner-habit.ticktick-habit-card {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr) auto;
+  gap: .35rem;
+  align-items: center;
+  min-height: 1.7rem;
+  padding: .25rem .35rem;
+  border-inline-start-width: 2px !important;
+  border-radius: .42rem;
+  font-size: .7rem;
+}
+.ticktick-planner-habit input { grid-column: 3; margin: 0; }
+.ticktick-planner-habit .ticktick-planner-habit-icon { grid-column: 1; }
+.ticktick-planner-habit span:not(.ticktick-planner-habit-icon) { grid-column: 2; min-width: 0; }
+.ticktick-planner-habits.is-compact .ticktick-planner-habit.ticktick-habit-card { min-height: 1.45rem; padding: .14rem .25rem; font-size: .62rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ticktick-habit-card { transition-duration: 0ms !important; }
+}
+
 .ticktick-recurring-board {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

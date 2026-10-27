@@ -1312,7 +1312,7 @@ export default class TickTickBridgePlugin extends Plugin {
           const map: Record<string, string> = { "زبان": "var(--pd-language, var(--color-yellow))", "شخصی": "var(--pd-personal, var(--color-green))", "سلامتی": "var(--pd-kotlin, var(--color-blue))" };
           return map[group] || "var(--interactive-accent)";
         };
-        const card = cardHost!.createEl("button", { cls: `daily-habit-card${dashboard ? " ticktick-dashboard-habit-card" : ""}${completed ? " is-done" : ""}`, attr: { type: "button", "aria-label": `ثبت عادت ${habit.name}` } });
+        const card = cardHost!.createEl("button", { cls: `daily-habit-card ticktick-habit-card${dashboard ? " ticktick-dashboard-habit-card" : ""}${completed ? " is-done is-success" : ""}`, attr: { type: "button", "aria-label": `ثبت عادت ${habit.name}` } });
         card.style.setProperty("--card-tone", habitGroupTone(habitDashboardSection(habit)));
         const icon = card.createDiv({ cls: "daily-habit-progress" });
         icon.style.setProperty("--ticktick-progress", `${Math.round(progress * 360)}deg`);
