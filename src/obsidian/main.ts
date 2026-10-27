@@ -2,7 +2,7 @@ import { MarkdownRenderer, Menu, Notice, Plugin, TFile, requestUrl, setIcon } fr
 import { isScheduledForDay, toDateKey, todayInZone } from "../core/date.js";
 import { TickTickClient } from "../core/ticktick-client.js";
 import { normalizeWebSessionCookie, parseWebHabitCheckins } from "../core/ticktick-web-habits.js";
-import { ManagedStorage } from "./managed-storage";
+import { ManagedStorage, VaultAdapter } from "./managed-storage";
 import { MarkdownSync } from "./markdown-sync";
 import { MarkdownConflictModal, PendingMutationConflictModal } from "./conflict-modal";
 import { PlanningCalendar } from "./planning-calendar";
@@ -11,7 +11,7 @@ import { NoteImport, NoteImportModal } from "./note-import";
 import { mergeTaskDetails, taskDescription } from "../core/task-description.js";
 import { normalizeProjectData } from "../core/project-board.js";
 
-import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit } from "./types";
+import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit, ProjectBoardData, TickTickNote } from "./types";
 import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
 import {
   currentPlatformName,
@@ -71,7 +71,7 @@ export default class TickTickBridgePlugin extends Plugin {
   private lastManagedReport = "هنوز گزارشی ثبت نشده است.";
 
   async onload() {
-    this.managedStorage = new ManagedStorage(this.app.vault.adapter as any);
+    this.managedStorage = new ManagedStorage(this.app.vault.adapter as unknown as VaultAdapter);
     const savedSettings = await this.loadData();
     const legacySettings = (savedSettings ?? {}) as Record<string, unknown>;
     const {
@@ -228,7 +228,7 @@ export default class TickTickBridgePlugin extends Plugin {
     else new Notice("Note قابل‌انتقال با kind: NOTE در cache پیدا نشد.");
     return rows;
   }
-  async importSelectedTickTickNotes(rows: Array<{ note: any; path: string; selected?: boolean }>) { return this.noteImport.apply(rows); }
+  async importSelectedTickTickNotes(rows: Array<{ note: TickTickNote; path: string; selected?: boolean }>) { return this.noteImport.apply(rows); }
 
   plannerHost() {
     return {
@@ -240,14 +240,14 @@ export default class TickTickBridgePlugin extends Plugin {
       // This host is called by an explicit toolbar action. Let the central
       // sync layer report an honest success/fallback/error notification.
       refresh: async () => { await this.syncNow(); },
-      reschedule: async (task: any, day: string) => this.rescheduleTaskFromPlanner(task, day),
-      complete: async (task: any) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
-      binding: (task: any) => this.markdownSync.bindingForTask(String(task.id)),
-      load: async (task: any) => this.loadTaskDetails(task),
-      edit: async (task: any) => this.editTaskFromSurface(task),
-      create: async (initial: any) => this.createTaskFromSurface(initial),
+      reschedule: async (task: TickTickTask, day: string) => this.rescheduleTaskFromPlanner(task, day),
+      complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
+      binding: (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)),
+      load: async (task: TickTickTask) => this.loadTaskDetails(task),
+      edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
+      create: async (initial: TaskDraft | Partial<TickTickTask>) => this.createTaskFromSurface(initial),
       habits: (day: string) => this.cachedHabitsForDay(day),
-      checkInHabit: async (habit: any, day: string) => {
+      checkInHabit: async (habit: TickTickHabit, day: string) => {
         const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
         const current = Number(habit.checkin?.value ?? 0);
         const next = current >= goal ? 0 : Math.min(goal, current + Math.max(1, Number(habit.step ?? 1)));
@@ -257,8 +257,8 @@ export default class TickTickBridgePlugin extends Plugin {
       // Details panels are cache-only. The normal sync pipeline refreshes this
       // mirror; opening a habit must never create a second web request.
       habitHistory: (habitId: string, from: string, to: string) => this.cachedHabitHistoryRange(habitId, from, to),
-      setHabitProgress: async (habit: any, day: string, value: number, goal: number) => this.checkInHabit(String(habit.id), day, { value: Math.max(0, value), goal: Math.max(1, goal), status: value >= goal ? 2 : undefined }),
-      loadHabit: async (habit: any) => this.loadHabitDetails(habit),
+      setHabitProgress: async (habit: TickTickHabit, day: string, value: number, goal: number) => this.checkInHabit(String(habit.id), day, { value: Math.max(0, value), goal: Math.max(1, goal), status: value >= goal ? 2 : undefined }),
+      loadHabit: async (habit: TickTickHabit) => this.loadHabitDetails(habit),
       showHabits: () => this.settings.plannerShowHabits,
       setShowHabits: async (value: boolean) => { this.settings.plannerShowHabits = value; await this.saveSettings(); },
     };
@@ -270,29 +270,29 @@ export default class TickTickBridgePlugin extends Plugin {
       timeZone: this.settings.timeZone,
       firstWeekday: 6,
       projects: async () => this.cache.projects.length ? this.cache.projects : this.client().listProjects(),
-      createProject: (project: any) => this.client().createProject(project),
-      updateProject: (project: any) => this.client().updateProject(project),
+      createProject: (project: Partial<TickTickProject>) => this.client().createProject(project),
+      updateProject: (project: Partial<TickTickProject>) => this.client().updateProject(project),
       deleteProject: (projectId: string) => this.client().deleteProject(projectId),
-      createTask: (initial: any) => this.createTaskFromSurface(initial),
+      createTask: (initial: TaskDraft | Partial<TickTickTask>) => this.createTaskFromSurface(initial),
       tasks: () => this.cache.tasks,
       habits: () => this.cache.habits,
-      checkInHabit: async (habit: any, day: string) => {
+      checkInHabit: async (habit: TickTickHabit, day: string) => {
         const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
         const current = Number(habit.checkin?.value ?? 0);
         const next = current >= goal ? 0 : Math.min(goal, current + Math.max(1, Number(habit.step ?? 1)));
         return this.checkInHabit(String(habit.id), day, { value: next, goal, status: next >= goal ? 2 : undefined });
       },
       habitHistory: (habitId: string, from: string, to: string) => this.cachedHabitHistoryRange(habitId, from, to),
-      setHabitProgress: async (habit: any, day: string, value: number, goal: number) => this.checkInHabit(String(habit.id), day, { value: Math.max(0, value), goal: Math.max(1, goal), status: value >= goal ? 2 : undefined }),
-      board: async (project: any) => this.cache.projectBoards[String(project.id)] ?? this.client().projectBoard(project),
+      setHabitProgress: async (habit: TickTickHabit, day: string, value: number, goal: number) => this.checkInHabit(String(habit.id), day, { value: Math.max(0, value), goal: Math.max(1, goal), status: value >= goal ? 2 : undefined }),
+      board: async (project: TickTickProject | undefined) => (project ? this.cache.projectBoards[String(project.id)] : undefined) ?? this.client().projectBoard(project as any),
       // This host is called by an explicit toolbar action. Let the central
       // sync layer report an honest success/fallback/error notification.
       refresh: async () => { await this.syncNow(); },
-      complete: async (task: any) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
-      binding: (task: any) => this.markdownSync.bindingForTask(String(task.id)),
-      load: async (task: any) => this.loadTaskDetails(task),
-      edit: async (task: any) => this.editTaskFromSurface(task),
-      moveToColumn: async (task: any, columnId: string) => this.moveTaskToBoardColumn(task, columnId),
+      complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
+      binding: (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)),
+      load: async (task: TickTickTask) => this.loadTaskDetails(task),
+      edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
+      moveToColumn: async (task: TickTickTask, columnId: string) => this.moveTaskToBoardColumn(task, columnId),
       showCompleted: () => this.settings.plannerShowCompleted,
       preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups, sidebarCollapsed: this.settings.boardSidebarCollapsed, sidebarPreferenceInitialized: this.settings.boardSidebarPreferenceInitialized }),
       savePreferences: async (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean; sidebarPreferenceInitialized?: boolean }) => { this.settings.boardLastProjectId = value.selected; this.settings.boardCollapsedGroups = value.collapsed; this.settings.boardSidebarCollapsed = value.sidebarCollapsed; this.settings.boardSidebarPreferenceInitialized = value.sidebarPreferenceInitialized ?? true; await this.saveSettings(); },
@@ -523,8 +523,8 @@ export default class TickTickBridgePlugin extends Plugin {
     const projects = cacheAvailable ? this.cache.projects : await client.listProjects();
     let habits = (!cacheAvailable || hydrateHabits) ? await client.listHabits() : this.cache.habits;
     const sections = cacheAvailable ? [] : await client.listHabitSections();
-    const projectBoards: Record<string, any> = {};
-    const taskIndex = new Map<string, any>();
+    const projectBoards: Record<string, ProjectBoardData> = {};
+    const taskIndex = new Map<string, TickTickTask>();
     // The web batch endpoint is the compact, current task feed. Calling
     // `/project/:id/data` for every project in parallel trips TickTick's rate
     // limiter, then leaves every surface waiting for a refresh that cannot
@@ -542,16 +542,16 @@ export default class TickTickBridgePlugin extends Plugin {
       projectBoards[projectId] = board;
       for (const task of board.tasks ?? []) {
         const key = `${String(task?.projectId ?? projectId)}:${String(task?.id ?? "")}`;
-        if (task?.id) taskIndex.set(key, mergeTaskDetails(task, taskIndex.get(key)));
+        if (task?.id) taskIndex.set(key, mergeTaskDetails(task, taskIndex.get(key)) as TickTickTask);
       }
     }
-    const missingProject = projects.find((project: any) => !projectBoards[String(project.id)]);
+    const missingProject = projects.find((project: TickTickProject) => !projectBoards[String(project.id)]);
     if (missingProject) {
       const board = normalizeProjectData(await client.getProjectData(missingProject.id), missingProject);
       projectBoards[String(board.project.id)] = board;
       for (const task of board.tasks) {
         const key = `${String(task?.projectId ?? missingProject.id)}:${String(task?.id ?? "")}`;
-        taskIndex.set(key, mergeTaskDetails(taskIndex.get(key), task));
+        taskIndex.set(key, mergeTaskDetails(taskIndex.get(key), task) as TickTickTask);
       }
     }
     // Inbox is not returned by the official project list, but it is a normal
@@ -564,7 +564,7 @@ export default class TickTickBridgePlugin extends Plugin {
         // example `inbox115…`), not the literal endpoint id `inbox`. Keep
         // that real id for complete/update calls, but mark membership so the
         // synthetic Inbox board can recognise and retain its cards.
-        inbox.tasks = inbox.tasks.map((task: any) => ({ ...task, isInbox: true, projectName: "ورودی" }));
+        inbox.tasks = inbox.tasks.map((task: TickTickTask) => ({ ...task, isInbox: true, projectName: "ورودی" }));
         projectBoards.inbox = inbox;
         for (const task of inbox.tasks) taskIndex.set(`${String(task.projectId ?? "inbox")}:${String(task.id ?? "")}`, task);
       } catch {
@@ -575,17 +575,17 @@ export default class TickTickBridgePlugin extends Plugin {
     for (const task of webTasks ?? []) {
       const projectId = String(task.projectId ?? ""); const key = `${projectId}:${task.id}`;
       const prior = taskIndex.get(key);
-      taskIndex.set(key, prior ? mergeTaskDetails(prior, task) : task);
+      taskIndex.set(key, (prior ? mergeTaskDetails(prior, task) : task) as TickTickTask);
     }
     const tasks = [...taskIndex.values()];
     // Board columns come from the cached project document, while task values
     // come from the fresh batch feed. Recompose them before rendering so a
     // normal sync never displays an old card after a local mutation.
     for (const [projectId, board] of Object.entries(projectBoards)) {
-      const prior = new Map<string, any>((board.tasks ?? []).map((task: any) => [String(task.id), task]));
+      const prior = new Map<string, TickTickTask>((board.tasks ?? []).map((task: TickTickTask) => [String(task.id), task]));
       board.tasks = tasks
         .filter(task => projectId === "inbox" ? Boolean(task.isInbox) : String(task?.projectId ?? "") === projectId)
-        .map(task => mergeTaskDetails(prior.get(String(task.id)), task));
+        .map(task => mergeTaskDetails(prior.get(String(task.id)), task) as TickTickTask);
     }
     const activeHabits = habits.filter((habit: { status?: number }) => habit.status === undefined || habit.status === 0);
     const fromDay = shiftIsoDay(today, -90);
@@ -597,7 +597,7 @@ export default class TickTickBridgePlugin extends Plugin {
     for (const document of officialDocuments ?? []) {
       const habitId = String(document?.habitId ?? "");
       if (!habitId) continue;
-      checkins[habitId] = (document.checkins ?? []).map((entry: any) => ({ stamp: Number(entry.stamp), value: Number(entry.value ?? 0), goal: Number(entry.goal ?? 1), status: Number(entry.status ?? 0) }));
+      checkins[habitId] = (document.checkins ?? []).map((entry: CachedHabitCheckin) => ({ stamp: Number(entry.stamp), value: Number(entry.value ?? 0), goal: Number(entry.goal ?? 1), status: Number(entry.status ?? 0) }));
     }
     // The web feed is the most up-to-date source for today's habit state.
     const webCheckins = await this.webHabitCheckins(activeHabits.map((habit: { id: string }) => habit.id), today, 91);
@@ -606,7 +606,7 @@ export default class TickTickBridgePlugin extends Plugin {
     // fresh value over a stale cache so a 3-step habit is never written back
     // as 2 steps by a subsequent local check-in.
     if (webCheckins) {
-      habits = habits.map((habit: any) => {
+      habits = habits.map((habit: TickTickHabit) => {
         const recent = (webCheckins.get(String(habit.id)) ?? []).at(-1);
         const goal = Number(recent?.goal ?? 0);
         return goal > 0 ? { ...habit, goal } : habit;
@@ -618,7 +618,7 @@ export default class TickTickBridgePlugin extends Plugin {
       tasks,
       projects,
       projectBoards,
-      habits: activeHabits.map((habit: any) => ({ ...habit, sectionName: sectionNames.get(habit.sectionId) ?? habit.sectionName ?? "بدون دسته" })),
+      habits: activeHabits.map((habit: TickTickHabit) => ({ ...habit, sectionName: sectionNames.get(habit.sectionId) ?? habit.sectionName ?? "بدون دسته" })),
       habitCheckins: checkins,
       pending: this.cache.pending,
       conflicts: this.cache.conflicts,
@@ -629,35 +629,52 @@ export default class TickTickBridgePlugin extends Plugin {
     return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable };
   }
 
-  private async runMutation(type: PendingMutation["type"], payload: any) {
+  private async runMutation(type: PendingMutation["type"], payload: PendingMutation["payload"]) {
     const operation = { id: crypto.randomUUID(), type, payload, queuedAt: new Date().toISOString() } as PendingMutation;
     const execute = async () => {
       const client = this.client();
       if (type === "create") return client.createTask(payload);
       if (type === "update") return client.updateTask(payload);
-      if (type === "complete") return client.completeTask(payload.projectId, payload.id);
-      if (type === "delete") return client.deleteTask(payload.projectId, payload.id);
-      return client.checkInHabit(payload.habitId, payload.day, payload.checkin);
+      if (type === "complete") {
+        const p = payload as { projectId?: string; id?: string };
+        return client.completeTask(String(p.projectId ?? ""), String(p.id ?? ""));
+      }
+      if (type === "delete") {
+        const p = payload as { projectId?: string; id?: string };
+        return client.deleteTask(String(p.projectId ?? ""), String(p.id ?? ""));
+      }
+      const p = payload as { habitId: string; day: string; checkin?: { value?: number; goal?: number; status?: number } };
+      return client.checkInHabit(p.habitId, p.day, p.checkin);
     };
     const applyLocal = () => {
       if (type === "create") {
-        const task = { ...payload, id: `offline-${operation.id}`, status: 0 };
+        const p = payload as Partial<TickTickTask>;
+        const task: TickTickTask = {
+          id: `offline-${operation.id}`,
+          projectId: String(p.projectId ?? ""),
+          title: String(p.title ?? "بدون عنوان"),
+          status: 0,
+          ...p
+        };
         this.cache.tasks.push(task);
-        const board = this.cache.projectBoards[String(task.projectId ?? "")];
+        const board = this.cache.projectBoards[task.projectId];
         if (board) board.tasks = [...(board.tasks ?? []), task];
       }
       if (type === "update") {
-        this.cache.tasks = this.cache.tasks.map(task => task.id === payload.id ? { ...task, ...payload } : task);
-        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).map((task: any) => task.id === payload.id ? { ...task, ...payload } : task);
+        const updatePayload = payload as Partial<TickTickTask>;
+        this.cache.tasks = this.cache.tasks.map(task => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
+        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).map((task: TickTickTask) => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
       }
       if (type === "complete" || type === "delete") {
-        this.cache.tasks = this.cache.tasks.filter(task => task.id !== payload.id);
-        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).filter((task: any) => task.id !== payload.id);
+        const targetId = (payload as { id?: string }).id;
+        this.cache.tasks = this.cache.tasks.filter(task => task.id !== targetId);
+        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).filter((task: TickTickTask) => task.id !== targetId);
       }
       if (type === "habit") {
-        const stamp = Number(String(payload.day).replaceAll("-", ""));
-        const previous = this.cache.habitCheckins[payload.habitId] ?? [];
-        this.cache.habitCheckins[payload.habitId] = [...previous.filter(entry => entry.stamp !== stamp), { stamp, ...payload.checkin }];
+        const habitPayload = payload as { habitId: string; day: string; checkin: Partial<CachedHabitCheckin> };
+        const stamp = Number(String(habitPayload.day).replaceAll("-", ""));
+        const previous = this.cache.habitCheckins[habitPayload.habitId] ?? [];
+        this.cache.habitCheckins[habitPayload.habitId] = [...previous.filter(entry => entry.stamp !== stamp), { stamp, value: 0, goal: 1, status: 0, ...habitPayload.checkin }];
       }
     };
     if (!navigator.onLine) {
@@ -709,9 +726,16 @@ export default class TickTickBridgePlugin extends Plugin {
         const client = this.client();
         if (operation.type === "create") await client.createTask(operation.payload);
         else if (operation.type === "update") await client.updateTask(operation.payload);
-        else if (operation.type === "complete") await client.completeTask(operation.payload.projectId, operation.payload.id);
-        else if (operation.type === "delete") await client.deleteTask(operation.payload.projectId, operation.payload.id);
-        else await client.checkInHabit(operation.payload.habitId, operation.payload.day, operation.payload.checkin);
+        else if (operation.type === "complete") {
+          const p = operation.payload as { projectId?: string; id?: string };
+          await client.completeTask(String(p.projectId ?? ""), String(p.id ?? ""));
+        } else if (operation.type === "delete") {
+          const p = operation.payload as { projectId?: string; id?: string };
+          await client.deleteTask(String(p.projectId ?? ""), String(p.id ?? ""));
+        } else {
+          const p = operation.payload as { habitId: string; day: string; checkin?: { value?: number; goal?: number; status?: number } };
+          await client.checkInHabit(String(p.habitId), String(p.day), p.checkin);
+        }
       } catch (error) {
         const status = Number((error as { status?: number })?.status ?? 0);
         // 4xx means the remote item changed or disappeared. Keep a recoverable
@@ -754,7 +778,7 @@ export default class TickTickBridgePlugin extends Plugin {
   async updateTask(task: Partial<TickTickTask>) { return this.runMutation("update", task); }
   async completeTask(task: TickTickTask | { id: string; [key: string]: unknown }) { return this.runMutation("complete", task); }
   async deleteTask(task: TickTickTask | { id: string; [key: string]: unknown }) { return this.runMutation("delete", task); }
-  async checkInHabit(habitId: string, day: string, checkin: any) { return this.runMutation("habit", { habitId, day, checkin }); }
+  async checkInHabit(habitId: string, day: string, checkin: Partial<CachedHabitCheckin> | Record<string, unknown>) { return this.runMutation("habit", { habitId, day, checkin }); }
   async createTaskFromSurface(initial: TaskDraft = {}) {
     const projects = await this.client().listProjects();
     const draft = await openTaskEditor(this.app, projects, initial);
@@ -774,7 +798,7 @@ export default class TickTickBridgePlugin extends Plugin {
     // The project document contains the full record in that case.
     try {
       const project = await client.getProjectData(projectId);
-      const record = (project?.tasks ?? []).find((item: any) => String(item?.id) === String(task.id));
+      const record = (project?.tasks ?? []).find((item: TickTickTask) => String(item?.id) === String(task.id));
       return (record ? mergeTaskDetails(direct, record) : direct) as TickTickTask;
     } catch { return direct; }
   }
@@ -787,13 +811,13 @@ export default class TickTickBridgePlugin extends Plugin {
     await this.updateTask(payload);
     return { ...current, ...payload };
   }
-  private async rescheduleTaskFromPlanner(task: any, targetDay: string) {
+  private async rescheduleTaskFromPlanner(task: TickTickTask, targetDay: string) {
     const start = toDateKey(task?.startDate, task?.timeZone || this.settings.timeZone);
     const due = toDateKey(task?.dueDate, task?.timeZone || this.settings.timeZone);
     const anchor = start ?? due;
     if (!anchor) throw new Error("تسک تاریخ قابل‌جابه‌جایی ندارد.");
     const offset = Math.round((Date.parse(`${targetDay}T12:00:00Z`) - Date.parse(`${anchor}T12:00:00Z`)) / 86400000);
-    const moveValue = (value: any, fallback: string | null) => {
+    const moveValue = (value: string | null | undefined, fallback: string | null) => {
       if (!fallback) return null;
       const original = String(value ?? "");
       const moved = shiftIsoDay(fallback, offset);
@@ -806,7 +830,7 @@ export default class TickTickBridgePlugin extends Plugin {
     await this.updateTask(payload);
     return { ...task, ...payload };
   }
-  private async moveTaskToBoardColumn(task: any, columnId: string) {
+  private async moveTaskToBoardColumn(task: TickTickTask, columnId: string) {
     if (!columnId) throw new Error("ستون مقصد برای انتقال قابل‌استفاده نیست.");
     if (String(task.columnId ?? "") === columnId) return task;
     const payload = toTaskPayload({ ...task, columnId }, this.settings.timeZone);
@@ -854,7 +878,7 @@ export default class TickTickBridgePlugin extends Plugin {
     if (navigator.onLine && Date.now() >= this.rateLimitedUntil) {
       try {
         const documents = await this.client().getHabitCheckins([habitId], from, to);
-        const remote = (documents ?? []).find((document: any) => String(document?.habitId) === habitId)?.checkins ?? [];
+        const remote = (documents ?? []).find((document: { habitId?: string; checkins?: CachedHabitCheckin[] }) => String(document?.habitId) === habitId)?.checkins ?? [];
         if (remote.length || entries.length) {
           const byStamp = new Map(entries.map(entry => [Number(entry.stamp), entry]));
           for (const entry of remote) byStamp.set(Number(entry.stamp), { stamp: Number(entry.stamp), value: Number(entry.value ?? 0), goal: Number(entry.goal ?? habit.goal ?? 1), status: Number(entry.status ?? 0) });
@@ -890,7 +914,7 @@ export default class TickTickBridgePlugin extends Plugin {
     });
   }
 
-  private async loadHabitDetails(habit: any) {
+  private async loadHabitDetails(habit: TickTickHabit) {
     if (!habit?.id || !navigator.onLine || Date.now() < this.rateLimitedUntil) return habit;
     const fresh = await this.client().getHabit(String(habit.id));
     if (fresh && typeof fresh === "object") {
@@ -1032,7 +1056,7 @@ export default class TickTickBridgePlugin extends Plugin {
     } catch { return null; }
   }
 
-  async webOpenTasks(): Promise<any[] | null> {
+  async webOpenTasks(): Promise<TickTickTask[] | null> {
     const document = await this.webRequest("batch/check/0");
     if (!document) return null;
     const profiles = Array.isArray(document.projectProfiles) ? document.projectProfiles : [];
@@ -1250,7 +1274,7 @@ export default class TickTickBridgePlugin extends Plugin {
         root.createDiv({ cls: "daily-habit-empty", text: "عادتی برای امروز در TickTick نیست." });
         return;
       }
-      if (dashboard) habits.sort((left: any, right: any) => habitDashboardGroup(left).localeCompare(habitDashboardGroup(right), "fa") || habitDashboardSection(left).localeCompare(habitDashboardSection(right), "fa"));
+      if (dashboard) habits.sort((left: TickTickHabit, right: TickTickHabit) => habitDashboardGroup(left).localeCompare(habitDashboardGroup(right), "fa") || habitDashboardSection(left).localeCompare(habitDashboardSection(right), "fa"));
       const cards = dashboard ? null : root.createDiv({ cls: "daily-habit-cards" });
       const dashboardGroups = new Map<string, HTMLElement>();
       for (const habit of habits) {

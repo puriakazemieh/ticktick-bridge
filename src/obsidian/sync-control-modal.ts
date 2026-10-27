@@ -1,6 +1,14 @@
 import { App, Modal, Notice, Setting } from "obsidian";
+
+export interface SyncControlPlugin {
+  syncNow: () => Promise<void>;
+  previewMarkdownSync: () => Promise<void>;
+  applyMarkdownSync: () => Promise<void>;
+  openMarkdownSyncConflicts: () => Promise<void>;
+}
+
 export class SyncControlModal extends Modal {
-  constructor(app: App, private plugin: any) { super(app); }
+  constructor(app: App, private plugin: SyncControlPlugin) { super(app); }
   onOpen() {
     this.titleEl.setText("همگام‌سازی TickTick");
     this.contentEl.createEl("p", { text: "اول پیش‌نمایش را ببین؛ اعمال فقط پس از انتخاب صریح شما انجام می‌شود." });

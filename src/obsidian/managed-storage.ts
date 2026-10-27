@@ -1,6 +1,6 @@
 import { backupPath, journalPath, managedRoot, privateCachePath, publicManagedMetadata, reportPath, selectExpiredBackups } from "../core/managed-storage.js";
 
-type VaultAdapter = { exists(path: string): Promise<boolean>; mkdir(path: string): Promise<void>; read(path: string): Promise<string>; write(path: string, data: string): Promise<void>; rename?(from: string, to: string): Promise<void>; remove(path: string): Promise<void>; list(path: string): Promise<{ files: string[]; folders: string[] }>; stat(path: string): Promise<{ size: number } | null> };
+export type VaultAdapter = { exists(path: string): Promise<boolean>; mkdir(path: string): Promise<void>; read(path: string): Promise<string>; write(path: string, data: string): Promise<void>; rename?(from: string, to: string): Promise<void>; remove(path: string): Promise<void>; list(path: string): Promise<{ files: string[]; folders: string[] }>; stat(path: string): Promise<{ size: number } | null> };
 export class ManagedStorage {
   private adapter: VaultAdapter;
   constructor(adapter: VaultAdapter) { this.adapter = adapter; }

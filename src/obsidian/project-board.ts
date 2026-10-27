@@ -8,10 +8,11 @@ import { formatPersianDate } from "../core/persian-date.js";
 import { sortPlanningTasks } from "../core/calendar-range.js";
 import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
 import { HabitDetailsModal } from "./planning-calendar";
+import type { TickTickTask, TickTickProject, TickTickHabit, CachedHabitCheckin, ProjectBoardData, HabitHistoryEntry } from "./types";
 
 const HABIT_BOARD_VIEW_ID = "ticktick:view:habits";
 
-function habitGlyph(habit: any) {
+function habitGlyph(habit: Partial<TickTickHabit>) {
   const value = String(habit?.iconRes ?? habit?.icon ?? "").toLowerCase();
   if (/language|book|read|learn/.test(value)) return "📚";
   if (/sport|run|fitness|exercise/.test(value)) return "🏃";
@@ -21,8 +22,6 @@ function habitGlyph(habit: any) {
   if (/write|note/.test(value)) return "✍️";
   return "✓";
 }
-
-import type { TickTickTask, TickTickProject, TickTickHabit, CachedHabitCheckin, ProjectBoardData, HabitHistoryEntry } from "./types";
 
 export type ProjectBoardHost = {
   app: App;
@@ -444,7 +443,7 @@ export class ProjectBoard {
             return;
           }
           const id = event.dataTransfer?.getData("text/ticktick-board-task");
-          const task = data.tasks.find((item: any) => String(item.id) === id);
+          const task = data.tasks.find((item: TickTickTask) => String(item.id) === id);
           if (!task || String(task.columnId ?? "") === String(column.id)) return;
           void this.moveTask(task, String(column.id));
         });
@@ -503,7 +502,7 @@ export class ProjectBoard {
     }
   }
 
-  private card(parent: HTMLElement, task: any, projectColor?: string, movable = true) {
+  private card(parent: HTMLElement, task: TickTickTask, projectColor?: string, movable = true) {
     const bound = this.host.binding(task);
     const priority = taskPriority(task.priority);
     const isNote = String(task.kind ?? task.type ?? task.taskType ?? "").toUpperCase() === "NOTE";
@@ -638,7 +637,7 @@ export class ProjectBoard {
     });
   }
 
-  private async moveTask(task: any, columnId: string) {
+  private async moveTask(task: TickTickTask, columnId: string) {
     try {
       await this.host.moveToColumn(task, columnId);
       new Notice("تسک به ستون جدید منتقل و با TickTick همگام شد.");

@@ -1563,7 +1563,9 @@ var TaskOverflowModal = class extends import_obsidian4.Modal {
       });
       row.style.setProperty("--ticktick-task-tone", tone);
       const openDetails = () => new TaskDetailsModal(this.app, task, {
-        complete: () => this.complete(task),
+        complete: async () => {
+          await this.complete(task);
+        },
         load: this.load,
         edit: this.edit,
         changed: this.changed
@@ -4585,7 +4587,7 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
       },
       habitHistory: (habitId, from, to) => this.cachedHabitHistoryRange(habitId, from, to),
       setHabitProgress: async (habit, day, value, goal) => this.checkInHabit(String(habit.id), day, { value: Math.max(0, value), goal: Math.max(1, goal), status: value >= goal ? 2 : void 0 }),
-      board: async (project) => this.cache.projectBoards[String(project.id)] ?? this.client().projectBoard(project),
+      board: async (project) => (project ? this.cache.projectBoards[String(project.id)] : void 0) ?? this.client().projectBoard(project),
       // This host is called by an explicit toolbar action. Let the central
       // sync layer report an honest success/fallback/error notification.
       refresh: async () => {
@@ -4893,29 +4895,46 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
       const client = this.client();
       if (type === "create") return client.createTask(payload);
       if (type === "update") return client.updateTask(payload);
-      if (type === "complete") return client.completeTask(payload.projectId, payload.id);
-      if (type === "delete") return client.deleteTask(payload.projectId, payload.id);
-      return client.checkInHabit(payload.habitId, payload.day, payload.checkin);
+      if (type === "complete") {
+        const p2 = payload;
+        return client.completeTask(String(p2.projectId ?? ""), String(p2.id ?? ""));
+      }
+      if (type === "delete") {
+        const p2 = payload;
+        return client.deleteTask(String(p2.projectId ?? ""), String(p2.id ?? ""));
+      }
+      const p = payload;
+      return client.checkInHabit(p.habitId, p.day, p.checkin);
     };
     const applyLocal = () => {
       if (type === "create") {
-        const task = { ...payload, id: `offline-${operation.id}`, status: 0 };
+        const p = payload;
+        const task = {
+          id: `offline-${operation.id}`,
+          projectId: String(p.projectId ?? ""),
+          title: String(p.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"),
+          status: 0,
+          ...p
+        };
         this.cache.tasks.push(task);
-        const board = this.cache.projectBoards[String(task.projectId ?? "")];
+        const board = this.cache.projectBoards[task.projectId];
         if (board) board.tasks = [...board.tasks ?? [], task];
       }
       if (type === "update") {
-        this.cache.tasks = this.cache.tasks.map((task) => task.id === payload.id ? { ...task, ...payload } : task);
-        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).map((task) => task.id === payload.id ? { ...task, ...payload } : task);
+        const updatePayload = payload;
+        this.cache.tasks = this.cache.tasks.map((task) => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
+        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).map((task) => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
       }
       if (type === "complete" || type === "delete") {
-        this.cache.tasks = this.cache.tasks.filter((task) => task.id !== payload.id);
-        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).filter((task) => task.id !== payload.id);
+        const targetId = payload.id;
+        this.cache.tasks = this.cache.tasks.filter((task) => task.id !== targetId);
+        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).filter((task) => task.id !== targetId);
       }
       if (type === "habit") {
-        const stamp = Number(String(payload.day).replaceAll("-", ""));
-        const previous = this.cache.habitCheckins[payload.habitId] ?? [];
-        this.cache.habitCheckins[payload.habitId] = [...previous.filter((entry) => entry.stamp !== stamp), { stamp, ...payload.checkin }];
+        const habitPayload = payload;
+        const stamp = Number(String(habitPayload.day).replaceAll("-", ""));
+        const previous = this.cache.habitCheckins[habitPayload.habitId] ?? [];
+        this.cache.habitCheckins[habitPayload.habitId] = [...previous.filter((entry) => entry.stamp !== stamp), { stamp, value: 0, goal: 1, status: 0, ...habitPayload.checkin }];
       }
     };
     if (!navigator.onLine) {
@@ -4961,9 +4980,16 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
         const client = this.client();
         if (operation.type === "create") await client.createTask(operation.payload);
         else if (operation.type === "update") await client.updateTask(operation.payload);
-        else if (operation.type === "complete") await client.completeTask(operation.payload.projectId, operation.payload.id);
-        else if (operation.type === "delete") await client.deleteTask(operation.payload.projectId, operation.payload.id);
-        else await client.checkInHabit(operation.payload.habitId, operation.payload.day, operation.payload.checkin);
+        else if (operation.type === "complete") {
+          const p = operation.payload;
+          await client.completeTask(String(p.projectId ?? ""), String(p.id ?? ""));
+        } else if (operation.type === "delete") {
+          const p = operation.payload;
+          await client.deleteTask(String(p.projectId ?? ""), String(p.id ?? ""));
+        } else {
+          const p = operation.payload;
+          await client.checkInHabit(String(p.habitId), String(p.day), p.checkin);
+        }
       } catch (error) {
         const status = Number(error?.status ?? 0);
         if (status > 0 && status < 500 && status !== 429) {

@@ -1,7 +1,7 @@
 import { App, Component, MarkdownRenderer, Platform, setIcon } from "obsidian";
 import { checklistSummary } from "../core/checklist.js";
 import { isHabitScheduledForDay, jalaliDateKeyToGregorian } from "../core/date.js";
-import type { BridgeCache, TaskDraft } from "./types";
+import type { BridgeCache, TaskDraft, TickTickTask, TickTickHabit } from "./types";
 
 export function currentPlatformName() {
   if (Platform.isWin) return "Windows";
@@ -10,7 +10,7 @@ export function currentPlatformName() {
   return "Unknown";
 }
 
-export function appendChecklistSummary(parent: HTMLElement, task: any, enabled: boolean) {
+export function appendChecklistSummary(parent: HTMLElement, task: Pick<TickTickTask, "items">, enabled: boolean) {
   const summary = checklistSummary(task.items);
   if (!summary.total) return;
   const detail = parent.createEl("details", { cls: "ticktick-checklist-readonly" });
@@ -214,7 +214,7 @@ export function checkboxSchedule(source: string, today: string) {
   return { dueDate: "", title: source.replace(/\s+/g, " ").trim() };
 }
 
-export function isHabitScheduledForCachedDay(habit: any, day: string) {
+export function isHabitScheduledForCachedDay(habit: TickTickHabit, day: string) {
   return isHabitScheduledForDay(habit, day);
 }
 
@@ -278,7 +278,7 @@ export function toTaskPayload(draft: TaskDraft, timeZone: string) {
 }
 
 export function publicCacheMetadata(cache: BridgeCache) {
-  const task = (item: any) => ({ id: item?.id, projectId: item?.projectId, title: item?.title, status: item?.status, dueDate: item?.dueDate, startDate: item?.startDate });
-  const habit = (item: any) => ({ id: item?.id, name: item?.name, status: item?.status, sectionId: item?.sectionId, sectionName: item?.sectionName });
+  const task = (item: TickTickTask) => ({ id: item?.id, projectId: item?.projectId, title: item?.title, status: item?.status, dueDate: item?.dueDate, startDate: item?.startDate });
+  const habit = (item: TickTickHabit) => ({ id: item?.id, name: item?.name, status: item?.status, sectionId: item?.sectionId, sectionName: item?.sectionName });
   return { savedAt: cache.savedAt, tasks: cache.tasks.map(task), habits: cache.habits.map(habit), pendingCount: cache.pending.length, conflictCount: cache.conflicts.length };
 }

@@ -1,11 +1,12 @@
 import { App, Modal, Setting } from "obsidian";
+import type { MarkdownConflict, PendingMutation } from "../types/ticktick";
 
 export type ConflictChoice = "local" | "remote" | "merge" | "unbind" | "skip";
 
 /** Deliberately requires a human choice: a same-field conflict is never auto-resolved. */
 export class MarkdownConflictModal extends Modal {
   private resolveChoice!: (choice: ConflictChoice) => void;
-  constructor(app: App, private conflict: any) { super(app); }
+  constructor(app: App, private conflict: MarkdownConflict) { super(app); }
   openAndWait() { this.open(); return new Promise<ConflictChoice>(resolve => { this.resolveChoice = resolve; }); }
   onOpen() {
     this.titleEl.setText("تعارض همگام‌سازی Markdown و TickTick");
@@ -22,13 +23,17 @@ export class MarkdownConflictModal extends Modal {
  * this screen keeps the exact queued change visible and lets the user choose a
  * safe next action. */
 export class PendingMutationConflictModal extends Modal {
-  constructor(app: App, private operations: any[], private resolve: (operation: any, choice: "retry" | "discard") => Promise<void>) { super(app); }
+  constructor(
+    app: App,
+    private operations: PendingMutation[],
+    private resolve: (operation: PendingMutation, choice: "retry" | "discard") => Promise<void>
+  ) { super(app); }
   onOpen() {
     this.titleEl.setText("تغییرهای نیازمند بررسی");
     this.contentEl.createEl("p", { text: "این تغییرها به‌صورت محلی حفظ شده‌اند، اما TickTick آن‌ها را در آخرین ارسال نپذیرفته است." });
     if (!this.operations.length) { this.contentEl.createEl("p", { text: "تعارضی برای مدیریت باقی نمانده است." }); return; }
     for (const operation of this.operations) {
-      const payload = operation.payload ?? {};
+      const payload = (operation.payload ?? {}) as Record<string, unknown>;
       const card = this.contentEl.createDiv({ cls: "ticktick-conflict-card" });
       card.createEl("strong", { text: String(payload.title ?? payload.id ?? "تغییر بدون عنوان") });
       card.createEl("small", { text: `عملیات: ${operation.type} · ثبت محلی: ${new Date(operation.queuedAt ?? Date.now()).toLocaleString("fa-IR")}` });

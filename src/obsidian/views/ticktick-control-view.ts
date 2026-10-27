@@ -124,7 +124,7 @@ export class TickTickControlView extends ItemView {
     parent: HTMLElement,
     label: string,
     iconName: string,
-    action: () => Promise<any>,
+    action: () => Promise<unknown>,
     cta = false,
     danger = false
   ) {

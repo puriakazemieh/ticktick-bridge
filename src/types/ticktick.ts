@@ -32,6 +32,7 @@ export interface TickTickTask {
   tags?: string[];
   tagNames?: string[];
   projectName?: string;
+  projectColor?: string;
   kind?: "TEXT" | "NOTE" | string;
   pinned?: boolean;
   isInbox?: boolean;
@@ -113,12 +114,38 @@ export interface TickTickHabit {
   [key: string]: unknown;
 }
 
+export interface TickTickNote {
+  id: string;
+  title: string;
+  projectId: string;
+  projectName?: string;
+  kind: "NOTE";
+  content: string;
+  modifiedTime?: string | null;
+  tags?: string[];
+  [key: string]: unknown;
+}
+
+export interface MarkdownConflict {
+  path: string;
+  line: number;
+  message: string;
+  diff?: {
+    conflicts?: Array<{
+      field: string;
+      local: unknown;
+      remote: unknown;
+    }>;
+  };
+  [key: string]: unknown;
+}
+
 export type MutationType = "create" | "update" | "complete" | "delete" | "habit";
 
 export interface PendingMutation {
   id: string;
   type: MutationType;
-  payload: Partial<TickTickTask> | Partial<TickTickHabit> | any;
+  payload: Partial<TickTickTask> | Partial<TickTickHabit> | Partial<TickTickProject> | Record<string, unknown>;
   queuedAt: string;
 }
 

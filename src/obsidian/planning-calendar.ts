@@ -39,7 +39,7 @@ export type PlannerHost = HabitDetailsHost & {
 type Mode = "day" | "week" | "month";
 type ColorMode = "project" | "tag" | "priority" | "uniform";
 
-function habitGlyph(habit: any) {
+function habitGlyph(habit: Partial<TickTickHabit>) {
   const value = String(habit?.iconRes ?? habit?.icon ?? "").toLowerCase();
   if (/language|book|read|learn/.test(value)) return "📚";
   if (/sport|run|fitness|exercise/.test(value)) return "🏃";
@@ -50,7 +50,7 @@ function habitGlyph(habit: any) {
   return "✓";
 }
 
-function formatTaskTime(task: any, timeZone: string): string | null {
+function formatTaskTime(task: Pick<TickTickTask, "isAllDay" | "startDate" | "dueDate">, timeZone: string): string | null {
   if (task.isAllDay) return null;
   const raw = task.startDate ?? task.dueDate;
   if (!raw || !String(raw).includes("T")) return null;
@@ -139,10 +139,10 @@ class PlannerMultiSelectModal extends Modal {
 class TaskOverflowModal extends Modal {
   constructor(
     app: App,
-    private tasks: any[],
-    private complete: (task: any) => Promise<any>,
-    private load: (task: any) => Promise<any>,
-    private edit: (task: any) => Promise<any>,
+    private tasks: TickTickTask[],
+    private complete: (task: TickTickTask) => Promise<unknown>,
+    private load: (task: TickTickTask) => Promise<TickTickTask | undefined>,
+    private edit: (task: TickTickTask) => Promise<unknown>,
     private changed: () => Promise<void>,
     private dayLabel?: string
   ) {
@@ -171,7 +171,7 @@ class TaskOverflowModal extends Modal {
       row.style.setProperty("--ticktick-task-tone", tone);
 
       const openDetails = () => new TaskDetailsModal(this.app, task, {
-        complete: () => this.complete(task),
+        complete: async () => { await this.complete(task); },
         load: this.load,
         edit: this.edit,
         changed: this.changed
@@ -228,16 +228,16 @@ class TaskOverflowModal extends Modal {
 export class HabitDetailsModal extends Modal {
   private month: string;
   private selectedDay: string;
-  private history = new Map<string, any>();
+  private history = new Map<string, HabitHistoryEntry>();
   private saving = false;
-  constructor(app: App, private habit: any, private host: HabitDetailsHost, day: string) {
+  constructor(app: App, private habit: TickTickHabit, private host: HabitDetailsHost, day: string) {
     super(app);
     this.month = day;
     this.selectedDay = day;
     // The planner already supplied its local history when the habit was clicked.
     this.history = new Map((Array.isArray(habit?.history) ? habit.history : [])
-      .filter((entry: any) => entry?.date)
-      .map((entry: any) => [String(entry.date), entry]));
+      .filter((entry: HabitHistoryEntry) => entry?.date)
+      .map((entry: HabitHistoryEntry) => [String(entry.date), entry]));
     if (habit?.checkin) this.history.set(day, { date: day, value: Number(habit.checkin.value ?? 0), completed: Number(habit.checkin.status ?? 0) === 2 });
   }
   onOpen() {
@@ -248,7 +248,7 @@ export class HabitDetailsModal extends Modal {
   private loadMonth() {
     const days = this.monthDays();
     const entries = this.host.habitHistory(String(this.habit.id), days[0], days.at(-1)!);
-    this.history = new Map(entries.map((entry: any) => [entry.date, entry]));
+    this.history = new Map(entries.map((entry: HabitHistoryEntry) => [entry.date, entry]));
     this.render();
   }
   private selectedEntry() { return this.history.get(this.selectedDay) ?? { date: this.selectedDay, value: 0, completed: false }; }
@@ -645,11 +645,11 @@ export class PlanningCalendar {
   private filteredTasks() {
     return this.host.tasks().filter(task =>
       (!this.projects.size || this.projects.has(String(task.projectName ?? task.projectId ?? "ورودی"))) &&
-      (!this.tags.size || (task.tags ?? []).some((tag: any) => this.tags.has(String(tag))))
+      (!this.tags.size || (task.tags ?? []).some((tag: string) => this.tags.has(String(tag))))
     );
   }
 
-  private renderDays(root: HTMLElement, days: string[], tasks: any[]) {
+  private renderDays(root: HTMLElement, days: string[], tasks: TickTickTask[]) {
     const today = todayInZone(this.host.timeZone);
     const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
     enhanceHorizontalScroll(grid);
@@ -726,7 +726,7 @@ export class PlanningCalendar {
     }
   }
 
-  private renderMonth(root: HTMLElement, tasks: any[]) {
+  private renderMonth(root: HTMLElement, tasks: TickTickTask[]) {
     const today = todayInZone(this.host.timeZone);
     const grid = root.createDiv({ cls: "ticktick-planner-month" });
     enhanceHorizontalScroll(grid);
@@ -831,7 +831,7 @@ export class PlanningCalendar {
     }
   }
 
-  private renderRangeLanes(parent: HTMLElement, days: string[], tasks: any[], cls: string) {
+  private renderRangeLanes(parent: HTMLElement, days: string[], tasks: TickTickTask[], cls: string) {
     const rangeTasks = tasks.filter(task => {
       if (Number(task.status ?? 0) !== 0 && !this.host.showCompleted) return false;
       const range = taskDateRange(task, this.host.timeZone);
@@ -910,7 +910,7 @@ export class PlanningCalendar {
     }
   }
 
-  private itemsForDay(tasks: any[], day: string) {
+  private itemsForDay(tasks: TickTickTask[], day: string): TickTickTask[] {
     const normal = tasksForCalendarDay(tasks, day, this.host.timeZone, this.host.showCompleted, this.sortMode);
     if (!this.showAllRecurring) return normal;
     const known = new Set(normal.map(task => String(task.id)));
@@ -960,7 +960,7 @@ export class PlanningCalendar {
     }
   }
 
-  private renderTask(parent: HTMLElement, task: any) {
+  private renderTask(parent: HTMLElement, task: TickTickTask) {
     const bound = this.host.binding(task);
     const priority = taskPriority(task.priority);
     const isCompleted = Number(task.status ?? 0) !== 0;
@@ -1053,7 +1053,7 @@ export class PlanningCalendar {
     });
   }
 
-  private renderMonthTask(parent: HTMLElement, task: any) {
+  private renderMonthTask(parent: HTMLElement, task: TickTickTask) {
     const bound = this.host.binding(task);
     const priority = taskPriority(task.priority);
     const isCompleted = Number(task.status ?? 0) !== 0;
@@ -1121,7 +1121,7 @@ export class PlanningCalendar {
     });
   }
 
-  private taskTone(task: any) {
+  private taskTone(task: TickTickTask) {
     if (this.colorMode === "uniform") return "var(--interactive-accent)";
     if (this.colorMode === "priority") {
       return Number(task.priority) === 5
@@ -1142,7 +1142,7 @@ export class PlanningCalendar {
     return palette[hash % palette.length];
   }
 
-  private async completeTask(task: any, checkbox?: HTMLInputElement) {
+  private async completeTask(task: TickTickTask, checkbox?: HTMLInputElement) {
     try {
       await this.host.complete(task);
       new Notice("تسک تکمیل و همگام شد.");
@@ -1169,7 +1169,7 @@ export class PlanningCalendar {
     }
   }
 
-  private async dropTask(task: any, target: string, visualSourceDay?: string) {
+  private async dropTask(task: TickTickTask, target: string, visualSourceDay?: string) {
     const currentRange = taskDateRange(task, this.host.timeZone);
     const currentDay = currentRange?.start ?? String(task.dueDate ?? task.startDate ?? "").slice(0, 10);
     if (!currentDay) return;
@@ -1189,7 +1189,7 @@ export class PlanningCalendar {
     }
   }
 
-  private draggedTask(event: DragEvent, tasks: any[]) {
+  private draggedTask(event: DragEvent, tasks: TickTickTask[]) {
     const id = event.dataTransfer?.getData("text/ticktick-task")
       || event.dataTransfer?.getData("text/plain")
       || this.draggingTaskId;
@@ -1198,7 +1198,7 @@ export class PlanningCalendar {
 
   /** Capture drops before a theme, card, or embedded Obsidian view can stop
    * propagation. Cells still keep their local listeners for visual feedback. */
-  private bindCalendarDrop(surface: HTMLElement, tasks: any[]) {
+  private bindCalendarDrop(surface: HTMLElement, tasks: TickTickTask[]) {
     const targetDay = (event: DragEvent) => this.visualDropDay(surface, event);
     surface.addEventListener("dragover", event => {
       const day = targetDay(event);
@@ -1244,7 +1244,7 @@ export class PlanningCalendar {
       : undefined;
   }
 
-  private beginTaskDrag(task: any, event: DragEvent, card: HTMLElement) {
+  private beginTaskDrag(task: TickTickTask, event: DragEvent, card: HTMLElement) {
     this.draggingTaskId = String(task.id);
     const surface = card.closest<HTMLElement>(".ticktick-planner-days, .ticktick-planner-month");
     this.draggingSourceDay = surface ? this.visualDropDay(surface, event) ?? "" : "";
