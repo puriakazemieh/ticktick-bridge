@@ -296,7 +296,9 @@ export default class TickTickBridgePlugin extends Plugin {
         return this.checkInHabit(String(habit.id), day, { value: next, goal, status: next >= goal ? 2 : undefined });
       },
       habitWithHistory: (habitId: string, day: string) => this.cachedHabitsWithHistory(day, 28).find(habit => String(habit.id) === habitId),
-      habitHistory: async (habitId: string, from: string, to: string) => this.habitHistoryRange(habitId, from, to),
+      // Details panels are cache-only. The normal sync pipeline refreshes this
+      // mirror; opening a habit must never create a second web request.
+      habitHistory: (habitId: string, from: string, to: string) => this.cachedHabitHistoryRange(habitId, from, to),
       setHabitProgress: async (habit: any, day: string, value: number, goal: number) => this.checkInHabit(String(habit.id), day, { value: Math.max(0, value), goal: Math.max(1, goal), status: value >= goal ? 2 : undefined }),
       loadHabit: async (habit: any) => this.loadHabitDetails(habit),
       showHabits: () => this.settings.plannerShowHabits,
@@ -307,12 +309,17 @@ export default class TickTickBridgePlugin extends Plugin {
   projectBoardHost() {
     return {
       app: this.app,
+      timeZone: this.settings.timeZone,
+      firstWeekday: 6,
       projects: async () => this.cache.projects.length ? this.cache.projects : this.client().listProjects(),
       createProject: (project: any) => this.client().createProject(project),
       updateProject: (project: any) => this.client().updateProject(project),
       deleteProject: (projectId: string) => this.client().deleteProject(projectId),
       createTask: (initial: any) => this.createTaskFromSurface(initial),
       tasks: () => this.cache.tasks,
+      habits: () => this.cache.habits,
+      habitHistory: (habitId: string, from: string, to: string) => this.cachedHabitHistoryRange(habitId, from, to),
+      setHabitProgress: async (habit: any, day: string, value: number, goal: number) => this.checkInHabit(String(habit.id), day, { value: Math.max(0, value), goal: Math.max(1, goal), status: value >= goal ? 2 : undefined }),
       board: async (project: any) => this.cache.projectBoards[String(project.id)] ?? this.client().projectBoard(project),
       // This host is called by an explicit toolbar action. Let the central
       // sync layer report an honest success/fallback/error notification.
@@ -895,6 +902,20 @@ export default class TickTickBridgePlugin extends Plugin {
         // Cached history is still valuable when TickTick is temporarily busy.
       }
     }
+    const dates: string[] = [];
+    for (let day = from; day <= to; day = shiftIsoDay(day, 1)) dates.push(day);
+    const goal = Math.max(1, Number(habit.goal ?? habit.target ?? 1));
+    return dates.filter(day => isHabitScheduledForCachedDay(habit, day)).map(day => {
+      const entry = entries.find(item => Number(item.stamp) === Number(day.replaceAll("-", "")));
+      const value = Number(entry?.value ?? 0);
+      return { date: day, value, completed: Number(entry?.status ?? 0) === 2 || value >= goal };
+    });
+  }
+
+  private cachedHabitHistoryRange(habitId: string, from: string, to: string) {
+    const habit = this.cache.habits.find(item => String(item.id) === habitId);
+    if (!habit) return [];
+    const entries = this.cache.habitCheckins[habitId] ?? [];
     const dates: string[] = [];
     for (let day = from; day <= to; day = shiftIsoDay(day, 1)) dates.push(day);
     const goal = Math.max(1, Number(habit.goal ?? habit.target ?? 1));

@@ -7,6 +7,9 @@ import { taskDescription } from "../core/task-description.js";
 import { formatPersianDate } from "../core/persian-date.js";
 import { sortPlanningTasks } from "../core/calendar-range.js";
 import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
+import { HabitDetailsModal } from "./planning-calendar";
+
+const HABIT_BOARD_VIEW_ID = "ticktick:view:habits";
 
 type Host = {
   app: App;
@@ -16,6 +19,11 @@ type Host = {
   deleteProject: (projectId: string) => Promise<any>;
   createTask: (initial: any) => Promise<any>;
   tasks: () => any[];
+  habits: () => any[];
+  habitHistory: (habitId: string, from: string, to: string) => any[];
+  setHabitProgress: (habit: any, day: string, value: number, goal: number) => Promise<any>;
+  firstWeekday: number;
+  timeZone: string;
   board: (project: any) => Promise<any>;
   refresh: () => Promise<void>;
   complete: (task: any) => Promise<any>;
@@ -80,6 +88,12 @@ export class ProjectBoard {
       inbox.createSpan({ cls: "ticktick-project-name", text: "ورودی" });
       inbox.createSpan({ cls: "ticktick-project-count", text: String(virtual.inbox.count) });
       inbox.addEventListener("click", () => { this.selected = INBOX_BOARD_VIEW_ID; void this.persistAndRender(); });
+      const habits = rail.createEl("button", { cls: `ticktick-project-row ${this.selected === HABIT_BOARD_VIEW_ID ? "is-selected" : ""}`, attr: { type: "button", "aria-label": `عادت‌ها، ${this.host.habits().length} عادت` } });
+      const habitsIcon = habits.createSpan({ cls: "ticktick-project-row-icon" });
+      setIcon(habitsIcon, "activity");
+      habits.createSpan({ cls: "ticktick-project-name", text: "عادت‌ها" });
+      habits.createSpan({ cls: "ticktick-project-count", text: String(this.host.habits().length) });
+      habits.addEventListener("click", () => { this.selected = HABIT_BOARD_VIEW_ID; void this.persistAndRender(); });
       const viewHeading = rail.createEl("button", {
         cls: `ticktick-project-group ${this.collapsed.has("virtual-views") ? "is-collapsed" : ""}`,
         attr: { type: "button" }
@@ -189,6 +203,11 @@ export class ProjectBoard {
 
       // ── 2. Main Board Area ──
       const main = root.createDiv({ cls: "ticktick-project-main" });
+
+      if (this.selected === HABIT_BOARD_VIEW_ID) {
+        this.renderHabitBoard(main);
+        return;
+      }
 
       const project = projects.find(item => String(item.id) === this.selected);
       const virtualData = virtualBoardData(this.selected, this.host.tasks(), projects);
@@ -433,6 +452,33 @@ export class ProjectBoard {
   private async persistAndRender() {
     await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: this.sidebarCollapsed, sidebarPreferenceInitialized: true });
     await this.render();
+  }
+
+  private renderHabitBoard(main: HTMLElement) {
+    const habits = this.host.habits();
+    const header = main.createDiv({ cls: "ticktick-project-header" });
+    const info = header.createDiv({ cls: "ticktick-project-header-info" });
+    info.createEl("h2", { cls: "ticktick-project-title", text: "عادت‌ها" });
+    info.createSpan({ cls: "ticktick-project-badge", text: `${habits.length} عادت` });
+    const cards = main.createDiv({ cls: "ticktick-habit-board-cards" });
+    if (!habits.length) { cards.createDiv({ cls: "ticktick-board-empty", text: "عادتی در کش محلی نیست؛ یک بار همگام‌سازی کنید." }); return; }
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: this.host.timeZone }).format(new Date());
+    for (const habit of habits) {
+      const goal = Math.max(1, Number(habit.goal ?? habit.target ?? 1));
+      const entry = (this.host.habitHistory(String(habit.id), today, today)[0] ?? {});
+      const value = Number(entry.value ?? 0);
+      const card = cards.createEl("button", { cls: "ticktick-habit-board-card", attr: { type: "button" } });
+      card.createSpan({ cls: "ticktick-habit-board-icon", text: "✓" });
+      const copy = card.createDiv({ cls: "ticktick-habit-board-copy" });
+      copy.createEl("strong", { text: String(habit.name ?? "عادت") });
+      copy.createSpan({ text: `${value}/${goal} ${habit.unit ?? (goal > 1 ? "مرحله" : "ثبت")}` });
+      card.addEventListener("click", () => new HabitDetailsModal(this.host.app, habit, {
+        firstWeekday: this.host.firstWeekday,
+        habits: day => this.host.habits().filter(item => String(item.id) === String(habit.id) || false),
+        habitHistory: this.host.habitHistory,
+        setHabitProgress: this.host.setHabitProgress,
+      }, today).open());
+    }
   }
 
   private card(parent: HTMLElement, task: any, projectColor?: string, movable = true) {

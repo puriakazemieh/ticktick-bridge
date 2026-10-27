@@ -56,8 +56,17 @@ function taskDay(task, timeZone) { return toDateKey(task.dueDate, task.timeZone 
 /** A task with distinct start/end dates can be painted as one continuous calendar bar.
  * TickTick keeps this visual span even when the task also has a repeat rule. */
 export function taskDateRange(task, timeZone = "Asia/Tehran") {
-  const start = toDateKey(task?.startDate, task?.timeZone || timeZone);
+  let start = toDateKey(task?.startDate, task?.timeZone || timeZone);
   const end = toDateKey(task?.dueDate, task?.timeZone || timeZone);
+  // TickTick moves the due date of an unfinished recurring range but may leave
+  // its original start date untouched. Fold that stale span into its current
+  // recurrence period so a Saturday–Friday task stays one week long.
+  if (start && end && start < end && task?.repeatFlag) {
+    const rule = ruleParts(task); const frequency = rule.FREQ ?? ""; const interval = Math.max(1, Number(rule.INTERVAL ?? 1));
+    const period = frequency === "WEEKLY" ? interval * 7 : frequency === "DAILY" ? interval : 0;
+    const span = dayNumber(end) - dayNumber(start);
+    if (period > 0 && span >= period) start = shiftCalendarDay(end, -(span % period));
+  }
   return start && end && start < end ? { start, end } : null;
 }
 function taskTime(task) { return String(task.startDate ?? task.dueDate ?? "").match(/T(\d{2}:\d{2})/)?.[1] ?? ""; }

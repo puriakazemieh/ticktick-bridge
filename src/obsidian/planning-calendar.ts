@@ -6,7 +6,14 @@ import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
 import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
 
-type PlannerHost = {
+export type HabitDetailsHost = {
+  firstWeekday: number;
+  habits: (day: string) => any[];
+  habitHistory: (habitId: string, from: string, to: string) => any[];
+  setHabitProgress: (habit: any, day: string, value: number, goal: number) => Promise<any>;
+};
+
+type PlannerHost = HabitDetailsHost & {
   app: App;
   timeZone: string;
   firstWeekday: number;
@@ -22,8 +29,6 @@ type PlannerHost = {
   habits: (day: string) => any[];
   checkInHabit: (habit: any, day: string) => Promise<any>;
   habitWithHistory: (habitId: string, day: string) => any | undefined;
-  habitHistory: (habitId: string, from: string, to: string) => Promise<any[]>;
-  setHabitProgress: (habit: any, day: string, value: number, goal: number) => Promise<any>;
   loadHabit: (habit: any) => Promise<any>;
   showHabits: () => boolean;
   setShowHabits: (value: boolean) => Promise<void>;
@@ -31,6 +36,17 @@ type PlannerHost = {
 
 type Mode = "day" | "week" | "month";
 type ColorMode = "project" | "tag" | "priority" | "uniform";
+
+function habitGlyph(habit: any) {
+  const value = String(habit?.iconRes ?? habit?.icon ?? "").toLowerCase();
+  if (/language|book|read|learn/.test(value)) return "📚";
+  if (/sport|run|fitness|exercise/.test(value)) return "🏃";
+  if (/meditat|mind|sleep/.test(value)) return "🧘";
+  if (/water|drink/.test(value)) return "💧";
+  if (/music|listen/.test(value)) return "🎵";
+  if (/write|note/.test(value)) return "✍️";
+  return "✓";
+}
 
 function formatTaskTime(task: any, timeZone: string): string | null {
   if (task.isAllDay) return null;
@@ -207,17 +223,16 @@ class TaskOverflowModal extends Modal {
   }
 }
 
-class HabitDetailsModal extends Modal {
+export class HabitDetailsModal extends Modal {
   private month: string;
   private selectedDay: string;
   private history = new Map<string, any>();
-  private loading = false;
-  constructor(app: App, private habit: any, private host: PlannerHost, day: string) {
+  private saving = false;
+  constructor(app: App, private habit: any, private host: HabitDetailsHost, day: string) {
     super(app);
     this.month = day;
     this.selectedDay = day;
-    // The planner already supplied its local history when the habit was
-    // clicked. Show it immediately; network reads are only a later refresh.
+    // The planner already supplied its local history when the habit was clicked.
     this.history = new Map((Array.isArray(habit?.history) ? habit.history : [])
       .filter((entry: any) => entry?.date)
       .map((entry: any) => [String(entry.date), entry]));
@@ -225,29 +240,14 @@ class HabitDetailsModal extends Modal {
   }
   onOpen() {
     this.modalEl.addClass("ticktick-habit-details-modal");
-    this.render();
-    void this.refreshInBackground();
-  }
-  private async refreshInBackground() {
-    // Never delay opening the modal for TickTick. A successful remote response
-    // quietly replaces the local snapshot; failure leaves the local view intact.
-    try {
-      const fresh = await this.host.loadHabit(this.habit);
-      if (fresh && typeof fresh === "object") {
-        this.habit = { ...this.habit, ...fresh };
-        this.render();
-      }
-    } catch { /* cached habit remains usable offline */ }
-    await this.loadMonth();
+    this.loadMonth();
   }
   private monthDays() { return persianMonthRange(this.month, this.host.firstWeekday).filter(day => isSamePersianMonth(day, this.month)); }
-  private async loadMonth() {
-    this.loading = true; this.render();
+  private loadMonth() {
     const days = this.monthDays();
-    try {
-      const entries = await this.host.habitHistory(String(this.habit.id), days[0], days.at(-1)!);
-      this.history = new Map(entries.map((entry: any) => [entry.date, entry]));
-    } finally { this.loading = false; this.render(); }
+    const entries = this.host.habitHistory(String(this.habit.id), days[0], days.at(-1)!);
+    this.history = new Map(entries.map((entry: any) => [entry.date, entry]));
+    this.render();
   }
   private selectedEntry() { return this.history.get(this.selectedDay) ?? { date: this.selectedDay, value: 0, completed: false }; }
   private render() {
@@ -257,7 +257,7 @@ class HabitDetailsModal extends Modal {
     const selected = this.selectedEntry(); const value = Number(selected.value ?? 0);
     const shell = this.contentEl.createDiv({ cls: "ticktick-habit-detail-shell" });
     const summary = shell.createDiv({ cls: "ticktick-habit-detail-summary" });
-    summary.createDiv({ cls: "ticktick-habit-detail-icon", text: String(this.habit.iconRes ?? this.habit.icon ?? "✓") });
+    summary.createDiv({ cls: "ticktick-habit-detail-icon", text: habitGlyph(this.habit) });
     const identity = summary.createDiv({ cls: "ticktick-habit-detail-identity" });
     identity.createEl("strong", { text: String(this.habit.name ?? "عادت") });
     identity.createSpan({ text: this.habit.sectionName ?? "TickTick" });
@@ -278,16 +278,16 @@ class HabitDetailsModal extends Modal {
     const decrease = controls.createEl("button", { text: "−", attr: { type: "button", "aria-label": "کم‌کردن یک مرحله" } });
     const count = controls.createEl("span", { text: `${value} از ${goal}` });
     const increase = controls.createEl("button", { text: "+", cls: "mod-cta", attr: { type: "button", "aria-label": "افزودن یک مرحله" } });
-    decrease.disabled = value <= 0 || this.loading;
-    increase.disabled = value >= goal || this.loading;
+    decrease.disabled = value <= 0 || this.saving;
+    increase.disabled = value >= goal || this.saving;
     const setValue = async (next: number) => {
-      decrease.disabled = increase.disabled = true;
+      this.saving = true; decrease.disabled = increase.disabled = true;
       try {
         await this.host.setHabitProgress(this.habit, this.selectedDay, next, goal);
         this.history.set(this.selectedDay, { date: this.selectedDay, value: next, completed: next >= goal });
         new Notice(next >= goal ? "عادت کامل و همگام شد." : `پیشرفت عادت: ${next}/${goal}`);
       } catch (error) { new Notice(error instanceof Error ? error.message : "ثبت عادت ناموفق بود."); }
-      this.render();
+      this.saving = false; this.render();
     };
     decrease.addEventListener("click", () => void setValue(value - 1));
     increase.addEventListener("click", () => void setValue(value + 1));
@@ -298,8 +298,8 @@ class HabitDetailsModal extends Modal {
     const previous = nav.createEl("button", { text: "‹", attr: { type: "button", "aria-label": "ماه قبل" } });
     nav.createEl("strong", { text: new Intl.DateTimeFormat("fa-IR-u-ca-persian", { year: "numeric", month: "long" }).format(new Date(`${this.month}T12:00:00Z`)) });
     const next = nav.createEl("button", { text: "›", attr: { type: "button", "aria-label": "ماه بعد" } });
-    previous.addEventListener("click", () => { this.month = shiftPersianMonth(this.month, -1); void this.loadMonth(); });
-    next.addEventListener("click", () => { this.month = shiftPersianMonth(this.month, 1); void this.loadMonth(); });
+    previous.addEventListener("click", () => { this.month = shiftPersianMonth(this.month, -1); this.loadMonth(); });
+    next.addEventListener("click", () => { this.month = shiftPersianMonth(this.month, 1); this.loadMonth(); });
     const weekday = calendar.createDiv({ cls: "ticktick-habit-calendar-weekdays" });
     for (const label of ["ش", "ی", "د", "س", "چ", "پ", "ج"]) weekday.createSpan({ text: label });
     const grid = calendar.createDiv({ cls: "ticktick-habit-history-calendar" });
@@ -312,7 +312,6 @@ class HabitDetailsModal extends Modal {
       day.disabled = !scheduled;
       day.addEventListener("click", () => { this.selectedDay = dayKey; this.render(); });
     }
-    if (this.loading) calendar.createDiv({ cls: "ticktick-habit-calendar-loading", text: "در حال خواندن تاریخچهٔ این ماه…" });
   }
   onClose() { this.contentEl.empty(); }
 }
@@ -329,6 +328,7 @@ export class PlanningCalendar {
   private showAllRecurring = false;
   private draggingTaskId = "";
   private draggingSourceDay = "";
+  private displayedHabitIds = new Set<string>();
 
   constructor(private element: HTMLElement, private host: PlannerHost) {
     this.day = todayInZone(host.timeZone);
@@ -341,6 +341,7 @@ export class PlanningCalendar {
     // back to the top of a month.
     const scrollHost = this.element.closest<HTMLElement>(".view-content, .workspace-leaf-content") ?? this.element.parentElement;
     const scrollTop = scrollHost?.scrollTop ?? 0;
+    this.displayedHabitIds.clear();
     this.element.empty();
     this.element.addClass("ticktick-planner");
 
@@ -913,7 +914,15 @@ export class PlanningCalendar {
    * therefore do not add a TickTick request while rendering. */
   private renderHabits(parent: HTMLElement, day: string, compact = false) {
     if (!this.showHabits) return;
-    const habits = this.host.habits(day);
+    const habits = this.host.habits(day).filter(habit => {
+      if (!this.showHabitsForAllDays) return true;
+      const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
+      const complete = Number(habit.checkin?.status ?? 0) === 2 || Number(habit.checkin?.value ?? 0) >= goal;
+      const id = String(habit.id);
+      if (complete || this.displayedHabitIds.has(id)) return false;
+      this.displayedHabitIds.add(id);
+      return true;
+    });
     if (!habits.length) return;
     const section = parent.createDiv({ cls: `ticktick-planner-habits ${compact ? "is-compact" : ""}` });
     section.createDiv({ cls: "ticktick-planner-habits-label", text: "عادت‌ها" });
@@ -925,6 +934,7 @@ export class PlanningCalendar {
       const check = row.createEl("input", { type: "checkbox", attr: { "aria-label": `ثبت عادت ${habit.name}` } });
       check.checked = complete;
       check.disabled = complete;
+      row.createSpan({ cls: "ticktick-planner-habit-icon", text: habitGlyph(habit) });
       const title = row.createSpan({ text: `${String(habit.name ?? "عادت")}${goal > 1 ? ` · ${current}/${goal}` : ""}` });
       title.setAttribute("role", "button");
       title.setAttribute("title", "نمایش جزئیات عادت");
