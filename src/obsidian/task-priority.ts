@@ -1,4 +1,6 @@
-export function taskPriority(input: unknown) {
+import type { TaskPriorityInfo } from "./types";
+
+export function taskPriority(input: unknown): TaskPriorityInfo {
   const value = Number(input ?? 0);
   if (value >= 5) return { value: 5, label: "بالا", icon: "🔴", className: "is-high" };
   if (value >= 3) return { value: 3, label: "متوسط", icon: "🟠", className: "is-medium" };

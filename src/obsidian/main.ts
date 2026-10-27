@@ -11,7 +11,7 @@ import { NoteImport, NoteImportModal } from "./note-import";
 import { mergeTaskDetails, taskDescription } from "../core/task-description.js";
 import { normalizeProjectData } from "../core/project-board.js";
 
-import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft } from "./types";
+import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit } from "./types";
 import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
 import {
   currentPlatformName,
@@ -750,10 +750,10 @@ export default class TickTickBridgePlugin extends Plugin {
     return Math.max(1, Math.ceil((this.rateLimitedUntil - Date.now()) / 1_000));
   }
 
-  async createTask(task: any) { return this.runMutation("create", task); }
-  async updateTask(task: any) { return this.runMutation("update", task); }
-  async completeTask(task: any) { return this.runMutation("complete", task); }
-  async deleteTask(task: any) { return this.runMutation("delete", task); }
+  async createTask(task: Partial<TickTickTask>) { return this.runMutation("create", task); }
+  async updateTask(task: Partial<TickTickTask>) { return this.runMutation("update", task); }
+  async completeTask(task: TickTickTask | { id: string; [key: string]: unknown }) { return this.runMutation("complete", task); }
+  async deleteTask(task: TickTickTask | { id: string; [key: string]: unknown }) { return this.runMutation("delete", task); }
   async checkInHabit(habitId: string, day: string, checkin: any) { return this.runMutation("habit", { habitId, day, checkin }); }
   async createTaskFromSurface(initial: TaskDraft = {}) {
     const projects = await this.client().listProjects();
@@ -761,9 +761,9 @@ export default class TickTickBridgePlugin extends Plugin {
     if (!draft) return null;
     return this.createTask(toTaskPayload(draft, this.settings.timeZone));
   }
-  async loadTaskDetails(task: any) {
+  async loadTaskDetails(task: TickTickTask): Promise<TickTickTask | undefined> {
     const cached = this.cache.tasks.find(item => String(item?.id) === String(task?.id) && String(item?.projectId ?? "") === String(task?.projectId ?? ""));
-    if (cached && taskDescription(cached)) return mergeTaskDetails(task, cached);
+    if (cached && taskDescription(cached)) return mergeTaskDetails(task, cached) as TickTickTask;
     const projectId = String(task?.projectId ?? "");
     if (!projectId || !task?.id) return task;
     const client = this.client();
@@ -775,11 +775,11 @@ export default class TickTickBridgePlugin extends Plugin {
     try {
       const project = await client.getProjectData(projectId);
       const record = (project?.tasks ?? []).find((item: any) => String(item?.id) === String(task.id));
-      return record ? mergeTaskDetails(direct, record) : direct;
+      return (record ? mergeTaskDetails(direct, record) : direct) as TickTickTask;
     } catch { return direct; }
   }
-  async editTaskFromSurface(task: any) {
-    const current = await this.loadTaskDetails(task);
+  async editTaskFromSurface(task: TickTickTask) {
+    const current = (await this.loadTaskDetails(task)) ?? task;
     const projects = await this.client().listProjects();
     const draft = await openTaskEditor(this.app, projects, current);
     if (!draft) return null;
@@ -1046,14 +1046,14 @@ export default class TickTickBridgePlugin extends Plugin {
       }));
   }
 
-  async tasksForDay(day: string) {
+  async tasksForDay(day: string): Promise<TickTickTask[]> {
     if (this.hasCache()) return this.cachedTasksForDay(day);
     const webTasks = await this.webOpenTasks();
     if (webTasks !== null) return webTasks.filter(task => isScheduledForDay(task, day));
     return this.client().tasksForDay(day);
   }
 
-  async recurringTasks() {
+  async recurringTasks(): Promise<TickTickTask[]> {
     if (this.hasCache()) return this.cache.tasks
       .filter(task => Boolean(task.repeatFlag) || recurringTaskKind(task) !== "other")
       .sort((left, right) => String(left.dueDate ?? "9999-12-31").localeCompare(String(right.dueDate ?? "9999-12-31")) || String(left.title ?? "").localeCompare(String(right.title ?? ""), "fa"));

@@ -1,3 +1,14 @@
+export * from "../types/ticktick";
+
+import type {
+  TickTickTask,
+  TickTickProject,
+  TickTickHabit,
+  CachedHabitCheckin,
+  PendingMutation,
+  ProjectBoardData
+} from "../types/ticktick";
+
 export type DashboardMode = "day" | "week" | "month" | "stats";
 export type ControlScreen = "sync" | "notes" | "checklists" | "reports";
 
@@ -24,26 +35,12 @@ export interface BridgeSettings {
   boardSidebarPreferenceInitialized: boolean;
 }
 
-export type CachedHabitCheckin = {
-  stamp: number;
-  value: number;
-  goal: number;
-  status: number;
-};
-
-export type PendingMutation = {
-  id: string;
-  type: "create" | "update" | "complete" | "delete" | "habit";
-  payload: any;
-  queuedAt: string;
-};
-
 export type BridgeCache = {
   savedAt: string;
-  tasks: any[];
-  projects: any[];
-  projectBoards: Record<string, any>;
-  habits: any[];
+  tasks: TickTickTask[];
+  projects: TickTickProject[];
+  projectBoards: Record<string, ProjectBoardData>;
+  habits: TickTickHabit[];
   habitCheckins: Record<string, CachedHabitCheckin[]>;
   pending: PendingMutation[];
   conflicts: PendingMutation[];
@@ -56,9 +53,9 @@ export type TaskDraft = {
   title?: string;
   desc?: string;
   content?: string;
-  dueDate?: string;
-  startDate?: string;
-  repeatFlag?: string;
+  dueDate?: string | null;
+  startDate?: string | null;
+  repeatFlag?: string | null;
   timeZone?: string;
   reminders?: string[];
   projectName?: string;

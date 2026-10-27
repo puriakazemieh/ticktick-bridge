@@ -1304,48 +1304,25 @@ var TaskDetailsModal = class extends import_obsidian3.Modal {
       box.createEl("strong", { text: `Checklist \xB7 ${summary.completed}/${summary.total}` });
       for (const item of items) box.createDiv({ text: `${item.completed ? "\u2611" : "\u2610"} ${item.title}` });
     }
-    const tags = this.task.tags ?? [];
-    if (tags.length) this.contentEl.createDiv({ cls: "ticktick-task-details-tags", text: tags.map((tag) => `#${tag}`).join("  ") });
     const actions = this.contentEl.createDiv({ cls: "ticktick-task-details-actions" });
-    if (this.actions.load) {
-      const refresh = actions.createEl("button", { text: "\u062A\u0627\u0632\u0647\u200C\u0633\u0627\u0632\u06CC \u062C\u0632\u0626\u06CC\u0627\u062A" });
-      refresh.addEventListener("click", () => void this.loadAndRender());
-    }
-    if (this.actions.edit) {
-      const edit = actions.createEl("button", { text: "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u06A9\u0627\u0645\u0644", cls: "mod-cta" });
-      edit.addEventListener("click", async () => {
-        edit.disabled = true;
-        try {
-          const updated = await this.actions.edit(this.task);
-          if (!updated) {
-            edit.disabled = false;
-            return;
-          }
-          if (updated.id) this.task = { ...this.task, ...updated };
-          await this.actions.changed?.();
-          new import_obsidian3.Notice("\u062A\u063A\u06CC\u06CC\u0631\u0627\u062A \u062F\u0631 TickTick \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.");
-          await this.loadAndRender();
-        } catch (error) {
-          edit.disabled = false;
-          new import_obsidian3.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
-        }
-      });
-    }
-    if (this.actions.complete && Number(this.task.status ?? 0) === 0) {
-      const button = actions.createEl("button", { text: "\u062A\u06A9\u0645\u06CC\u0644 \u062A\u0633\u06A9" });
-      button.addEventListener("click", async () => {
-        button.disabled = true;
-        try {
-          await this.actions.complete();
-          await this.actions.changed?.();
-          new import_obsidian3.Notice("\u062A\u0633\u06A9 \u062A\u06A9\u0645\u06CC\u0644 \u0648 \u0647\u0645\u06AF\u0627\u0645 \u0634\u062F.");
-          this.close();
-        } catch (error) {
-          button.disabled = false;
-          new import_obsidian3.Notice(error instanceof Error ? error.message : "\u062A\u06A9\u0645\u06CC\u0644 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
-        }
-      });
-    }
+    if (this.actions.complete) actions.createEl("button", { text: "\u062A\u06A9\u0645\u06CC\u0644 \u062A\u0633\u06A9", cls: "mod-cta" }).addEventListener("click", async () => {
+      try {
+        await this.actions.complete?.();
+        this.close();
+      } catch (error) {
+        new import_obsidian3.Notice(error instanceof Error ? error.message : "\u062A\u06A9\u0645\u06CC\u0644 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+      }
+    });
+    if (this.actions.edit) actions.createEl("button", { text: "\u0648\u06CC\u0631\u0627\u06CC\u0634" }).addEventListener("click", async () => {
+      try {
+        await this.actions.edit?.(this.task);
+        await this.actions.changed?.();
+        this.close();
+      } catch (error) {
+        new import_obsidian3.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+      }
+    });
+    if (this.actions.load) actions.createEl("button", { text: "\u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u062C\u0632\u0626\u06CC\u0627\u062A" }).addEventListener("click", () => void this.loadAndRender());
   }
   onClose() {
     this.markdownComponent.unload();
@@ -2962,6 +2939,7 @@ var ProjectBoard = class {
         });
       }
       const data = virtualData ?? await this.host.board(project);
+      if (!data) return;
       const columns = main.createDiv({ cls: "ticktick-project-columns" });
       enhanceHorizontalScroll(columns);
       scrollToStart(columns);
@@ -5058,7 +5036,7 @@ var TickTickBridgePlugin = class extends import_obsidian19.Plugin {
     }
   }
   async editTaskFromSurface(task) {
-    const current = await this.loadTaskDetails(task);
+    const current = await this.loadTaskDetails(task) ?? task;
     const projects = await this.client().listProjects();
     const draft = await openTaskEditor(this.app, projects, current);
     if (!draft) return null;

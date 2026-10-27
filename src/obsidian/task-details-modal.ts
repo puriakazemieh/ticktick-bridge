@@ -3,6 +3,7 @@ import { checklistSummary, normalizeChecklist } from "../core/checklist.js";
 import { taskPriority } from "./task-priority";
 import { mergeTaskDetails, taskDescription } from "../core/task-description.js";
 import { formatPersianDate } from "../core/persian-date.js";
+import type { TickTickTask } from "./types";
 
 function repeatSummary(flag: unknown) {
   const rule = String(flag ?? "").toUpperCase().replace(/^RRULE:/, "");
@@ -14,16 +15,16 @@ function repeatSummary(flag: unknown) {
   return ({ DAILY: "🔁 هر روز", WEEKLY: "🔁 هر هفته", MONTHLY: "🔁 هر ماه", YEARLY: "🔁 هر سال" } as Record<string, string>)[fields.FREQ] ?? "🔁 تکرارشونده";
 }
 
-type TaskActions = {
+export type TaskActions = {
   complete?: () => Promise<void>;
-  edit?: (task: any) => Promise<any>;
-  load?: (task: any) => Promise<any>;
+  edit?: (task: TickTickTask) => Promise<unknown>;
+  load?: (task: TickTickTask) => Promise<TickTickTask | undefined>;
   changed?: () => Promise<void>;
 };
 
 export class TaskDetailsModal extends Modal {
   private markdownComponent = new Component();
-  constructor(app: App, private task: any, private actions: TaskActions = {}) { super(app); }
+  constructor(app: App, private task: TickTickTask, private actions: TaskActions = {}) { super(app); }
   onOpen() {
     this.modalEl.addClass("ticktick-task-details-modal");
     this.markdownComponent.load();
@@ -38,7 +39,7 @@ export class TaskDetailsModal extends Modal {
       this.contentEl.createDiv({ cls: "ticktick-task-details-loading", text: "در حال دریافت جزئیات کامل از TickTick…" });
       try {
         const fresh = await this.actions.load(this.task);
-        if (fresh?.id) this.task = mergeTaskDetails(this.task, fresh);
+        if (fresh?.id) this.task = mergeTaskDetails(this.task, fresh) as TickTickTask;
       } catch {
         // The cached card remains useful if TickTick cannot be reached.
       }
@@ -57,18 +58,35 @@ export class TaskDetailsModal extends Modal {
     const descriptionContent = descriptionBox.createDiv({ cls: "markdown-rendered" });
     if (description) void MarkdownRenderer.render(this.app, description, descriptionContent, "", this.markdownComponent);
     else descriptionContent.setText("توضیحی برای این تسک ثبت نشده است.");
-    const items = normalizeChecklist(this.task.items); if (items.length) { const box = this.contentEl.createDiv({ cls: "ticktick-task-details-checklist" }); const summary = checklistSummary(items); box.createEl("strong", { text: `Checklist · ${summary.completed}/${summary.total}` }); for (const item of items) box.createDiv({ text: `${item.completed ? "☑" : "☐"} ${item.title}` }); }
-    const tags = this.task.tags ?? []; if (tags.length) this.contentEl.createDiv({ cls: "ticktick-task-details-tags", text: tags.map((tag: string) => `#${tag}`).join("  ") });
+    const items = normalizeChecklist(this.task.items);
+    if (items.length) {
+      const box = this.contentEl.createDiv({ cls: "ticktick-task-details-checklist" });
+      const summary = checklistSummary(items);
+      box.createEl("strong", { text: `Checklist · ${summary.completed}/${summary.total}` });
+      for (const item of items) box.createDiv({ text: `${item.completed ? "☑" : "☐"} ${item.title}` });
+    }
     const actions = this.contentEl.createDiv({ cls: "ticktick-task-details-actions" });
-    if (this.actions.load) {
-      const refresh = actions.createEl("button", { text: "تازه‌سازی جزئیات" });
-      refresh.addEventListener("click", () => void this.loadAndRender());
-    }
-    if (this.actions.edit) {
-      const edit = actions.createEl("button", { text: "ویرایش کامل", cls: "mod-cta" });
-      edit.addEventListener("click", async () => { edit.disabled = true; try { const updated = await this.actions.edit!(this.task); if (!updated) { edit.disabled = false; return; } if (updated.id) this.task = { ...this.task, ...updated }; await this.actions.changed?.(); new Notice("تغییرات در TickTick ذخیره شد."); await this.loadAndRender(); } catch (error) { edit.disabled = false; new Notice(error instanceof Error ? error.message : "ویرایش تسک ناموفق بود."); } });
-    }
-    if (this.actions.complete && Number(this.task.status ?? 0) === 0) { const button = actions.createEl("button", { text: "تکمیل تسک" }); button.addEventListener("click", async () => { button.disabled = true; try { await this.actions.complete!(); await this.actions.changed?.(); new Notice("تسک تکمیل و همگام شد."); this.close(); } catch (error) { button.disabled = false; new Notice(error instanceof Error ? error.message : "تکمیل ناموفق بود."); } }); }
+    if (this.actions.complete) actions.createEl("button", { text: "تکمیل تسک", cls: "mod-cta" }).addEventListener("click", async () => {
+      try {
+        await this.actions.complete?.();
+        this.close();
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : "تکمیل تسک ناموفق بود.");
+      }
+    });
+    if (this.actions.edit) actions.createEl("button", { text: "ویرایش" }).addEventListener("click", async () => {
+      try {
+        await this.actions.edit?.(this.task);
+        await this.actions.changed?.();
+        this.close();
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : "ویرایش تسک ناموفق بود.");
+      }
+    });
+    if (this.actions.load) actions.createEl("button", { text: "بروزرسانی جزئیات" }).addEventListener("click", () => void this.loadAndRender());
   }
-  onClose() { this.markdownComponent.unload(); this.contentEl.empty(); }
+  onClose() {
+    this.markdownComponent.unload();
+    this.contentEl.empty();
+  }
 }

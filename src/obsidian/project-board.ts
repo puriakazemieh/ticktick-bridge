@@ -22,27 +22,29 @@ function habitGlyph(habit: any) {
   return "✓";
 }
 
-type Host = {
+import type { TickTickTask, TickTickProject, TickTickHabit, CachedHabitCheckin, ProjectBoardData, HabitHistoryEntry } from "./types";
+
+export type ProjectBoardHost = {
   app: App;
-  projects: () => Promise<any[]>;
-  createProject: (project: any) => Promise<any>;
-  updateProject: (project: any) => Promise<any>;
-  deleteProject: (projectId: string) => Promise<any>;
-  createTask: (initial: any) => Promise<any>;
-  tasks: () => any[];
-  habits: () => any[];
-  checkInHabit: (habit: any, day: string) => Promise<any>;
-  habitHistory: (habitId: string, from: string, to: string) => any[];
-  setHabitProgress: (habit: any, day: string, value: number, goal: number) => Promise<any>;
+  projects: () => Promise<TickTickProject[]>;
+  createProject: (project: Partial<TickTickProject>) => Promise<TickTickProject>;
+  updateProject: (project: Partial<TickTickProject>) => Promise<unknown>;
+  deleteProject: (projectId: string) => Promise<unknown>;
+  createTask: (initial: Partial<TickTickTask>) => Promise<unknown>;
+  tasks: () => TickTickTask[];
+  habits: () => TickTickHabit[];
+  checkInHabit: (habit: TickTickHabit, day: string) => Promise<unknown>;
+  habitHistory: (habitId: string, from: string, to: string) => HabitHistoryEntry[];
+  setHabitProgress: (habit: TickTickHabit, day: string, value: number, goal: number) => Promise<unknown>;
   firstWeekday: number;
   timeZone: string;
-  board: (project: any) => Promise<any>;
+  board: (project: TickTickProject | undefined) => Promise<ProjectBoardData>;
   refresh: () => Promise<void>;
-  complete: (task: any) => Promise<any>;
-  binding: (task: any) => any;
-  load: (task: any) => Promise<any>;
-  edit: (task: any) => Promise<any>;
-  moveToColumn: (task: any, columnId: string) => Promise<any>;
+  complete: (task: TickTickTask) => Promise<unknown>;
+  binding: (task: TickTickTask) => unknown;
+  load: (task: TickTickTask) => Promise<TickTickTask | undefined>;
+  edit: (task: TickTickTask) => Promise<unknown>;
+  moveToColumn: (task: TickTickTask, columnId: string) => Promise<unknown>;
   showCompleted: () => boolean;
   preferences: () => { selected: string; collapsed: string[]; sidebarCollapsed?: boolean; sidebarPreferenceInitialized?: boolean };
   savePreferences: (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean; sidebarPreferenceInitialized?: boolean }) => Promise<void>;
@@ -55,7 +57,7 @@ export class ProjectBoard {
   private sortMode = "ticktick";
   private sidebarCollapsed = false;
 
-  constructor(private element: HTMLElement, private host: Host) {}
+  constructor(private element: HTMLElement, private host: ProjectBoardHost) {}
 
   async render() {
     if (!this.initialized) {
@@ -223,7 +225,7 @@ export class ProjectBoard {
 
       const project = projects.find(item => String(item.id) === this.selected);
       const virtualData = virtualBoardData(this.selected, this.host.tasks(), projects);
-      const displayProject = virtualData?.project ?? project;
+      const displayProject = (virtualData?.project ?? project) as TickTickProject | undefined;
       if (!displayProject) {
         const emptyState = main.createDiv({ cls: "ticktick-board-empty" });
         const emptyIcon = emptyState.createSpan({ cls: "ticktick-empty-icon" });
@@ -393,7 +395,8 @@ export class ProjectBoard {
       }
 
       // ── 3. Kanban Columns ──
-      const data = virtualData ?? await this.host.board(project);
+      const data = virtualData ?? await this.host.board(project!);
+      if (!data) return;
       const columns = main.createDiv({ cls: "ticktick-project-columns" });
       enhanceHorizontalScroll(columns);
       scrollToStart(columns);
@@ -412,7 +415,7 @@ export class ProjectBoard {
           addToColumn.addEventListener("click", async event => {
             event.stopPropagation(); addToColumn.disabled = true;
             try {
-              await this.host.createTask({ projectId: project.id, columnId: column.id });
+              await this.host.createTask({ projectId: project!.id, columnId: column.id });
               new Notice(`تسک جدید به ستون «${column.name}» اضافه شد.`);
               await this.render();
             } catch (error) {

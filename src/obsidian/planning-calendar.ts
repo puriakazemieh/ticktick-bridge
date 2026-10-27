@@ -6,30 +6,32 @@ import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
 import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
 
+import type { TickTickTask, TickTickHabit, CachedHabitCheckin, HabitHistoryEntry } from "./types";
+
 export type HabitDetailsHost = {
   firstWeekday: number;
-  habits: (day: string) => any[];
-  habitHistory: (habitId: string, from: string, to: string) => any[];
-  setHabitProgress: (habit: any, day: string, value: number, goal: number) => Promise<any>;
+  habits: (day: string) => TickTickHabit[];
+  habitHistory: (habitId: string, from: string, to: string) => HabitHistoryEntry[];
+  setHabitProgress: (habit: TickTickHabit, day: string, value: number, goal: number) => Promise<unknown>;
 };
 
-type PlannerHost = HabitDetailsHost & {
+export type PlannerHost = HabitDetailsHost & {
   app: App;
   timeZone: string;
   firstWeekday: number;
   showCompleted: boolean;
-  tasks: () => any[];
+  tasks: () => TickTickTask[];
   refresh: () => Promise<void>;
-  reschedule: (task: any, day: string) => Promise<any>;
-  complete: (task: any) => Promise<any>;
-  binding: (task: any) => any;
-  load: (task: any) => Promise<any>;
-  edit: (task: any) => Promise<any>;
-  create: (initial: any) => Promise<any>;
-  habits: (day: string) => any[];
-  checkInHabit: (habit: any, day: string) => Promise<any>;
-  habitWithHistory: (habitId: string, day: string) => any | undefined;
-  loadHabit: (habit: any) => Promise<any>;
+  reschedule: (task: TickTickTask, day: string) => Promise<unknown>;
+  complete: (task: TickTickTask) => Promise<unknown>;
+  binding: (task: TickTickTask) => unknown;
+  load: (task: TickTickTask) => Promise<TickTickTask | undefined>;
+  edit: (task: TickTickTask) => Promise<unknown>;
+  create: (initial: Partial<TickTickTask>) => Promise<unknown>;
+  habits: (day: string) => TickTickHabit[];
+  checkInHabit: (habit: TickTickHabit, day: string) => Promise<unknown>;
+  habitWithHistory: (habitId: string, day: string) => (TickTickHabit & { history?: HabitHistoryEntry[] }) | undefined;
+  loadHabit: (habit: TickTickHabit) => Promise<TickTickHabit | undefined>;
   showHabits: () => boolean;
   setShowHabits: (value: boolean) => Promise<void>;
 };
