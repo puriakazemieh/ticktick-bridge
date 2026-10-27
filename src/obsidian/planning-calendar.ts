@@ -315,8 +315,8 @@ export class HabitDetailsModal extends Modal {
         const dayValue = Number(entry?.value ?? 0);
         // A day cell is also a quick check-in surface: every press records one
         // stage for that exact date, while unscheduled dates stay unavailable.
-        if (dayValue < goal) void setValue(Math.min(goal, dayValue + Math.max(1, Number(this.habit.step ?? 1))));
-        else this.render();
+        if (dayValue >= goal) void setValue(0);
+        else void setValue(Math.min(goal, dayValue + Math.max(1, Number(this.habit.step ?? 1))));
       });
     }
   }

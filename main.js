@@ -1717,8 +1717,8 @@ var HabitDetailsModal = class extends import_obsidian4.Modal {
       day.addEventListener("click", () => {
         this.selectedDay = dayKey;
         const dayValue = Number(entry?.value ?? 0);
-        if (dayValue < goal) void setValue(Math.min(goal, dayValue + Math.max(1, Number(this.habit.step ?? 1))));
-        else this.render();
+        if (dayValue >= goal) void setValue(0);
+        else void setValue(Math.min(goal, dayValue + Math.max(1, Number(this.habit.step ?? 1))));
       });
     }
   }
