@@ -119,46 +119,97 @@
   box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--interactive-accent) 28%, transparent);
 }
 
-/* ─── Custom square checkbox ─── */
+/* ─── Unified Custom Square Checkbox across all task surfaces ─── */
+.daily-task-checkbox,
+.ticktick-project-check,
+.ticktick-task-check,
+.ticktick-month-check,
+.ticktick-range-check,
+.ticktick-overflow-check {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  min-width: 1.25rem !important;
+  min-height: 1.25rem !important;
+  margin: 0 !important;
+  border: 2px solid color-mix(in srgb, var(--interactive-accent) 65%, var(--background-modifier-border)) !important;
+  border-radius: var(--tb-radius-xs, 0.28rem) !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 140ms ease !important;
+  position: relative !important;
+  flex-shrink: 0 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
+}
+
+.daily-task-checkbox:hover,
+.ticktick-project-check:hover,
+.ticktick-task-check:hover,
+.ticktick-month-check:hover,
+.ticktick-range-check:hover,
+.ticktick-overflow-check:hover {
+  border-color: var(--interactive-accent) !important;
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent) !important;
+  transform: scale(1.06);
+}
+
+.daily-task-checkbox:active,
+.ticktick-project-check:active,
+.ticktick-task-check:active,
+.ticktick-month-check:active,
+.ticktick-range-check:active,
+.ticktick-overflow-check:active {
+  transform: scale(0.92);
+}
+
+.daily-task-checkbox:checked,
+.ticktick-project-check:checked,
+.ticktick-task-check:checked,
+.ticktick-month-check:checked,
+.ticktick-range-check:checked,
+.ticktick-overflow-check:checked {
+  background: var(--interactive-accent) !important;
+  border-color: var(--interactive-accent) !important;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
+}
+
+.daily-task-checkbox:checked::after,
+.ticktick-project-check:checked::after,
+.ticktick-task-check:checked::after,
+.ticktick-month-check:checked::after,
+.ticktick-range-check:checked::after,
+.ticktick-overflow-check:checked::after {
+  content: "✓" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  color: var(--text-on-accent) !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  animation: ticktick-check-pop 240ms cubic-bezier(.22, 1, .36, 1) !important;
+}
+
+.daily-task-checkbox:disabled,
+.ticktick-project-check:disabled,
+.ticktick-task-check:disabled,
+.ticktick-month-check:disabled,
+.ticktick-range-check:disabled,
+.ticktick-overflow-check:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
 .ticktick-task-grid .ticktick-task-card .daily-task-checkbox {
-  appearance: none;
-  -webkit-appearance: none;
   grid-column: 1;
   grid-row: 1 / 3;
   align-self: center;
   justify-self: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  margin: 0;
-  border: 2px solid color-mix(in srgb, var(--interactive-accent) 65%, var(--background-modifier-border));
-  border-radius: 0.28rem;
-  background: transparent;
-  cursor: pointer;
-  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
-  position: relative;
-}
-
-.ticktick-task-grid .ticktick-task-card .daily-task-checkbox:hover {
-  border-color: var(--interactive-accent);
-  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
-}
-
-.ticktick-task-grid .ticktick-task-card .daily-task-checkbox:checked {
-  background: var(--interactive-accent);
-  border-color: var(--interactive-accent);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--interactive-accent) 40%, transparent);
-}
-
-.ticktick-task-grid .ticktick-task-card .daily-task-checkbox:checked::after {
-  content: "✓";
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: var(--text-on-accent);
-  font-size: 0.7rem;
-  font-weight: bold;
-  animation: ticktick-check-pop 250ms cubic-bezier(.22,1,.36,1);
 }
 
 @keyframes ticktick-check-pop {

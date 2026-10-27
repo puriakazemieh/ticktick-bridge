@@ -73,15 +73,28 @@
   /* ── 4. Shadows & Elevation ── */
   --tb-shadow-xs: 0 1px 2px color-mix(in srgb, var(--background-primary) 20%, transparent);
   --tb-shadow-s: 0 1px 4px color-mix(in srgb, var(--background-primary) 30%, transparent);
+  --tb-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
   --tb-shadow-m: 0 4px 14px color-mix(in srgb, var(--background-primary) 35%, transparent);
   --tb-shadow-hover: 0 8px 24px color-mix(in srgb, var(--interactive-accent) 18%, transparent), 0 2px 8px color-mix(in srgb, var(--background-primary) 30%, transparent);
-  --tb-shadow-modal: 0 16px 36px rgba(0, 0, 0, 0.35);
+  --tb-shadow-modal: 0 20px 48px rgba(0, 0, 0, 0.45);
 
-  /* ── 5. Transitions ── */
-  --tb-transition-fast: 120ms ease;
-  --tb-transition-normal: 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  --tb-transition-slow: 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* ── 5. Transitions & Animation ── */
+  --tb-duration-fast: 120ms;
+  --tb-duration-normal: 180ms;
+  --tb-duration-slow: 280ms;
+  --tb-ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --tb-ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --tb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --tb-transition-fast: var(--tb-duration-fast) ease;
+  --tb-transition-normal: var(--tb-duration-normal) cubic-bezier(0.2, 0.8, 0.2, 1);
+  --tb-transition-slow: var(--tb-duration-slow) cubic-bezier(0.2, 0.8, 0.2, 1);
 
-  /* ── 6. Typography ── */
+  /* ── 6. Semantic Surface Tokens ── */
+  --tb-task-bg: var(--background-secondary);
+  --tb-task-border: color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  --tb-column-bg: color-mix(in srgb, var(--background-secondary) 65%, var(--background-primary));
+  --tb-column-border: color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
+
+  /* ── 7. Typography ── */
   --tb-font-persian: var(--default-font, -apple-system, BlinkMacSystemFont, "Vazirmatn", "Shabnam", "IRANSans", "Segoe UI", Roboto, sans-serif);
 }

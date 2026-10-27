@@ -435,13 +435,13 @@
 .ticktick-project-card {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 0.65rem;
-  background: transparent !important;
-  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 30%, var(--background-modifier-border));
+  gap: 0.45rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--tb-radius-l, 0.75rem);
+  background: var(--background-secondary) !important;
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 25%, var(--background-modifier-border)) !important;
   border-inline-start: 4px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
-  box-shadow: none !important;
+  box-shadow: var(--tb-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08)) !important;
   cursor: pointer;
   transition:
     transform 160ms cubic-bezier(.22,1,.36,1),
@@ -452,9 +452,9 @@
 
 .ticktick-project-card:hover {
   transform: translateY(-2px);
-  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 8%, transparent) !important;
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 8%, var(--background-secondary)) !important;
   border-color: var(--ticktick-task-tone, var(--interactive-accent)) !important;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 16%, transparent) !important;
+  box-shadow: var(--tb-shadow-hover, 0 6px 18px color-mix(in srgb, var(--interactive-accent) 15%, transparent)) !important;
 }
 
 .ticktick-project-card[draggable="true"],
@@ -474,16 +474,6 @@
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-}
-
-.ticktick-project-check {
-  margin: 0.15rem 0 0 0;
-  width: 1.05rem;
-  height: 1.05rem;
-  cursor: pointer;
-  border-radius: 4px;
-  accent-color: var(--interactive-accent);
-  flex-shrink: 0;
 }
 
 .ticktick-project-card-title {
@@ -516,27 +506,29 @@
   flex: 0 0 auto;
   font-size: 0.66rem;
   font-weight: 700;
-  padding: 0.08rem 0.45rem;
-  border-radius: 999px;
-  background: transparent;
-  border: 1px solid currentColor;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--tb-radius-full, 9999px);
   white-space: nowrap;
+  letter-spacing: -0.01em;
   margin-top: 0.1rem;
 }
 
 .ticktick-project-priority.is-high {
-  color: var(--color-red, #e74c3c);
-  border-color: color-mix(in srgb, var(--color-red, #e74c3c) 45%, transparent);
+  color: var(--tb-color-red, #ef4444);
+  background: color-mix(in srgb, var(--tb-color-red, #ef4444) 14%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--tb-color-red, #ef4444) 30%, transparent);
 }
 
 .ticktick-project-priority.is-medium {
-  color: var(--color-orange, #e67e22);
-  border-color: color-mix(in srgb, var(--color-orange, #e67e22) 45%, transparent);
+  color: var(--tb-color-orange, #f59e0b);
+  background: color-mix(in srgb, var(--tb-color-orange, #f59e0b) 14%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--tb-color-orange, #f59e0b) 30%, transparent);
 }
 
 .ticktick-project-priority.is-low {
-  color: var(--color-blue, #3498db);
-  border-color: color-mix(in srgb, var(--color-blue, #3498db) 45%, transparent);
+  color: var(--tb-color-blue, #3b82f6);
+  background: color-mix(in srgb, var(--tb-color-blue, #3b82f6) 14%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--tb-color-blue, #3b82f6) 30%, transparent);
 }
 
 .ticktick-project-card-desc {

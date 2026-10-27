@@ -428,4 +428,165 @@
 
 @media (max-width: 800px) {
   .ticktick-recurring-board { grid-template-columns: 1fr; }
-}
+}
+
+/* ─── Task Details Modal Suite ─── */
+.ticktick-task-details-modal .modal-content {
+  direction: rtl;
+  padding: 1.25rem 1.6rem 1.5rem;
+  overflow-y: auto;
+}
+
+.ticktick-task-details-modal .modal-header {
+  position: relative;
+  display: block;
+  min-height: 2.6rem;
+  padding: 1.1rem 1.6rem 0.6rem;
+  direction: rtl;
+  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+}
+
+.ticktick-task-details-modal .modal-title {
+  display: block;
+  margin: 0;
+  direction: rtl;
+  text-align: right;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-normal);
+}
+
+.ticktick-task-details-meta,
+.ticktick-task-details-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  margin-bottom: 0.85rem;
+}
+
+.ticktick-task-details-meta span,
+.ticktick-task-details-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--tb-radius-full, 9999px);
+  background: var(--background-secondary);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ticktick-task-details-description {
+  padding: 1rem 1.15rem;
+  margin: 0.85rem 0;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  border-inline-start: 3.5px solid var(--interactive-accent);
+  border-radius: var(--tb-radius-m, 0.55rem);
+  background: var(--background-secondary);
+  box-shadow: var(--tb-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08));
+}
+
+.ticktick-task-details-description > strong {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.ticktick-task-details-description .markdown-rendered {
+  direction: rtl;
+  text-align: right;
+  font-size: 0.88rem;
+  color: var(--text-normal);
+}
+
+.ticktick-task-details-checklist {
+  margin: 0.85rem 0;
+  padding: 0.95rem 1.15rem;
+  border-radius: var(--tb-radius-m, 0.55rem);
+  background: var(--background-secondary);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+}
+
+.ticktick-task-details-checklist strong {
+  display: block;
+  margin-bottom: 0.55rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-normal);
+}
+
+.ticktick-task-details-checklist div {
+  padding: 0.25rem 0;
+  color: var(--text-normal);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.ticktick-task-details-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.35rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
+}
+
+.ticktick-task-details-actions button {
+  min-width: 6.5rem;
+  min-height: 2.35rem;
+  padding: 0.42rem 1.1rem;
+  border-radius: var(--tb-radius-full, 9999px);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.ticktick-task-details-actions button.mod-cta {
+  background: linear-gradient(135deg, var(--interactive-accent), color-mix(in srgb, var(--interactive-accent) 78%, #7c3aed));
+  color: var(--text-on-accent);
+  border: none;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+}
+
+.ticktick-task-details-actions button.mod-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+}
+
+.ticktick-task-details-loading {
+  color: var(--text-muted);
+  padding: 1.5rem 0;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+/* ─── Project Editor Modal Suite ─── */
+.ticktick-project-editor-modal .modal-content {
+  padding: 1.25rem 1.6rem 1.5rem;
+  direction: rtl;
+}
+
+.ticktick-project-editor-modal .setting-item {
+  border-color: color-mix(in srgb, var(--background-modifier-border) 50%, transparent);
+  padding: 0.75rem 0;
+}
+
+/* ─── Conflict & Pending Mutation Modals ─── */
+.ticktick-conflict-card {
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  border-radius: var(--tb-radius-m, 0.55rem);
+  padding: 0.85rem;
+  margin: 0.7rem 0;
+  display: grid;
+  gap: 0.4rem;
+  direction: rtl;
+  text-align: right;
+  background: var(--background-secondary);
+}

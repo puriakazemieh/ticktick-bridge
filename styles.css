@@ -51,12 +51,23 @@
   --tb-space-2xl: 1.5rem;
   --tb-shadow-xs: 0 1px 2px color-mix(in srgb, var(--background-primary) 20%, transparent);
   --tb-shadow-s: 0 1px 4px color-mix(in srgb, var(--background-primary) 30%, transparent);
+  --tb-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
   --tb-shadow-m: 0 4px 14px color-mix(in srgb, var(--background-primary) 35%, transparent);
   --tb-shadow-hover: 0 8px 24px color-mix(in srgb, var(--interactive-accent) 18%, transparent), 0 2px 8px color-mix(in srgb, var(--background-primary) 30%, transparent);
-  --tb-shadow-modal: 0 16px 36px rgba(0, 0, 0, 0.35);
-  --tb-transition-fast: 120ms ease;
-  --tb-transition-normal: 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  --tb-transition-slow: 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --tb-shadow-modal: 0 20px 48px rgba(0, 0, 0, 0.45);
+  --tb-duration-fast: 120ms;
+  --tb-duration-normal: 180ms;
+  --tb-duration-slow: 280ms;
+  --tb-ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --tb-ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --tb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --tb-transition-fast: var(--tb-duration-fast) ease;
+  --tb-transition-normal: var(--tb-duration-normal) cubic-bezier(0.2, 0.8, 0.2, 1);
+  --tb-transition-slow: var(--tb-duration-slow) cubic-bezier(0.2, 0.8, 0.2, 1);
+  --tb-task-bg: var(--background-secondary);
+  --tb-task-border: color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  --tb-column-bg: color-mix(in srgb, var(--background-secondary) 65%, var(--background-primary));
+  --tb-column-border: color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
   --tb-font-persian: var(--default-font, -apple-system, BlinkMacSystemFont, "Vazirmatn", "Shabnam", "IRANSans", "Segoe UI", Roboto, sans-serif);
 }
 
@@ -707,13 +718,13 @@
 .ticktick-project-card {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 0.65rem;
-  background: transparent !important;
-  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 30%, var(--background-modifier-border));
+  gap: 0.45rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--tb-radius-l, 0.75rem);
+  background: var(--background-secondary) !important;
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 25%, var(--background-modifier-border)) !important;
   border-inline-start: 4px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
-  box-shadow: none !important;
+  box-shadow: var(--tb-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08)) !important;
   cursor: pointer;
   transition:
     transform 160ms cubic-bezier(.22, 1, .36, 1),
@@ -723,9 +734,9 @@
 }
 .ticktick-project-card:hover {
   transform: translateY(-2px);
-  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 8%, transparent) !important;
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 8%, var(--background-secondary)) !important;
   border-color: var(--ticktick-task-tone, var(--interactive-accent)) !important;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 16%, transparent) !important;
+  box-shadow: var(--tb-shadow-hover, 0 6px 18px color-mix(in srgb, var(--interactive-accent) 15%, transparent)) !important;
 }
 .ticktick-project-card[draggable=true],
 .ticktick-planner-task[draggable=true],
@@ -742,15 +753,6 @@
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-}
-.ticktick-project-check {
-  margin: 0.15rem 0 0 0;
-  width: 1.05rem;
-  height: 1.05rem;
-  cursor: pointer;
-  border-radius: 4px;
-  accent-color: var(--interactive-accent);
-  flex-shrink: 0;
 }
 .ticktick-project-card-title {
   border: none !important;
@@ -780,24 +782,26 @@
   flex: 0 0 auto;
   font-size: 0.66rem;
   font-weight: 700;
-  padding: 0.08rem 0.45rem;
-  border-radius: 999px;
-  background: transparent;
-  border: 1px solid currentColor;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--tb-radius-full, 9999px);
   white-space: nowrap;
+  letter-spacing: -0.01em;
   margin-top: 0.1rem;
 }
 .ticktick-project-priority.is-high {
-  color: var(--color-red, #e74c3c);
-  border-color: color-mix(in srgb, var(--color-red, #e74c3c) 45%, transparent);
+  color: var(--tb-color-red, #ef4444);
+  background: color-mix(in srgb, var(--tb-color-red, #ef4444) 14%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--tb-color-red, #ef4444) 30%, transparent);
 }
 .ticktick-project-priority.is-medium {
-  color: var(--color-orange, #e67e22);
-  border-color: color-mix(in srgb, var(--color-orange, #e67e22) 45%, transparent);
+  color: var(--tb-color-orange, #f59e0b);
+  background: color-mix(in srgb, var(--tb-color-orange, #f59e0b) 14%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--tb-color-orange, #f59e0b) 30%, transparent);
 }
 .ticktick-project-priority.is-low {
-  color: var(--color-blue, #3498db);
-  border-color: color-mix(in srgb, var(--color-blue, #3498db) 45%, transparent);
+  color: var(--tb-color-blue, #3b82f6);
+  background: color-mix(in srgb, var(--tb-color-blue, #3b82f6) 14%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--tb-color-blue, #3b82f6) 30%, transparent);
 }
 .ticktick-project-card-desc {
   display: block;
@@ -1571,11 +1575,11 @@
   align-items: flex-start;
   gap: 0.45rem;
   padding: 0.55rem 0.65rem;
-  border-radius: 0.65rem;
-  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone) 35%, transparent);
-  border-inline-start: 4px solid var(--ticktick-task-tone) !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  border-radius: var(--tb-radius-m, 0.55rem);
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 22%, var(--background-modifier-border)) !important;
+  border-inline-start: 3.5px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  background: var(--background-secondary) !important;
+  box-shadow: var(--tb-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08)) !important;
   transition:
     transform 160ms cubic-bezier(.22, 1, .36, 1),
     box-shadow 160ms cubic-bezier(.22, 1, .36, 1),
@@ -1585,9 +1589,9 @@
 }
 .ticktick-planner-task:hover {
   transform: translateY(-2px);
-  background: color-mix(in srgb, var(--ticktick-task-tone) 8%, transparent) !important;
-  border-color: var(--ticktick-task-tone) !important;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--ticktick-task-tone) 18%, transparent) !important;
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 8%, var(--background-secondary)) !important;
+  border-color: var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  box-shadow: var(--tb-shadow-hover, 0 4px 14px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 16%, transparent)) !important;
 }
 .ticktick-planner-task.is-bound {
   cursor: grab;
@@ -1612,15 +1616,6 @@
   width: 0.8rem;
   height: 0.8rem;
   display: block;
-}
-.ticktick-task-check {
-  margin: 0.15rem 0 0 0;
-  width: 1.05rem;
-  height: 1.05rem;
-  cursor: pointer;
-  border-radius: 4px;
-  accent-color: var(--interactive-accent);
-  flex-shrink: 0;
 }
 .ticktick-task-content {
   flex: 1;
@@ -1655,22 +1650,23 @@
   display: block;
 }
 .ticktick-task-priority-dot {
-  width: 0.5rem;
-  height: 0.5rem;
+  width: 0.55rem;
+  height: 0.55rem;
   border-radius: 50%;
   display: inline-block;
+  flex-shrink: 0;
 }
 .ticktick-task-priority-dot.is-high {
-  background: var(--color-red, #e74c3c);
-  box-shadow: 0 0 4px var(--color-red, #e74c3c);
+  background: var(--tb-color-red, #ef4444);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--tb-color-red, #ef4444) 65%, transparent);
 }
 .ticktick-task-priority-dot.is-medium {
-  background: var(--color-orange, #e67e22);
-  box-shadow: 0 0 4px var(--color-orange, #e67e22);
+  background: var(--tb-color-orange, #f59e0b);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--tb-color-orange, #f59e0b) 65%, transparent);
 }
 .ticktick-task-priority-dot.is-low {
-  background: var(--color-blue, #3498db);
-  box-shadow: 0 0 4px var(--color-blue, #3498db);
+  background: var(--tb-color-blue, #3b82f6);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--tb-color-blue, #3b82f6) 65%, transparent);
 }
 .ticktick-task-project-chip {
   font-size: 0.68rem;
@@ -2152,103 +2148,6 @@
 }
 .ticktick-overflow-task.is-completed .ticktick-overflow-task-title {
   text-decoration: line-through;
-}
-.ticktick-task-details-modal .modal-content {
-  direction: rtl;
-}
-.ticktick-task-details-meta,
-.ticktick-task-details-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  margin-bottom: 0.85rem;
-}
-.ticktick-task-details-meta span,
-.ticktick-task-details-tags {
-  padding: 0.32rem 0.65rem;
-  border-radius: 999px;
-  background: var(--background-secondary);
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
-  font-weight: 500;
-}
-.modal.ticktick-task-details-modal .modal-header {
-  position: relative;
-  display: block;
-  min-height: 2.6rem;
-  padding-inline-start: 3rem;
-  direction: rtl;
-}
-.modal.ticktick-task-details-modal .modal-title {
-  display: block;
-  min-width: 0;
-  width: auto;
-  direction: rtl;
-  text-align: right;
-  font-size: 1.15rem;
-  font-weight: 800;
-}
-.modal.ticktick-task-details-modal .modal-close-button {
-  position: absolute !important;
-  top: 0.45rem !important;
-  left: 0.65rem !important;
-  right: auto !important;
-  z-index: 2;
-  margin: 0 !important;
-}
-.ticktick-task-details-description {
-  padding: 0.95rem;
-  margin: 0.85rem 0;
-  line-height: 1.8;
-  overflow-wrap: anywhere;
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
-  border-radius: 0.75rem;
-  background: var(--background-primary);
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--background-primary) 30%, transparent);
-}
-.ticktick-task-details-description > strong {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-.ticktick-task-details-description .markdown-rendered {
-  direction: rtl;
-  text-align: right;
-}
-.ticktick-task-details-checklist {
-  margin: 0.85rem 0;
-  padding: 0.95rem;
-  border-radius: 0.75rem;
-  background: var(--background-secondary);
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
-}
-.ticktick-task-details-checklist strong {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-size: 0.85rem;
-  color: var(--text-normal);
-}
-.ticktick-task-details-checklist div {
-  padding: 0.25rem 0;
-  color: var(--text-muted);
-  font-size: 0.82rem;
-}
-.ticktick-task-details-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-top: 1.25rem;
-}
-.ticktick-task-details-actions button {
-  min-width: 7.5rem;
-  border-radius: 999px;
-  font-weight: 600;
-}
-.ticktick-task-details-loading {
-  color: var(--text-muted);
-  padding: 1rem 0;
 }
 .ticktick-planner-task.is-leaving {
   opacity: 0;
@@ -3325,45 +3224,94 @@
   border-color: var(--interactive-accent);
   box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--interactive-accent) 28%, transparent);
 }
+.daily-task-checkbox,
+.ticktick-project-check,
+.ticktick-task-check,
+.ticktick-month-check,
+.ticktick-range-check,
+.ticktick-overflow-check {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  min-width: 1.25rem !important;
+  min-height: 1.25rem !important;
+  margin: 0 !important;
+  border: 2px solid color-mix(in srgb, var(--interactive-accent) 65%, var(--background-modifier-border)) !important;
+  border-radius: var(--tb-radius-xs, 0.28rem) !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 140ms ease !important;
+  position: relative !important;
+  flex-shrink: 0 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
+}
+.daily-task-checkbox:hover,
+.ticktick-project-check:hover,
+.ticktick-task-check:hover,
+.ticktick-month-check:hover,
+.ticktick-range-check:hover,
+.ticktick-overflow-check:hover {
+  border-color: var(--interactive-accent) !important;
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent) !important;
+  transform: scale(1.06);
+}
+.daily-task-checkbox:active,
+.ticktick-project-check:active,
+.ticktick-task-check:active,
+.ticktick-month-check:active,
+.ticktick-range-check:active,
+.ticktick-overflow-check:active {
+  transform: scale(0.92);
+}
+.daily-task-checkbox:checked,
+.ticktick-project-check:checked,
+.ticktick-task-check:checked,
+.ticktick-month-check:checked,
+.ticktick-range-check:checked,
+.ticktick-overflow-check:checked {
+  background: var(--interactive-accent) !important;
+  border-color: var(--interactive-accent) !important;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
+}
+.daily-task-checkbox:checked::after,
+.ticktick-project-check:checked::after,
+.ticktick-task-check:checked::after,
+.ticktick-month-check:checked::after,
+.ticktick-range-check:checked::after,
+.ticktick-overflow-check:checked::after {
+  content: "\2713" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  color: var(--text-on-accent) !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  animation: ticktick-check-pop 240ms cubic-bezier(.22, 1, .36, 1) !important;
+}
+.daily-task-checkbox:disabled,
+.ticktick-project-check:disabled,
+.ticktick-task-check:disabled,
+.ticktick-month-check:disabled,
+.ticktick-range-check:disabled,
+.ticktick-overflow-check:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
 .ticktick-task-grid .ticktick-task-card .daily-task-checkbox {
-  appearance: none;
-  -webkit-appearance: none;
   grid-column: 1;
   grid-row: 1 / 3;
   align-self: center;
   justify-self: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  margin: 0;
-  border: 2px solid color-mix(in srgb, var(--interactive-accent) 65%, var(--background-modifier-border));
-  border-radius: 0.28rem;
-  background: transparent;
-  cursor: pointer;
-  transition:
-    background 180ms ease,
-    border-color 180ms ease,
-    box-shadow 180ms ease;
-  position: relative;
-}
-.ticktick-task-grid .ticktick-task-card .daily-task-checkbox:hover {
-  border-color: var(--interactive-accent);
-  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
-}
-.ticktick-task-grid .ticktick-task-card .daily-task-checkbox:checked {
-  background: var(--interactive-accent);
-  border-color: var(--interactive-accent);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--interactive-accent) 40%, transparent);
-}
-.ticktick-task-grid .ticktick-task-card .daily-task-checkbox:checked::after {
-  content: "\2713";
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: var(--text-on-accent);
-  font-size: 0.7rem;
-  font-weight: bold;
-  animation: ticktick-check-pop 250ms cubic-bezier(.22, 1, .36, 1);
 }
 @keyframes ticktick-check-pop {
   0% {
@@ -4152,6 +4100,149 @@
   .ticktick-recurring-board {
     grid-template-columns: 1fr;
   }
+}
+.ticktick-task-details-modal .modal-content {
+  direction: rtl;
+  padding: 1.25rem 1.6rem 1.5rem;
+  overflow-y: auto;
+}
+.ticktick-task-details-modal .modal-header {
+  position: relative;
+  display: block;
+  min-height: 2.6rem;
+  padding: 1.1rem 1.6rem 0.6rem;
+  direction: rtl;
+  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+}
+.ticktick-task-details-modal .modal-title {
+  display: block;
+  margin: 0;
+  direction: rtl;
+  text-align: right;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-normal);
+}
+.ticktick-task-details-meta,
+.ticktick-task-details-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  margin-bottom: 0.85rem;
+}
+.ticktick-task-details-meta span,
+.ticktick-task-details-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--tb-radius-full, 9999px);
+  background: var(--background-secondary);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ticktick-task-details-description {
+  padding: 1rem 1.15rem;
+  margin: 0.85rem 0;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  border-inline-start: 3.5px solid var(--interactive-accent);
+  border-radius: var(--tb-radius-m, 0.55rem);
+  background: var(--background-secondary);
+  box-shadow: var(--tb-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08));
+}
+.ticktick-task-details-description > strong {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.ticktick-task-details-description .markdown-rendered {
+  direction: rtl;
+  text-align: right;
+  font-size: 0.88rem;
+  color: var(--text-normal);
+}
+.ticktick-task-details-checklist {
+  margin: 0.85rem 0;
+  padding: 0.95rem 1.15rem;
+  border-radius: var(--tb-radius-m, 0.55rem);
+  background: var(--background-secondary);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+}
+.ticktick-task-details-checklist strong {
+  display: block;
+  margin-bottom: 0.55rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-normal);
+}
+.ticktick-task-details-checklist div {
+  padding: 0.25rem 0;
+  color: var(--text-normal);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.ticktick-task-details-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.35rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
+}
+.ticktick-task-details-actions button {
+  min-width: 6.5rem;
+  min-height: 2.35rem;
+  padding: 0.42rem 1.1rem;
+  border-radius: var(--tb-radius-full, 9999px);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.ticktick-task-details-actions button.mod-cta {
+  background:
+    linear-gradient(
+      135deg,
+      var(--interactive-accent),
+      color-mix(in srgb, var(--interactive-accent) 78%, #7c3aed));
+  color: var(--text-on-accent);
+  border: none;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+}
+.ticktick-task-details-actions button.mod-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+}
+.ticktick-task-details-loading {
+  color: var(--text-muted);
+  padding: 1.5rem 0;
+  text-align: center;
+  font-size: 0.85rem;
+}
+.ticktick-project-editor-modal .modal-content {
+  padding: 1.25rem 1.6rem 1.5rem;
+  direction: rtl;
+}
+.ticktick-project-editor-modal .setting-item {
+  border-color: color-mix(in srgb, var(--background-modifier-border) 50%, transparent);
+  padding: 0.75rem 0;
+}
+.ticktick-conflict-card {
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  border-radius: var(--tb-radius-m, 0.55rem);
+  padding: 0.85rem;
+  margin: 0.7rem 0;
+  display: grid;
+  gap: 0.4rem;
+  direction: rtl;
+  text-align: right;
+  background: var(--background-secondary);
 }
 
 /* src/styles/timeline.css */
