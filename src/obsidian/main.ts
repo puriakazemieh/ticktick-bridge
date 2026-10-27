@@ -1,5 +1,5 @@
-import { App, Component, MarkdownRenderer, Menu, Modal, Notice, Platform, Plugin, TFile, WorkspaceLeaf, requestUrl, setIcon } from "obsidian";
-import { isHabitScheduledForDay, isScheduledForDay, jalaliDateKeyToGregorian, toDateKey, todayInZone } from "../core/date.js";
+import { MarkdownRenderer, Menu, Notice, Plugin, TFile, requestUrl, setIcon } from "obsidian";
+import { isScheduledForDay, toDateKey, todayInZone } from "../core/date.js";
 import { TickTickClient } from "../core/ticktick-client.js";
 import { normalizeWebSessionCookie, parseWebHabitCheckins } from "../core/ticktick-web-habits.js";
 import { ManagedStorage } from "./managed-storage";
@@ -8,7 +8,6 @@ import { MarkdownConflictModal, PendingMutationConflictModal } from "./conflict-
 import { PlanningCalendar } from "./planning-calendar";
 import { ProjectBoard } from "./project-board";
 import { NoteImport, NoteImportModal } from "./note-import";
-import { checklistSummary } from "../core/checklist.js";
 import { mergeTaskDetails, taskDescription } from "../core/task-description.js";
 import { normalizeProjectData } from "../core/project-board.js";
 
@@ -17,40 +16,28 @@ import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE,
 import {
   currentPlatformName,
   appendChecklistSummary,
-  formatTaskDate,
   formatTaskSchedule,
   formatRecurringTaskSchedule,
   cleanTaskDescription,
   cleanTaskTitle,
   habitIcon,
   habitDashboardSection,
-  habitDashboardCadence,
   habitDashboardGroup,
   habitDashboardGroupLabel,
   habitStreak,
   parseRecurringDays,
-  recurringKind,
   recurringTaskKind,
   shiftIsoDay,
   normalizeCache,
   escapeRegExp,
   checkboxSchedule,
-  nextWeekday,
   isHabitScheduledForCachedDay,
   dailyNoteDateFromPath,
-  persianMonthSegments,
-  addDescriptionToggle,
   toTaskPayload,
-  reminderTrigger,
-  reminderTimeFromTask,
   publicCacheMetadata
 } from "./helpers";
 
-import { TaskEditorModal, DeleteConfirmationModal, openTaskEditor, confirmDelete } from "./modals/task-editor-modal";
-import { TickTickWebLoginModal } from "./modals/web-login-modal";
-import { LegacyBackupMigrationModal } from "./modals/legacy-backup-migration-modal";
-import { ManagedReportModal } from "./modals/managed-report-modal";
-
+import { openTaskEditor, confirmDelete } from "./modals/task-editor-modal";
 import { TodayTasksView } from "./views/today-tasks-view";
 import { TodayHabitsView } from "./views/today-habits-view";
 import { PlanningView } from "./views/planning-view";
