@@ -5014,12 +5014,12 @@ var TickTickBridgePlugin = class extends import_obsidian20.Plugin {
   cacheConflictCount() {
     return this.cache.conflicts.length;
   }
-  async refreshCacheFromTickTick(today, hydrateHabits = false) {
+  async refreshCacheFromTickTick(today, refreshRemoteMetadata = false) {
     const client = this.client();
     const cacheAvailable = this.hasCache();
     const webTasks = await this.webOpenTasks();
-    const projects = cacheAvailable ? this.cache.projects : await client.listProjects();
-    let habits = !cacheAvailable || hydrateHabits ? await client.listHabits() : this.cache.habits;
+    const projects = !cacheAvailable || refreshRemoteMetadata ? await client.listProjects() : this.cache.projects;
+    let habits = !cacheAvailable || refreshRemoteMetadata ? await client.listHabits() : this.cache.habits;
     const sections = cacheAvailable ? [] : await client.listHabitSections();
     const projectBoards = {};
     const taskIndex = /* @__PURE__ */ new Map();
@@ -5119,7 +5119,7 @@ var TickTickBridgePlugin = class extends import_obsidian20.Plugin {
       const p = payload;
       return client.checkInHabit(p.habitId, p.day, p.checkin);
     };
-    const applyLocal = () => {
+    const applyLocal = (completedRecurring) => {
       if (type === "create") {
         const p = payload;
         const task = {
@@ -5142,8 +5142,17 @@ var TickTickBridgePlugin = class extends import_obsidian20.Plugin {
       }
       if (type === "complete" || type === "delete") {
         const targetId = payload.id;
-        this.cache.tasks = this.cache.tasks.filter((task) => task.id !== targetId);
-        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).filter((task) => task.id !== targetId);
+        const prior = this.cache.tasks.find((task) => task.id === targetId);
+        if (type === "complete" && prior?.repeatFlag) {
+          const next = { ...prior, ...completedRecurring, status: 0 };
+          this.cache.tasks = this.cache.tasks.map((task) => task.id === targetId ? next : task);
+          for (const board of Object.values(this.cache.projectBoards)) {
+            board.tasks = (board.tasks ?? []).map((task) => task.id === targetId ? next : task);
+          }
+        } else {
+          this.cache.tasks = this.cache.tasks.filter((task) => task.id !== targetId);
+          for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).filter((task) => task.id !== targetId);
+        }
         if (type === "complete" && targetId) {
           bridgeEvents.emit("task:completed", { taskId: targetId });
         } else if (type === "delete" && targetId) {
@@ -5183,7 +5192,16 @@ var TickTickBridgePlugin = class extends import_obsidian20.Plugin {
     }
     try {
       const result = await execute();
-      applyLocal();
+      const completed = type === "complete" ? payload : void 0;
+      let nextOccurrence;
+      if (completed?.repeatFlag && completed.id && completed.projectId) {
+        try {
+          const fresh = await this.client().getTask(String(completed.projectId), String(completed.id));
+          if (fresh && typeof fresh === "object") nextOccurrence = fresh;
+        } catch {
+        }
+      }
+      applyLocal(nextOccurrence);
       await this.saveSettings();
       await this.refreshLocalSurfaces();
       return { queued: false, result };

@@ -512,7 +512,7 @@ export default class TickTickBridgePlugin extends Plugin {
 
   cacheConflictCount() { return this.cache.conflicts.length; }
 
-  private async refreshCacheFromTickTick(today: string, hydrateHabits = false) {
+  private async refreshCacheFromTickTick(today: string, refreshRemoteMetadata = false) {
     const client = this.client();
     const cacheAvailable = this.hasCache();
     // Once a full mirror exists, the web batch feed is sufficient for normal
@@ -522,8 +522,11 @@ export default class TickTickBridgePlugin extends Plugin {
     // mutations, while the visible cache stays usable if the web feed is
     // unavailable for a moment.
     const webTasks = await this.webOpenTasks();
-    const projects = cacheAvailable ? this.cache.projects : await client.listProjects();
-    let habits = (!cacheAvailable || hydrateHabits) ? await client.listHabits() : this.cache.habits;
+    // A scheduled refresh intentionally uses the local project catalogue to
+    // keep TickTick's request volume low. An explicit Sync, however, must
+    // discover projects created, renamed, or removed in TickTick itself.
+    const projects = (!cacheAvailable || refreshRemoteMetadata) ? await client.listProjects() : this.cache.projects;
+    let habits = (!cacheAvailable || refreshRemoteMetadata) ? await client.listHabits() : this.cache.habits;
     const sections = cacheAvailable ? [] : await client.listHabitSections();
     const projectBoards: Record<string, ProjectBoardData> = {};
     const taskIndex = new Map<string, TickTickTask>();
@@ -649,7 +652,7 @@ export default class TickTickBridgePlugin extends Plugin {
       const p = payload as { habitId: string; day: string; checkin?: { value?: number; goal?: number; status?: number } };
       return client.checkInHabit(p.habitId, p.day, p.checkin);
     };
-    const applyLocal = () => {
+    const applyLocal = (completedRecurring?: TickTickTask) => {
       if (type === "create") {
         const p = payload as Partial<TickTickTask>;
         const task: TickTickTask = {
@@ -672,8 +675,22 @@ export default class TickTickBridgePlugin extends Plugin {
       }
       if (type === "complete" || type === "delete") {
         const targetId = (payload as { id?: string }).id;
-        this.cache.tasks = this.cache.tasks.filter(task => task.id !== targetId);
-        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).filter((task: TickTickTask) => task.id !== targetId);
+        const prior = this.cache.tasks.find(task => task.id === targetId);
+        // TickTick completes one occurrence of a recurring task and advances
+        // the same task to its next occurrence. Keep that card in the local
+        // mirror, replacing it with the authoritative follow-up when the
+        // inexpensive single-task read succeeds. Removing it here caused the
+        // next occurrence to disappear from every surface until the next sync.
+        if (type === "complete" && prior?.repeatFlag) {
+          const next = { ...prior, ...completedRecurring, status: 0 } as TickTickTask;
+          this.cache.tasks = this.cache.tasks.map(task => task.id === targetId ? next : task);
+          for (const board of Object.values(this.cache.projectBoards)) {
+            board.tasks = (board.tasks ?? []).map((task: TickTickTask) => task.id === targetId ? next : task);
+          }
+        } else {
+          this.cache.tasks = this.cache.tasks.filter(task => task.id !== targetId);
+          for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).filter((task: TickTickTask) => task.id !== targetId);
+        }
         if (type === "complete" && targetId) {
           bridgeEvents.emit("task:completed", { taskId: targetId });
         } else if (type === "delete" && targetId) {
@@ -713,7 +730,21 @@ export default class TickTickBridgePlugin extends Plugin {
     }
     try {
       const result = await execute();
-      applyLocal();
+      const completed = type === "complete" ? payload as TickTickTask : undefined;
+      let nextOccurrence: TickTickTask | undefined;
+      if (completed?.repeatFlag && completed.id && completed.projectId) {
+        try {
+          // The complete endpoint normally returns 204. Read just this task,
+          // rather than performing a full sync, so the next occurrence is
+          // visible immediately without resetting the current view.
+          const fresh = await this.client().getTask(String(completed.projectId), String(completed.id));
+          if (fresh && typeof fresh === "object") nextOccurrence = fresh as TickTickTask;
+        } catch {
+          // The completion already succeeded. Keep the current active card
+          // and let the regular cache refresh reconcile it shortly.
+        }
+      }
+      applyLocal(nextOccurrence);
       await this.saveSettings();
       await this.refreshLocalSurfaces();
       return { queued: false, result };

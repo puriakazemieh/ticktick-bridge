@@ -10,17 +10,17 @@
   --tb-accent-hover: var(--interactive-accent-hover);
   --tb-accent-faint: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
   --tb-accent-subtle: color-mix(in srgb, var(--interactive-accent) 25%, transparent);
-  
+
   --tb-bg-primary: var(--background-primary);
   --tb-bg-secondary: var(--background-secondary);
   --tb-bg-secondary-alt: var(--background-secondary-alt);
   --tb-bg-hover: var(--background-modifier-hover);
   --tb-bg-active: var(--background-modifier-active-hover);
-  
+
   --tb-border: var(--background-modifier-border);
   --tb-border-subtle: color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
   --tb-border-focus: var(--background-modifier-border-focus);
-  
+
   --tb-text-normal: var(--text-normal);
   --tb-text-muted: var(--text-muted);
   --tb-text-faint: var(--text-faint);
