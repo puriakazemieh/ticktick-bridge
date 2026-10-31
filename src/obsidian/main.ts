@@ -9,7 +9,7 @@ import { PlanningCalendar, HabitDetailsModal } from "./planning-calendar";
 import { renderUnifiedHabitCard } from "./habit-card";
 import { ProjectBoard } from "./project-board";
 import { NoteImport, NoteImportModal } from "./note-import";
-import { mergeTaskDetails, taskDescription } from "../core/task-description.js";
+import { mergeTaskDetails, reconcileOpenTasks, taskDescription } from "../core/task-description.js";
 import { normalizeProjectData } from "../core/project-board.js";
 
 import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit, ProjectBoardData, TickTickNote } from "./types";
@@ -431,7 +431,9 @@ export default class TickTickBridgePlugin extends Plugin {
       const tasks = this.cachedTasksForDay(day);
       const habits = this.cachedHabitsForDay(day);
       await this.refreshLocalSurfaces();
-      if (!quiet && refreshed.remote) {
+      if (!quiet && !refreshed.tasksFresh) {
+        new Notice("فهرست تسک‌ها از TickTick دریافت نشد؛ تسک‌های کش هنوز به‌روز نیستند. نشست وب را در تنظیمات بررسی کن و دوباره همگام‌سازی بزن.");
+      } else if (!quiet && refreshed.remote) {
         const notes = this.cache.tasks.filter(task => String(task.kind ?? "").toUpperCase() === "NOTE").length;
         new Notice(`همگام‌سازی کامل شد: ${this.cache.projects.length} لیست، ${this.cache.tasks.length} رکورد (${notes} Note) و ${habits.length} عادت امروز.`);
       } else if (!quiet) {
@@ -577,12 +579,10 @@ export default class TickTickBridgePlugin extends Plugin {
         // safe to continue and populate it from that feed when available.
       }
     }
-    for (const task of webTasks ?? []) {
-      const projectId = String(task.projectId ?? ""); const key = `${projectId}:${task.id}`;
-      const prior = taskIndex.get(key);
-      taskIndex.set(key, (prior ? mergeTaskDetails(prior, task) : task) as TickTickTask);
-    }
-    const tasks = [...taskIndex.values()];
+    // check/0 is a full snapshot, not a patch. Starting from cached tasks
+    // kept completed/deleted tasks alive forever when they vanished remotely.
+    // Keep cached descriptions, but let the fresh snapshot decide membership.
+    const tasks = reconcileOpenTasks([...taskIndex.values()], webTasks) as TickTickTask[];
     // Board columns come from the cached project document, while task values
     // come from the fresh batch feed. Recompose them before rendering so a
     // normal sync never displays an old card after a local mutation.
@@ -632,7 +632,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.rateLimitedUntil = 0;
     await this.saveSettings();
     bridgeEvents.emit("sync:complete", { timestamp: new Date().toISOString() });
-    return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable };
+    return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable, tasksFresh: webTasks !== null };
   }
 
   private async runMutation(type: PendingMutation["type"], payload: PendingMutation["payload"], originElement?: HTMLElement) {
@@ -1110,7 +1110,8 @@ export default class TickTickBridgePlugin extends Plugin {
     if (!document) return null;
     const profiles = Array.isArray(document.projectProfiles) ? document.projectProfiles : [];
     const projectNames = new Map(profiles.map((project: { id?: unknown; name?: unknown }) => [String(project.id ?? ""), String(project.name ?? "")]));
-    const updates = Array.isArray(document.syncTaskBean?.update) ? document.syncTaskBean.update : [];
+    if (!Array.isArray(document.syncTaskBean?.update)) return null;
+    const updates = document.syncTaskBean.update;
     return updates
       .filter((task: { id?: unknown; status?: unknown }) => Boolean(task?.id) && Number(task.status ?? 0) === 0)
       .map((task: { projectId?: unknown; projectName?: unknown }) => ({

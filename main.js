@@ -1589,6 +1589,11 @@ function mergeTaskDetails(cached = {}, fresh = {}) {
   }
   return merged;
 }
+function reconcileOpenTasks(cached = [], fresh = null) {
+  if (fresh === null) return cached.filter((task) => Number(task?.status ?? 0) === 0);
+  const details = new Map(cached.filter((task) => task?.id).map((task) => [String(task.id), task]));
+  return fresh.filter((task) => task?.id && Number(task.status ?? 0) === 0).map((task) => mergeTaskDetails(details.get(String(task.id)), task));
+}
 
 // src/core/persian-date.js
 function formatPersianDate(value, timeZone = "Asia/Tehran") {
@@ -4936,7 +4941,9 @@ var TickTickBridgePlugin = class extends import_obsidian20.Plugin {
       const tasks = this.cachedTasksForDay(day);
       const habits = this.cachedHabitsForDay(day);
       await this.refreshLocalSurfaces();
-      if (!quiet && refreshed.remote) {
+      if (!quiet && !refreshed.tasksFresh) {
+        new import_obsidian20.Notice("\u0641\u0647\u0631\u0633\u062A \u062A\u0633\u06A9\u200C\u0647\u0627 \u0627\u0632 TickTick \u062F\u0631\u06CC\u0627\u0641\u062A \u0646\u0634\u062F\u061B \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u06A9\u0634 \u0647\u0646\u0648\u0632 \u0628\u0647\u200C\u0631\u0648\u0632 \u0646\u06CC\u0633\u062A\u0646\u062F. \u0646\u0634\u0633\u062A \u0648\u0628 \u0631\u0627 \u062F\u0631 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0628\u0631\u0631\u0633\u06CC \u06A9\u0646 \u0648 \u062F\u0648\u0628\u0627\u0631\u0647 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0628\u0632\u0646.");
+      } else if (!quiet && refreshed.remote) {
         const notes = this.cache.tasks.filter((task) => String(task.kind ?? "").toUpperCase() === "NOTE").length;
         new import_obsidian20.Notice(`\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0645\u0644 \u0634\u062F: ${this.cache.projects.length} \u0644\u06CC\u0633\u062A\u060C ${this.cache.tasks.length} \u0631\u06A9\u0648\u0631\u062F (${notes} Note) \u0648 ${habits.length} \u0639\u0627\u062F\u062A \u0627\u0645\u0631\u0648\u0632.`);
       } else if (!quiet) {
@@ -5056,13 +5063,7 @@ var TickTickBridgePlugin = class extends import_obsidian20.Plugin {
       } catch {
       }
     }
-    for (const task of webTasks ?? []) {
-      const projectId = String(task.projectId ?? "");
-      const key = `${projectId}:${task.id}`;
-      const prior = taskIndex.get(key);
-      taskIndex.set(key, prior ? mergeTaskDetails(prior, task) : task);
-    }
-    const tasks = [...taskIndex.values()];
+    const tasks = reconcileOpenTasks([...taskIndex.values()], webTasks);
     for (const [projectId, board] of Object.entries(projectBoards)) {
       const prior = new Map((board.tasks ?? []).map((task) => [String(task.id), task]));
       board.tasks = tasks.filter((task) => projectId === "inbox" ? Boolean(task.isInbox) : String(task?.projectId ?? "") === projectId).map((task) => mergeTaskDetails(prior.get(String(task.id)), task));
@@ -5100,7 +5101,7 @@ var TickTickBridgePlugin = class extends import_obsidian20.Plugin {
     this.rateLimitedUntil = 0;
     await this.saveSettings();
     bridgeEvents.emit("sync:complete", { timestamp: (/* @__PURE__ */ new Date()).toISOString() });
-    return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable };
+    return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable, tasksFresh: webTasks !== null };
   }
   async runMutation(type, payload, originElement) {
     const operation = { id: crypto.randomUUID(), type, payload, queuedAt: (/* @__PURE__ */ new Date()).toISOString() };
@@ -5556,7 +5557,8 @@ var TickTickBridgePlugin = class extends import_obsidian20.Plugin {
     if (!document) return null;
     const profiles = Array.isArray(document.projectProfiles) ? document.projectProfiles : [];
     const projectNames = new Map(profiles.map((project) => [String(project.id ?? ""), String(project.name ?? "")]));
-    const updates = Array.isArray(document.syncTaskBean?.update) ? document.syncTaskBean.update : [];
+    if (!Array.isArray(document.syncTaskBean?.update)) return null;
+    const updates = document.syncTaskBean.update;
     return updates.filter((task) => Boolean(task?.id) && Number(task.status ?? 0) === 0).map((task) => ({
       ...task,
       projectName: String(task.projectName ?? projectNames.get(String(task.projectId ?? "")) ?? "\u0648\u0631\u0648\u062F\u06CC")
