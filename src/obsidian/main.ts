@@ -17,7 +17,7 @@ import { createBulkOperationManifest, runBoundedQueue, formatBulkOutcomeReport, 
 import { probeTaskHierarchy } from "../core/task-hierarchy.js";
 
 import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit, ProjectBoardData, TickTickNote, SavedView } from "./types";
-import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
+import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, EISENHOWER_MATRIX_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
 import {
   currentPlatformName,
   appendChecklistSummary,
@@ -52,6 +52,8 @@ import { TickTickControlView } from "./views/ticktick-control-view";
 import { ProjectTimelineView } from "./views/project-timeline-view";
 import { WeeklyReviewView } from "./views/weekly-review-view";
 import { WeeklyReview } from "./weekly-review";
+import { EisenhowerMatrixView } from "./views/eisenhower-matrix-view";
+import { EisenhowerMatrix } from "./eisenhower-matrix";
 import { TickTickBridgeSettings } from "./settings";
 
 export default class TickTickBridgePlugin extends Plugin {
@@ -114,6 +116,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.registerView(CONTROL_VIEW_TYPE, leaf => new TickTickControlView(leaf, this));
     this.registerView(TIMELINE_VIEW_TYPE, leaf => new ProjectTimelineView(leaf, this));
     this.registerView(WEEKLY_REVIEW_VIEW_TYPE, leaf => new WeeklyReviewView(leaf, this));
+    this.registerView(EISENHOWER_MATRIX_VIEW_TYPE, leaf => new EisenhowerMatrixView(leaf, this));
     this.registerMarkdownCodeBlockProcessor("ticktick-today", async (_source, element, context) => {
       const day = dailyNoteDateFromPath(context.sourcePath);
       this.taskBlocks.set(element, day);
@@ -139,6 +142,9 @@ export default class TickTickBridgePlugin extends Plugin {
     this.registerMarkdownCodeBlockProcessor("ticktick-review", async (_source, element) => {
       await new WeeklyReview(element, this.weeklyReviewHost()).render();
     });
+    this.registerMarkdownCodeBlockProcessor("ticktick-matrix", async (_source, element) => {
+      await new EisenhowerMatrix(element, this.eisenhowerMatrixHost()).render();
+    });
     this.configurePanelMenuRibbonIcon();
     this.configureSyncRibbonIcon();
     this.configureRibbonIcons();
@@ -151,6 +157,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "open-project-timeline", name: "Open TickTick project timeline (Gantt)", callback: () => this.openTimelineView() });
     this.addCommand({ id: "open-weekly-review", name: "Open TickTick weekly review and execution dashboard", callback: () => this.openWeeklyReviewView() });
+    this.addCommand({ id: "open-eisenhower-matrix", name: "Open TickTick Eisenhower decision matrix", callback: () => this.openEisenhowerMatrixView() });
     this.addCommand({ id: "probe-task-hierarchy", name: "Probe task hierarchy and generate audit report", callback: () => this.probeTaskHierarchyAndReport() });
     this.addCommand({ id: "open-smart-views", name: "Open smart views (TickTick board)", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
@@ -363,6 +370,23 @@ export default class TickTickBridgePlugin extends Plugin {
     };
   }
 
+  eisenhowerMatrixHost() {
+    return {
+      app: this.app,
+      timeZone: this.settings.timeZone,
+      tasks: () => this.cache.tasks,
+      projects: async () => this.cache.projects.length ? this.cache.projects : this.client().listProjects(),
+      savedAt: () => this.cache.savedAt,
+      refresh: async () => { await this.syncNow(); },
+      updateTask: async (mutation: Partial<TickTickTask>) => this.updateTask(mutation),
+      createTask: async (initial: Partial<TickTickTask>) => this.createTaskFromSurface(initial),
+      complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
+      load: async (task: TickTickTask) => this.loadTaskDetails(task),
+      edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
+      executeBulkOperation: async (taskIds: string[], op: string, params: any) => this.executeBulkOperation(taskIds, op, params),
+    };
+  }
+
   private async importTaggedCheckboxes(file: TFile, quiet = false) {
     const tag = this.settings.checkboxImportTag.trim().replace(/^#/, "") || "ticktick";
     const tagPattern = new RegExp(`(^|\\s)#${escapeRegExp(tag)}(?=\\s|$)`, "i");
@@ -455,6 +479,7 @@ export default class TickTickBridgePlugin extends Plugin {
     menu.addItem(item => item.setTitle("برد پروژه‌ها").setIcon("kanban-square").onClick(() => void this.openProjectBoardView()));
     menu.addItem(item => item.setTitle("تایم‌لاین و گانت پروژه‌ها").setIcon("calendar-range").onClick(() => void this.openTimelineView()));
     menu.addItem(item => item.setTitle("مرور هفتگی و داشبورد اجرا").setIcon("bar-chart-2").onClick(() => void this.openWeeklyReviewView()));
+    menu.addItem(item => item.setTitle("ماتریس تصمیم‌گیری آیزنهاور").setIcon("grid").onClick(() => void this.openEisenhowerMatrixView()));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("مرکز همگام‌سازی و تعارض‌ها").setIcon("arrow-down-up").onClick(() => void this.openControlPage("sync")));
     menu.addItem(item => item.setTitle("پیش‌نمایش انتقال TickTick Notes").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
@@ -552,7 +577,7 @@ export default class TickTickBridgePlugin extends Plugin {
         this.habitBlockSignatures.set(element, signature);
       }
     }
-    for (const type of [VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE]) {
+    for (const type of [VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, EISENHOWER_MATRIX_VIEW_TYPE]) {
       for (const leaf of this.app.workspace.getLeavesOfType(type)) {
         const view = leaf.view as unknown as { render?: () => Promise<void> | void };
         if (typeof view.render === "function") await view.render();
@@ -1408,6 +1433,11 @@ export default class TickTickBridgePlugin extends Plugin {
   async openWeeklyReviewView() {
     const leaf = this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: WEEKLY_REVIEW_VIEW_TYPE, active: true });
+  }
+
+  async openEisenhowerMatrixView() {
+    const leaf = this.app.workspace.getLeaf("tab");
+    await leaf.setViewState({ type: EISENHOWER_MATRIX_VIEW_TYPE, active: true });
   }
 
   async openControlPage(screen: ControlScreen) {

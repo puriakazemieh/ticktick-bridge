@@ -30,7 +30,7 @@ Extend the cache-first planning foundation delivered in Plan 008 into an active 
 
 ## Delivery Order & Milestones
 
-### Milestone 1: Eisenhower Decision Matrix (ماتریس اولویت‌بندی آیزنهاور ۲×۲)
+### Milestone 1: Eisenhower Decision Matrix (ماتریس اولویت‌بندی آیزنهاور ۲×۲) [DONE]
 
 1. **Pure Engine (`src/core/eisenhower-matrix.js`)**:
    - Compute 4 quadrants from tasks:
