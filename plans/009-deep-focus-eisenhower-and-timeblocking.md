@@ -1,6 +1,6 @@
 # Plan 009: Deep focus, Eisenhower decision matrix, and daily timeblocking workspace
 
-> Status: TODO  
+> Status: DONE  
 > Priority: P1  
 > Effort: Large  
 > Risk: Medium  
@@ -119,7 +119,7 @@ Extend the cache-first planning foundation delivered in Plan 008 into an active 
 
 ---
 
-### Milestone 5: Activity & Habit Heatmap Dashboard (هیت‌مپ فعالیت و ردگیری پیوستگی)
+### Milestone 5: Activity & Habit Heatmap Dashboard (هیت‌مپ فعالیت و ردگیری پیوستگی) [DONE]
 
 1. **Pure Heatmap Matrix Engine (`src/core/activity-heatmap.js`)**:
    - `computeAnnualHeatmapData(tasks, habits, options = { year, timeZone })`:

@@ -9,6 +9,7 @@ export const TIMELINE_VIEW_TYPE = "ticktick-bridge-timeline";
 export const WEEKLY_REVIEW_VIEW_TYPE = "ticktick-bridge-weekly-review";
 export const EISENHOWER_MATRIX_VIEW_TYPE = "ticktick-bridge-matrix";
 export const TIMEBLOCK_PLANNER_VIEW_TYPE = "ticktick-bridge-day-planner";
+export const HEATMAP_VIEW_TYPE = "ticktick-bridge-heatmap";
 
 export const DEFAULT_SETTINGS: BridgeSettings = {
   apiToken: "",

@@ -17,7 +17,7 @@ import { createBulkOperationManifest, runBoundedQueue, formatBulkOutcomeReport, 
 import { probeTaskHierarchy } from "../core/task-hierarchy.js";
 
 import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit, ProjectBoardData, TickTickNote, SavedView } from "./types";
-import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, EISENHOWER_MATRIX_VIEW_TYPE, TIMEBLOCK_PLANNER_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
+import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, EISENHOWER_MATRIX_VIEW_TYPE, TIMEBLOCK_PLANNER_VIEW_TYPE, HEATMAP_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
 import {
   currentPlatformName,
   appendChecklistSummary,
@@ -60,6 +60,8 @@ import { TimeblockingPlanner } from "./timeblocking-planner";
 import { computeDayTimeSlots, findCurrentActiveBlock } from "../core/timeblocking.js";
 import { PomodoroTimerService, PomodoroModal } from "./pomodoro-timer";
 import { formatPomodoroLogEntry, appendPomodoroLogToDailyNoteMarkdown } from "../core/pomodoro-engine.js";
+import { ActivityHeatmapView } from "./views/activity-heatmap-view";
+import { ActivityHeatmap } from "./activity-heatmap";
 import { TickTickBridgeSettings } from "./settings";
 
 export default class TickTickBridgePlugin extends Plugin {
@@ -128,6 +130,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.registerView(WEEKLY_REVIEW_VIEW_TYPE, leaf => new WeeklyReviewView(leaf, this));
     this.registerView(EISENHOWER_MATRIX_VIEW_TYPE, leaf => new EisenhowerMatrixView(leaf, this));
     this.registerView(TIMEBLOCK_PLANNER_VIEW_TYPE, leaf => new TimeblockingPlannerView(leaf, this));
+    this.registerView(HEATMAP_VIEW_TYPE, leaf => new ActivityHeatmapView(leaf, this));
     this.registerMarkdownCodeBlockProcessor("ticktick-today", async (_source, element, context) => {
       const day = dailyNoteDateFromPath(context.sourcePath);
       this.taskBlocks.set(element, day);
@@ -159,6 +162,9 @@ export default class TickTickBridgePlugin extends Plugin {
     this.registerMarkdownCodeBlockProcessor("ticktick-day-planner", async (_source, element) => {
       await new TimeblockingPlanner(element, this.timeblockingPlannerHost()).render();
     });
+    this.registerMarkdownCodeBlockProcessor("ticktick-heatmap", async (_source, element) => {
+      await new ActivityHeatmap(element, this.activityHeatmapHost()).render();
+    });
     this.configurePanelMenuRibbonIcon();
     this.configureSyncRibbonIcon();
     this.configureRibbonIcons();
@@ -175,6 +181,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-timeblocking-planner", name: "Open TickTick day planner and timeblocks", callback: () => this.openTimeblockingPlannerView() });
     this.addCommand({ id: "open-pomodoro-timer", name: "Open TickTick focus and pomodoro timer", callback: () => this.openPomodoroModal() });
     this.addCommand({ id: "quick-capture-task", name: "Quick capture task (Natural language)", callback: () => this.openQuickCaptureModal() });
+    this.addCommand({ id: "open-activity-heatmap", name: "Open TickTick activity and habit heatmap", callback: () => this.openActivityHeatmapView() });
     this.addCommand({ id: "probe-task-hierarchy", name: "Probe task hierarchy and generate audit report", callback: () => this.probeTaskHierarchyAndReport() });
     this.addCommand({ id: "open-smart-views", name: "Open smart views (TickTick board)", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
@@ -447,6 +454,16 @@ export default class TickTickBridgePlugin extends Plugin {
     };
   }
 
+  activityHeatmapHost() {
+    return {
+      tasks: () => this.cache.tasks,
+      habits: () => this.cache.habits,
+      habitCheckins: () => this.cache.habitCheckins,
+      timeZone: this.settings.timeZone,
+      refresh: async () => { await this.syncNow(); },
+    };
+  }
+
   private async importTaggedCheckboxes(file: TFile, quiet = false) {
     const tag = this.settings.checkboxImportTag.trim().replace(/^#/, "") || "ticktick";
     const tagPattern = new RegExp(`(^|\\s)#${escapeRegExp(tag)}(?=\\s|$)`, "i");
@@ -543,6 +560,7 @@ export default class TickTickBridgePlugin extends Plugin {
     menu.addItem(item => item.setTitle("برنامه‌ریز و بلوک‌های زمانی روزانه").setIcon("clock").onClick(() => void this.openTimeblockingPlannerView()));
     menu.addItem(item => item.setTitle("تایمر تمرکز عمیق (پومودورو)").setIcon("timer").onClick(() => void this.openPomodoroModal()));
     menu.addItem(item => item.setTitle("ثبت سریع با زبان طبیعی").setIcon("zap").onClick(() => void this.openQuickCaptureModal()));
+    menu.addItem(item => item.setTitle("هیت‌مپ فعالیت و پیوستگی سالانه").setIcon("flame").onClick(() => void this.openActivityHeatmapView()));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("مرکز همگام‌سازی و تعارض‌ها").setIcon("arrow-down-up").onClick(() => void this.openControlPage("sync")));
     menu.addItem(item => item.setTitle("پیش‌نمایش انتقال TickTick Notes").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
@@ -640,7 +658,7 @@ export default class TickTickBridgePlugin extends Plugin {
         this.habitBlockSignatures.set(element, signature);
       }
     }
-    for (const type of [VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, EISENHOWER_MATRIX_VIEW_TYPE, TIMEBLOCK_PLANNER_VIEW_TYPE]) {
+    for (const type of [VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, EISENHOWER_MATRIX_VIEW_TYPE, TIMEBLOCK_PLANNER_VIEW_TYPE, HEATMAP_VIEW_TYPE]) {
       for (const leaf of this.app.workspace.getLeavesOfType(type)) {
         const view = leaf.view as unknown as { render?: () => Promise<void> | void };
         if (typeof view.render === "function") await view.render();
@@ -1507,6 +1525,11 @@ export default class TickTickBridgePlugin extends Plugin {
   async openTimeblockingPlannerView() {
     const leaf = this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: TIMEBLOCK_PLANNER_VIEW_TYPE, active: true });
+  }
+
+  async openActivityHeatmapView() {
+    const leaf = this.app.workspace.getLeaf("tab");
+    await leaf.setViewState({ type: HEATMAP_VIEW_TYPE, active: true });
   }
 
   updateTimeblockStatusBar() {
