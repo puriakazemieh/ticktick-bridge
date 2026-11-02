@@ -89,7 +89,7 @@ Behind a separate default-off setting, allow checking a local card to update onl
 
 ## Done criteria
 
-- [ ] Selected remote migration is intentionally blocked pending a verified official API contract; preview does not delete or change local files.
+- [x] Selected remote migration is intentionally blocked pending a verified official API contract; preview does not delete or change local files.
 - [x] Dashboard clearly distinguishes Local and TickTick records; linking awaits safe remote creation.
 - [x] Unsupported local data is reported rather than guessed or dropped.
 - [x] `npm test`, `npm run check`, and `npm run build` pass.

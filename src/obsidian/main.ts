@@ -9,6 +9,7 @@ import { PlanningCalendar, HabitDetailsModal } from "./planning-calendar";
 import { renderUnifiedHabitCard } from "./habit-card";
 import { ProjectBoard } from "./project-board";
 import { NoteImport, NoteImportModal } from "./note-import";
+import { LocalHabitMigrationModal } from "./modals/local-habit-migration-modal";
 import { mergeTaskDetails, reconcileOpenTasks, taskDescription } from "../core/task-description.js";
 import { normalizeProjectData } from "../core/project-board.js";
 
@@ -131,6 +132,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-today-habits", name: "Open today's TickTick habits", callback: () => this.openHabitView() });
     this.addCommand({ id: "open-ticktick-sync-center", name: "Open TickTick sync center", callback: () => this.openControlPage("sync") });
     this.addCommand({ id: "preview-ticktick-notes", name: "Preview TickTick Notes import", callback: () => this.openControlPage("notes") });
+    this.addCommand({ id: "review-local-habits", name: "Review local habits and migration preview", callback: () => this.openLocalHabitReviewModal() });
     this.addCommand({ id: "open-weekly-planner", name: "Open TickTick weekly planner", callback: () => this.openPlannerView() });
     this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
@@ -391,6 +393,7 @@ export default class TickTickBridgePlugin extends Plugin {
     menu.addSeparator();
     menu.addItem(item => item.setTitle("مرکز همگام‌سازی و تعارض‌ها").setIcon("arrow-down-up").onClick(() => void this.openControlPage("sync")));
     menu.addItem(item => item.setTitle("پیش‌نمایش انتقال TickTick Notes").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
+    menu.addItem(item => item.setTitle("مرور و پیش‌نمایش عادت‌های محلی").setIcon("sparkles").onClick(() => void this.openLocalHabitReviewModal()));
     menu.addItem(item => item.setTitle("Checklistهای task (فقط‌خواندنی)").setIcon("list-checks").onClick(() => void this.openControlPage("checklists")));
     menu.addItem(item => item.setTitle("آخرین گزارش و backup").setIcon("shield-check").onClick(() => void this.openControlPage("reports")));
     menu.showAtMouseEvent(event);
@@ -1163,6 +1166,10 @@ export default class TickTickBridgePlugin extends Plugin {
   async openControlPage(screen: ControlScreen) {
     const leaf = this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: CONTROL_VIEW_TYPE, active: true, state: { screen } });
+  }
+
+  openLocalHabitReviewModal() {
+    new LocalHabitMigrationModal(this.app).open();
   }
 
   async renderTodayBlock(element: HTMLElement, dayOverride?: string) {
