@@ -1,5 +1,5 @@
 import { MarkdownRenderer, Menu, Notice, Plugin, TFile, requestUrl, setIcon } from "obsidian";
-import { isScheduledForDay, toDateKey, todayInZone } from "../core/date.js";
+import { isScheduledForDay, toDateKey, todayInZone, gregorianDateKeyToJalali } from "../core/date.js";
 import { TickTickClient } from "../core/ticktick-client.js";
 import { normalizeWebSessionCookie, parseWebHabitCheckins } from "../core/ticktick-web-habits.js";
 import { ManagedStorage, VaultAdapter } from "./managed-storage";
@@ -57,6 +57,8 @@ import { EisenhowerMatrix } from "./eisenhower-matrix";
 import { TimeblockingPlannerView } from "./views/timeblocking-planner-view";
 import { TimeblockingPlanner } from "./timeblocking-planner";
 import { computeDayTimeSlots, findCurrentActiveBlock } from "../core/timeblocking.js";
+import { PomodoroTimerService, PomodoroModal } from "./pomodoro-timer";
+import { formatPomodoroLogEntry, appendPomodoroLogToDailyNoteMarkdown } from "../core/pomodoro-engine.js";
 import { TickTickBridgeSettings } from "./settings";
 
 export default class TickTickBridgePlugin extends Plugin {
@@ -85,6 +87,8 @@ export default class TickTickBridgePlugin extends Plugin {
   private lastManagedReport = "هنوز گزارشی ثبت نشده است.";
   private timeblockStatusBarItem: HTMLElement | null = null;
   private timeblockStatusTimer: number | null = null;
+  pomodoroService: PomodoroTimerService | null = null;
+  private pomodoroStatusBarItem: HTMLElement | null = null;
 
   async onload() {
     this.managedStorage = new ManagedStorage(this.app.vault.adapter as unknown as VaultAdapter);
@@ -168,6 +172,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-weekly-review", name: "Open TickTick weekly review and execution dashboard", callback: () => this.openWeeklyReviewView() });
     this.addCommand({ id: "open-eisenhower-matrix", name: "Open TickTick Eisenhower decision matrix", callback: () => this.openEisenhowerMatrixView() });
     this.addCommand({ id: "open-timeblocking-planner", name: "Open TickTick day planner and timeblocks", callback: () => this.openTimeblockingPlannerView() });
+    this.addCommand({ id: "open-pomodoro-timer", name: "Open TickTick focus and pomodoro timer", callback: () => this.openPomodoroModal() });
     this.addCommand({ id: "probe-task-hierarchy", name: "Probe task hierarchy and generate audit report", callback: () => this.probeTaskHierarchyAndReport() });
     this.addCommand({ id: "open-smart-views", name: "Open smart views (TickTick board)", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
@@ -185,9 +190,31 @@ export default class TickTickBridgePlugin extends Plugin {
     this.timeblockStatusBarItem.addClass("ticktick-timeblock-status-bar");
     this.updateTimeblockStatusBar();
     this.timeblockStatusTimer = window.setInterval(() => this.updateTimeblockStatusBar(), 60000);
+    this.pomodoroStatusBarItem = this.addStatusBarItem();
+    this.pomodoroStatusBarItem.addClass("ticktick-pomodoro-status-bar");
+    this.pomodoroStatusBarItem.style.display = "none";
+    this.pomodoroStatusBarItem.addEventListener("click", () => this.openPomodoroModal());
+    this.pomodoroService = new PomodoroTimerService({
+      app: this.app,
+      timeZone: this.settings.timeZone,
+      dailyNoteFolder: this.settings.dailyNoteFolder,
+      tasks: () => this.cache.tasks,
+      updateTask: async (mutation) => this.updateTask(mutation),
+      logPomodoroToDailyNote: async (session) => this.logPomodoroToDailyNote(session),
+      onStateChanged: (st) => this.updatePomodoroStatusBar(st),
+    });
     // Build the complete local mirror after Obsidian has finished opening.
     // The UI can then stay entirely local between background syncs.
     this.app.workspace.onLayoutReady(() => void this.syncNow({ quiet: true }));
+  }
+
+  onunload() {
+    if (this.timeblockStatusTimer !== null) {
+      window.clearInterval(this.timeblockStatusTimer);
+      this.timeblockStatusTimer = null;
+    }
+    this.pomodoroService?.destroy();
+    this.pomodoroService = null;
   }
 
   async createPrewriteSnapshot(purpose: string, payload: unknown) {
@@ -512,6 +539,7 @@ export default class TickTickBridgePlugin extends Plugin {
     menu.addItem(item => item.setTitle("مرور هفتگی و داشبورد اجرا").setIcon("bar-chart-2").onClick(() => void this.openWeeklyReviewView()));
     menu.addItem(item => item.setTitle("ماتریس تصمیم‌گیری آیزنهاور").setIcon("grid").onClick(() => void this.openEisenhowerMatrixView()));
     menu.addItem(item => item.setTitle("برنامه‌ریز و بلوک‌های زمانی روزانه").setIcon("clock").onClick(() => void this.openTimeblockingPlannerView()));
+    menu.addItem(item => item.setTitle("تایمر تمرکز عمیق (پومودورو)").setIcon("timer").onClick(() => void this.openPomodoroModal()));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("مرکز همگام‌سازی و تعارض‌ها").setIcon("arrow-down-up").onClick(() => void this.openControlPage("sync")));
     menu.addItem(item => item.setTitle("پیش‌نمایش انتقال TickTick Notes").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
@@ -1497,6 +1525,63 @@ export default class TickTickBridgePlugin extends Plugin {
       this.timeblockStatusBarItem.setText("");
       this.timeblockStatusBarItem.style.display = "none";
     }
+  }
+
+  openPomodoroModal(task?: TickTickTask) {
+    if (!this.pomodoroService) return;
+    if (task) {
+      this.pomodoroService.setTask(task);
+    }
+    const host = {
+      app: this.app,
+      timeZone: this.settings.timeZone,
+      dailyNoteFolder: this.settings.dailyNoteFolder,
+      tasks: () => this.cache.tasks,
+      updateTask: async (mutation: Partial<TickTickTask>) => this.updateTask(mutation),
+      logPomodoroToDailyNote: async (session: any) => this.logPomodoroToDailyNote(session),
+    };
+    new PomodoroModal(this.app, this.pomodoroService, host).open();
+  }
+
+  updatePomodoroStatusBar(state: any) {
+    if (!this.pomodoroStatusBarItem) return;
+    if (state.isRunning) {
+      const mins = Math.floor(state.remainingSeconds / 60);
+      const secs = state.remainingSeconds % 60;
+      const timeStr = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+      const taskTitle = state.activeTask?.title ? ` [${cleanTaskTitle(state.activeTask.title)}]` : "";
+      const icon = state.mode === "focus" ? "🍅" : state.mode === "shortBreak" ? "☕" : "🌴";
+      this.pomodoroStatusBarItem.setText(`${icon} ${timeStr}${taskTitle}`);
+      this.pomodoroStatusBarItem.style.display = "";
+    } else {
+      this.pomodoroStatusBarItem.style.display = "none";
+    }
+  }
+
+  async logPomodoroToDailyNote(session: any): Promise<boolean> {
+    const today = todayInZone(this.settings.timeZone);
+    const jalaliKey = gregorianDateKeyToJalali(today);
+    if (!jalaliKey) return false;
+
+    const folder = this.settings.dailyNoteFolder.replace(/^[\\/]+|[\\/]+$/g, "");
+    const expectedPath = `${folder}/${jalaliKey}.md`;
+
+    let file = this.app.vault.getAbstractFileByPath(expectedPath);
+    if (!(file instanceof TFile)) {
+      const mdFiles = this.app.vault.getMarkdownFiles();
+      file = mdFiles.find(f => f.path.startsWith(folder) && f.basename === jalaliKey) ?? null;
+    }
+
+    if (file instanceof TFile) {
+      const original = await this.app.vault.read(file);
+      const line = formatPomodoroLogEntry(session, this.settings.timeZone);
+      const updated = appendPomodoroLogToDailyNoteMarkdown(original, line);
+      await this.app.vault.modify(file, updated);
+      new Notice(`جلسه تمرکز در یادداشت روزانه (${file.name}) ثبت شد.`);
+      return true;
+    }
+
+    return false;
   }
 
   async openControlPage(screen: ControlScreen) {

@@ -45,6 +45,15 @@ export function jalaliDateKeyToGregorian(value) {
   return null;
 }
 
+export function gregorianDateKeyToJalali(dateKey) {
+  if (!dateKey) return null;
+  const dt = new Date(`${dateKey}T12:00:00Z`);
+  if (isNaN(dt.getTime())) return null;
+  const formatter = new Intl.DateTimeFormat("en-US-u-ca-persian", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit" });
+  const parts = Object.fromEntries(formatter.formatToParts(dt).filter(p => p.type !== "literal").map(p => [p.type, p.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 export function isScheduledForDay(task, day) {
   if (task.status !== undefined && task.status !== 0) return false;
   const due = toDateKey(task.dueDate, task.timeZone || "Asia/Tehran");

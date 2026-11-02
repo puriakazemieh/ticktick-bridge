@@ -76,7 +76,7 @@ Extend the cache-first planning foundation delivered in Plan 008 into an active 
 
 ---
 
-### Milestone 3: Focus & Pomodoro Engine with Daily Note Auto-Logging (موتور پومودورو و لاگ خودکار در یادداشت روزانه)
+### Milestone 3: Focus & Pomodoro Engine with Daily Note Auto-Logging (موتور پومودورو و لاگ خودکار در یادداشت روزانه) [DONE]
 
 1. **Pure Timer & Logging Engine (`src/core/pomodoro-engine.js`)**:
    - State machine: `idle` | `focus` | `shortBreak` | `longBreak` | `paused`.
