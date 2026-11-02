@@ -44,7 +44,7 @@ Bring the TickTick task ecosystem directly into the user's Obsidian writing flow
 
 ---
 
-### Milestone 2: Smart Morning Briefing & Daily Kickoff Generator (پیشخوان مرور صبحگاهی و کیک‌آف روزانه)
+### Milestone 2: Smart Morning Briefing & Daily Kickoff Generator (پیشخوان مرور صبحگاهی و کیک‌آف روزانه) [DONE]
 1. **Pure Engine (`src/core/morning-briefing.js`)**:
    - `computeMorningBriefing(tasks, habits, options = { today, timeZone })`:
      - Compiles overdue tasks needing attention.

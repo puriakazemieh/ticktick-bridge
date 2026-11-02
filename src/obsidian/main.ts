@@ -60,6 +60,8 @@ import { TimeblockingPlanner } from "./timeblocking-planner";
 import { computeDayTimeSlots, findCurrentActiveBlock } from "../core/timeblocking.js";
 import { PomodoroTimerService, PomodoroModal } from "./pomodoro-timer";
 import { formatPomodoroLogEntry, appendPomodoroLogToDailyNoteMarkdown } from "../core/pomodoro-engine.js";
+import { injectBriefingIntoDailyNote, computeMorningBriefing, formatMorningBriefingMarkdown } from "../core/morning-briefing.js";
+import { MorningBriefingModal } from "./modals/morning-briefing-modal";
 import { ActivityHeatmapView } from "./views/activity-heatmap-view";
 import { ActivityHeatmap } from "./activity-heatmap";
 import { QueryBlockRenderer } from "./query-block";
@@ -169,9 +171,21 @@ export default class TickTickBridgePlugin extends Plugin {
     this.registerMarkdownCodeBlockProcessor("ticktick-query", async (source, element, context) => {
       await new QueryBlockRenderer(this.queryBlockHost()).render(source, element, context);
     });
+    this.registerMarkdownCodeBlockProcessor("ticktick-briefing", async (_source, element) => {
+      const today = todayInZone(this.settings.timeZone);
+      const jalaliDate = gregorianDateKeyToJalali(today) || today;
+      const briefing = computeMorningBriefing(this.cache.tasks, this.cache.habits, {
+        today,
+        timeZone: this.settings.timeZone
+      });
+      const md = formatMorningBriefingMarkdown(briefing, { jalaliDateStr: jalaliDate });
+      element.empty();
+      await MarkdownRenderer.render(this.app, md, element, "", this);
+    });
     this.configurePanelMenuRibbonIcon();
     this.configureSyncRibbonIcon();
     this.configureRibbonIcons();
+    this.addCommand({ id: "open-morning-briefing", name: "Open morning briefing and daily kickoff", callback: () => this.openMorningBriefing() });
     this.addCommand({ id: "open-today-tasks", name: "Open today's TickTick tasks", callback: () => this.openTodayView() });
     this.addCommand({ id: "open-today-habits", name: "Open today's TickTick habits", callback: () => this.openHabitView() });
     this.addCommand({ id: "open-ticktick-sync-center", name: "Open TickTick sync center", callback: () => this.openControlPage("sync") });
@@ -1667,6 +1681,46 @@ export default class TickTickBridgePlugin extends Plugin {
     }
 
     return false;
+  }
+
+  getCacheTasks(): TickTickTask[] {
+    return this.cache.tasks;
+  }
+
+  getCacheHabits(): TickTickHabit[] {
+    return this.cache.habits;
+  }
+
+  openMorningBriefing() {
+    new MorningBriefingModal(this.app, this).open();
+  }
+
+  async logMorningBriefingToDailyNote(briefingMarkdown: string): Promise<boolean> {
+    const today = todayInZone(this.settings.timeZone);
+    const jalaliKey = gregorianDateKeyToJalali(today);
+    if (!jalaliKey) return false;
+
+    const folder = this.settings.dailyNoteFolder.replace(/^[\\/]+|[\\/]+$/g, "");
+    const expectedPath = `${folder}/${jalaliKey}.md`;
+
+    let file = this.app.vault.getAbstractFileByPath(expectedPath);
+    if (!(file instanceof TFile)) {
+      const mdFiles = this.app.vault.getMarkdownFiles();
+      file = mdFiles.find(f => f.path.startsWith(folder) && f.basename === jalaliKey) ?? null;
+    }
+
+    if (file instanceof TFile) {
+      const original = await this.app.vault.read(file);
+      const updated = injectBriefingIntoDailyNote(original, briefingMarkdown);
+      await this.app.vault.modify(file, updated);
+      new Notice(`پیشخوان صبحگاهی در یادداشت روزانه (${file.name}) ثبت شد.`);
+      return true;
+    } else {
+      const fullPath = `${folder ? folder + '/' : ''}${jalaliKey}.md`;
+      await this.app.vault.create(fullPath, briefingMarkdown);
+      new Notice(`یادداشت روزانه (${jalaliKey}.md) ایجاد و پیشخوان صبحگاهی در آن درج شد.`);
+      return true;
+    }
   }
 
   async openControlPage(screen: ControlScreen) {
