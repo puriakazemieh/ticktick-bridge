@@ -16,7 +16,7 @@ import { normalizeProjectData } from "../core/project-board.js";
 import { createBulkOperationManifest, runBoundedQueue, formatBulkOutcomeReport, computeBulkTaskMutation } from "../core/bulk-operations.js";
 
 import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit, ProjectBoardData, TickTickNote, SavedView } from "./types";
-import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, TIMELINE_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
+import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
 import {
   currentPlatformName,
   appendChecklistSummary,
@@ -49,6 +49,8 @@ import { PlanningView } from "./views/planning-view";
 import { ProjectBoardView } from "./views/project-board-view";
 import { TickTickControlView } from "./views/ticktick-control-view";
 import { ProjectTimelineView } from "./views/project-timeline-view";
+import { WeeklyReviewView } from "./views/weekly-review-view";
+import { WeeklyReview } from "./weekly-review";
 import { TickTickBridgeSettings } from "./settings";
 
 export default class TickTickBridgePlugin extends Plugin {
@@ -110,6 +112,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.registerView(PROJECT_BOARD_VIEW_TYPE, leaf => new ProjectBoardView(leaf, this));
     this.registerView(CONTROL_VIEW_TYPE, leaf => new TickTickControlView(leaf, this));
     this.registerView(TIMELINE_VIEW_TYPE, leaf => new ProjectTimelineView(leaf, this));
+    this.registerView(WEEKLY_REVIEW_VIEW_TYPE, leaf => new WeeklyReviewView(leaf, this));
     this.registerMarkdownCodeBlockProcessor("ticktick-today", async (_source, element, context) => {
       const day = dailyNoteDateFromPath(context.sourcePath);
       this.taskBlocks.set(element, day);
@@ -132,6 +135,9 @@ export default class TickTickBridgePlugin extends Plugin {
     this.registerMarkdownCodeBlockProcessor("ticktick-timeline", async (_source, element) => {
       await new ProjectTimeline(element, this.timelineHost()).render();
     });
+    this.registerMarkdownCodeBlockProcessor("ticktick-review", async (_source, element) => {
+      await new WeeklyReview(element, this.weeklyReviewHost()).render();
+    });
     this.configurePanelMenuRibbonIcon();
     this.configureSyncRibbonIcon();
     this.configureRibbonIcons();
@@ -143,6 +149,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-weekly-planner", name: "Open TickTick weekly planner", callback: () => this.openPlannerView() });
     this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "open-project-timeline", name: "Open TickTick project timeline (Gantt)", callback: () => this.openTimelineView() });
+    this.addCommand({ id: "open-weekly-review", name: "Open TickTick weekly review and execution dashboard", callback: () => this.openWeeklyReviewView() });
     this.addCommand({ id: "open-smart-views", name: "Open smart views (TickTick board)", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
     this.addCommand({ id: "sync-now", name: "Sync TickTick now", callback: () => this.syncNow() });
@@ -338,6 +345,22 @@ export default class TickTickBridgePlugin extends Plugin {
     };
   }
 
+  weeklyReviewHost() {
+    return {
+      app: this.app,
+      timeZone: this.settings.timeZone,
+      firstWeekday: 6,
+      tasks: () => this.cache.tasks,
+      savedAt: () => this.cache.savedAt,
+      projects: async () => this.cache.projects.length ? this.cache.projects : this.client().listProjects(),
+      executeBulkOperation: async (taskIds: string[], op: string, params: any) => this.executeBulkOperation(taskIds, op, params),
+      refresh: async () => { await this.syncNow(); },
+      load: async (task: TickTickTask) => this.loadTaskDetails(task),
+      edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
+      complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
+    };
+  }
+
   private async importTaggedCheckboxes(file: TFile, quiet = false) {
     const tag = this.settings.checkboxImportTag.trim().replace(/^#/, "") || "ticktick";
     const tagPattern = new RegExp(`(^|\\s)#${escapeRegExp(tag)}(?=\\s|$)`, "i");
@@ -429,6 +452,7 @@ export default class TickTickBridgePlugin extends Plugin {
     menu.addItem(item => item.setTitle("تقویم و برنامهٔ هفتگی").setIcon("calendar-days").onClick(() => void this.openPlannerView()));
     menu.addItem(item => item.setTitle("برد پروژه‌ها").setIcon("kanban-square").onClick(() => void this.openProjectBoardView()));
     menu.addItem(item => item.setTitle("تایم‌لاین و گانت پروژه‌ها").setIcon("calendar-range").onClick(() => void this.openTimelineView()));
+    menu.addItem(item => item.setTitle("مرور هفتگی و داشبورد اجرا").setIcon("bar-chart-2").onClick(() => void this.openWeeklyReviewView()));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("مرکز همگام‌سازی و تعارض‌ها").setIcon("arrow-down-up").onClick(() => void this.openControlPage("sync")));
     menu.addItem(item => item.setTitle("پیش‌نمایش انتقال TickTick Notes").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
@@ -1369,6 +1393,11 @@ export default class TickTickBridgePlugin extends Plugin {
   async openTimelineView() {
     const leaf = this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: TIMELINE_VIEW_TYPE, active: true });
+  }
+
+  async openWeeklyReviewView() {
+    const leaf = this.app.workspace.getLeaf("tab");
+    await leaf.setViewState({ type: WEEKLY_REVIEW_VIEW_TYPE, active: true });
   }
 
   async openControlPage(screen: ControlScreen) {
