@@ -4478,6 +4478,196 @@
   text-align: right;
   background: var(--background-secondary);
 }
+.is-bulk-selected {
+  outline: 2px solid var(--interactive-accent) !important;
+  outline-offset: 1px !important;
+  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--interactive-accent) 30%, transparent) !important;
+  transform: translateY(-1px);
+}
+.ticktick-bulk-action-bar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 1rem;
+  background: color-mix(in srgb, var(--background-secondary) 90%, var(--background-primary));
+  border: 1px solid var(--interactive-accent);
+  border-radius: 9999px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), 0 2px 8px color-mix(in srgb, var(--interactive-accent) 25%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  direction: rtl;
+  color: var(--text-normal);
+  font-family: var(--font-text);
+  max-width: 95vw;
+  flex-wrap: wrap;
+  animation: ticktick-fade-up 180ms ease forwards;
+}
+@keyframes ticktick-fade-up {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 15px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+.ticktick-bulk-action-bar.is-executing {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.ticktick-bulk-counter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-accent);
+  padding-inline-end: 0.5rem;
+  border-inline-end: 1px solid var(--background-modifier-border);
+}
+.ticktick-bulk-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+.ticktick-bulk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-normal);
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+.ticktick-bulk-btn:hover {
+  background: var(--background-modifier-hover);
+  border-color: var(--interactive-accent);
+  color: var(--text-accent);
+  transform: translateY(-1px);
+}
+.ticktick-bulk-btn.mod-destructive {
+  color: var(--color-red);
+}
+.ticktick-bulk-btn.mod-destructive:hover {
+  background: color-mix(in srgb, var(--color-red) 15%, var(--background-primary));
+  border-color: var(--color-red);
+}
+.ticktick-bulk-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+.ticktick-bulk-close:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.ticktick-bulk-confirm-modal,
+.ticktick-bulk-input-modal {
+  padding: 1.25rem 1.6rem;
+  direction: rtl;
+  text-align: right;
+}
+.ticktick-bulk-desc {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 0.85rem;
+}
+.ticktick-bulk-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  background: color-mix(in srgb, var(--color-red) 12%, var(--background-primary));
+  border: 1px solid var(--color-red);
+  border-radius: 0.55rem;
+  color: var(--color-red);
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.95rem;
+}
+.ticktick-bulk-preview-list {
+  max-height: 12rem;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0.55rem;
+  padding: 0.6rem 0.85rem;
+  background: var(--background-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+.ticktick-bulk-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+}
+.ticktick-bulk-item-dot {
+  color: var(--interactive-accent);
+}
+.ticktick-bulk-item-title {
+  font-weight: 600;
+  color: var(--text-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ticktick-bulk-item-proj {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.ticktick-bulk-more {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 0.2rem;
+}
+.ticktick-bulk-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+.ticktick-bulk-input-wrapper label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+.ticktick-bulk-input-wrapper input {
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0.45rem;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: var(--font-text);
+  font-size: 0.9rem;
+}
+.ticktick-bulk-input-wrapper input:focus {
+  border-color: var(--interactive-accent);
+  outline: none;
+}
 
 /* src/styles/timeline.css */
 .ticktick-project-dashboard .season-grid,

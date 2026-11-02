@@ -13,6 +13,7 @@ import { NoteImport, NoteImportModal } from "./note-import";
 import { LocalHabitMigrationModal } from "./modals/local-habit-migration-modal";
 import { mergeTaskDetails, reconcileOpenTasks, taskDescription } from "../core/task-description.js";
 import { normalizeProjectData } from "../core/project-board.js";
+import { createBulkOperationManifest, runBoundedQueue, formatBulkOutcomeReport, computeBulkTaskMutation } from "../core/bulk-operations.js";
 
 import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit, ProjectBoardData, TickTickNote, SavedView } from "./types";
 import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, TIMELINE_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
@@ -276,6 +277,7 @@ export default class TickTickBridgePlugin extends Plugin {
       setShowHabits: async (value: boolean) => { this.settings.plannerShowHabits = value; await this.saveSettings(); },
       savedViews: () => this.settings.savedViews || [],
       saveSavedViews: async (views: SavedView[]) => { this.settings.savedViews = views; await this.saveSettings(); },
+      executeBulkOperation: async (taskIds: string[], op: string, params: any) => this.executeBulkOperation(taskIds, op, params),
     };
   }
 
@@ -313,6 +315,7 @@ export default class TickTickBridgePlugin extends Plugin {
       savePreferences: async (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean; sidebarPreferenceInitialized?: boolean; smartViewGrouping?: string }) => { this.settings.boardLastProjectId = value.selected; this.settings.boardCollapsedGroups = value.collapsed; this.settings.boardSidebarCollapsed = value.sidebarCollapsed; this.settings.boardSidebarPreferenceInitialized = value.sidebarPreferenceInitialized ?? true; if (value.smartViewGrouping) this.settings.boardSmartViewGrouping = value.smartViewGrouping; await this.saveSettings(); },
       savedViews: () => this.settings.savedViews || [],
       saveSavedViews: async (views: SavedView[]) => { this.settings.savedViews = views; await this.saveSettings(); },
+      executeBulkOperation: async (taskIds: string[], op: string, params: any) => this.executeBulkOperation(taskIds, op, params),
     };
   }
 
@@ -331,6 +334,7 @@ export default class TickTickBridgePlugin extends Plugin {
       showCompleted: () => this.settings.plannerShowCompleted,
       savedViews: () => this.settings.savedViews || [],
       saveSavedViews: async (views: SavedView[]) => { this.settings.savedViews = views; await this.saveSettings(); },
+      executeBulkOperation: async (taskIds: string[], op: string, params: any) => this.executeBulkOperation(taskIds, op, params),
     };
   }
 
@@ -1024,6 +1028,45 @@ export default class TickTickBridgePlugin extends Plugin {
       bridgeEvents.emit("state:changed", undefined as void);
       throw error;
     }
+  }
+
+  async executeBulkOperation(taskIds: string[], operationType: string, parameters: any = {}) {
+    const allTasks = this.cache.tasks;
+    const taskMap = new Map(allTasks.map(t => [String(t.id), t]));
+    const targetTasks = taskIds.map(id => taskMap.get(String(id))).filter(Boolean) as TickTickTask[];
+
+    if (targetTasks.length === 0) return null;
+
+    const manifest = createBulkOperationManifest(targetTasks, operationType, parameters);
+    const queueResults = await runBoundedQueue(targetTasks, async (task: TickTickTask) => {
+      if (operationType === "delete") {
+        await this.deleteTask(task);
+        return { deleted: true };
+      }
+      if (operationType === "complete") {
+        await this.completeTask(task);
+        return { status: 2 };
+      }
+      if (operationType === "reopen") {
+        const payload = toTaskPayload({ ...task, status: 0 }, this.settings.timeZone);
+        await this.updateTask(payload);
+        return { status: 0 };
+      }
+      const mutation = computeBulkTaskMutation(task, operationType, parameters, this.settings.timeZone);
+      if (!mutation) return { noop: true };
+      const payload = toTaskPayload({ ...task, ...mutation }, this.settings.timeZone);
+      await this.updateTask(payload);
+      return mutation;
+    }, 3);
+
+    const report = formatBulkOutcomeReport(manifest, queueResults);
+    await this.managedStorage.writeReport(`bulk-${operationType}`, report);
+    bridgeEvents.emit("state:changed", undefined as void);
+
+    const noticeText = `عملیات گروهی روی ${targetTasks.length} تسک: ${report.succeeded} موفق، ${report.failed} ناموفق.`;
+    new Notice(noticeText);
+
+    return report;
   }
 
   private async moveTaskToBoardColumn(task: TickTickTask, columnId: string) {

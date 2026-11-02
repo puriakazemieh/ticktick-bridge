@@ -8,6 +8,8 @@ import { taskPriority } from "./task-priority";
 import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
 
 import { matchesTaskFilter } from "../core/task-filter.js";
+import { bulkSelectionStore } from "./selection-store";
+import { BulkActionBar } from "./bulk-action-bar";
 import type { TickTickTask, TickTickHabit, CachedHabitCheckin, HabitHistoryEntry, SavedView, TaskFilterState } from "./types";
 
 export type HabitDetailsHost = {
@@ -39,6 +41,7 @@ export type PlannerHost = HabitDetailsHost & {
   setShowHabits: (value: boolean) => Promise<void>;
   savedViews?: () => SavedView[];
   saveSavedViews?: (views: SavedView[]) => Promise<void>;
+  executeBulkOperation?: (taskIds: string[], op: string, params: any) => Promise<any>;
 };
 
 type Mode = "day" | "week" | "month";
@@ -390,6 +393,7 @@ export class PlanningCalendar {
   private draggingSourceDay = "";
   private displayedHabitIds = new Set<string>();
   private lastRenderedDay?: string;
+  private bulkActionBar: BulkActionBar | null = null;
   private savedGridScrollLeft = 0;
 
   constructor(private element: HTMLElement, private host: PlannerHost) {
@@ -563,6 +567,22 @@ export class PlanningCalendar {
         newGrid.scrollLeft = this.savedGridScrollLeft;
       });
     }
+    this.bulkActionBar ??= new BulkActionBar(this.element, {
+      app: this.host.app,
+      timeZone: this.host.timeZone,
+      tasks: () => this.host.tasks(),
+      projects: async () => {
+        const tasks = this.host.tasks();
+        const projs = [...new Set(tasks.map(t => t.projectId).filter(Boolean))];
+        return projs.map(id => ({ id: String(id), name: String(tasks.find(t => t.projectId === id)?.projectName || id) } as any));
+      },
+      executeBulkOperation: async (ids, op, params) => this.host.executeBulkOperation ? this.host.executeBulkOperation(ids, op, params) : null,
+      onChanged: async () => {
+        await this.host.refresh();
+        await this.render();
+      }
+    });
+    void this.bulkActionBar.render();
     this.lastRenderedDay = this.day;
   }
 
@@ -982,7 +1002,20 @@ export class PlanningCalendar {
         }
       }).open();
 
-      bar.addEventListener("click", openDetails);
+      if (bulkSelectionStore.isSelected(String(task.id))) {
+        bar.addClass("is-bulk-selected");
+      }
+
+      bar.addEventListener("click", (event) => {
+        if (event.shiftKey || event.ctrlKey || event.metaKey) {
+          event.preventDefault();
+          event.stopPropagation();
+          const sel = bulkSelectionStore.toggle(String(task.id));
+          bar.toggleClass("is-bulk-selected", sel);
+          return;
+        }
+        openDetails();
+      });
       bar.addEventListener("keydown", event => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
@@ -1092,7 +1125,20 @@ for (const habit of habits) {
       }
     }).open();
 
-    card.addEventListener("click", openDetails);
+    if (bulkSelectionStore.isSelected(String(task.id))) {
+      card.addClass("is-bulk-selected");
+    }
+
+    card.addEventListener("click", (event) => {
+      if (event.shiftKey || event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        const sel = bulkSelectionStore.toggle(String(task.id));
+        card.toggleClass("is-bulk-selected", sel);
+        return;
+      }
+      openDetails();
+    });
     card.addEventListener("keydown", event => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
@@ -1186,7 +1232,20 @@ for (const habit of habits) {
       }
     }).open();
 
-    card.addEventListener("click", openDetails);
+    if (bulkSelectionStore.isSelected(String(task.id))) {
+      card.addClass("is-bulk-selected");
+    }
+
+    card.addEventListener("click", (event) => {
+      if (event.shiftKey || event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        const sel = bulkSelectionStore.toggle(String(task.id));
+        card.toggleClass("is-bulk-selected", sel);
+        return;
+      }
+      openDetails();
+    });
     card.addEventListener("keydown", event => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();

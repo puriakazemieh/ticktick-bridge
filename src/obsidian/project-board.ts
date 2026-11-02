@@ -10,6 +10,8 @@ import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
 import { HabitDetailsModal } from "./planning-calendar";
 import { renderUnifiedHabitCard } from "./habit-card";
 import { FilterBar, type FilterBarHost } from "./filter-bar";
+import { bulkSelectionStore } from "./selection-store";
+import { BulkActionBar } from "./bulk-action-bar";
 import { matchesTaskFilter } from "../core/task-filter.js";
 import type { TickTickTask, TickTickProject, TickTickHabit, CachedHabitCheckin, ProjectBoardData, HabitHistoryEntry, SavedView, TaskFilterState } from "./types";
 
@@ -52,6 +54,7 @@ export type ProjectBoardHost = {
   savePreferences: (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean; sidebarPreferenceInitialized?: boolean; smartViewGrouping?: string }) => Promise<void>;
   savedViews?: () => SavedView[];
   saveSavedViews?: (views: SavedView[]) => Promise<void>;
+  executeBulkOperation?: (taskIds: string[], op: string, params: any) => Promise<any>;
 };
 
 export class ProjectBoard {
@@ -79,6 +82,7 @@ export class ProjectBoard {
   private columnsContainer: HTMLElement | null = null;
   private headerBadgeEl: HTMLElement | null = null;
   private filterBarInstance: FilterBar | null = null;
+  private bulkActionBar: BulkActionBar | null = null;
 
   constructor(private element: HTMLElement, private host: ProjectBoardHost) {}
 
@@ -519,6 +523,18 @@ export class ProjectBoard {
       const columns = main.createDiv({ cls: "ticktick-project-columns" });
       this.columnsContainer = columns;
       this.renderColumnsContainer(columns, rawData, project, displayProject);
+      this.bulkActionBar ??= new BulkActionBar(main, {
+        app: this.host.app,
+        timeZone: this.host.timeZone,
+        tasks: () => this.host.tasks(),
+        projects: () => this.host.projects(),
+        executeBulkOperation: async (ids, op, params) => this.host.executeBulkOperation ? this.host.executeBulkOperation(ids, op, params) : null,
+        onChanged: async () => {
+          await this.host.refresh();
+          await this.render();
+        }
+      });
+      void this.bulkActionBar.render();
     } catch (error) {
       root.createEl("p", { text: error instanceof Error ? error.message : "دادهٔ پروژه در دسترس نیست." });
     }
@@ -840,8 +856,29 @@ for (const habit of habits) {
       }
     }).open();
 
-    card.addEventListener("click", details);
+    if (bulkSelectionStore.isSelected(String(task.id))) {
+      card.addClass("is-bulk-selected");
+    }
+
+    card.addEventListener("click", (event) => {
+      if (event.shiftKey || event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        const sel = bulkSelectionStore.toggle(String(task.id));
+        card.toggleClass("is-bulk-selected", sel);
+        return;
+      }
+      details();
+    });
+
     card.addEventListener("keydown", event => {
+      if (event.key === "x" || ((event.key === "Enter" || event.key === " ") && (event.shiftKey || event.ctrlKey))) {
+        event.preventDefault();
+        event.stopPropagation();
+        const sel = bulkSelectionStore.toggle(String(task.id));
+        card.toggleClass("is-bulk-selected", sel);
+        return;
+      }
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
         details();

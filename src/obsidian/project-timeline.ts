@@ -16,6 +16,8 @@ import { formatPersianDate } from "../core/persian-date.js";
 import { FilterBar, type FilterBarHost } from "./filter-bar";
 import { taskPriority } from "./task-priority";
 import { TaskDetailsModal } from "./task-details-modal";
+import { bulkSelectionStore } from "./selection-store";
+import { BulkActionBar } from "./bulk-action-bar";
 import type { TickTickTask, TickTickProject, SavedView, TaskFilterState } from "./types";
 
 export type TimelineZoom = "day" | "week" | "month";
@@ -35,6 +37,7 @@ export interface TimelineHost {
   showCompleted: () => boolean;
   savedViews?: () => SavedView[];
   saveSavedViews?: (views: SavedView[]) => Promise<void>;
+  executeBulkOperation?: (taskIds: string[], op: string, params: any) => Promise<any>;
 }
 
 export class ProjectTimeline {
@@ -70,6 +73,7 @@ export class ProjectTimeline {
   } | null = null;
 
   private wasDraggedRecently = false;
+  private bulkActionBar: BulkActionBar | null = null;
 
   constructor(private element: HTMLElement, private host: TimelineHost) {}
 
@@ -121,6 +125,20 @@ export class ProjectTimeline {
     if (this.showBacklog) {
       this.renderBacklogDrawer(partitioned.pointTasks, partitioned.backlogTasks);
     }
+
+    // Floating Bulk Action Bar
+    this.bulkActionBar ??= new BulkActionBar(this.element, {
+      app: this.host.app,
+      timeZone: this.host.timeZone,
+      tasks: () => this.host.tasks(),
+      projects: () => this.host.projects(),
+      executeBulkOperation: async (ids, op, params) => this.host.executeBulkOperation ? this.host.executeBulkOperation(ids, op, params) : null,
+      onChanged: async () => {
+        await this.host.refresh();
+        await this.render();
+      }
+    });
+    void this.bulkActionBar.render();
   }
 
   private renderToolbar(backlogCount: number) {
@@ -404,6 +422,9 @@ export class ProjectTimeline {
     });
 
     bar.style.gridColumn = placement.gridColumn;
+    if (bulkSelectionStore.isSelected(String(task.id))) {
+      bar.addClass("is-bulk-selected");
+    }
     bar.style.setProperty("--ticktick-task-tone", tone);
 
     // Left Handle (Start Date in RTL)
@@ -463,10 +484,24 @@ export class ProjectTimeline {
 
     contentWrapper.addEventListener("click", (e) => {
       if (this.activeDrag || this.wasDraggedRecently) return;
+      if (e.shiftKey || e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        const sel = bulkSelectionStore.toggle(String(task.id));
+        bar.toggleClass("is-bulk-selected", sel);
+        return;
+      }
       openDetails();
     });
 
     bar.addEventListener("keydown", (e) => {
+      if (e.key === "x" || ((e.key === "Enter" || e.key === " ") && (e.shiftKey || e.ctrlKey))) {
+        e.preventDefault();
+        e.stopPropagation();
+        const sel = bulkSelectionStore.toggle(String(task.id));
+        bar.toggleClass("is-bulk-selected", sel);
+        return;
+      }
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         openDetails();
