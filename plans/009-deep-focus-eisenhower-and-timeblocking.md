@@ -97,7 +97,7 @@ Extend the cache-first planning foundation delivered in Plan 008 into an active 
 
 ---
 
-### Milestone 4: Natural Language Smart Quick-Add (ثبت سریع با پردازش زبان طبیعی فارسی و انگلیسی)
+### Milestone 4: Natural Language Smart Quick-Add (ثبت سریع با پردازش زبان طبیعی فارسی و انگلیسی) [DONE]
 
 1. **Pure NLP Parser (`src/core/nlp-parser.js`)**:
    - `parseTaskNaturalLanguage(input, options = { today, timeZone })`:

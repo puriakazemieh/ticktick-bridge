@@ -43,6 +43,7 @@ import {
 } from "./helpers";
 
 import { openTaskEditor, confirmDelete } from "./modals/task-editor-modal";
+import { QuickCaptureModal } from "./modals/quick-capture-modal";
 import { bridgeEvents } from "./store";
 import { TodayTasksView } from "./views/today-tasks-view";
 import { TodayHabitsView } from "./views/today-habits-view";
@@ -173,6 +174,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-eisenhower-matrix", name: "Open TickTick Eisenhower decision matrix", callback: () => this.openEisenhowerMatrixView() });
     this.addCommand({ id: "open-timeblocking-planner", name: "Open TickTick day planner and timeblocks", callback: () => this.openTimeblockingPlannerView() });
     this.addCommand({ id: "open-pomodoro-timer", name: "Open TickTick focus and pomodoro timer", callback: () => this.openPomodoroModal() });
+    this.addCommand({ id: "quick-capture-task", name: "Quick capture task (Natural language)", callback: () => this.openQuickCaptureModal() });
     this.addCommand({ id: "probe-task-hierarchy", name: "Probe task hierarchy and generate audit report", callback: () => this.probeTaskHierarchyAndReport() });
     this.addCommand({ id: "open-smart-views", name: "Open smart views (TickTick board)", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
@@ -540,6 +542,7 @@ export default class TickTickBridgePlugin extends Plugin {
     menu.addItem(item => item.setTitle("ماتریس تصمیم‌گیری آیزنهاور").setIcon("grid").onClick(() => void this.openEisenhowerMatrixView()));
     menu.addItem(item => item.setTitle("برنامه‌ریز و بلوک‌های زمانی روزانه").setIcon("clock").onClick(() => void this.openTimeblockingPlannerView()));
     menu.addItem(item => item.setTitle("تایمر تمرکز عمیق (پومودورو)").setIcon("timer").onClick(() => void this.openPomodoroModal()));
+    menu.addItem(item => item.setTitle("ثبت سریع با زبان طبیعی").setIcon("zap").onClick(() => void this.openQuickCaptureModal()));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("مرکز همگام‌سازی و تعارض‌ها").setIcon("arrow-down-up").onClick(() => void this.openControlPage("sync")));
     menu.addItem(item => item.setTitle("پیش‌نمایش انتقال TickTick Notes").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
@@ -1587,6 +1590,14 @@ export default class TickTickBridgePlugin extends Plugin {
   async openControlPage(screen: ControlScreen) {
     const leaf = this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: CONTROL_VIEW_TYPE, active: true, state: { screen } });
+  }
+
+  openQuickCaptureModal() {
+    new QuickCaptureModal(this.app, {
+      projects: async () => this.cache.projects.length ? this.cache.projects : this.client().listProjects(),
+      timeZone: this.settings.timeZone,
+      createTask: async (payload: Partial<TickTickTask>) => this.createTask(toTaskPayload(payload as any, this.settings.timeZone)),
+    }).open();
   }
 
   openLocalHabitReviewModal() {
