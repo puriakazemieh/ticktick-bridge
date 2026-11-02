@@ -25,7 +25,7 @@ export const DEFAULT_SETTINGS: BridgeSettings = {
   experimentalChecklistReadOnly: true,
   boardLastProjectId: "",
   boardCollapsedGroups: [],
-  boardSidebarCollapsed: true,
+  boardSidebarCollapsed: false,
   boardSidebarPreferenceInitialized: false,
   boardSmartViewGrouping: "project",
 };

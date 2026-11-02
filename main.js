@@ -3243,12 +3243,12 @@ var ProjectBoard = class {
       const saved = this.host.preferences();
       this.selected = saved.selected;
       this.collapsed = new Set(saved.collapsed);
-      this.sidebarCollapsed = saved.sidebarPreferenceInitialized ? Boolean(saved.sidebarCollapsed) : true;
+      this.sidebarCollapsed = saved.sidebarPreferenceInitialized ? Boolean(saved.sidebarCollapsed) : false;
       if (saved.smartViewGrouping && ["project", "priority", "date", "tag"].includes(saved.smartViewGrouping)) {
         this.smartViewGrouping = saved.smartViewGrouping;
       }
       this.initialized = true;
-      if (!saved.sidebarPreferenceInitialized) void this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: true, sidebarPreferenceInitialized: true, smartViewGrouping: this.smartViewGrouping });
+      if (!saved.sidebarPreferenceInitialized) void this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: false, sidebarPreferenceInitialized: true, smartViewGrouping: this.smartViewGrouping });
     }
     const existingCols = this.element.querySelector(".ticktick-project-columns");
     this.savedColumnsScrollLeft = existingCols?.scrollLeft ?? 0;
@@ -4314,7 +4314,7 @@ var DEFAULT_SETTINGS = {
   experimentalChecklistReadOnly: true,
   boardLastProjectId: "",
   boardCollapsedGroups: [],
-  boardSidebarCollapsed: true,
+  boardSidebarCollapsed: false,
   boardSidebarPreferenceInitialized: false,
   boardSmartViewGrouping: "project"
 };
@@ -5241,6 +5241,7 @@ var TickTickBridgePlugin = class extends import_obsidian21.Plugin {
     this.addCommand({ id: "review-local-habits", name: "Review local habits and migration preview", callback: () => this.openLocalHabitReviewModal() });
     this.addCommand({ id: "open-weekly-planner", name: "Open TickTick weekly planner", callback: () => this.openPlannerView() });
     this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
+    this.addCommand({ id: "open-smart-views", name: "Open smart views (TickTick board)", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
     this.addCommand({ id: "sync-now", name: "Sync TickTick now", callback: () => this.syncNow() });
     this.addCommand({ id: "preview-markdown-sync", name: "Preview Markdown \u2194 TickTick sync", callback: () => this.previewMarkdownSync() });
@@ -5482,7 +5483,9 @@ var TickTickBridgePlugin = class extends import_obsidian21.Plugin {
     if (!this.settings.showRibbonIcons) return;
     this.ribbonIcons.push(
       this.addRibbonIcon("check-square", "TickTick Bridge: \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632", () => this.openTodayView()),
-      this.addRibbonIcon("activity", "TickTick Bridge: \u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632", () => this.openHabitView())
+      this.addRibbonIcon("activity", "TickTick Bridge: \u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632", () => this.openHabitView()),
+      this.addRibbonIcon("calendar-days", "TickTick Bridge: \u062A\u0642\u0648\u06CC\u0645 \u0648 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC", () => void this.openPlannerView()),
+      this.addRibbonIcon("kanban-square", "TickTick Bridge: \u0628\u0631\u062F \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627 \u0648 \u0646\u0645\u0627\u0647\u0627\u06CC \u0647\u0648\u0634\u0645\u0646\u062F", () => void this.openProjectBoardView())
     );
   }
   configureSyncRibbonIcon() {

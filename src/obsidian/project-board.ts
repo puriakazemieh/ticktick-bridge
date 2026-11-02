@@ -67,12 +67,12 @@ export class ProjectBoard {
       const saved = this.host.preferences();
       this.selected = saved.selected;
       this.collapsed = new Set(saved.collapsed);
-      this.sidebarCollapsed = saved.sidebarPreferenceInitialized ? Boolean(saved.sidebarCollapsed) : true;
+      this.sidebarCollapsed = saved.sidebarPreferenceInitialized ? Boolean(saved.sidebarCollapsed) : false;
       if (saved.smartViewGrouping && ["project", "priority", "date", "tag"].includes(saved.smartViewGrouping)) {
         this.smartViewGrouping = saved.smartViewGrouping as "project" | "priority" | "date" | "tag";
       }
       this.initialized = true;
-      if (!saved.sidebarPreferenceInitialized) void this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: true, sidebarPreferenceInitialized: true, smartViewGrouping: this.smartViewGrouping });
+      if (!saved.sidebarPreferenceInitialized) void this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: false, sidebarPreferenceInitialized: true, smartViewGrouping: this.smartViewGrouping });
     }
 
     const existingCols = this.element.querySelector<HTMLElement>(".ticktick-project-columns");

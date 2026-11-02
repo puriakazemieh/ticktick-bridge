@@ -135,6 +135,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "review-local-habits", name: "Review local habits and migration preview", callback: () => this.openLocalHabitReviewModal() });
     this.addCommand({ id: "open-weekly-planner", name: "Open TickTick weekly planner", callback: () => this.openPlannerView() });
     this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
+    this.addCommand({ id: "open-smart-views", name: "Open smart views (TickTick board)", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
     this.addCommand({ id: "sync-now", name: "Sync TickTick now", callback: () => this.syncNow() });
     this.addCommand({ id: "preview-markdown-sync", name: "Preview Markdown ↔ TickTick sync", callback: () => this.previewMarkdownSync() });
@@ -368,6 +369,8 @@ export default class TickTickBridgePlugin extends Plugin {
     this.ribbonIcons.push(
       this.addRibbonIcon("check-square", "TickTick Bridge: تسک‌های امروز", () => this.openTodayView()),
       this.addRibbonIcon("activity", "TickTick Bridge: عادت‌های امروز", () => this.openHabitView()),
+      this.addRibbonIcon("calendar-days", "TickTick Bridge: تقویم و برنامه‌ریزی", () => void this.openPlannerView()),
+      this.addRibbonIcon("kanban-square", "TickTick Bridge: برد پروژه‌ها و نماهای هوشمند", () => void this.openProjectBoardView()),
     );
   }
 
