@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isSamePersianMonth, monthRange, persianMonthRange, planningBuckets, recurringTaskOccursOnDay, shiftPersianMonth, taskDateRange, taskOccursOnCalendarDay, tasksForCalendarDay, weekRange } from "../src/core/calendar-range.js";
+import { isSamePersianMonth, isTaskUnscheduled, monthRange, persianMonthRange, planningBuckets, recurringTaskOccursOnDay, scheduleTaskDate, shiftPersianMonth, taskDateRange, taskHourSlot, taskOccursOnCalendarDay, tasksForCalendarDay, unscheduledTasks, unscheduleTaskDate, weekRange } from "../src/core/calendar-range.js";
 
 test("calendar ranges begin on configurable weekday and month always has 42 cells", () => {
   assert.deepEqual(weekRange("2026-03-21", 1), ["2026-03-16", "2026-03-17", "2026-03-18", "2026-03-19", "2026-03-20", "2026-03-21", "2026-03-22"]);
@@ -84,4 +84,34 @@ test("calendar display sorting supports TickTick order, priority, time, and titl
   assert.deepEqual(tasksForCalendarDay(tasks, "2026-10-24", "Asia/Tehran", false, "priority").map(task => task.id), ["high", "late", "first"]);
   assert.deepEqual(tasksForCalendarDay(tasks, "2026-10-24", "Asia/Tehran", false, "time").map(task => task.id), ["first", "high", "late"]);
   assert.deepEqual(tasksForCalendarDay(tasks, "2026-10-24", "Asia/Tehran", false, "title").map(task => task.id), ["first", "late", "high"]);
+});
+
+test("unscheduled backlog detects tasks without dates and scheduleTask/unscheduleTask updates them", () => {
+  const tasks = [
+    { id: "u1", title: "تسک ۱", status: 0 },
+    { id: "u2", title: "تسک ۲", status: 0, dueDate: null },
+    { id: "s1", title: "تسک ۳", status: 0, dueDate: "2026-11-05" },
+    { id: "c1", title: "تسک ۴", status: 2 }
+  ];
+  assert.equal(isTaskUnscheduled(tasks[0]), true);
+  assert.equal(isTaskUnscheduled(tasks[1]), true);
+  assert.equal(isTaskUnscheduled(tasks[2]), false);
+  assert.equal(isTaskUnscheduled(tasks[3]), false);
+
+  const unscheduled = unscheduledTasks(tasks);
+  assert.deepEqual(unscheduled.map(t => t.id), ["u1", "u2"]);
+
+  const scheduled = scheduleTaskDate(tasks[0], "2026-11-05");
+  assert.equal(scheduled.dueDate, "2026-11-05T00:00:00+0330");
+  assert.equal(scheduled.isAllDay, true);
+
+  const scheduledTimed = scheduleTaskDate(tasks[0], "2026-11-05", { time: "14:30" });
+  assert.equal(scheduledTimed.dueDate, "2026-11-05T14:30:00+0330");
+  assert.equal(scheduledTimed.isAllDay, false);
+  assert.equal(taskHourSlot(scheduledTimed), "14:00");
+
+  const unscheduledBack = unscheduleTaskDate(scheduled);
+  assert.equal(unscheduledBack.dueDate, null);
+  assert.equal(unscheduledBack.startDate, null);
+  assert.equal(unscheduledBack.isAllDay, true);
 });

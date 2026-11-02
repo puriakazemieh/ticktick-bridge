@@ -245,7 +245,8 @@ export default class TickTickBridgePlugin extends Plugin {
       // This host is called by an explicit toolbar action. Let the central
       // sync layer report an honest success/fallback/error notification.
       refresh: async () => { await this.syncNow(); },
-      reschedule: async (task: TickTickTask, day: string) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.rescheduleBoundTask(String(task.id), day) : this.rescheduleTaskFromPlanner(task, day),
+      reschedule: async (task: TickTickTask, day: string, time?: string) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.rescheduleBoundTask(String(task.id), day) : this.rescheduleTaskFromPlanner(task, day, time),
+      unschedule: async (task: TickTickTask) => this.unscheduleTaskFromPlanner(task),
       complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task: TickTickTask) => this.loadTaskDetails(task),
@@ -870,25 +871,87 @@ export default class TickTickBridgePlugin extends Plugin {
     await this.updateTask(payload);
     return { ...current, ...payload };
   }
-  private async rescheduleTaskFromPlanner(task: TickTickTask, targetDay: string) {
-    const start = toDateKey(task?.startDate, task?.timeZone || this.settings.timeZone);
-    const due = toDateKey(task?.dueDate, task?.timeZone || this.settings.timeZone);
-    const anchor = start ?? due;
-    if (!anchor) throw new Error("تسک تاریخ قابل‌جابه‌جایی ندارد.");
-    const offset = Math.round((Date.parse(`${targetDay}T12:00:00Z`) - Date.parse(`${anchor}T12:00:00Z`)) / 86400000);
-    const moveValue = (value: string | null | undefined, fallback: string | null) => {
-      if (!fallback) return null;
-      const original = String(value ?? "");
-      const moved = shiftIsoDay(fallback, offset);
-      return original.includes("T") ? `${moved}${original.slice(10)}` : `${moved}T00:00:00+0330`;
+  private async unscheduleTaskFromPlanner(task: TickTickTask) {
+    const previous = { ...task };
+    const payload: Partial<TickTickTask> = {
+      id: task.id,
+      projectId: task.projectId,
+      dueDate: null,
+      startDate: null,
+      isAllDay: true
     };
-    const payload = toTaskPayload({ ...task, dueDate: due ? shiftIsoDay(due, offset) : null }, this.settings.timeZone);
-    payload.startDate = moveValue(task.startDate, start);
-    payload.dueDate = moveValue(task.dueDate, due);
-    payload.isAllDay = task.isAllDay ?? !String(task.dueDate ?? task.startDate ?? "").includes("T");
-    await this.updateTask(payload);
-    return { ...task, ...payload };
+    try {
+      await this.updateTask(payload);
+      return { ...task, ...payload };
+    } catch (error) {
+      this.cache.tasks = this.cache.tasks.map(t => t.id === previous.id ? previous : t);
+      for (const board of Object.values(this.cache.projectBoards)) {
+        board.tasks = (board.tasks ?? []).map(t => t.id === previous.id ? previous : t);
+      }
+      await this.managedStorage.writeReport("planner-unschedule-failure", {
+        taskId: task.id,
+        title: task.title,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      bridgeEvents.emit("state:changed", undefined as void);
+      throw error;
+    }
   }
+
+  private async rescheduleTaskFromPlanner(task: TickTickTask, targetDay: string, targetTime?: string | null) {
+    const previous = { ...task };
+    try {
+      const start = toDateKey(task?.startDate, task?.timeZone || this.settings.timeZone);
+      const due = toDateKey(task?.dueDate, task?.timeZone || this.settings.timeZone);
+      const anchor = start ?? due;
+
+      let payload: Partial<TickTickTask>;
+      if (!anchor) {
+        const isTimed = Boolean(targetTime);
+        const timePart = targetTime ? (targetTime.length === 5 ? `${targetTime}:00` : targetTime) : "00:00:00";
+        payload = {
+          id: task.id,
+          projectId: task.projectId,
+          dueDate: isTimed ? `${targetDay}T${timePart}+0330` : `${targetDay}T00:00:00+0330`,
+          startDate: null,
+          isAllDay: !isTimed,
+          timeZone: this.settings.timeZone
+        };
+      } else {
+        const offset = Math.round((Date.parse(`${targetDay}T12:00:00Z`) - Date.parse(`${anchor}T12:00:00Z`)) / 86400000);
+        const isTimed = Boolean(targetTime || (!task.isAllDay && String(task.dueDate ?? task.startDate ?? "").includes("T")));
+        const timePart = targetTime
+          ? (targetTime.length === 5 ? `${targetTime}:00` : targetTime)
+          : (String(task.startDate ?? task.dueDate ?? "").match(/T(\d{2}:\d{2}:\d{2})/)?.[1] ?? "00:00:00");
+        const moveValue = (value: string | null | undefined, fallback: string | null) => {
+          if (!fallback) return null;
+          const moved = shiftIsoDay(fallback, offset);
+          return isTimed ? `${moved}T${timePart}+0330` : `${moved}T00:00:00+0330`;
+        };
+        payload = toTaskPayload({ ...task, dueDate: due ? shiftIsoDay(due, offset) : null }, this.settings.timeZone);
+        payload.startDate = moveValue(task.startDate, start);
+        payload.dueDate = moveValue(task.dueDate, due);
+        payload.isAllDay = !isTimed;
+      }
+      await this.updateTask(payload);
+      return { ...task, ...payload };
+    } catch (error) {
+      this.cache.tasks = this.cache.tasks.map(t => t.id === previous.id ? previous : t);
+      for (const board of Object.values(this.cache.projectBoards)) {
+        board.tasks = (board.tasks ?? []).map(t => t.id === previous.id ? previous : t);
+      }
+      await this.managedStorage.writeReport("planner-reschedule-failure", {
+        taskId: task.id,
+        title: task.title,
+        targetDay,
+        targetTime,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      bridgeEvents.emit("state:changed", undefined as void);
+      throw error;
+    }
+  }
+
   private async moveTaskToBoardColumn(task: TickTickTask, columnId: string) {
     if (!columnId) throw new Error("ستون مقصد برای انتقال قابل‌استفاده نیست.");
     if (String(task.columnId ?? "") === columnId) return task;

@@ -211,3 +211,52 @@ export function planningBuckets(tasks, day, timeZone = "Asia/Tehran", showComple
 export function tasksForCalendarDay(tasks, day, timeZone = "Asia/Tehran", showCompleted = false, sortMode = "ticktick") {
   return sortPlanningTasks((tasks ?? []).filter(task => taskOccursOnCalendarDay(task, day, timeZone, showCompleted)), sortMode);
 }
+
+export const HOURLY_SLOTS = [
+  "08:00", "09:00", "10:00", "11:00", "12:00",
+  "13:00", "14:00", "15:00", "16:00", "17:00",
+  "18:00", "19:00", "20:00"
+];
+
+export function isTaskUnscheduled(task, timeZone = "Asia/Tehran") {
+  if (Number(task?.status ?? 0) !== 0) return false;
+  const due = toDateKey(task?.dueDate, task?.timeZone || timeZone);
+  const start = toDateKey(task?.startDate, task?.timeZone || timeZone);
+  return !due && !start;
+}
+
+export function unscheduledTasks(tasks, timeZone = "Asia/Tehran", sortMode = "ticktick") {
+  return sortPlanningTasks((tasks ?? []).filter(task => isTaskUnscheduled(task, timeZone)), sortMode);
+}
+
+export function scheduleTaskDate(task, targetDay, options = {}) {
+  const timeZone = options.timeZone || task?.timeZone || "Asia/Tehran";
+  const isTimed = Boolean(options.time);
+  const timePart = options.time ? (options.time.length === 5 ? `${options.time}:00` : options.time) : "00:00:00";
+  const tzOffset = "+0330";
+  const due = isTimed ? `${targetDay}T${timePart}${tzOffset}` : `${targetDay}T00:00:00${tzOffset}`;
+  return {
+    ...task,
+    dueDate: due,
+    startDate: null,
+    isAllDay: !isTimed,
+    timeZone
+  };
+}
+
+export function unscheduleTaskDate(task) {
+  return {
+    ...task,
+    dueDate: null,
+    startDate: null,
+    isAllDay: true
+  };
+}
+
+export function taskHourSlot(task) {
+  if (task?.isAllDay) return null;
+  const time = taskTime(task);
+  if (!time) return null;
+  const hour = time.slice(0, 2);
+  return `${hour}:00`;
+}

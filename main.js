@@ -287,10 +287,42 @@ function sortPlanningTasks(tasks, mode = "ticktick") {
 function tasksForCalendarDay(tasks, day, timeZone = "Asia/Tehran", showCompleted = false, sortMode = "ticktick") {
   return sortPlanningTasks((tasks ?? []).filter((task) => taskOccursOnCalendarDay(task, day, timeZone, showCompleted)), sortMode);
 }
+function isTaskUnscheduled(task, timeZone = "Asia/Tehran") {
+  if (Number(task?.status ?? 0) !== 0) return false;
+  const due = toDateKey(task?.dueDate, task?.timeZone || timeZone);
+  const start = toDateKey(task?.startDate, task?.timeZone || timeZone);
+  return !due && !start;
+}
+function unscheduledTasks(tasks, timeZone = "Asia/Tehran", sortMode = "ticktick") {
+  return sortPlanningTasks((tasks ?? []).filter((task) => isTaskUnscheduled(task, timeZone)), sortMode);
+}
+function taskHourSlot(task) {
+  if (task?.isAllDay) return null;
+  const time = taskTime(task);
+  if (!time) return null;
+  const hour = time.slice(0, 2);
+  return `${hour}:00`;
+}
+var HOURLY_SLOTS;
 var init_calendar_range = __esm({
   "src/core/calendar-range.js"() {
     "use strict";
     init_date();
+    HOURLY_SLOTS = [
+      "08:00",
+      "09:00",
+      "10:00",
+      "11:00",
+      "12:00",
+      "13:00",
+      "14:00",
+      "15:00",
+      "16:00",
+      "17:00",
+      "18:00",
+      "19:00",
+      "20:00"
+    ];
   }
 });
 
@@ -2417,6 +2449,37 @@ var HabitDetailsModal = class extends import_obsidian6.Modal {
     this.contentEl.empty();
   }
 };
+var UnscheduleConfirmModal = class extends import_obsidian6.Modal {
+  constructor(app, task, onConfirm) {
+    super(app);
+    this.task = task;
+    this.onConfirm = onConfirm;
+  }
+  confirmed = false;
+  onOpen() {
+    this.modalEl.addClass("ticktick-unschedule-modal");
+    this.titleEl.setText("\u062D\u0630\u0641 \u062A\u0627\u0631\u06CC\u062E \u0648 \u0627\u0646\u062A\u0642\u0627\u0644 \u0628\u0647 \u0628\u06A9\u200C\u0644\u0627\u06AF");
+    this.contentEl.createEl("p", {
+      text: `\u0622\u06CC\u0627 \u0645\u0637\u0645\u0626\u0646 \u0647\u0633\u062A\u06CC\u062F \u06A9\u0647 \u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u06CC\u062F \u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u062A\u0633\u06A9 \xAB${this.task.title || "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"}\xBB \u0631\u0627 \u062D\u0630\u0641 \u06A9\u0631\u062F\u0647 \u0648 \u0622\u0646 \u0631\u0627 \u0628\u0647 \u0633\u062A\u0648\u0646 \u0628\u06A9\u200C\u0644\u0627\u06AF (\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E) \u0645\u0646\u062A\u0642\u0644 \u06A9\u0646\u06CC\u062F\u061F`
+    });
+    const actions = this.contentEl.createDiv({ cls: "modal-button-container" });
+    actions.createEl("button", { text: "\u0627\u0646\u0635\u0631\u0627\u0641" }).addEventListener("click", () => this.close());
+    const confirmBtn = actions.createEl("button", {
+      text: "\u0627\u0646\u062A\u0642\u0627\u0644 \u0628\u0647 \u0628\u06A9\u200C\u0644\u0627\u06AF",
+      cls: "mod-warning"
+    });
+    confirmBtn.addEventListener("click", () => {
+      this.confirmed = true;
+      this.close();
+    });
+  }
+  onClose() {
+    this.contentEl.empty();
+    if (this.confirmed) {
+      this.onConfirm();
+    }
+  }
+};
 var PlanningCalendar = class {
   constructor(element, host) {
     this.element = element;
@@ -2424,6 +2487,8 @@ var PlanningCalendar = class {
     this.day = todayInZone(host.timeZone);
     this.showHabits = host.showHabits();
   }
+  backlogCollapsed = false;
+  showTimeGrid = false;
   mode = "week";
   day;
   projects = /* @__PURE__ */ new Set();
@@ -2536,6 +2601,31 @@ var PlanningCalendar = class {
         refreshBtn.removeClass("is-syncing");
       }
     });
+    const unscheduledCount = unscheduledTasks(this.filteredTasks(), this.host.timeZone).length;
+    const backlogBtn = actionsGroup.createEl("button", {
+      cls: `ticktick-planner-toggle-btn ${!this.backlogCollapsed ? "is-active" : ""}`,
+      attr: { type: "button", "aria-label": "\u062A\u063A\u06CC\u06CC\u0631 \u0648\u0636\u0639\u06CC\u062A \u0646\u0645\u0627\u06CC\u0634 \u0633\u062A\u0648\u0646 \u0628\u06A9\u200C\u0644\u0627\u06AF", title: "\u0646\u0645\u0627\u06CC\u0634 \u06CC\u0627 \u0645\u062E\u0641\u06CC\u200C\u0633\u0627\u0632\u06CC \u0633\u062A\u0648\u0646 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E" }
+    });
+    const bIcon = backlogBtn.createSpan({ cls: "ticktick-btn-icon" });
+    (0, import_obsidian6.setIcon)(bIcon, "layout-list");
+    backlogBtn.createSpan({ text: `\u0628\u06A9\u200C\u0644\u0627\u06AF (${unscheduledCount})` });
+    backlogBtn.addEventListener("click", () => {
+      this.backlogCollapsed = !this.backlogCollapsed;
+      void this.render();
+    });
+    if (this.mode !== "month") {
+      const timeGridBtn = actionsGroup.createEl("button", {
+        cls: `ticktick-planner-toggle-btn ${this.showTimeGrid ? "is-active" : ""}`,
+        attr: { type: "button", "aria-label": "\u0646\u0645\u0627\u06CC\u0634 \u0634\u0628\u06A9\u0647\u0654 \u0633\u0627\u0639\u062A\u06CC", title: "\u062A\u063A\u06CC\u06CC\u0631 \u062D\u0627\u0644\u062A \u0628\u0647 \u0634\u0628\u06A9\u0647\u0654 \u0633\u0627\u0639\u062A\u06CC \u062C\u0647\u062A \u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u062F\u0642\u06CC\u0642" }
+      });
+      const tgIcon = timeGridBtn.createSpan({ cls: "ticktick-btn-icon" });
+      (0, import_obsidian6.setIcon)(tgIcon, "clock");
+      timeGridBtn.createSpan({ text: this.showTimeGrid ? "\u0633\u0627\u0639\u062A: \u0631\u0648\u0634\u0646" : "\u0634\u0628\u06A9\u0647\u0654 \u0633\u0627\u0639\u062A\u06CC" });
+      timeGridBtn.addEventListener("click", () => {
+        this.showTimeGrid = !this.showTimeGrid;
+        void this.render();
+      });
+    }
     this.renderFilters(root);
     const tasks = this.filteredTasks();
     if (!tasks.length) {
@@ -2728,7 +2818,11 @@ var PlanningCalendar = class {
   }
   renderDays(root, days, tasks) {
     const today = todayInZone(this.host.timeZone);
-    const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
+    const workspace = root.createDiv({ cls: `ticktick-planner-workspace ${this.backlogCollapsed ? "is-backlog-collapsed" : ""}` });
+    if (!this.backlogCollapsed) {
+      this.renderBacklogColumn(workspace, tasks);
+    }
+    const grid = workspace.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
     enhanceHorizontalScroll(grid);
     scrollToStart(grid);
     this.bindCalendarDrop(grid, tasks);
@@ -2782,11 +2876,15 @@ var PlanningCalendar = class {
         if (task) void this.dropTask(task, day);
       });
       const singleDayTasks = items.filter((item) => !showRangeBars || !taskDateRange(item, this.host.timeZone));
-      if (!singleDayTasks.length) {
-        const emptyHint = column.createDiv({ cls: "ticktick-planner-day-empty" });
-        emptyHint.createSpan({ text: "\u062A\u0633\u06A9\u06CC \u0646\u06CC\u0633\u062A" });
+      if (this.showTimeGrid) {
+        this.renderTimeGrid(column, day, singleDayTasks, tasks);
       } else {
-        for (const task of singleDayTasks) this.renderTask(column, task);
+        if (!singleDayTasks.length) {
+          const emptyHint = column.createDiv({ cls: "ticktick-planner-day-empty" });
+          emptyHint.createSpan({ text: "\u062A\u0633\u06A9\u06CC \u0646\u06CC\u0633\u062A" });
+        } else {
+          for (const task of singleDayTasks) this.renderTask(column, task);
+        }
       }
       if (this.showHabitsForAllDays || day === this.day) this.renderHabits(column, day);
     }
@@ -3193,10 +3291,128 @@ var PlanningCalendar = class {
       new import_obsidian6.Notice(error instanceof Error ? error.message : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
     }
   }
+  renderBacklogColumn(parent, tasks) {
+    const unscheduled = unscheduledTasks(tasks, this.host.timeZone, this.sortMode);
+    const col = parent.createDiv({ cls: "ticktick-planner-backlog-column" });
+    const header = col.createDiv({ cls: "ticktick-planner-backlog-header" });
+    const titleWrap = header.createDiv({ cls: "ticktick-planner-backlog-title" });
+    const bIcon = titleWrap.createSpan({ cls: "ticktick-backlog-icon" });
+    (0, import_obsidian6.setIcon)(bIcon, "layout-list");
+    titleWrap.createSpan({ text: "\u0628\u06A9\u200C\u0644\u0627\u06AF" });
+    titleWrap.createSpan({ cls: "ticktick-planner-counter", text: `${unscheduled.length} \u062A\u0633\u06A9` });
+    const headerActions = header.createDiv({ cls: "ticktick-backlog-actions" });
+    const addBtn = headerActions.createEl("button", {
+      cls: "ticktick-planner-add mod-icon",
+      attr: { type: "button", "aria-label": "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062F\u0631 \u0628\u06A9\u200C\u0644\u0627\u06AF", title: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E" }
+    });
+    (0, import_obsidian6.setIcon)(addBtn, "plus");
+    addBtn.addEventListener("click", () => void this.addTask(""));
+    const collapseBtn = headerActions.createEl("button", {
+      cls: "ticktick-backlog-collapse-btn mod-icon",
+      attr: { type: "button", "aria-label": "\u0628\u0633\u062A\u0646 \u0628\u06A9\u200C\u0644\u0627\u06AF", title: "\u0628\u0633\u062A\u0646 \u0633\u062A\u0648\u0646 \u0628\u06A9\u200C\u0644\u0627\u06AF" }
+    });
+    (0, import_obsidian6.setIcon)(collapseBtn, "panel-right-close");
+    collapseBtn.addEventListener("click", () => {
+      this.backlogCollapsed = true;
+      void this.render();
+    });
+    const cardsContainer = col.createDiv({ cls: "ticktick-planner-backlog-cards" });
+    cardsContainer.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      cardsContainer.addClass("is-drag-over");
+    });
+    cardsContainer.addEventListener("dragleave", (event) => {
+      if (!cardsContainer.contains(event.relatedTarget)) {
+        cardsContainer.removeClass("is-drag-over");
+      }
+    });
+    cardsContainer.addEventListener("drop", (event) => {
+      event.preventDefault();
+      cardsContainer.removeClass("is-drag-over");
+      const task = this.draggedTask(event, tasks);
+      if (task) void this.dropTaskToBacklog(task);
+    });
+    if (!unscheduled.length) {
+      const emptyBox = cardsContainer.createDiv({ cls: "ticktick-planner-day-empty" });
+      emptyBox.createSpan({ text: "\u062A\u0633\u06A9\u06CC \u062F\u0631 \u0628\u06A9\u200C\u0644\u0627\u06AF \u0646\u06CC\u0633\u062A" });
+    } else {
+      for (const task of unscheduled) {
+        this.renderTask(cardsContainer, task);
+      }
+    }
+  }
+  renderTimeGrid(column, day, dayTasks, allTasks) {
+    const allDayTasks = dayTasks.filter((item) => Boolean(item.isAllDay) || !String(item.dueDate ?? item.startDate ?? "").includes("T"));
+    const timedTasks = dayTasks.filter((item) => !item.isAllDay && String(item.dueDate ?? item.startDate ?? "").includes("T"));
+    const allDaySection = column.createDiv({ cls: "ticktick-timegrid-allday-section" });
+    const allDayHeader = allDaySection.createDiv({ cls: "ticktick-timegrid-allday-header" });
+    allDayHeader.createSpan({ cls: "ticktick-timegrid-allday-title", text: "\u062A\u0645\u0627\u0645 \u0631\u0648\u0632" });
+    allDayHeader.createSpan({ cls: "ticktick-planner-counter", text: `${allDayTasks.length}` });
+    allDaySection.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      allDaySection.addClass("is-drag-over");
+    });
+    allDaySection.addEventListener("dragleave", () => allDaySection.removeClass("is-drag-over"));
+    allDaySection.addEventListener("drop", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      allDaySection.removeClass("is-drag-over");
+      const task = this.draggedTask(event, allTasks);
+      if (task) void this.dropTask(task, day);
+    });
+    if (allDayTasks.length) {
+      for (const task of allDayTasks) this.renderTask(allDaySection, task);
+    }
+    const timeSlotsWrap = column.createDiv({ cls: "ticktick-timegrid-slots" });
+    for (const slot of HOURLY_SLOTS) {
+      const slotRow = timeSlotsWrap.createDiv({ cls: "ticktick-timegrid-slot" });
+      slotRow.dataset.time = slot;
+      const slotHead = slotRow.createDiv({ cls: "ticktick-timegrid-slot-head" });
+      const pTime = new Intl.DateTimeFormat("fa-IR", { hour: "2-digit", minute: "2-digit", hour12: false }).format(/* @__PURE__ */ new Date(`2026-01-01T${slot}:00Z`));
+      slotHead.createSpan({ cls: "ticktick-timegrid-hour-label", text: pTime });
+      slotRow.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+        slotRow.addClass("is-drag-over");
+      });
+      slotRow.addEventListener("dragleave", () => slotRow.removeClass("is-drag-over"));
+      slotRow.addEventListener("drop", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        slotRow.removeClass("is-drag-over");
+        const task = this.draggedTask(event, allTasks);
+        if (task) void this.dropTaskToTime(task, day, slot);
+      });
+      const matchingTasks = timedTasks.filter((t) => taskHourSlot(t) === slot);
+      for (const task of matchingTasks) {
+        this.renderTask(slotRow, task);
+      }
+    }
+    const outsideTasks = timedTasks.filter((t) => !HOURLY_SLOTS.includes(taskHourSlot(t) ?? ""));
+    if (outsideTasks.length) {
+      const extraSection = column.createDiv({ cls: "ticktick-timegrid-extra-section" });
+      for (const task of outsideTasks) {
+        this.renderTask(extraSection, task);
+      }
+    }
+  }
   async dropTask(task, target, visualSourceDay) {
     const currentRange = taskDateRange(task, this.host.timeZone);
-    const currentDay = currentRange?.start ?? String(task.dueDate ?? task.startDate ?? "").slice(0, 10);
-    if (!currentDay) return;
+    const currentDay = currentRange?.start ?? toDateKey(task.dueDate ?? task.startDate, this.host.timeZone);
+    if (!currentDay) {
+      try {
+        await this.host.reschedule(task, target);
+        new import_obsidian6.Notice(`\u062A\u0633\u06A9 \xAB${task.title}\xBB \u0628\u0631\u0627\u06CC ${target} \u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u0634\u062F.`);
+        await this.render();
+      } catch (error) {
+        new import_obsidian6.Notice(error instanceof Error ? error.message : "\u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+      }
+      return;
+    }
     const offset = visualSourceDay ? Math.round((Date.parse(`${target}T12:00:00Z`) - Date.parse(`${visualSourceDay}T12:00:00Z`)) / 864e5) : Math.round((Date.parse(`${target}T12:00:00Z`) - Date.parse(`${currentDay}T12:00:00Z`)) / 864e5);
     if (!offset) return;
     const taskTarget = shiftCalendarDay(currentDay, offset);
@@ -3207,6 +3423,28 @@ var PlanningCalendar = class {
     } catch (error) {
       new import_obsidian6.Notice(error instanceof Error ? error.message : "\u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
     }
+  }
+  async dropTaskToTime(task, targetDay, time) {
+    try {
+      await this.host.reschedule(task, targetDay, time);
+      new import_obsidian6.Notice(`\u0633\u0627\u0639\u062A \u062A\u0633\u06A9 \xAB${task.title}\xBB \u0628\u0647 ${time} \u062A\u063A\u06CC\u06CC\u0631 \u06A9\u0631\u062F.`);
+      await this.render();
+    } catch (error) {
+      new import_obsidian6.Notice(error instanceof Error ? error.message : "\u062A\u063A\u06CC\u06CC\u0631 \u0633\u0627\u0639\u062A \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+    }
+  }
+  async dropTaskToBacklog(task) {
+    const hasDate = Boolean(task.dueDate || task.startDate);
+    if (!hasDate) return;
+    new UnscheduleConfirmModal(this.host.app, task, async () => {
+      try {
+        await this.host.unschedule(task);
+        new import_obsidian6.Notice(`\u062A\u0633\u06A9 \xAB${task.title}\xBB \u0628\u0647 \u0628\u06A9\u200C\u0644\u0627\u06AF \u0645\u0646\u062A\u0642\u0644 \u0634\u062F.`);
+        await this.render();
+      } catch (error) {
+        new import_obsidian6.Notice(error instanceof Error ? error.message : "\u0627\u0646\u062A\u0642\u0627\u0644 \u0628\u0647 \u0628\u06A9\u200C\u0644\u0627\u06AF \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+      }
+    }).open();
   }
   draggedTask(event, tasks) {
     const id = event.dataTransfer?.getData("text/ticktick-task") || event.dataTransfer?.getData("text/plain") || this.draggingTaskId;
@@ -5982,7 +6220,8 @@ var TickTickBridgePlugin = class extends import_obsidian22.Plugin {
       refresh: async () => {
         await this.syncNow();
       },
-      reschedule: async (task, day) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.rescheduleBoundTask(String(task.id), day) : this.rescheduleTaskFromPlanner(task, day),
+      reschedule: async (task, day, time) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.rescheduleBoundTask(String(task.id), day) : this.rescheduleTaskFromPlanner(task, day, time),
+      unschedule: async (task) => this.unscheduleTaskFromPlanner(task),
       complete: async (task) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task) => this.loadTaskDetails(task),
@@ -6555,24 +6794,81 @@ var TickTickBridgePlugin = class extends import_obsidian22.Plugin {
     await this.updateTask(payload);
     return { ...current, ...payload };
   }
-  async rescheduleTaskFromPlanner(task, targetDay) {
-    const start = toDateKey(task?.startDate, task?.timeZone || this.settings.timeZone);
-    const due = toDateKey(task?.dueDate, task?.timeZone || this.settings.timeZone);
-    const anchor = start ?? due;
-    if (!anchor) throw new Error("\u062A\u0633\u06A9 \u062A\u0627\u0631\u06CC\u062E \u0642\u0627\u0628\u0644\u200C\u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u0646\u062F\u0627\u0631\u062F.");
-    const offset = Math.round((Date.parse(`${targetDay}T12:00:00Z`) - Date.parse(`${anchor}T12:00:00Z`)) / 864e5);
-    const moveValue = (value, fallback) => {
-      if (!fallback) return null;
-      const original = String(value ?? "");
-      const moved = shiftIsoDay(fallback, offset);
-      return original.includes("T") ? `${moved}${original.slice(10)}` : `${moved}T00:00:00+0330`;
+  async unscheduleTaskFromPlanner(task) {
+    const previous = { ...task };
+    const payload = {
+      id: task.id,
+      projectId: task.projectId,
+      dueDate: null,
+      startDate: null,
+      isAllDay: true
     };
-    const payload = toTaskPayload({ ...task, dueDate: due ? shiftIsoDay(due, offset) : null }, this.settings.timeZone);
-    payload.startDate = moveValue(task.startDate, start);
-    payload.dueDate = moveValue(task.dueDate, due);
-    payload.isAllDay = task.isAllDay ?? !String(task.dueDate ?? task.startDate ?? "").includes("T");
-    await this.updateTask(payload);
-    return { ...task, ...payload };
+    try {
+      await this.updateTask(payload);
+      return { ...task, ...payload };
+    } catch (error) {
+      this.cache.tasks = this.cache.tasks.map((t) => t.id === previous.id ? previous : t);
+      for (const board of Object.values(this.cache.projectBoards)) {
+        board.tasks = (board.tasks ?? []).map((t) => t.id === previous.id ? previous : t);
+      }
+      await this.managedStorage.writeReport("planner-unschedule-failure", {
+        taskId: task.id,
+        title: task.title,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      bridgeEvents.emit("state:changed", void 0);
+      throw error;
+    }
+  }
+  async rescheduleTaskFromPlanner(task, targetDay, targetTime) {
+    const previous = { ...task };
+    try {
+      const start = toDateKey(task?.startDate, task?.timeZone || this.settings.timeZone);
+      const due = toDateKey(task?.dueDate, task?.timeZone || this.settings.timeZone);
+      const anchor = start ?? due;
+      let payload;
+      if (!anchor) {
+        const isTimed = Boolean(targetTime);
+        const timePart = targetTime ? targetTime.length === 5 ? `${targetTime}:00` : targetTime : "00:00:00";
+        payload = {
+          id: task.id,
+          projectId: task.projectId,
+          dueDate: isTimed ? `${targetDay}T${timePart}+0330` : `${targetDay}T00:00:00+0330`,
+          startDate: null,
+          isAllDay: !isTimed,
+          timeZone: this.settings.timeZone
+        };
+      } else {
+        const offset = Math.round((Date.parse(`${targetDay}T12:00:00Z`) - Date.parse(`${anchor}T12:00:00Z`)) / 864e5);
+        const isTimed = Boolean(targetTime || !task.isAllDay && String(task.dueDate ?? task.startDate ?? "").includes("T"));
+        const timePart = targetTime ? targetTime.length === 5 ? `${targetTime}:00` : targetTime : String(task.startDate ?? task.dueDate ?? "").match(/T(\d{2}:\d{2}:\d{2})/)?.[1] ?? "00:00:00";
+        const moveValue = (value, fallback) => {
+          if (!fallback) return null;
+          const moved = shiftIsoDay(fallback, offset);
+          return isTimed ? `${moved}T${timePart}+0330` : `${moved}T00:00:00+0330`;
+        };
+        payload = toTaskPayload({ ...task, dueDate: due ? shiftIsoDay(due, offset) : null }, this.settings.timeZone);
+        payload.startDate = moveValue(task.startDate, start);
+        payload.dueDate = moveValue(task.dueDate, due);
+        payload.isAllDay = !isTimed;
+      }
+      await this.updateTask(payload);
+      return { ...task, ...payload };
+    } catch (error) {
+      this.cache.tasks = this.cache.tasks.map((t) => t.id === previous.id ? previous : t);
+      for (const board of Object.values(this.cache.projectBoards)) {
+        board.tasks = (board.tasks ?? []).map((t) => t.id === previous.id ? previous : t);
+      }
+      await this.managedStorage.writeReport("planner-reschedule-failure", {
+        taskId: task.id,
+        title: task.title,
+        targetDay,
+        targetTime,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      bridgeEvents.emit("state:changed", void 0);
+      throw error;
+    }
   }
   async moveTaskToBoardColumn(task, columnId) {
     if (!columnId) throw new Error("\u0633\u062A\u0648\u0646 \u0645\u0642\u0635\u062F \u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u0642\u0627\u0644 \u0642\u0627\u0628\u0644\u200C\u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0646\u06CC\u0633\u062A.");

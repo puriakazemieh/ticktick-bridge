@@ -1,8 +1,8 @@
 import { App, Menu, Modal, Notice, setIcon } from "obsidian";
 import { renderUnifiedHabitCard } from "./habit-card";
-import { isSamePersianMonth, persianMonthRange, recurringTaskOccursOnDay, shiftCalendarDay, shiftPersianMonth, sortPlanningTasks, taskDateRange, tasksForCalendarDay, weekRange } from "../core/calendar-range.js";
+import { HOURLY_SLOTS, isSamePersianMonth, isTaskUnscheduled, persianMonthRange, recurringTaskOccursOnDay, scheduleTaskDate, shiftCalendarDay, shiftPersianMonth, sortPlanningTasks, taskDateRange, taskHourSlot, tasksForCalendarDay, unscheduledTasks, unscheduleTaskDate, weekRange } from "../core/calendar-range.js";
 import { formatPersianDate } from "../core/persian-date.js";
-import { todayInZone } from "../core/date.js";
+import { toDateKey, todayInZone } from "../core/date.js";
 import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
 import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
@@ -24,7 +24,8 @@ export type PlannerHost = HabitDetailsHost & {
   showCompleted: boolean;
   tasks: () => TickTickTask[];
   refresh: () => Promise<void>;
-  reschedule: (task: TickTickTask, day: string) => Promise<unknown>;
+  reschedule: (task: TickTickTask, day: string, time?: string) => Promise<unknown>;
+  unschedule: (task: TickTickTask) => Promise<unknown>;
   complete: (task: TickTickTask) => Promise<unknown>;
   binding: (task: TickTickTask) => unknown;
   load: (task: TickTickTask) => Promise<TickTickTask | undefined>;
@@ -329,7 +330,43 @@ export class HabitDetailsModal extends Modal {
   onClose() { this.contentEl.empty(); }
 }
 
+export class UnscheduleConfirmModal extends Modal {
+  private confirmed = false;
+
+  constructor(app: App, private task: TickTickTask, private onConfirm: () => void) {
+    super(app);
+  }
+
+  onOpen() {
+    this.modalEl.addClass("ticktick-unschedule-modal");
+    this.titleEl.setText("حذف تاریخ و انتقال به بک‌لاگ");
+    this.contentEl.createEl("p", {
+      text: `آیا مطمئن هستید که می‌خواهید زمان‌بندی تسک «${this.task.title || "بدون عنوان"}» را حذف کرده و آن را به ستون بک‌لاگ (تسک‌های بدون تاریخ) منتقل کنید؟`
+    });
+
+    const actions = this.contentEl.createDiv({ cls: "modal-button-container" });
+    actions.createEl("button", { text: "انصراف" }).addEventListener("click", () => this.close());
+    const confirmBtn = actions.createEl("button", {
+      text: "انتقال به بک‌لاگ",
+      cls: "mod-warning"
+    });
+    confirmBtn.addEventListener("click", () => {
+      this.confirmed = true;
+      this.close();
+    });
+  }
+
+  onClose() {
+    this.contentEl.empty();
+    if (this.confirmed) {
+      this.onConfirm();
+    }
+  }
+}
+
 export class PlanningCalendar {
+  private backlogCollapsed = false;
+  private showTimeGrid = false;
   private mode: Mode = "week";
   private day: string;
   private projects = new Set<string>();
@@ -470,6 +507,33 @@ export class PlanningCalendar {
         refreshBtn.removeClass("is-syncing");
       }
     });
+
+    const unscheduledCount = unscheduledTasks(this.filteredTasks(), this.host.timeZone).length;
+    const backlogBtn = actionsGroup.createEl("button", {
+      cls: `ticktick-planner-toggle-btn ${!this.backlogCollapsed ? "is-active" : ""}`,
+      attr: { type: "button", "aria-label": "تغییر وضعیت نمایش ستون بک‌لاگ", title: "نمایش یا مخفی‌سازی ستون تسک‌های بدون تاریخ" }
+    });
+    const bIcon = backlogBtn.createSpan({ cls: "ticktick-btn-icon" });
+    setIcon(bIcon, "layout-list");
+    backlogBtn.createSpan({ text: `بک‌لاگ (${unscheduledCount})` });
+    backlogBtn.addEventListener("click", () => {
+      this.backlogCollapsed = !this.backlogCollapsed;
+      void this.render();
+    });
+
+    if (this.mode !== "month") {
+      const timeGridBtn = actionsGroup.createEl("button", {
+        cls: `ticktick-planner-toggle-btn ${this.showTimeGrid ? "is-active" : ""}`,
+        attr: { type: "button", "aria-label": "نمایش شبکهٔ ساعتی", title: "تغییر حالت به شبکهٔ ساعتی جهت زمان‌بندی دقیق" }
+      });
+      const tgIcon = timeGridBtn.createSpan({ cls: "ticktick-btn-icon" });
+      setIcon(tgIcon, "clock");
+      timeGridBtn.createSpan({ text: this.showTimeGrid ? "ساعت: روشن" : "شبکهٔ ساعتی" });
+      timeGridBtn.addEventListener("click", () => {
+        this.showTimeGrid = !this.showTimeGrid;
+        void this.render();
+      });
+    }
 
     // 4. Filters Bar
     this.renderFilters(root);
@@ -683,7 +747,11 @@ export class PlanningCalendar {
 
   private renderDays(root: HTMLElement, days: string[], tasks: TickTickTask[]) {
     const today = todayInZone(this.host.timeZone);
-    const grid = root.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
+    const workspace = root.createDiv({ cls: `ticktick-planner-workspace ${this.backlogCollapsed ? "is-backlog-collapsed" : ""}` });
+    if (!this.backlogCollapsed) {
+      this.renderBacklogColumn(workspace, tasks);
+    }
+    const grid = workspace.createDiv({ cls: `ticktick-planner-days ticktick-planner-days-${days.length}` });
     enhanceHorizontalScroll(grid);
     scrollToStart(grid);
     this.bindCalendarDrop(grid, tasks);
@@ -748,11 +816,15 @@ export class PlanningCalendar {
       });
 
       const singleDayTasks = items.filter(item => !showRangeBars || !taskDateRange(item, this.host.timeZone));
-      if (!singleDayTasks.length) {
-        const emptyHint = column.createDiv({ cls: "ticktick-planner-day-empty" });
-        emptyHint.createSpan({ text: "تسکی نیست" });
+      if (this.showTimeGrid) {
+        this.renderTimeGrid(column, day, singleDayTasks, tasks);
       } else {
-        for (const task of singleDayTasks) this.renderTask(column, task);
+        if (!singleDayTasks.length) {
+          const emptyHint = column.createDiv({ cls: "ticktick-planner-day-empty" });
+          emptyHint.createSpan({ text: "تسکی نیست" });
+        } else {
+          for (const task of singleDayTasks) this.renderTask(column, task);
+        }
       }
       if (this.showHabitsForAllDays || day === this.day) this.renderHabits(column, day);
     }
@@ -1216,10 +1288,148 @@ for (const habit of habits) {
     }
   }
 
+  private renderBacklogColumn(parent: HTMLElement, tasks: TickTickTask[]) {
+    const unscheduled = unscheduledTasks(tasks, this.host.timeZone, this.sortMode);
+    const col = parent.createDiv({ cls: "ticktick-planner-backlog-column" });
+
+    // Header
+    const header = col.createDiv({ cls: "ticktick-planner-backlog-header" });
+    const titleWrap = header.createDiv({ cls: "ticktick-planner-backlog-title" });
+    const bIcon = titleWrap.createSpan({ cls: "ticktick-backlog-icon" });
+    setIcon(bIcon, "layout-list");
+    titleWrap.createSpan({ text: "بک‌لاگ" });
+    titleWrap.createSpan({ cls: "ticktick-planner-counter", text: `${unscheduled.length} تسک` });
+
+    const headerActions = header.createDiv({ cls: "ticktick-backlog-actions" });
+    const addBtn = headerActions.createEl("button", {
+      cls: "ticktick-planner-add mod-icon",
+      attr: { type: "button", "aria-label": "افزودن تسک در بک‌لاگ", title: "افزودن تسک بدون تاریخ" }
+    });
+    setIcon(addBtn, "plus");
+    addBtn.addEventListener("click", () => void this.addTask(""));
+
+    const collapseBtn = headerActions.createEl("button", {
+      cls: "ticktick-backlog-collapse-btn mod-icon",
+      attr: { type: "button", "aria-label": "بستن بک‌لاگ", title: "بستن ستون بک‌لاگ" }
+    });
+    setIcon(collapseBtn, "panel-right-close");
+    collapseBtn.addEventListener("click", () => {
+      this.backlogCollapsed = true;
+      void this.render();
+    });
+
+    // Drop target on Backlog
+    const cardsContainer = col.createDiv({ cls: "ticktick-planner-backlog-cards" });
+    cardsContainer.addEventListener("dragover", event => {
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      cardsContainer.addClass("is-drag-over");
+    });
+    cardsContainer.addEventListener("dragleave", event => {
+      if (!cardsContainer.contains(event.relatedTarget as Node | null)) {
+        cardsContainer.removeClass("is-drag-over");
+      }
+    });
+    cardsContainer.addEventListener("drop", event => {
+      event.preventDefault();
+      cardsContainer.removeClass("is-drag-over");
+      const task = this.draggedTask(event, tasks);
+      if (task) void this.dropTaskToBacklog(task);
+    });
+
+    if (!unscheduled.length) {
+      const emptyBox = cardsContainer.createDiv({ cls: "ticktick-planner-day-empty" });
+      emptyBox.createSpan({ text: "تسکی در بک‌لاگ نیست" });
+    } else {
+      for (const task of unscheduled) {
+        this.renderTask(cardsContainer, task);
+      }
+    }
+  }
+
+  private renderTimeGrid(column: HTMLElement, day: string, dayTasks: TickTickTask[], allTasks: TickTickTask[]) {
+    const allDayTasks = dayTasks.filter(item => Boolean(item.isAllDay) || !String(item.dueDate ?? item.startDate ?? "").includes("T"));
+    const timedTasks = dayTasks.filter(item => !item.isAllDay && String(item.dueDate ?? item.startDate ?? "").includes("T"));
+
+    // All Day section
+    const allDaySection = column.createDiv({ cls: "ticktick-timegrid-allday-section" });
+    const allDayHeader = allDaySection.createDiv({ cls: "ticktick-timegrid-allday-header" });
+    allDayHeader.createSpan({ cls: "ticktick-timegrid-allday-title", text: "تمام روز" });
+    allDayHeader.createSpan({ cls: "ticktick-planner-counter", text: `${allDayTasks.length}` });
+
+    allDaySection.addEventListener("dragover", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      allDaySection.addClass("is-drag-over");
+    });
+    allDaySection.addEventListener("dragleave", () => allDaySection.removeClass("is-drag-over"));
+    allDaySection.addEventListener("drop", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      allDaySection.removeClass("is-drag-over");
+      const task = this.draggedTask(event, allTasks);
+      if (task) void this.dropTask(task, day);
+    });
+
+    if (allDayTasks.length) {
+      for (const task of allDayTasks) this.renderTask(allDaySection, task);
+    }
+
+    // Hourly Slots
+    const timeSlotsWrap = column.createDiv({ cls: "ticktick-timegrid-slots" });
+    for (const slot of HOURLY_SLOTS) {
+      const slotRow = timeSlotsWrap.createDiv({ cls: "ticktick-timegrid-slot" });
+      slotRow.dataset.time = slot;
+
+      const slotHead = slotRow.createDiv({ cls: "ticktick-timegrid-slot-head" });
+      const pTime = new Intl.DateTimeFormat("fa-IR", { hour: "2-digit", minute: "2-digit", hour12: false })
+        .format(new Date(`2026-01-01T${slot}:00Z`));
+      slotHead.createSpan({ cls: "ticktick-timegrid-hour-label", text: pTime });
+
+      slotRow.addEventListener("dragover", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+        slotRow.addClass("is-drag-over");
+      });
+      slotRow.addEventListener("dragleave", () => slotRow.removeClass("is-drag-over"));
+      slotRow.addEventListener("drop", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        slotRow.removeClass("is-drag-over");
+        const task = this.draggedTask(event, allTasks);
+        if (task) void this.dropTaskToTime(task, day, slot);
+      });
+
+      const matchingTasks = timedTasks.filter(t => taskHourSlot(t) === slot);
+      for (const task of matchingTasks) {
+        this.renderTask(slotRow, task);
+      }
+    }
+
+    const outsideTasks = timedTasks.filter(t => !HOURLY_SLOTS.includes(taskHourSlot(t) ?? ""));
+    if (outsideTasks.length) {
+      const extraSection = column.createDiv({ cls: "ticktick-timegrid-extra-section" });
+      for (const task of outsideTasks) {
+        this.renderTask(extraSection, task);
+      }
+    }
+  }
+
   private async dropTask(task: TickTickTask, target: string, visualSourceDay?: string) {
     const currentRange = taskDateRange(task, this.host.timeZone);
-    const currentDay = currentRange?.start ?? String(task.dueDate ?? task.startDate ?? "").slice(0, 10);
-    if (!currentDay) return;
+    const currentDay = currentRange?.start ?? toDateKey(task.dueDate ?? task.startDate, this.host.timeZone);
+    if (!currentDay) {
+      try {
+        await this.host.reschedule(task, target);
+        new Notice(`تسک «${task.title}» برای ${target} زمان‌بندی شد.`);
+        await this.render();
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : "زمان‌بندی تسک ناموفق بود.");
+      }
+      return;
+    }
     const offset = visualSourceDay
       ? Math.round((Date.parse(`${target}T12:00:00Z`) - Date.parse(`${visualSourceDay}T12:00:00Z`)) / 86400000)
       : Math.round((Date.parse(`${target}T12:00:00Z`) - Date.parse(`${currentDay}T12:00:00Z`)) / 86400000);
@@ -1228,12 +1438,34 @@ for (const habit of habits) {
     try {
       await this.host.reschedule(task, taskTarget);
       new Notice(currentRange ? "بازهٔ زمانی تسک جابه‌جا و همگام شد." : "تاریخ تسک جابه‌جا و همگام شد.");
-      // runMutation updates the cache immediately after TickTick accepts the
-      // write. Avoid a full remote refresh here: it is slow and resets scroll.
       await this.render();
     } catch (error) {
       new Notice(error instanceof Error ? error.message : "جابه‌جایی ناموفق بود.");
     }
+  }
+
+  private async dropTaskToTime(task: TickTickTask, targetDay: string, time: string) {
+    try {
+      await this.host.reschedule(task, targetDay, time);
+      new Notice(`ساعت تسک «${task.title}» به ${time} تغییر کرد.`);
+      await this.render();
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : "تغییر ساعت تسک ناموفق بود.");
+    }
+  }
+
+  private async dropTaskToBacklog(task: TickTickTask) {
+    const hasDate = Boolean(task.dueDate || task.startDate);
+    if (!hasDate) return;
+    new UnscheduleConfirmModal(this.host.app, task, async () => {
+      try {
+        await this.host.unschedule(task);
+        new Notice(`تسک «${task.title}» به بک‌لاگ منتقل شد.`);
+        await this.render();
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : "انتقال به بک‌لاگ ناموفق بود.");
+      }
+    }).open();
   }
 
   private draggedTask(event: DragEvent, tasks: TickTickTask[]) {

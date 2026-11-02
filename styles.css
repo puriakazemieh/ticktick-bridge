@@ -2296,6 +2296,146 @@
     padding: 0.25rem 0.35rem;
   }
 }
+.ticktick-planner-workspace {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  direction: rtl;
+  width: 100%;
+}
+.ticktick-planner-workspace .ticktick-planner-days {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.ticktick-planner-backlog-column {
+  width: 17rem;
+  min-width: 15rem;
+  max-width: 20rem;
+  flex: 0 0 auto;
+  background: var(--background-secondary);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  border-radius: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 180px);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--background-primary) 30%, transparent);
+  overflow: hidden;
+}
+.ticktick-planner-backlog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.85rem;
+  background: color-mix(in srgb, var(--background-secondary) 80%, var(--background-primary));
+  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+}
+.ticktick-planner-backlog-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-normal);
+}
+.ticktick-backlog-icon svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--text-muted);
+}
+.ticktick-backlog-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.ticktick-backlog-collapse-btn {
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer;
+  padding: 0.2rem !important;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  border-radius: 0.3rem;
+}
+.ticktick-backlog-collapse-btn:hover {
+  background: var(--background-modifier-hover) !important;
+  color: var(--text-normal);
+}
+.ticktick-backlog-collapse-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+.ticktick-planner-backlog-cards {
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 12rem;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.ticktick-planner-backlog-cards.is-drag-over {
+  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)) !important;
+  outline: 2px dashed var(--interactive-accent);
+  outline-offset: -3px;
+}
+.ticktick-timegrid-allday-section {
+  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 50%, transparent);
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 2.2rem;
+  border-radius: 0.4rem;
+  transition: background-color 150ms ease;
+}
+.ticktick-timegrid-allday-section.is-drag-over {
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+}
+.ticktick-timegrid-allday-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.ticktick-timegrid-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.ticktick-timegrid-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.35rem;
+  border-top: 1px dashed color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+  border-radius: 0.35rem;
+  transition: background-color 120ms ease;
+}
+.ticktick-timegrid-slot.is-drag-over {
+  background: color-mix(in srgb, var(--interactive-accent) 18%, transparent) !important;
+}
+.ticktick-timegrid-slot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ticktick-timegrid-hour-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.ticktick-unschedule-modal .modal-content {
+  direction: rtl;
+  text-align: right;
+}
 
 /* src/styles/habits.css */
 .ticktick-habit-card {
