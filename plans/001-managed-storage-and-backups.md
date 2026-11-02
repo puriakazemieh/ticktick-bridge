@@ -7,6 +7,7 @@
 
 ## Status
 
+- **Status**: DONE (verified and complete)
 - **Priority**: P0
 - **Effort**: M
 - **Risk**: MED — this changes the location and retention of user backup artifacts.
@@ -100,11 +101,11 @@ Document the folder structure, retention definition, manual recovery, and legacy
 
 ## Done criteria
 
-- [ ] Every new managed artifact is under `/.ticktick/`; none is created at vault root.
-- [ ] At most ten distinct UTC capture dates remain under `.ticktick/backups/` after pruning.
-- [ ] Legacy backup move is previewed, confirmed, byte-verified, and reversible from the new location.
-- [ ] `npm test`, `npm run check`, and `npm run build` pass.
-- [ ] No source file outside Scope is modified.
+- [x] Every new managed artifact is under `/.ticktick/`; none is created at vault root.
+- [x] At most ten distinct UTC capture dates remain under `.ticktick/backups/` after pruning.
+- [x] Legacy backup move is previewed, confirmed, byte-verified, and reversible from the new location.
+- [x] `npm test`, `npm run check`, and `npm run build` pass.
+- [x] No source file outside Scope is modified.
 
 ## STOP conditions
 
