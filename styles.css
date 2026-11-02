@@ -4668,6 +4668,77 @@
   border-color: var(--interactive-accent);
   outline: none;
 }
+.ticktick-task-details-deps,
+.ticktick-task-details-hierarchy {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.ticktick-task-blocked-alert {
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  background: rgba(211, 47, 47, 0.12);
+  color: var(--text-error, #d32f2f);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.ticktick-task-dep-item {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.ticktick-task-dep-item.is-pending {
+  color: var(--text-warning, #f57c00);
+}
+.ticktick-task-dep-item.is-done {
+  color: var(--text-success, #388e3c);
+}
+.ticktick-task-hier-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ticktick-task-readonly-badge {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.ticktick-task-parent-link {
+  font-size: 0.85rem;
+  color: var(--interactive-accent);
+  font-weight: 500;
+}
+.ticktick-task-progress-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.ticktick-task-subtasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+.ticktick-task-subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--text-normal);
+}
+.ticktick-task-subtask-item.is-completed {
+  opacity: 0.65;
+  text-decoration: line-through;
+}
 
 /* src/styles/timeline.css */
 .ticktick-project-dashboard .season-grid,

@@ -479,7 +479,8 @@ export class ProjectTimeline {
         changed: async () => {
           await this.host.refresh();
           await this.render();
-        }
+        },
+        allTasks: () => this.host.tasks(),
       }).open();
     };
 

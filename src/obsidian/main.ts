@@ -14,6 +14,7 @@ import { LocalHabitMigrationModal } from "./modals/local-habit-migration-modal";
 import { mergeTaskDetails, reconcileOpenTasks, taskDescription } from "../core/task-description.js";
 import { normalizeProjectData } from "../core/project-board.js";
 import { createBulkOperationManifest, runBoundedQueue, formatBulkOutcomeReport, computeBulkTaskMutation } from "../core/bulk-operations.js";
+import { probeTaskHierarchy } from "../core/task-hierarchy.js";
 
 import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit, ProjectBoardData, TickTickNote, SavedView } from "./types";
 import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
@@ -150,6 +151,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "open-project-timeline", name: "Open TickTick project timeline (Gantt)", callback: () => this.openTimelineView() });
     this.addCommand({ id: "open-weekly-review", name: "Open TickTick weekly review and execution dashboard", callback: () => this.openWeeklyReviewView() });
+    this.addCommand({ id: "probe-task-hierarchy", name: "Probe task hierarchy and generate audit report", callback: () => this.probeTaskHierarchyAndReport() });
     this.addCommand({ id: "open-smart-views", name: "Open smart views (TickTick board)", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
     this.addCommand({ id: "sync-now", name: "Sync TickTick now", callback: () => this.syncNow() });
@@ -1106,6 +1108,14 @@ export default class TickTickBridgePlugin extends Plugin {
     const noticeText = `عملیات گروهی روی ${targetTasks.length} تسک: ${report.succeeded} موفق، ${report.failed} ناموفق.`;
     new Notice(noticeText);
 
+    return report;
+  }
+
+  async probeTaskHierarchyAndReport() {
+    const report = probeTaskHierarchy(this.cache.tasks);
+    const reportPath = await this.managedStorage.writeReport("hierarchy-probe", report);
+    const notice = `بررسی ساختار سلسله‌مراتبی: ${report.totalTasksScanned} تسک اسکن شد (${report.parentChildCount} زیرتسک، ${report.dependencyCount} وابستگی). گزارش در ${reportPath} ثبت شد.`;
+    new Notice(notice);
     return report;
   }
 

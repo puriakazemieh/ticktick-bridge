@@ -39,6 +39,14 @@ export interface TickTickTask {
   createdTime?: string;
   modifiedTime?: string;
   completedTime?: string;
+  parentId?: string | null;
+  childIds?: string[];
+  blockedBy?: string[];
+  dependsOn?: string[];
+  estimate?: number | string;
+  timeEstimate?: number;
+  pomodoroCount?: number;
+  progress?: number;
   [key: string]: unknown;
 }
 

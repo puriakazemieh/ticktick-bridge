@@ -399,7 +399,8 @@ export class WeeklyReview {
       edit: item => this.host.edit(item),
       changed: async () => {
         await this.render();
-      }
+      },
+      allTasks: () => this.host.tasks(),
     }).open();
 
     row.addEventListener("click", (e) => {

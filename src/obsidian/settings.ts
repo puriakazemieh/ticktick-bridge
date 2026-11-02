@@ -160,5 +160,14 @@ export class TickTickBridgeSettings extends PluginSettingTab {
       }));
     new Setting(containerEl).setName("Time zone").addText(input => input.setValue(this.plugin.settings.timeZone).onChange(async value => { this.plugin.settings.timeZone = value || "Asia/Tehran"; await this.plugin.saveSettings(); }));
     new Setting(containerEl).setName("Daily notes folder").addText(input => input.setValue(this.plugin.settings.dailyNoteFolder).onChange(async value => { this.plugin.settings.dailyNoteFolder = value; await this.plugin.saveSettings(); }));
+    new Setting(containerEl)
+      .setName("نوشتن در ساختار سلسله‌مراتبی و زیرتسک‌ها (آزمایشی)")
+      .setDesc("هشدار: ساختار API زیرتسک‌ها در TickTick به صورت آزمایشی است. در حالت عادی نمایش ساختار فقط‌خواندنی است. فعال‌سازی نوشتن نیازمند تست و تایید صریح در پروژه آزمایشی است.")
+      .addToggle(toggle => toggle
+        .setValue(Boolean(this.plugin.settings.experimentalHierarchyWrites))
+        .onChange(async value => {
+          this.plugin.settings.experimentalHierarchyWrites = value;
+          await this.plugin.saveSettings();
+        }));
   }
 }

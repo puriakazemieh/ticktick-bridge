@@ -853,7 +853,8 @@ for (const habit of habits) {
       changed: async () => {
         await this.host.refresh();
         await this.render();
-      }
+      },
+      allTasks: () => this.host.tasks(),
     }).open();
 
     if (bulkSelectionStore.isSelected(String(task.id))) {

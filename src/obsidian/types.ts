@@ -35,6 +35,7 @@ export interface BridgeSettings {
   boardSidebarPreferenceInitialized: boolean;
   boardSmartViewGrouping?: string;
   savedViews: SavedView[];
+  experimentalHierarchyWrites: boolean;
 }
 
 export interface TaskFilterState {

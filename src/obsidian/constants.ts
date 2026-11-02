@@ -31,4 +31,5 @@ export const DEFAULT_SETTINGS: BridgeSettings = {
   boardSidebarPreferenceInitialized: false,
   boardSmartViewGrouping: "project",
   savedViews: [],
+  experimentalHierarchyWrites: false,
 };

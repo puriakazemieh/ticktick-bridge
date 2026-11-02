@@ -1878,6 +1878,180 @@ function formatPersianDate(value, timeZone = "Asia/Tehran") {
   return new Intl.DateTimeFormat("fa-IR-u-ca-persian", { year: "numeric", month: "long", day: "numeric" }).format(/* @__PURE__ */ new Date(`${day}T12:00:00Z`));
 }
 
+// src/core/task-hierarchy.js
+function buildTaskHierarchy(tasks = []) {
+  const taskMap = /* @__PURE__ */ new Map();
+  const childrenMap = /* @__PURE__ */ new Map();
+  const orphaned = [];
+  const rootTasks = [];
+  for (const task of tasks) {
+    if (!task || !task.id) continue;
+    const strId = String(task.id);
+    taskMap.set(strId, task);
+  }
+  for (const task of tasks) {
+    if (!task || !task.id) continue;
+    const strId = String(task.id);
+    const parentId = task.parentId ? String(task.parentId) : null;
+    if (parentId) {
+      if (taskMap.has(parentId)) {
+        if (!childrenMap.has(parentId)) childrenMap.set(parentId, []);
+        childrenMap.get(parentId).push(task);
+      } else {
+        orphaned.push(task);
+        rootTasks.push(task);
+      }
+    } else {
+      rootTasks.push(task);
+    }
+  }
+  return {
+    rootTasks,
+    orphanedSubtasks: orphaned,
+    childrenMap,
+    getChildTasks: (parentId) => childrenMap.get(String(parentId)) || [],
+    getParentTask: (childTask) => childTask.parentId ? taskMap.get(String(childTask.parentId)) || null : null,
+    totalSubtasksCount: tasks.filter((t) => Boolean(t.parentId)).length
+  };
+}
+function calculateHierarchyProgress(parentTask, childTasks = []) {
+  if (!parentTask) return null;
+  if (Array.isArray(childTasks) && childTasks.length > 0) {
+    const completed = childTasks.filter((c) => Number(c?.status ?? 0) !== 0).length;
+    const total = childTasks.length;
+    const percent = Math.round(completed / total * 100);
+    return {
+      total,
+      completed,
+      percent,
+      source: "subtasks"
+    };
+  }
+  if (Array.isArray(parentTask.items) && parentTask.items.length > 0) {
+    const completed = parentTask.items.filter((item) => Boolean(item.completed) || Number(item.status ?? 0) !== 0).length;
+    const total = parentTask.items.length;
+    const percent = Math.round(completed / total * 100);
+    return {
+      total,
+      completed,
+      percent,
+      source: "checklists"
+    };
+  }
+  if (parentTask.progress !== void 0 && parentTask.progress !== null) {
+    const p = Math.max(0, Math.min(100, Number(parentTask.progress) || 0));
+    return {
+      total: 100,
+      completed: p,
+      percent: p,
+      source: "explicit"
+    };
+  }
+  return null;
+}
+function resolveTaskDependencies(task, allTasks = []) {
+  if (!task) return { blockedBy: [], blocks: [], isBlocked: false };
+  const taskMap = new Map(allTasks.map((t) => [String(t.id), t]));
+  const currentId = String(task.id);
+  const rawBlockedBy = Array.isArray(task.blockedBy) ? task.blockedBy : Array.isArray(task.dependsOn) ? task.dependsOn : [];
+  const blockedBy = rawBlockedBy.map((id) => {
+    const dep = taskMap.get(String(id));
+    return {
+      id: String(id),
+      title: dep ? dep.title : `\u062A\u0633\u06A9 \u0646\u0627\u0634\u0646\u0627\u0633 #${id}`,
+      completed: dep ? Number(dep.status ?? 0) !== 0 : false
+    };
+  });
+  const blocks = [];
+  for (const other of allTasks) {
+    if (!other || String(other.id) === currentId) continue;
+    const otherDeps = Array.isArray(other.blockedBy) ? other.blockedBy : Array.isArray(other.dependsOn) ? other.dependsOn : [];
+    if (otherDeps.map(String).includes(currentId)) {
+      blocks.push({
+        id: String(other.id),
+        title: other.title || `\u062A\u0633\u06A9 #${other.id}`,
+        completed: Number(other.status ?? 0) !== 0
+      });
+    }
+  }
+  const isBlocked = blockedBy.some((dep) => !dep.completed);
+  return {
+    blockedBy,
+    blocks,
+    isBlocked
+  };
+}
+function formatTaskEstimate(task) {
+  if (!task) return null;
+  if (task.timeEstimate !== void 0 && task.timeEstimate !== null) {
+    const mins = Number(task.timeEstimate);
+    if (mins >= 60) {
+      const hours = Math.floor(mins / 60);
+      const rem = mins % 60;
+      return rem > 0 ? `\u23F3 ${hours}\u0633 ${rem}\u062F` : `\u23F3 ${hours} \u0633\u0627\u0639\u062A`;
+    }
+    return `\u23F3 ${mins} \u062F\u0642\u06CC\u0642\u0647`;
+  }
+  if (task.pomodoroCount !== void 0 && task.pomodoroCount !== null) {
+    return `\u{1F345} ${task.pomodoroCount} \u067E\u0648\u0645\u0648\u062F\u0648\u0631\u0648`;
+  }
+  if (task.estimate !== void 0 && task.estimate !== null) {
+    return `\u23F3 \u062A\u062E\u0645\u06CC\u0646: ${task.estimate}`;
+  }
+  return null;
+}
+function probeTaskHierarchy(tasks = []) {
+  let parentChildCount = 0;
+  let checklistCount = 0;
+  let dependencyCount = 0;
+  let estimateCount = 0;
+  let progressCount = 0;
+  const observedParentIds = /* @__PURE__ */ new Set();
+  const ambiguousFields = [];
+  for (const task of tasks) {
+    if (!task) continue;
+    if (task.parentId) {
+      parentChildCount++;
+      observedParentIds.add(String(task.parentId));
+    }
+    if (Array.isArray(task.items) && task.items.length > 0) {
+      checklistCount++;
+    }
+    if (Array.isArray(task.blockedBy) && task.blockedBy.length > 0 || Array.isArray(task.dependsOn) && task.dependsOn.length > 0) {
+      dependencyCount++;
+    }
+    if (task.estimate !== void 0 || task.timeEstimate !== void 0 || task.pomodoroCount !== void 0) {
+      estimateCount++;
+    }
+    if (task.progress !== void 0) {
+      progressCount++;
+    }
+    if (task.parentId && Array.isArray(task.items) && task.items.length > 0) {
+      ambiguousFields.push({
+        taskId: String(task.id),
+        issue: "Task has both parentId and checklist items"
+      });
+    }
+  }
+  return {
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    totalTasksScanned: tasks.length,
+    parentChildCount,
+    uniqueParentsCount: observedParentIds.size,
+    checklistCount,
+    dependencyCount,
+    estimateCount,
+    progressCount,
+    ambiguousCount: ambiguousFields.length,
+    ambiguousSamples: ambiguousFields.slice(0, 5),
+    writeSafety: {
+      readOnlyByDefault: true,
+      writeRequiresExplicitSetting: true,
+      journalingSupported: false
+    }
+  };
+}
+
 // src/obsidian/task-details-modal.ts
 function repeatSummary(flag) {
   const rule = String(flag ?? "").toUpperCase().replace(/^RRULE:/, "");
@@ -1918,7 +2092,8 @@ var TaskDetailsModal = class extends import_obsidian5.Modal {
     this.titleEl.setText(String(this.task.title ?? "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"));
     const meta = this.contentEl.createDiv({ cls: "ticktick-task-details-meta" });
     const priority = taskPriority(this.task.priority);
-    for (const value of [this.task.projectName, this.task.dueDate ? `\u{1F4C5} ${formatPersianDate(this.task.dueDate, this.task.timeZone)}` : "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", `${priority.icon} \u0627\u0648\u0644\u0648\u06CC\u062A ${priority.label}`, repeatSummary(this.task.repeatFlag)]) if (value) meta.createSpan({ text: String(value) });
+    const estimate = formatTaskEstimate(this.task);
+    for (const value of [this.task.projectName, this.task.dueDate ? `\u{1F4C5} ${formatPersianDate(this.task.dueDate, this.task.timeZone)}` : "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", `${priority.icon} \u0627\u0648\u0644\u0648\u06CC\u062A ${priority.label}`, repeatSummary(this.task.repeatFlag), estimate]) if (value) meta.createSpan({ text: String(value) });
     const description = taskDescription(this.task);
     const descriptionBox = this.contentEl.createDiv({ cls: "ticktick-task-details-description" });
     descriptionBox.createEl("strong", { text: "\u062A\u0648\u0636\u06CC\u062D\u0627\u062A" });
@@ -1931,6 +2106,61 @@ var TaskDetailsModal = class extends import_obsidian5.Modal {
       const summary = checklistSummary(items);
       box.createEl("strong", { text: `Checklist \xB7 ${summary.completed}/${summary.total}` });
       for (const item of items) box.createDiv({ text: `${item.completed ? "\u2611" : "\u2610"} ${item.title}` });
+    }
+    const allTasks = this.actions.allTasks ? this.actions.allTasks() : [];
+    const deps = resolveTaskDependencies(this.task, allTasks);
+    if (deps.blockedBy.length > 0 || deps.blocks.length > 0) {
+      const depBox = this.contentEl.createDiv({ cls: "ticktick-task-details-deps" });
+      depBox.createEl("strong", { text: "\u0648\u0627\u0628\u0633\u062A\u06AF\u06CC\u200C\u0647\u0627 \u0648 \u067E\u06CC\u0634\u200C\u0646\u06CC\u0627\u0632\u0647\u0627" });
+      if (deps.isBlocked) {
+        depBox.createDiv({ cls: "ticktick-task-blocked-alert", text: "\u26D4 \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u062F\u0644\u06CC\u0644 \u062A\u06A9\u0645\u06CC\u0644 \u0646\u0634\u062F\u0646 \u067E\u06CC\u0634\u200C\u0646\u06CC\u0627\u0632\u0647\u0627 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A." });
+      }
+      for (const b of deps.blockedBy) {
+        depBox.createDiv({
+          cls: `ticktick-task-dep-item ${b.completed ? "is-done" : "is-pending"}`,
+          text: `${b.completed ? "\u2705" : "\u23F3"} \u0648\u0627\u0628\u0633\u062A\u0647 \u0628\u0647: ${b.title}`
+        });
+      }
+      for (const b of deps.blocks) {
+        depBox.createDiv({
+          cls: "ticktick-task-dep-item is-blocks",
+          text: `\u21B3 \u067E\u06CC\u0634\u200C\u0646\u06CC\u0627\u0632 \u0628\u0631\u0627\u06CC: ${b.title}`
+        });
+      }
+    }
+    const hierarchy = buildTaskHierarchy(allTasks);
+    const parentTask = hierarchy.getParentTask(this.task);
+    const childTasks = hierarchy.getChildTasks(this.task.id);
+    const progress = calculateHierarchyProgress(this.task, childTasks);
+    if (parentTask || childTasks.length > 0 || progress) {
+      const hierBox = this.contentEl.createDiv({ cls: "ticktick-task-details-hierarchy" });
+      const hierHeader = hierBox.createDiv({ cls: "ticktick-task-hier-header" });
+      hierHeader.createEl("strong", { text: "\u0633\u0627\u062E\u062A\u0627\u0631 \u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628\u06CC \u0648 \u0632\u06CC\u0631\u062A\u0633\u06A9\u200C\u0647\u0627" });
+      if (!this.actions.experimentalWritesEnabled) {
+        hierHeader.createSpan({ cls: "ticktick-task-readonly-badge", text: "\u0622\u0632\u0645\u0627\u06CC\u0634\u06CC: \u0641\u0642\u0637\u200C\u062E\u0648\u0627\u0646\u062F\u0646\u06CC" });
+      }
+      if (parentTask) {
+        hierBox.createDiv({
+          cls: "ticktick-task-parent-link",
+          text: `\u21B3 \u062A\u0633\u06A9 \u0648\u0627\u0644\u062F: ${parentTask.title || "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"}`
+        });
+      }
+      if (progress && progress.total > 0) {
+        const progRow = hierBox.createDiv({ cls: "ticktick-task-progress-row" });
+        progRow.createSpan({ text: `\u067E\u06CC\u0634\u0631\u0641\u062A: ${progress.completed}/${progress.total} (${progress.percent}\u066A)` });
+        const progBar = progRow.createDiv({ cls: "ticktick-metric-progress" });
+        const progFill = progBar.createDiv({ cls: "ticktick-metric-progress-fill" });
+        progFill.style.width = `${progress.percent}%`;
+      }
+      if (childTasks.length > 0) {
+        const subtaskList = hierBox.createDiv({ cls: "ticktick-task-subtasks-list" });
+        for (const child of childTasks) {
+          const childDone = Number(child.status ?? 0) !== 0;
+          const row = subtaskList.createDiv({ cls: `ticktick-task-subtask-item ${childDone ? "is-completed" : ""}` });
+          row.createSpan({ text: childDone ? "\u2611" : "\u2610" });
+          row.createSpan({ text: child.title || "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646", cls: "ticktick-subtask-title" });
+        }
+      }
     }
     const actions = this.contentEl.createDiv({ cls: "ticktick-task-details-actions" });
     if (this.actions.complete) actions.createEl("button", { text: "\u062A\u06A9\u0645\u06CC\u0644 \u062A\u0633\u06A9", cls: "mod-cta" }).addEventListener("click", async () => {
@@ -3505,7 +3735,8 @@ var PlanningCalendar = class {
         changed: async () => {
           await this.host.refresh();
           await this.render();
-        }
+        },
+        allTasks: () => this.host.tasks()
       }).open();
       if (bulkSelectionStore.isSelected(String(task.id))) {
         bar.addClass("is-bulk-selected");
@@ -3620,7 +3851,8 @@ var PlanningCalendar = class {
       changed: async () => {
         await this.host.refresh();
         await this.render();
-      }
+      },
+      allTasks: () => this.host.tasks()
     }).open();
     if (bulkSelectionStore.isSelected(String(task.id))) {
       card.addClass("is-bulk-selected");
@@ -3711,7 +3943,8 @@ var PlanningCalendar = class {
       changed: async () => {
         await this.host.refresh();
         await this.render();
-      }
+      },
+      allTasks: () => this.host.tasks()
     }).open();
     if (bulkSelectionStore.isSelected(String(task.id))) {
       card.addClass("is-bulk-selected");
@@ -5254,7 +5487,8 @@ var ProjectBoard = class {
       changed: async () => {
         await this.host.refresh();
         await this.render();
-      }
+      },
+      allTasks: () => this.host.tasks()
     }).open();
     if (bulkSelectionStore.isSelected(String(task.id))) {
       card.addClass("is-bulk-selected");
@@ -5979,7 +6213,8 @@ var ProjectTimeline = class {
         changed: async () => {
           await this.host.refresh();
           await this.render();
-        }
+        },
+        allTasks: () => this.host.tasks()
       }).open();
     };
     contentWrapper.addEventListener("click", (e) => {
@@ -6789,7 +7024,8 @@ var DEFAULT_SETTINGS = {
   boardSidebarCollapsed: false,
   boardSidebarPreferenceInitialized: false,
   boardSmartViewGrouping: "project",
-  savedViews: []
+  savedViews: [],
+  experimentalHierarchyWrites: false
 };
 
 // src/obsidian/modals/task-editor-modal.ts
@@ -7804,7 +8040,8 @@ var WeeklyReview = class {
       edit: (item) => this.host.edit(item),
       changed: async () => {
         await this.render();
-      }
+      },
+      allTasks: () => this.host.tasks()
     }).open();
     row.addEventListener("click", (e) => {
       if (e.shiftKey || e.ctrlKey || e.metaKey) {
@@ -8209,6 +8446,10 @@ var TickTickBridgeSettings = class extends import_obsidian28.PluginSettingTab {
       this.plugin.settings.dailyNoteFolder = value;
       await this.plugin.saveSettings();
     }));
+    new import_obsidian28.Setting(containerEl).setName("\u0646\u0648\u0634\u062A\u0646 \u062F\u0631 \u0633\u0627\u062E\u062A\u0627\u0631 \u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628\u06CC \u0648 \u0632\u06CC\u0631\u062A\u0633\u06A9\u200C\u0647\u0627 (\u0622\u0632\u0645\u0627\u06CC\u0634\u06CC)").setDesc("\u0647\u0634\u062F\u0627\u0631: \u0633\u0627\u062E\u062A\u0627\u0631 API \u0632\u06CC\u0631\u062A\u0633\u06A9\u200C\u0647\u0627 \u062F\u0631 TickTick \u0628\u0647 \u0635\u0648\u0631\u062A \u0622\u0632\u0645\u0627\u06CC\u0634\u06CC \u0627\u0633\u062A. \u062F\u0631 \u062D\u0627\u0644\u062A \u0639\u0627\u062F\u06CC \u0646\u0645\u0627\u06CC\u0634 \u0633\u0627\u062E\u062A\u0627\u0631 \u0641\u0642\u0637\u200C\u062E\u0648\u0627\u0646\u062F\u0646\u06CC \u0627\u0633\u062A. \u0641\u0639\u0627\u0644\u200C\u0633\u0627\u0632\u06CC \u0646\u0648\u0634\u062A\u0646 \u0646\u06CC\u0627\u0632\u0645\u0646\u062F \u062A\u0633\u062A \u0648 \u062A\u0627\u06CC\u06CC\u062F \u0635\u0631\u06CC\u062D \u062F\u0631 \u067E\u0631\u0648\u0698\u0647 \u0622\u0632\u0645\u0627\u06CC\u0634\u06CC \u0627\u0633\u062A.").addToggle((toggle) => toggle.setValue(Boolean(this.plugin.settings.experimentalHierarchyWrites)).onChange(async (value) => {
+      this.plugin.settings.experimentalHierarchyWrites = value;
+      await this.plugin.saveSettings();
+    }));
   }
 };
 
@@ -8306,6 +8547,7 @@ var TickTickBridgePlugin = class extends import_obsidian29.Plugin {
     this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "open-project-timeline", name: "Open TickTick project timeline (Gantt)", callback: () => this.openTimelineView() });
     this.addCommand({ id: "open-weekly-review", name: "Open TickTick weekly review and execution dashboard", callback: () => this.openWeeklyReviewView() });
+    this.addCommand({ id: "probe-task-hierarchy", name: "Probe task hierarchy and generate audit report", callback: () => this.probeTaskHierarchyAndReport() });
     this.addCommand({ id: "open-smart-views", name: "Open smart views (TickTick board)", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
     this.addCommand({ id: "sync-now", name: "Sync TickTick now", callback: () => this.syncNow() });
@@ -9203,6 +9445,13 @@ var TickTickBridgePlugin = class extends import_obsidian29.Plugin {
     bridgeEvents.emit("state:changed", void 0);
     const noticeText = `\u0639\u0645\u0644\u06CC\u0627\u062A \u06AF\u0631\u0648\u0647\u06CC \u0631\u0648\u06CC ${targetTasks.length} \u062A\u0633\u06A9: ${report.succeeded} \u0645\u0648\u0641\u0642\u060C ${report.failed} \u0646\u0627\u0645\u0648\u0641\u0642.`;
     new import_obsidian29.Notice(noticeText);
+    return report;
+  }
+  async probeTaskHierarchyAndReport() {
+    const report = probeTaskHierarchy(this.cache.tasks);
+    const reportPath2 = await this.managedStorage.writeReport("hierarchy-probe", report);
+    const notice = `\u0628\u0631\u0631\u0633\u06CC \u0633\u0627\u062E\u062A\u0627\u0631 \u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628\u06CC: ${report.totalTasksScanned} \u062A\u0633\u06A9 \u0627\u0633\u06A9\u0646 \u0634\u062F (${report.parentChildCount} \u0632\u06CC\u0631\u062A\u0633\u06A9\u060C ${report.dependencyCount} \u0648\u0627\u0628\u0633\u062A\u06AF\u06CC). \u06AF\u0632\u0627\u0631\u0634 \u062F\u0631 ${reportPath2} \u062B\u0628\u062A \u0634\u062F.`;
+    new import_obsidian29.Notice(notice);
     return report;
   }
   async moveTaskToBoardColumn(task, columnId) {
