@@ -242,7 +242,7 @@ export default class TickTickBridgePlugin extends Plugin {
       // This host is called by an explicit toolbar action. Let the central
       // sync layer report an honest success/fallback/error notification.
       refresh: async () => { await this.syncNow(); },
-      reschedule: async (task: TickTickTask, day: string) => this.rescheduleTaskFromPlanner(task, day),
+      reschedule: async (task: TickTickTask, day: string) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.rescheduleBoundTask(String(task.id), day) : this.rescheduleTaskFromPlanner(task, day),
       complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task: TickTickTask) => this.loadTaskDetails(task),

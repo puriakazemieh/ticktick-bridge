@@ -5048,7 +5048,7 @@ var TickTickBridgePlugin = class extends import_obsidian20.Plugin {
       refresh: async () => {
         await this.syncNow();
       },
-      reschedule: async (task, day) => this.rescheduleTaskFromPlanner(task, day),
+      reschedule: async (task, day) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.rescheduleBoundTask(String(task.id), day) : this.rescheduleTaskFromPlanner(task, day),
       complete: async (task) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
       binding: (task) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task) => this.loadTaskDetails(task),

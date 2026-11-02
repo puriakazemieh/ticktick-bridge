@@ -8,7 +8,7 @@ Generated on 2026-10-14 against commit `b86e322`. Execute in this order. Each ex
 |---|---|---:|---:|---|---|
 | 001 | Isolate managed TickTick data and retain ten days of backups | P0 | M | — | DONE (reviewed at `62c952f`) |
 | 002 | Synchronize bound Markdown tasks safely in both directions | P0 | L | 001 | DONE (reviewed & verified) |
-| 003 | Add an interactive weekly and monthly planning calendar | P1 | L | 001, 002 | TODO |
+| 003 | Add an interactive weekly and monthly planning calendar | P1 | L | 001, 002 | DONE (reviewed & verified) |
 | 004 | Present projects and folders as TickTick-style Kanban boards | P1 | L | 001, 002 | TODO |
 | 005 | Ship experimental checklist and subtask editing behind a safety gate | P2 | L | 001, 002 | TODO |
 | 006 | Migrate local habits and unify the habit dashboard | P2 | M | 001 | TODO |
