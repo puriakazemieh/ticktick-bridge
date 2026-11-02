@@ -12,7 +12,7 @@ Generated on 2026-10-14 against commit `b86e322`. Execute in this order. Each ex
 | 004 | Present projects and folders as TickTick-style Kanban boards | P1 | L | 001, 002 | DONE (reviewed & verified) |
 | 005 | Ship experimental checklist and subtask editing behind a safety gate | P2 | L | 001, 002 | DONE (reviewed & verified - read-only safety gate) |
 | 006 | Migrate local habits and unify the habit dashboard | P2 | M | 001 | DONE (reviewed & verified - local parsing & preview safety gate) |
-| 007 | Import selected TickTick Notes into managed Obsidian files | P2 | L | 001 | TODO |
+| 007 | Import selected TickTick Notes into managed Obsidian files | P2 | L | 001 | DONE (reviewed & verified - selective import & managed boundary) |
 | 008 | Build cache-first smart planning views and project execution tools | P1 | L | 001, current cache/mutation layer | IN PROGRESS (Phase 1 smart views complete) |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED` (include a reason) | `REJECTED` (include a reason).

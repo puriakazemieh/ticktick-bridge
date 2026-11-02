@@ -3916,27 +3916,43 @@ var import_obsidian9 = require("obsidian");
 
 // src/core/ticktick-note.js
 function normalizeTickTickNote(record, project = {}) {
-  if (!record || String(record.kind ?? "").toUpperCase() !== "NOTE") return null;
+  if (!record || String(record.kind ?? "").toUpperCase() !== "NOTE") {
+    return null;
+  }
   const id = String(record.id ?? "").trim();
   const title = String(record.title ?? "").trim();
-  if (!id || !title) return null;
-  return { id, title, projectId: String(record.projectId ?? project.id ?? ""), projectName: String(record.projectName ?? project.name ?? ""), kind: "NOTE", content: String(record.content ?? record.desc ?? ""), modifiedTime: record.modifiedTime ?? record.modifiedAt ?? null, tags: Array.isArray(record.tags) ? record.tags.map(String) : [] };
+  if (!id || !title) {
+    return null;
+  }
+  return {
+    id,
+    title,
+    projectId: String(record.projectId ?? project.id ?? ""),
+    projectName: String(record.projectName ?? project.name ?? ""),
+    kind: "NOTE",
+    content: String(record.content ?? record.desc ?? ""),
+    modifiedTime: record.modifiedTime ?? record.modifiedAt ?? null,
+    tags: Array.isArray(record.tags) ? record.tags.map(String) : []
+  };
 }
 function noteFileName(note) {
-  return `${String(note.title).replace(/[\\/:*?"<>|]/g, "-").trim().slice(0, 80) || "TickTick Note"}-${note.id}.md`;
+  const safeTitle = String(note.title ?? "").replace(/[\\/:*?"<>|]/g, "-").trim().slice(0, 80) || "TickTick Note";
+  return `${safeTitle}-${note.id}.md`;
 }
 function noteMarkdown(note, importedAt = (/* @__PURE__ */ new Date()).toISOString()) {
-  return `---
-ticktickNoteId: ${note.id}
-ticktickProjectId: ${note.projectId}
-ticktickKind: NOTE
-ticktickImportedAt: ${importedAt}
----
-
-<!-- ticktick-bridge:note:start -->
-${note.content}
-<!-- ticktick-bridge:note:end -->
-`;
+  return [
+    "---",
+    `ticktickNoteId: ${note.id}`,
+    `ticktickProjectId: ${note.projectId}`,
+    "ticktickKind: NOTE",
+    `ticktickImportedAt: ${importedAt}`,
+    "---",
+    "",
+    "<!-- ticktick-bridge:note:start -->",
+    note.content,
+    "<!-- ticktick-bridge:note:end -->",
+    ""
+  ].join("\n");
 }
 
 // src/obsidian/note-import.ts

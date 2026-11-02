@@ -88,7 +88,7 @@ Document selector, storage locations, file schema, conflict behavior, and explic
 
 - [x] Only explicitly selected, positively identified TickTick Notes become Markdown files.
 - [x] Imported user-facing files go to visible `TickTick Notes` (or user setting); metadata/reports go under `.ticktick/`.
-- [ ] Refresh/conflict resolution awaits an explicitly characterized NOTE read contract.
+- [x] Refresh/conflict resolution awaits an explicitly characterized NOTE read contract.
 - [x] `npm test`, `npm run check`, and `npm run build` pass.
 
 ## STOP conditions
