@@ -2494,6 +2494,9 @@ var BulkActionBar = class {
     this.container.remove();
   }
   async render() {
+    if (!this.container.isConnected && this.parent) {
+      this.parent.appendChild(this.container);
+    }
     const selectedIds = bulkSelectionStore.getSelection();
     if (selectedIds.length === 0 || this.isExecuting) {
       this.container.style.display = "none";
@@ -7575,7 +7578,13 @@ var WeeklyReview = class {
     }
     const syncGroup = header.createDiv({ cls: "ticktick-review-sync-group" });
     const savedAt = this.host.savedAt();
-    const statusText = savedAt ? `\u062F\u0627\u062F\u0647\u200C\u0647\u0627 \u062A\u0627: ${new Date(savedAt).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" })}` : "\u062F\u0627\u062F\u0647\u200C\u0647\u0627 \u0627\u0632 \u06A9\u0634 \u0645\u062D\u0644\u06CC";
+    let statusText = "\u062F\u0627\u062F\u0647\u200C\u0647\u0627 \u0627\u0632 \u06A9\u0634 \u0645\u062D\u0644\u06CC";
+    if (savedAt) {
+      const dt = new Date(savedAt);
+      if (!Number.isNaN(dt.getTime())) {
+        statusText = `\u062F\u0627\u062F\u0647\u200C\u0647\u0627 \u062A\u0627: ${dt.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" })}`;
+      }
+    }
     syncGroup.createSpan({ cls: "ticktick-review-saved-at", text: statusText });
     const syncBtn = syncGroup.createEl("button", {
       cls: `ticktick-review-sync-btn ${this.isSyncing ? "is-syncing" : ""}`,
@@ -7725,7 +7734,7 @@ var WeeklyReview = class {
         break;
     }
     if (this.selectedTagFilter) {
-      tasksToShow = tasksToShow.filter((t) => Array.isArray(t.tags) && t.tags.includes(this.selectedTagFilter));
+      tasksToShow = tasksToShow.filter((t) => Array.isArray(t.tags) && t.tags.some((tag) => String(tag).trim().replace(/^#/, "") === this.selectedTagFilter));
     }
     if (tasksToShow.length === 0) {
       const emptyBox = listWrapper.createDiv({ cls: "ticktick-review-empty" });

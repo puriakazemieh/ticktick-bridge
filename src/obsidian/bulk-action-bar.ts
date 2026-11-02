@@ -38,6 +38,10 @@ export class BulkActionBar {
   }
 
   async render() {
+    if (!this.container.isConnected && this.parent) {
+      this.parent.appendChild(this.container);
+    }
+
     const selectedIds = bulkSelectionStore.getSelection();
     if (selectedIds.length === 0 || this.isExecuting) {
       this.container.style.display = "none";

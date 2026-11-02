@@ -136,9 +136,13 @@ export class WeeklyReview {
     // Data Status & Manual Sync
     const syncGroup = header.createDiv({ cls: "ticktick-review-sync-group" });
     const savedAt = this.host.savedAt();
-    const statusText = savedAt
-      ? `داده‌ها تا: ${new Date(savedAt).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" })}`
-      : "داده‌ها از کش محلی";
+    let statusText = "داده‌ها از کش محلی";
+    if (savedAt) {
+      const dt = new Date(savedAt);
+      if (!Number.isNaN(dt.getTime())) {
+        statusText = `داده‌ها تا: ${dt.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" })}`;
+      }
+    }
     syncGroup.createSpan({ cls: "ticktick-review-saved-at", text: statusText });
 
     const syncBtn = syncGroup.createEl("button", {
@@ -310,7 +314,7 @@ export class WeeklyReview {
     }
 
     if (this.selectedTagFilter) {
-      tasksToShow = tasksToShow.filter(t => Array.isArray(t.tags) && t.tags.includes(this.selectedTagFilter!));
+      tasksToShow = tasksToShow.filter(t => Array.isArray(t.tags) && t.tags.some(tag => String(tag).trim().replace(/^#/, "") === this.selectedTagFilter));
     }
 
     if (tasksToShow.length === 0) {
