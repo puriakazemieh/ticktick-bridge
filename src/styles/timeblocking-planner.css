@@ -1,0 +1,331 @@
+/* ══════════════════════════════════════════════════════════
+   TickTick Bridge — Daily Timeblocking & Agenda Styles
+   ══════════════════════════════════════════════════════════ */
+
+.ticktick-timeblock-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: 12px;
+  gap: 10px;
+  box-sizing: border-box;
+  direction: rtl;
+  color: var(--text-normal);
+  font-family: var(--font-interface);
+  background: var(--background-primary);
+  overflow: hidden;
+  position: relative;
+}
+
+.ticktick-timeblock-view-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+/* Toolbar */
+.ticktick-timeblock-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.ticktick-timeblock-date-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ticktick-timeblock-date-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-normal);
+}
+
+.ticktick-timeblock-nav-btn {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-normal);
+  transition: all 0.15s ease;
+}
+
+.ticktick-timeblock-nav-btn:hover {
+  background: var(--background-modifier-hover);
+  border-color: var(--interactive-accent);
+}
+
+.ticktick-timeblock-stat-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--background-modifier-accent-subtle, rgba(var(--interactive-accent-rgb), 0.1));
+  color: var(--interactive-accent);
+}
+
+.ticktick-timeblock-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Layout Content */
+.ticktick-timeblock-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+  overflow: hidden;
+}
+
+/* Main Grid Scroll Container */
+.ticktick-timeblock-grid-container {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--background-primary-alt);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Timeline Layout */
+.ticktick-timeblock-grid {
+  display: grid;
+  grid-template-columns: 55px 1fr;
+  position: relative;
+  min-height: 1024px;
+  padding-bottom: 20px;
+}
+
+.ticktick-timeblock-time-col {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--background-modifier-border);
+  user-select: none;
+}
+
+.ticktick-timeblock-time-label {
+  height: 32px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+  border-bottom: 1px solid transparent;
+}
+
+.ticktick-timeblock-time-label.is-hour {
+  font-weight: 600;
+  color: var(--text-normal);
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.ticktick-timeblock-slots-col {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.ticktick-timeblock-slot-row {
+  height: 32px;
+  box-sizing: border-box;
+  border-bottom: 1px dashed rgba(125, 125, 125, 0.12);
+  transition: background 0.12s ease;
+}
+
+.ticktick-timeblock-slot-row.is-hour {
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ticktick-timeblock-slot-row.is-drag-over {
+  background: rgba(var(--interactive-accent-rgb), 0.15) !important;
+  border-top: 2px solid var(--interactive-accent);
+}
+
+/* Now Indicator Line */
+.ticktick-timeblock-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #ef4444;
+  z-index: 10;
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+
+.ticktick-timeblock-now-line::after {
+  content: "";
+  position: absolute;
+  right: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+}
+
+/* Timed Task Block */
+.ticktick-timeblock-card {
+  position: absolute;
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-right: 4px solid var(--interactive-accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  cursor: grab;
+  user-select: none;
+  z-index: 5;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  transition: box-shadow 0.12s ease, border-color 0.12s ease, transform 0.1s ease;
+}
+
+.ticktick-timeblock-card:hover {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+  border-color: var(--interactive-accent);
+  z-index: 8;
+}
+
+.ticktick-timeblock-card.is-dragging {
+  opacity: 0.35;
+}
+
+.ticktick-timeblock-card.is-high { border-right-color: #dc2626; }
+.ticktick-timeblock-card.is-medium { border-right-color: #d97706; }
+.ticktick-timeblock-card.is-low { border-right-color: #2563eb; }
+
+.ticktick-timeblock-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.ticktick-timeblock-card-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.ticktick-timeblock-card-time {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+}
+
+/* Resize Handle */
+.ticktick-timeblock-resize-handle {
+  height: 6px;
+  width: 100%;
+  cursor: ns-resize;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  transition: background 0.15s ease;
+}
+
+.ticktick-timeblock-resize-handle:hover {
+  background: rgba(var(--interactive-accent-rgb), 0.3);
+}
+
+/* Side Drawer (Untimed & Overdue) */
+.ticktick-timeblock-drawer {
+  width: 250px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 10px;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .ticktick-timeblock-drawer {
+    display: none;
+  }
+}
+
+.ticktick-timeblock-drawer-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-normal);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ticktick-timeblock-untimed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.ticktick-timeblock-untimed-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  font-size: 12px;
+  cursor: grab;
+  user-select: none;
+  transition: all 0.12s ease;
+}
+
+.ticktick-timeblock-untimed-card:hover {
+  border-color: var(--interactive-accent);
+  transform: translateY(-1px);
+}
+
+.ticktick-timeblock-untimed-card.is-dragging {
+  opacity: 0.35;
+}

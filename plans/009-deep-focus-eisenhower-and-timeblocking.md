@@ -55,7 +55,7 @@ Extend the cache-first planning foundation delivered in Plan 008 into an active 
 
 ---
 
-### Milestone 2: Daily Timeblocking Agenda (برنامه‌ریز و بلوک‌بندی زمانی روزانه)
+### Milestone 2: Daily Timeblocking Agenda (برنامه‌ریز و بلوک‌بندی زمانی روزانه) [DONE]
 
 1. **Pure Engine (`src/core/timeblocking.js`)**:
    - `computeDayTimeSlots(tasks, targetDay, startHour = 7, endHour = 23, slotMinutes = 30)`:

@@ -17,7 +17,7 @@ import { createBulkOperationManifest, runBoundedQueue, formatBulkOutcomeReport, 
 import { probeTaskHierarchy } from "../core/task-hierarchy.js";
 
 import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit, ProjectBoardData, TickTickNote, SavedView } from "./types";
-import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, EISENHOWER_MATRIX_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
+import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, EISENHOWER_MATRIX_VIEW_TYPE, TIMEBLOCK_PLANNER_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
 import {
   currentPlatformName,
   appendChecklistSummary,
@@ -54,6 +54,9 @@ import { WeeklyReviewView } from "./views/weekly-review-view";
 import { WeeklyReview } from "./weekly-review";
 import { EisenhowerMatrixView } from "./views/eisenhower-matrix-view";
 import { EisenhowerMatrix } from "./eisenhower-matrix";
+import { TimeblockingPlannerView } from "./views/timeblocking-planner-view";
+import { TimeblockingPlanner } from "./timeblocking-planner";
+import { computeDayTimeSlots, findCurrentActiveBlock } from "../core/timeblocking.js";
 import { TickTickBridgeSettings } from "./settings";
 
 export default class TickTickBridgePlugin extends Plugin {
@@ -80,6 +83,8 @@ export default class TickTickBridgePlugin extends Plugin {
   private markdownSync!: MarkdownSync;
   private noteImport!: NoteImport;
   private lastManagedReport = "هنوز گزارشی ثبت نشده است.";
+  private timeblockStatusBarItem: HTMLElement | null = null;
+  private timeblockStatusTimer: number | null = null;
 
   async onload() {
     this.managedStorage = new ManagedStorage(this.app.vault.adapter as unknown as VaultAdapter);
@@ -117,6 +122,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.registerView(TIMELINE_VIEW_TYPE, leaf => new ProjectTimelineView(leaf, this));
     this.registerView(WEEKLY_REVIEW_VIEW_TYPE, leaf => new WeeklyReviewView(leaf, this));
     this.registerView(EISENHOWER_MATRIX_VIEW_TYPE, leaf => new EisenhowerMatrixView(leaf, this));
+    this.registerView(TIMEBLOCK_PLANNER_VIEW_TYPE, leaf => new TimeblockingPlannerView(leaf, this));
     this.registerMarkdownCodeBlockProcessor("ticktick-today", async (_source, element, context) => {
       const day = dailyNoteDateFromPath(context.sourcePath);
       this.taskBlocks.set(element, day);
@@ -145,6 +151,9 @@ export default class TickTickBridgePlugin extends Plugin {
     this.registerMarkdownCodeBlockProcessor("ticktick-matrix", async (_source, element) => {
       await new EisenhowerMatrix(element, this.eisenhowerMatrixHost()).render();
     });
+    this.registerMarkdownCodeBlockProcessor("ticktick-day-planner", async (_source, element) => {
+      await new TimeblockingPlanner(element, this.timeblockingPlannerHost()).render();
+    });
     this.configurePanelMenuRibbonIcon();
     this.configureSyncRibbonIcon();
     this.configureRibbonIcons();
@@ -158,6 +167,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-project-timeline", name: "Open TickTick project timeline (Gantt)", callback: () => this.openTimelineView() });
     this.addCommand({ id: "open-weekly-review", name: "Open TickTick weekly review and execution dashboard", callback: () => this.openWeeklyReviewView() });
     this.addCommand({ id: "open-eisenhower-matrix", name: "Open TickTick Eisenhower decision matrix", callback: () => this.openEisenhowerMatrixView() });
+    this.addCommand({ id: "open-timeblocking-planner", name: "Open TickTick day planner and timeblocks", callback: () => this.openTimeblockingPlannerView() });
     this.addCommand({ id: "probe-task-hierarchy", name: "Probe task hierarchy and generate audit report", callback: () => this.probeTaskHierarchyAndReport() });
     this.addCommand({ id: "open-smart-views", name: "Open smart views (TickTick board)", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
@@ -171,6 +181,10 @@ export default class TickTickBridgePlugin extends Plugin {
       if (file instanceof TFile && file.extension === "md") this.queueTaggedCheckboxImport(file);
     }));
     this.configureAutomaticSync();
+    this.timeblockStatusBarItem = this.addStatusBarItem();
+    this.timeblockStatusBarItem.addClass("ticktick-timeblock-status-bar");
+    this.updateTimeblockStatusBar();
+    this.timeblockStatusTimer = window.setInterval(() => this.updateTimeblockStatusBar(), 60000);
     // Build the complete local mirror after Obsidian has finished opening.
     // The UI can then stay entirely local between background syncs.
     this.app.workspace.onLayoutReady(() => void this.syncNow({ quiet: true }));
@@ -387,6 +401,23 @@ export default class TickTickBridgePlugin extends Plugin {
     };
   }
 
+  timeblockingPlannerHost() {
+    return {
+      app: this.app,
+      timeZone: this.settings.timeZone,
+      tasks: () => this.cache.tasks,
+      projects: async () => this.cache.projects.length ? this.cache.projects : this.client().listProjects(),
+      savedAt: () => this.cache.savedAt,
+      refresh: async () => { await this.syncNow(); },
+      updateTask: async (mutation: Partial<TickTickTask>) => this.updateTask(mutation),
+      createTask: async (initial: Partial<TickTickTask>) => this.createTaskFromSurface(initial),
+      complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
+      load: async (task: TickTickTask) => this.loadTaskDetails(task),
+      edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
+      executeBulkOperation: async (taskIds: string[], op: string, params: any) => this.executeBulkOperation(taskIds, op, params),
+    };
+  }
+
   private async importTaggedCheckboxes(file: TFile, quiet = false) {
     const tag = this.settings.checkboxImportTag.trim().replace(/^#/, "") || "ticktick";
     const tagPattern = new RegExp(`(^|\\s)#${escapeRegExp(tag)}(?=\\s|$)`, "i");
@@ -480,6 +511,7 @@ export default class TickTickBridgePlugin extends Plugin {
     menu.addItem(item => item.setTitle("تایم‌لاین و گانت پروژه‌ها").setIcon("calendar-range").onClick(() => void this.openTimelineView()));
     menu.addItem(item => item.setTitle("مرور هفتگی و داشبورد اجرا").setIcon("bar-chart-2").onClick(() => void this.openWeeklyReviewView()));
     menu.addItem(item => item.setTitle("ماتریس تصمیم‌گیری آیزنهاور").setIcon("grid").onClick(() => void this.openEisenhowerMatrixView()));
+    menu.addItem(item => item.setTitle("برنامه‌ریز و بلوک‌های زمانی روزانه").setIcon("clock").onClick(() => void this.openTimeblockingPlannerView()));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("مرکز همگام‌سازی و تعارض‌ها").setIcon("arrow-down-up").onClick(() => void this.openControlPage("sync")));
     menu.addItem(item => item.setTitle("پیش‌نمایش انتقال TickTick Notes").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
@@ -577,12 +609,13 @@ export default class TickTickBridgePlugin extends Plugin {
         this.habitBlockSignatures.set(element, signature);
       }
     }
-    for (const type of [VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, EISENHOWER_MATRIX_VIEW_TYPE]) {
+    for (const type of [VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, EISENHOWER_MATRIX_VIEW_TYPE, TIMEBLOCK_PLANNER_VIEW_TYPE]) {
       for (const leaf of this.app.workspace.getLeavesOfType(type)) {
         const view = leaf.view as unknown as { render?: () => Promise<void> | void };
         if (typeof view.render === "function") await view.render();
       }
-    }
+      }
+    this.updateTimeblockStatusBar();
   }
 
   private taskBlockSignature(day?: string) {
@@ -1438,6 +1471,32 @@ export default class TickTickBridgePlugin extends Plugin {
   async openEisenhowerMatrixView() {
     const leaf = this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: EISENHOWER_MATRIX_VIEW_TYPE, active: true });
+  }
+
+  async openTimeblockingPlannerView() {
+    const leaf = this.app.workspace.getLeaf("tab");
+    await leaf.setViewState({ type: TIMEBLOCK_PLANNER_VIEW_TYPE, active: true });
+  }
+
+  updateTimeblockStatusBar() {
+    if (!this.timeblockStatusBarItem) return;
+    const today = todayInZone(this.settings.timeZone);
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const agendaData = computeDayTimeSlots(this.cache.tasks, today, {
+      startHour: 7,
+      endHour: 23,
+      slotMinutes: 30,
+      timeZone: this.settings.timeZone
+    });
+    const active = findCurrentActiveBlock(agendaData.timed, currentMinutes);
+    if (active) {
+      this.timeblockStatusBarItem.setText(`🎯 در حال انجام: ${cleanTaskTitle(active.task.title)} (تا ${active.range.endTime})`);
+      this.timeblockStatusBarItem.style.display = "";
+    } else {
+      this.timeblockStatusBarItem.setText("");
+      this.timeblockStatusBarItem.style.display = "none";
+    }
   }
 
   async openControlPage(screen: ControlScreen) {
