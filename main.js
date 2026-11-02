@@ -4853,8 +4853,10 @@ function generateTimelineGrid(startDay, endDay, zoom = "day", firstWeekday = 6) 
   if (zoom === "day") {
     return {
       zoom: "day",
-      columns: allDays.map((day) => ({
+      columns: allDays.map((day, idx) => ({
         key: day,
+        colStart: idx + 1,
+        colSpan: 1,
         date: day,
         dayNumber: Number(day.slice(8, 10)),
         isToday: false,
@@ -4866,6 +4868,7 @@ function generateTimelineGrid(startDay, endDay, zoom = "day", firstWeekday = 6) 
   if (zoom === "week") {
     const weeks = [];
     let currentWeek = [];
+    let weekColStart = 1;
     for (const day of allDays) {
       currentWeek.push(day);
       const dayOfWeek = (/* @__PURE__ */ new Date(`${day}T12:00:00Z`)).getUTCDay();
@@ -4873,17 +4876,22 @@ function generateTimelineGrid(startDay, endDay, zoom = "day", firstWeekday = 6) 
       if (isEndOfWeek) {
         weeks.push({
           key: currentWeek[0],
+          colStart: weekColStart,
+          colSpan: currentWeek.length,
           start: currentWeek[0],
           end: currentWeek.at(-1),
           days: [...currentWeek],
           label: `${currentWeek[0].slice(5)} - ${currentWeek.at(-1).slice(5)}`
         });
+        weekColStart += currentWeek.length;
         currentWeek = [];
       }
     }
     if (currentWeek.length > 0) {
       weeks.push({
         key: currentWeek[0],
+        colStart: weekColStart,
+        colSpan: currentWeek.length,
         start: currentWeek[0],
         end: currentWeek.at(-1),
         days: [...currentWeek],
@@ -4899,17 +4907,21 @@ function generateTimelineGrid(startDay, endDay, zoom = "day", firstWeekday = 6) 
   const months = [];
   let currentMonthKey = null;
   let currentMonthDays = [];
+  let monthColStart = 1;
   for (const day of allDays) {
     const monthKey = day.slice(0, 7);
     if (monthKey !== currentMonthKey) {
       if (currentMonthDays.length > 0) {
         months.push({
           key: currentMonthKey,
+          colStart: monthColStart,
+          colSpan: currentMonthDays.length,
           start: currentMonthDays[0],
           end: currentMonthDays.at(-1),
           days: [...currentMonthDays],
           label: currentMonthKey
         });
+        monthColStart += currentMonthDays.length;
       }
       currentMonthKey = monthKey;
       currentMonthDays = [day];
@@ -4920,6 +4932,8 @@ function generateTimelineGrid(startDay, endDay, zoom = "day", firstWeekday = 6) 
   if (currentMonthDays.length > 0) {
     months.push({
       key: currentMonthKey,
+      colStart: monthColStart,
+      colSpan: currentMonthDays.length,
       start: currentMonthDays[0],
       end: currentMonthDays.at(-1),
       days: [...currentMonthDays],
@@ -5098,6 +5112,7 @@ var ProjectTimeline = class {
   isSyncing = false;
   // Active drag state
   activeDrag = null;
+  wasDraggedRecently = false;
   async render() {
     this.element.empty();
     this.element.addClass("ticktick-timeline-workspace");
@@ -5260,13 +5275,13 @@ var ProjectTimeline = class {
     const grid = generateTimelineGrid(this.windowStart, this.windowEnd, this.zoom, this.host.firstWeekday);
     const totalDays = grid.days.length;
     const today = todayInZone(this.host.timeZone);
-    const colWidthPx = this.zoom === "day" ? 38 : this.zoom === "week" ? 90 : 140;
+    const colWidthPx = this.zoom === "day" ? 38 : this.zoom === "week" ? 18 : 7;
     const scrollArea = canvas.createDiv({ cls: "ticktick-timeline-scroll-area" });
     const gridEl = scrollArea.createDiv({ cls: "ticktick-timeline-grid" });
     gridEl.style.direction = "rtl";
-    gridEl.style.gridTemplateColumns = `repeat(${grid.columns.length}, ${colWidthPx}px)`;
+    gridEl.style.gridTemplateColumns = `repeat(${totalDays}, ${colWidthPx}px)`;
     const headerRow = gridEl.createDiv({ cls: "ticktick-timeline-header-row" });
-    headerRow.style.gridColumn = `1 / span ${grid.columns.length}`;
+    headerRow.style.gridColumn = `1 / span ${totalDays}`;
     headerRow.style.display = "grid";
     headerRow.style.direction = "rtl";
     headerRow.style.gridTemplateColumns = gridEl.style.gridTemplateColumns;
@@ -5276,6 +5291,7 @@ var ProjectTimeline = class {
       const colHeader = headerRow.createDiv({
         cls: `ticktick-timeline-col-header ${colKey === today ? "is-today" : ""}`
       });
+      colHeader.style.gridColumn = `${col.colStart} / span ${col.colSpan}`;
       if (this.zoom === "day") {
         const jsDate = /* @__PURE__ */ new Date(`${col.date ?? colKey}T12:00:00Z`);
         const weekdayName = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "narrow" }).format(jsDate);
@@ -5295,15 +5311,18 @@ var ProjectTimeline = class {
       const todayMarker = gridEl.createDiv({ cls: "ticktick-timeline-today-line" });
       todayMarker.style.gridColumnStart = `${todayIndex + 1}`;
     }
+    const visibleRangeItems = rangeItems.filter((item) => {
+      return item.range.end >= this.windowStart && item.range.start <= this.windowEnd;
+    });
     const byProject = /* @__PURE__ */ new Map();
-    for (const item of rangeItems) {
+    for (const item of visibleRangeItems) {
       const pId = String(item.task.projectId || "inbox");
       if (!byProject.has(pId)) byProject.set(pId, []);
       byProject.get(pId).push(item);
     }
     if (byProject.size === 0) {
       const emptyState2 = gridEl.createDiv({ cls: "ticktick-timeline-empty" });
-      emptyState2.style.gridColumn = `1 / span ${grid.columns.length}`;
+      emptyState2.style.gridColumn = `1 / span ${totalDays}`;
       emptyState2.createDiv({
         cls: "ticktick-empty-desc",
         text: "\u0647\u06CC\u0686 \u062A\u0633\u06A9 \u0632\u0645\u0627\u0646\u200C\u062F\u0627\u0631\u06CC \u0628\u0627 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0641\u0639\u0644\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F. \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0627\u0632 \u067E\u0646\u0644 \xAB\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0628\u0627\u0632\u0647\xBB \u062A\u0633\u06A9\u200C\u0647\u0627 \u0631\u0627 \u0627\u0636\u0627\u0641\u0647 \u06A9\u0646\u06CC\u062F."
@@ -5315,7 +5334,7 @@ var ProjectTimeline = class {
       const projName = project?.name ?? (projectId === "inbox" ? "\u0635\u0646\u062F\u0648\u0642 \u0648\u0631\u0648\u062F\u06CC" : "\u067E\u0631\u0648\u0698\u0647");
       const projColor = project?.color ?? "#7c6cff";
       const projHeader = gridEl.createDiv({ cls: "ticktick-timeline-project-row" });
-      projHeader.style.gridColumn = `1 / span ${grid.columns.length}`;
+      projHeader.style.gridColumn = `1 / span ${totalDays}`;
       const colorDot = projHeader.createSpan({ cls: "ticktick-project-dot" });
       colorDot.style.backgroundColor = projColor;
       projHeader.createSpan({ cls: "ticktick-project-name", text: projName });
@@ -5324,7 +5343,7 @@ var ProjectTimeline = class {
       for (let laneIdx = 0; laneIdx < packed.totalLanes; laneIdx++) {
         const laneTasks = packed.assignments.filter((a) => a.laneIndex === laneIdx);
         const laneRow = gridEl.createDiv({ cls: "ticktick-timeline-lane-row" });
-        laneRow.style.gridColumn = `1 / span ${grid.columns.length}`;
+        laneRow.style.gridColumn = `1 / span ${totalDays}`;
         laneRow.style.display = "grid";
         laneRow.style.direction = "rtl";
         laneRow.style.gridTemplateColumns = gridEl.style.gridTemplateColumns;
@@ -5362,6 +5381,7 @@ var ProjectTimeline = class {
     check.checked = isCompleted;
     check.disabled = isCompleted;
     check.addEventListener("click", (e) => e.stopPropagation());
+    check.addEventListener("pointerdown", (e) => e.stopPropagation());
     check.addEventListener("change", async () => {
       await this.host.complete(task);
       await this.render();
@@ -5393,7 +5413,7 @@ var ProjectTimeline = class {
       }).open();
     };
     contentWrapper.addEventListener("click", (e) => {
-      if (this.activeDrag) return;
+      if (this.activeDrag || this.wasDraggedRecently) return;
       openDetails();
     });
     bar.addEventListener("keydown", (e) => {
@@ -5450,6 +5470,10 @@ var ProjectTimeline = class {
         const activeEdge = this.activeDrag.edge;
         this.activeDrag = null;
         if (finalDelta !== 0) {
+          this.wasDraggedRecently = true;
+          setTimeout(() => {
+            this.wasDraggedRecently = false;
+          }, 250);
           const shifted = shiftTimelineEndpoints(task, finalDelta, activeEdge, this.host.timeZone);
           const nextStart = toDateKey(shifted.startDate, this.host.timeZone);
           const nextDue = toDateKey(shifted.dueDate, this.host.timeZone);

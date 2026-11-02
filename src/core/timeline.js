@@ -101,8 +101,10 @@ export function generateTimelineGrid(startDay, endDay, zoom = "day", firstWeekda
   if (zoom === "day") {
     return {
       zoom: "day",
-      columns: allDays.map(day => ({
+      columns: allDays.map((day, idx) => ({
         key: day,
+        colStart: idx + 1,
+        colSpan: 1,
         date: day,
         dayNumber: Number(day.slice(8, 10)),
         isToday: false,
@@ -116,6 +118,7 @@ export function generateTimelineGrid(startDay, endDay, zoom = "day", firstWeekda
     // Group days into 7-day week chunks aligned to firstWeekday
     const weeks = [];
     let currentWeek = [];
+    let weekColStart = 1;
     for (const day of allDays) {
       currentWeek.push(day);
       const dayOfWeek = new Date(`${day}T12:00:00Z`).getUTCDay();
@@ -123,17 +126,22 @@ export function generateTimelineGrid(startDay, endDay, zoom = "day", firstWeekda
       if (isEndOfWeek) {
         weeks.push({
           key: currentWeek[0],
+          colStart: weekColStart,
+          colSpan: currentWeek.length,
           start: currentWeek[0],
           end: currentWeek.at(-1),
           days: [...currentWeek],
           label: `${currentWeek[0].slice(5)} - ${currentWeek.at(-1).slice(5)}`
         });
+        weekColStart += currentWeek.length;
         currentWeek = [];
       }
     }
     if (currentWeek.length > 0) {
       weeks.push({
         key: currentWeek[0],
+        colStart: weekColStart,
+        colSpan: currentWeek.length,
         start: currentWeek[0],
         end: currentWeek.at(-1),
         days: [...currentWeek],
@@ -147,10 +155,11 @@ export function generateTimelineGrid(startDay, endDay, zoom = "day", firstWeekda
     };
   }
 
-  // Month zoom: group into Gregorian or Persian months
+  // Month zoom: group into month intervals with exact colStart and colSpan
   const months = [];
   let currentMonthKey = null;
   let currentMonthDays = [];
+  let monthColStart = 1;
 
   for (const day of allDays) {
     const monthKey = day.slice(0, 7);
@@ -158,11 +167,14 @@ export function generateTimelineGrid(startDay, endDay, zoom = "day", firstWeekda
       if (currentMonthDays.length > 0) {
         months.push({
           key: currentMonthKey,
+          colStart: monthColStart,
+          colSpan: currentMonthDays.length,
           start: currentMonthDays[0],
           end: currentMonthDays.at(-1),
           days: [...currentMonthDays],
           label: currentMonthKey
         });
+        monthColStart += currentMonthDays.length;
       }
       currentMonthKey = monthKey;
       currentMonthDays = [day];
@@ -173,6 +185,8 @@ export function generateTimelineGrid(startDay, endDay, zoom = "day", firstWeekda
   if (currentMonthDays.length > 0) {
     months.push({
       key: currentMonthKey,
+      colStart: monthColStart,
+      colSpan: currentMonthDays.length,
       start: currentMonthDays[0],
       end: currentMonthDays.at(-1),
       days: [...currentMonthDays],

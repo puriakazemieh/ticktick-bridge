@@ -69,6 +69,8 @@ export class ProjectTimeline {
     barEl: HTMLElement;
   } | null = null;
 
+  private wasDraggedRecently = false;
+
   constructor(private element: HTMLElement, private host: TimelineHost) {}
 
   async render() {
@@ -281,17 +283,17 @@ export class ProjectTimeline {
     const totalDays = grid.days.length;
     const today = todayInZone(this.host.timeZone);
 
-    // Calculate column width in pixels based on zoom
-    const colWidthPx = this.zoom === "day" ? 38 : this.zoom === "week" ? 90 : 140;
+    // Calculate column width in pixels based on zoom (daily precision across all modes)
+    const colWidthPx = this.zoom === "day" ? 38 : this.zoom === "week" ? 18 : 7;
 
     const scrollArea = canvas.createDiv({ cls: "ticktick-timeline-scroll-area" });
     const gridEl = scrollArea.createDiv({ cls: "ticktick-timeline-grid" });
     gridEl.style.direction = "rtl";
-    gridEl.style.gridTemplateColumns = `repeat(${grid.columns.length}, ${colWidthPx}px)`;
+    gridEl.style.gridTemplateColumns = `repeat(${totalDays}, ${colWidthPx}px)`;
 
     // 1. Header Row
     const headerRow = gridEl.createDiv({ cls: "ticktick-timeline-header-row" });
-    headerRow.style.gridColumn = `1 / span ${grid.columns.length}`;
+    headerRow.style.gridColumn = `1 / span ${totalDays}`;
     headerRow.style.display = "grid";
     headerRow.style.direction = "rtl";
     headerRow.style.gridTemplateColumns = gridEl.style.gridTemplateColumns;
@@ -302,6 +304,7 @@ export class ProjectTimeline {
       const colHeader = headerRow.createDiv({
         cls: `ticktick-timeline-col-header ${colKey === today ? "is-today" : ""}`
       });
+      colHeader.style.gridColumn = `${col.colStart} / span ${col.colSpan}`;
       if (this.zoom === "day") {
         const jsDate = new Date(`${col.date ?? colKey}T12:00:00Z`);
         const weekdayName = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "narrow" }).format(jsDate);
@@ -325,9 +328,13 @@ export class ProjectTimeline {
     }
 
     // 3. Project Grouping & Packed Lanes
-    // Group range items by project
+    // Filter to tasks that intersect the visible window
+    const visibleRangeItems = rangeItems.filter(item => {
+      return item.range.end >= this.windowStart! && item.range.start <= this.windowEnd!;
+    });
+
     const byProject = new Map<string, Array<{ task: TickTickTask; range: { start: string; end: string } }>>();
-    for (const item of rangeItems) {
+    for (const item of visibleRangeItems) {
       const pId = String(item.task.projectId || "inbox");
       if (!byProject.has(pId)) byProject.set(pId, []);
       byProject.get(pId)!.push(item);
@@ -335,7 +342,7 @@ export class ProjectTimeline {
 
     if (byProject.size === 0) {
       const emptyState = gridEl.createDiv({ cls: "ticktick-timeline-empty" });
-      emptyState.style.gridColumn = `1 / span ${grid.columns.length}`;
+      emptyState.style.gridColumn = `1 / span ${totalDays}`;
       emptyState.createDiv({
         cls: "ticktick-empty-desc",
         text: "هیچ تسک زمان‌داری با فیلترهای فعلی یافت نشد. می‌توانید از پنل «تسک‌های بدون بازه» تسک‌ها را اضافه کنید."
@@ -350,7 +357,7 @@ export class ProjectTimeline {
 
       // Project Header Bar spanning full width
       const projHeader = gridEl.createDiv({ cls: "ticktick-timeline-project-row" });
-      projHeader.style.gridColumn = `1 / span ${grid.columns.length}`;
+      projHeader.style.gridColumn = `1 / span ${totalDays}`;
       const colorDot = projHeader.createSpan({ cls: "ticktick-project-dot" });
       colorDot.style.backgroundColor = projColor;
       projHeader.createSpan({ cls: "ticktick-project-name", text: projName });
@@ -362,7 +369,7 @@ export class ProjectTimeline {
       for (let laneIdx = 0; laneIdx < packed.totalLanes; laneIdx++) {
         const laneTasks = packed.assignments.filter(a => a.laneIndex === laneIdx);
         const laneRow = gridEl.createDiv({ cls: "ticktick-timeline-lane-row" });
-        laneRow.style.gridColumn = `1 / span ${grid.columns.length}`;
+        laneRow.style.gridColumn = `1 / span ${totalDays}`;
         laneRow.style.display = "grid";
         laneRow.style.direction = "rtl";
         laneRow.style.gridTemplateColumns = gridEl.style.gridTemplateColumns;
@@ -416,6 +423,7 @@ export class ProjectTimeline {
     check.checked = isCompleted;
     check.disabled = isCompleted;
     check.addEventListener("click", e => e.stopPropagation());
+    check.addEventListener("pointerdown", e => e.stopPropagation());
     check.addEventListener("change", async () => {
       await this.host.complete(task);
       await this.render();
@@ -454,7 +462,7 @@ export class ProjectTimeline {
     };
 
     contentWrapper.addEventListener("click", (e) => {
-      if (this.activeDrag) return;
+      if (this.activeDrag || this.wasDraggedRecently) return;
       openDetails();
     });
 
@@ -539,6 +547,8 @@ export class ProjectTimeline {
         this.activeDrag = null;
 
         if (finalDelta !== 0) {
+          this.wasDraggedRecently = true;
+          setTimeout(() => { this.wasDraggedRecently = false; }, 250);
           const shifted = shiftTimelineEndpoints(task, finalDelta, activeEdge, this.host.timeZone);
           const nextStart = toDateKey(shifted.startDate, this.host.timeZone);
           const nextDue = toDateKey(shifted.dueDate, this.host.timeZone);

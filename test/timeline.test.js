@@ -189,3 +189,16 @@ test("partitionTimelineTasks separates range, point, and backlog tasks", () => {
   assert.equal(partitioned.backlogTasks.length, 1);
   assert.equal(partitioned.backlogTasks[0].id, "3");
 });
+
+
+test("generateTimelineGrid computes colStart and colSpan correctly for day, week, and month", () => {
+  const weekGrid = generateTimelineGrid("2026-10-01", "2026-10-14", "week", 6);
+  assert.equal(weekGrid.columns[0].colStart, 1);
+  assert.ok(weekGrid.columns[0].colSpan > 0);
+  assert.equal(weekGrid.columns[1].colStart, weekGrid.columns[0].colSpan + 1);
+
+  const monthGrid = generateTimelineGrid("2026-10-01", "2026-11-30", "month");
+  assert.equal(monthGrid.columns[0].colStart, 1);
+  assert.equal(monthGrid.columns[0].colSpan, 31); // October has 31 days
+  assert.equal(monthGrid.columns[1].colStart, 32);
+});
