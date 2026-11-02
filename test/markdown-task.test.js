@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { attachTaskBinding, lineLocator, locateLine, parseTaskBinding, serializeTaskBinding } from "../src/core/task-binding.js";
+import { attachTaskBinding, lineLocator, locateLine, parseTaskBinding, removeTaskBinding, serializeTaskBinding } from "../src/core/task-binding.js";
 import { parseMarkdownTask, scanMarkdownTasks } from "../src/core/markdown-task.js";
 
 test("modern bindings preserve Persian text, tokens, and CRLF", () => {
@@ -24,4 +24,12 @@ test("line locator does not guess between duplicate lines", () => {
   assert.equal(locateLine(lines, lineLocator(lines, 1)), 1);
   assert.equal(locateLine(["- [ ] same", "- [ ] same"], { line: 9, before: "", value: "- [ ] same", after: "" }), null);
   assert.match(serializeTaskBinding({ id: "a", projectId: "b" }), /v=1/);
+});
+
+test("binding serialization enforces safe identifiers and allows clean removal", () => {
+  assert.throws(() => serializeTaskBinding({ id: "bad/id", projectId: "p" }), /Invalid TickTick task id/);
+  assert.throws(() => serializeTaskBinding({ id: "id", projectId: "bad project" }), /Invalid TickTick project id/);
+  const line = "- [ ] کاری برای فردا";
+  const withBinding = attachTaskBinding(line, { id: "id_123", projectId: "proj_456" });
+  assert.equal(removeTaskBinding(withBinding), line);
 });
