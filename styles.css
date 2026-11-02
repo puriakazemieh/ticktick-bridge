@@ -1003,6 +1003,9 @@
   margin-bottom: 0.25rem;
   direction: rtl;
 }
+.ticktick-filter-chips-container {
+  display: contents;
+}
 .ticktick-filter-search-pill {
   display: flex;
   align-items: center;

@@ -73,6 +73,12 @@ export class ProjectBoard {
     grouping: "none",
     sort: "ticktick"
   };
+  private currentRawData: ProjectBoardData | null = null;
+  private currentProject?: TickTickProject;
+  private currentDisplayProject?: TickTickProject;
+  private columnsContainer: HTMLElement | null = null;
+  private headerBadgeEl: HTMLElement | null = null;
+  private filterBarInstance: FilterBar | null = null;
 
   constructor(private element: HTMLElement, private host: ProjectBoardHost) {}
 
@@ -276,7 +282,7 @@ export class ProjectBoard {
       const countLabel = isCompletedView
         ? `${virtualData?.tasks.length ?? 0} تسک تکمیل‌شده`
         : `${virtualData ? virtualData.tasks.filter(task => Number(task.status ?? 0) === 0).length : project?.openCount ?? 0} تسک باز`;
-      headerInfo.createSpan({
+      this.headerBadgeEl = headerInfo.createSpan({
         cls: "ticktick-project-badge",
         text: countLabel
       });
@@ -386,7 +392,16 @@ export class ProjectBoard {
                 .setChecked(this.sortMode === value)
                 .onClick(() => {
                   this.sortMode = value;
-                  void this.render();
+                  if (this.columnsContainer && this.currentRawData) {
+                    this.renderColumnsContainer(
+                      this.columnsContainer,
+                      this.currentRawData,
+                      this.currentProject,
+                      this.currentDisplayProject
+                    );
+                  } else {
+                    void this.render();
+                  }
                 });
           });
         }
@@ -488,117 +503,172 @@ export class ProjectBoard {
         },
         filterState: () => this.filterState,
         onFilterChange: (nextState: TaskFilterState) => {
-          this.filterState = nextState;
-          void this.render();
+          this.applyFilter(nextState);
         }
       };
-      new FilterBar(main, filterBarHost).render();
+      this.filterBarInstance = new FilterBar(main, filterBarHost);
+      this.filterBarInstance.render();
 
       // ── 3. Kanban Columns ──
       const rawData = virtualData ?? await this.host.board(project!);
       if (!rawData) return;
-      const filteredTasks = rawData.tasks.filter(task =>
-        matchesTaskFilter(task, this.filterState, { timeZone: this.host.timeZone })
-      );
-      const data = {
-        ...rawData,
-        tasks: filteredTasks
-      };
+      this.currentRawData = rawData;
+      this.currentProject = project;
+      this.currentDisplayProject = displayProject;
+
       const columns = main.createDiv({ cls: "ticktick-project-columns" });
-      enhanceHorizontalScroll(columns);
-      if (this.lastSelectedProject === this.selected && this.savedColumnsScrollLeft > 0) {
-        columns.scrollLeft = this.savedColumnsScrollLeft;
-      } else {
-        scrollToStart(columns);
-      }
-      this.lastSelectedProject = this.selected;
-
-      for (const column of boardColumns(data, this.host.showCompleted())) {
-        const shell = columns.createDiv({ cls: "ticktick-project-column" });
-        shell.dataset.columnId = String(column.id);
-
-        const colHeader = shell.createDiv({ cls: "ticktick-column-header" });
-        colHeader.createEl("strong", { cls: "ticktick-column-name", text: column.name });
-        colHeader.createSpan({ cls: "ticktick-column-count", text: String(column.count) });
-
-        const movableColumn = Boolean(project) && !column.synthetic;
-        if (movableColumn) {
-          const addToColumn = colHeader.createEl("button", { cls: "ticktick-column-add mod-icon", attr: { type: "button", "aria-label": `افزودن تسک به ستون ${column.name}`, title: "افزودن تسک به این ستون" } });
-          setIcon(addToColumn, "plus");
-          addToColumn.addEventListener("click", async event => {
-            event.stopPropagation(); addToColumn.disabled = true;
-            try {
-              await this.host.createTask({ projectId: project!.id, columnId: column.id });
-              new Notice(`تسک جدید به ستون «${column.name}» اضافه شد.`);
-              await this.render();
-            } catch (error) {
-              new Notice(error instanceof Error ? error.message : "ساخت تسک ناموفق بود.");
-            } finally { addToColumn.disabled = false; }
-          });
-        }
-        if (column.synthetic) {
-          shell.createEl("small", { cls: "ticktick-column-hint", text: "ستون نمایشی؛ جابه‌جایی غیرفعال است" });
-        }
-
-        shell.addEventListener("dragover", event => {
-          if (!movableColumn) return;
-          event.preventDefault();
-          event.dataTransfer!.dropEffect = "move";
-          shell.addClass("is-drag-over");
-        });
-        shell.addEventListener("dragleave", event => {
-          if (!shell.contains(event.relatedTarget as Node | null)) shell.removeClass("is-drag-over");
-        });
-        shell.addEventListener("drop", event => {
-          event.preventDefault();
-          shell.removeClass("is-drag-over");
-          if (!movableColumn) {
-            new Notice("این ستون نمایشی است و مقصد انتقال نیست.");
-            return;
-          }
-          const id = event.dataTransfer?.getData("text/ticktick-board-task");
-          const task = data.tasks.find((item: TickTickTask) => String(item.id) === id);
-          if (!task || String(task.columnId ?? "") === String(column.id)) return;
-          const cardEl = this.element.querySelector<HTMLElement>(`[data-task-id="${task.id}"]`);
-          const sourceCol = cardEl?.closest(".ticktick-project-column");
-          const oldColumnId = task.columnId;
-          if (cardEl && listWrap) {
-            listWrap.appendChild(cardEl);
-            const srcBadge = sourceCol?.querySelector(".ticktick-column-count");
-            if (srcBadge) {
-              const count = parseInt(srcBadge.textContent || "0", 10);
-              if (count > 0) srcBadge.textContent = String(count - 1);
-            }
-            const tgtBadge = shell.querySelector(".ticktick-column-count");
-            if (tgtBadge) {
-              const count = parseInt(tgtBadge.textContent || "0", 10);
-              tgtBadge.textContent = String(count + 1);
-            }
-          }
-          task.columnId = String(column.id);
-          void this.moveTask(task, String(column.id), cardEl, sourceCol, oldColumnId);
-        });
-
-        const listWrap = shell.createDiv({ cls: "ticktick-column-cards" });
-        for (const group of column.groups) {
-          if (group.name) {
-            listWrap.createEl("h4", { cls: "ticktick-group-heading", text: group.name });
-          }
-          for (const task of sortPlanningTasks(group.tasks, this.sortMode)) {
-            this.card(listWrap, task, task.projectColor || displayProject.color, Boolean(project));
-          }
-        }
-      }
-
-      if (data.tasks.length === 0) {
-        const emptyState = columns.createDiv({ cls: "ticktick-board-empty ticktick-smart-view-empty" });
-        const emptyIcon = emptyState.createSpan({ cls: "ticktick-empty-icon" });
-        setIcon(emptyIcon, "check-circle");
-        emptyState.createEl("h3", { text: `هیچ تسکی در نمای «${displayProject.name}» نیست` });
-        emptyState.createEl("p", { text: "همهٔ تسک‌ها انجام شده‌اند یا تسکی مطابق این نما در کش محلی وجود ندارد." });
-      }
+      this.columnsContainer = columns;
+      this.renderColumnsContainer(columns, rawData, project, displayProject);
     } catch (error) {
       root.createEl("p", { text: error instanceof Error ? error.message : "دادهٔ پروژه در دسترس نیست." });
+    }
+  }
+
+  private applyFilter(nextState: TaskFilterState) {
+    this.filterState = nextState;
+    if (this.columnsContainer && this.currentRawData) {
+      this.renderColumnsContainer(
+        this.columnsContainer,
+        this.currentRawData,
+        this.currentProject,
+        this.currentDisplayProject
+      );
+    } else {
+      void this.render();
+    }
+  }
+
+  private renderColumnsContainer(
+    columns: HTMLElement,
+    rawData: ProjectBoardData,
+    project?: TickTickProject,
+    displayProject?: TickTickProject
+  ) {
+    if (this.lastSelectedProject === this.selected && columns.scrollLeft > 0) {
+      this.savedColumnsScrollLeft = columns.scrollLeft;
+    }
+    columns.empty();
+    enhanceHorizontalScroll(columns);
+    if (this.lastSelectedProject === this.selected && this.savedColumnsScrollLeft > 0) {
+      columns.scrollLeft = this.savedColumnsScrollLeft;
+    } else {
+      scrollToStart(columns);
+    }
+    this.lastSelectedProject = this.selected;
+
+    const filteredTasks = rawData.tasks.filter(task =>
+      matchesTaskFilter(task, this.filterState, { timeZone: this.host.timeZone })
+    );
+    const data = {
+      ...rawData,
+      tasks: filteredTasks
+    };
+
+    if (this.headerBadgeEl) {
+      const isCompletedView = displayProject?.id === COMPLETED_BOARD_VIEW_ID;
+      const countLabel = isCompletedView
+        ? `${data.tasks.length} تسک تکمیل‌شده`
+        : `${data.tasks.filter(task => Number(task.status ?? 0) === 0).length} تسک باز`;
+      const isFiltered = Boolean(
+        this.filterState.searchText ||
+        (this.filterState.projects && this.filterState.projects.length) ||
+        (this.filterState.tags && this.filterState.tags.length) ||
+        (this.filterState.priorities && this.filterState.priorities.length) ||
+        (this.filterState.statuses && this.filterState.statuses.length)
+      );
+      this.headerBadgeEl.setText(isFiltered ? `${countLabel} (فیلتر شده)` : countLabel);
+    }
+
+    for (const column of boardColumns(data, this.host.showCompleted())) {
+      const shell = columns.createDiv({ cls: "ticktick-project-column" });
+      shell.dataset.columnId = String(column.id);
+
+      const colHeader = shell.createDiv({ cls: "ticktick-column-header" });
+      colHeader.createEl("strong", { cls: "ticktick-column-name", text: column.name });
+      colHeader.createSpan({ cls: "ticktick-column-count", text: String(column.count) });
+
+      const movableColumn = Boolean(project) && !column.synthetic;
+      if (movableColumn) {
+        const addToColumn = colHeader.createEl("button", {
+          cls: "ticktick-column-add mod-icon",
+          attr: { type: "button", "aria-label": `افزودن تسک به ستون ${column.name}`, title: "افزودن تسک به این ستون" }
+        });
+        setIcon(addToColumn, "plus");
+        addToColumn.addEventListener("click", async event => {
+          event.stopPropagation();
+          addToColumn.disabled = true;
+          try {
+            await this.host.createTask({ projectId: project!.id, columnId: column.id });
+            new Notice(`تسک جدید به ستون «${column.name}» اضافه شد.`);
+            await this.render();
+          } catch (error) {
+            new Notice(error instanceof Error ? error.message : "ساخت تسک ناموفق بود.");
+          } finally {
+            addToColumn.disabled = false;
+          }
+        });
+      }
+      if (column.synthetic) {
+        shell.createEl("small", { cls: "ticktick-column-hint", text: "ستون نمایشی؛ جابه‌جایی غیرفعال است" });
+      }
+
+      const listWrap = shell.createDiv({ cls: "ticktick-column-cards" });
+
+      shell.addEventListener("dragover", event => {
+        if (!movableColumn) return;
+        event.preventDefault();
+        event.dataTransfer!.dropEffect = "move";
+        shell.addClass("is-drag-over");
+      });
+      shell.addEventListener("dragleave", event => {
+        if (!shell.contains(event.relatedTarget as Node | null)) shell.removeClass("is-drag-over");
+      });
+      shell.addEventListener("drop", event => {
+        event.preventDefault();
+        shell.removeClass("is-drag-over");
+        if (!movableColumn) {
+          new Notice("این ستون نمایشی است و مقصد انتقال نیست.");
+          return;
+        }
+        const id = event.dataTransfer?.getData("text/ticktick-board-task");
+        const task = data.tasks.find((item: TickTickTask) => String(item.id) === id);
+        if (!task || String(task.columnId ?? "") === String(column.id)) return;
+        const cardEl = this.element.querySelector<HTMLElement>(`[data-task-id="${task.id}"]`);
+        const sourceCol = cardEl?.closest(".ticktick-project-column");
+        const oldColumnId = task.columnId;
+        if (cardEl && listWrap) {
+          listWrap.appendChild(cardEl);
+          const srcBadge = sourceCol?.querySelector(".ticktick-column-count");
+          if (srcBadge) {
+            const count = parseInt(srcBadge.textContent || "0", 10);
+            if (count > 0) srcBadge.textContent = String(count - 1);
+          }
+          const tgtBadge = shell.querySelector(".ticktick-column-count");
+          if (tgtBadge) {
+            const count = parseInt(tgtBadge.textContent || "0", 10);
+            tgtBadge.textContent = String(count + 1);
+          }
+        }
+        task.columnId = String(column.id);
+        void this.moveTask(task, String(column.id), cardEl, sourceCol, oldColumnId);
+      });
+
+      for (const group of column.groups) {
+        if (group.name) {
+          listWrap.createEl("h4", { cls: "ticktick-group-heading", text: group.name });
+        }
+        for (const task of sortPlanningTasks(group.tasks, this.sortMode)) {
+          this.card(listWrap, task, task.projectColor || displayProject?.color, Boolean(project));
+        }
+      }
+    }
+
+    if (data.tasks.length === 0) {
+      const emptyState = columns.createDiv({ cls: "ticktick-board-empty ticktick-smart-view-empty" });
+      const emptyIcon = emptyState.createSpan({ cls: "ticktick-empty-icon" });
+      setIcon(emptyIcon, "check-circle");
+      emptyState.createEl("h3", { text: `هیچ تسکی در نمای «${displayProject?.name ?? ""}» نیست` });
+      emptyState.createEl("p", { text: "همهٔ تسک‌ها انجام شده‌اند یا تسکی مطابق این نما یا فیلترهای انتخابی در کش محلی وجود ندارد." });
     }
   }
 

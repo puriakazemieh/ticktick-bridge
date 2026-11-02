@@ -314,11 +314,11 @@ __export(project_board_exports, {
   virtualBoardData: () => virtualBoardData,
   virtualBoardEntries: () => virtualBoardEntries
 });
-function normalizeProjectData(document = {}, fallbackProject = {}) {
-  const project = { ...fallbackProject, ...document.project ?? {}, id: document.project?.id ?? fallbackProject.id ?? document.projectId, name: document.project?.name ?? fallbackProject.name ?? "\u0628\u062F\u0648\u0646 \u0646\u0627\u0645" };
-  const columns = (document.columns ?? []).map((column, index) => ({ id: String(column.id ?? ""), name: String(column.name ?? `\u0633\u062A\u0648\u0646 ${index + 1}`), sortOrder: Number(column.sortOrder ?? index) }));
+function normalizeProjectData(document2 = {}, fallbackProject = {}) {
+  const project = { ...fallbackProject, ...document2.project ?? {}, id: document2.project?.id ?? fallbackProject.id ?? document2.projectId, name: document2.project?.name ?? fallbackProject.name ?? "\u0628\u062F\u0648\u0646 \u0646\u0627\u0645" };
+  const columns = (document2.columns ?? []).map((column, index) => ({ id: String(column.id ?? ""), name: String(column.name ?? `\u0633\u062A\u0648\u0646 ${index + 1}`), sortOrder: Number(column.sortOrder ?? index) }));
   const names = new Map(columns.map((column) => [column.id, column.name]));
-  const tasks = (document.tasks ?? []).map((task) => ({ ...task, projectId: task.projectId ?? project.id, projectName: project.name, projectColor: project.color, columnId: task.columnId ?? "", columnName: names.get(String(task.columnId ?? "")) ?? "Tasks" }));
+  const tasks = (document2.tasks ?? []).map((task) => ({ ...task, projectId: task.projectId ?? project.id, projectName: project.name, projectColor: project.color, columnId: task.columnId ?? "", columnName: names.get(String(task.columnId ?? "")) ?? "Tasks" }));
   return { project, columns, tasks };
 }
 function sidebarTree(projects, tasks = []) {
@@ -782,7 +782,7 @@ var TickTickClient = class {
     const active = habits.filter((habit) => isHabitScheduledForDay(habit, day));
     if (!active.length) return [];
     const checkinDocuments = await this.getHabitCheckins(active.map((habit) => habit.id), day, day);
-    const values = new Map((checkinDocuments ?? []).flatMap((document) => (document.checkins ?? []).filter((checkin) => Number(checkin.stamp) === toHabitStamp(day)).map((checkin) => [document.habitId, checkin])));
+    const values = new Map((checkinDocuments ?? []).flatMap((document2) => (document2.checkins ?? []).filter((checkin) => Number(checkin.stamp) === toHabitStamp(day)).map((checkin) => [document2.habitId, checkin])));
     return active.map((habit) => ({ ...habit, sectionName: sectionNames.get(habit.sectionId) ?? "\u0628\u062F\u0648\u0646 \u062F\u0633\u062A\u0647", checkin: values.get(habit.id) ?? null }));
   }
   async habitsWithHistory(day, days = 28) {
@@ -792,7 +792,7 @@ var TickTickClient = class {
     start.setUTCDate(start.getUTCDate() - Math.max(0, days - 1));
     const fromDay = start.toISOString().slice(0, 10);
     const documents = await this.getHabitCheckins(habits.map((habit) => habit.id), fromDay, day);
-    const checkins = new Map((documents ?? []).flatMap((document) => (document.checkins ?? []).map((checkin) => [`${document.habitId}:${checkin.stamp}`, checkin])));
+    const checkins = new Map((documents ?? []).flatMap((document2) => (document2.checkins ?? []).map((checkin) => [`${document2.habitId}:${checkin.stamp}`, checkin])));
     const dates = Array.from({ length: days }, (_, index) => {
       const value = /* @__PURE__ */ new Date(`${fromDay}T12:00:00Z`);
       value.setUTCDate(value.getUTCDate() + index);
@@ -3444,38 +3444,107 @@ var FilterBar = class {
     this.element = this.parent.createDiv({ cls: "ticktick-shared-filter-bar" });
   }
   element;
+  searchInput = null;
+  searchClearBtn = null;
+  chipsContainer = null;
+  debounceTimer = null;
   render() {
+    const wasSearchFocused = this.searchInput === document.activeElement;
+    const selStart = this.searchInput?.selectionStart ?? null;
+    const selEnd = this.searchInput?.selectionEnd ?? null;
+    const prevText = this.searchInput ? this.searchInput.value : null;
     this.element.empty();
     const state = this.host.filterState();
     const searchWrapper = this.element.createDiv({ cls: "ticktick-filter-search-pill" });
     const sIcon = searchWrapper.createSpan({ cls: "ticktick-search-icon" });
     (0, import_obsidian8.setIcon)(sIcon, "search");
-    const input = searchWrapper.createEl("input", {
+    const inputVal = prevText !== null ? prevText : state.searchText || "";
+    this.searchInput = searchWrapper.createEl("input", {
       type: "search",
       placeholder: "\u062C\u0633\u062A\u200C\u0648\u062C\u0648\u06CC \u062A\u0633\u06A9\u200C\u0647\u0627\u2026",
-      value: state.searchText || "",
+      value: inputVal,
       cls: "ticktick-filter-search-field"
     });
-    input.addEventListener("input", () => {
-      this.host.onFilterChange({
-        ...state,
-        searchText: input.value
-      });
+    this.searchClearBtn = searchWrapper.createEl("button", {
+      cls: "ticktick-filter-clear-search",
+      attr: { type: "button", "aria-label": "\u067E\u0627\u06A9 \u06A9\u0631\u062F\u0646 \u0645\u062A\u0646" }
     });
-    if (state.searchText) {
-      const clearSearch = searchWrapper.createEl("button", {
-        cls: "ticktick-filter-clear-search",
-        attr: { type: "button", "aria-label": "\u067E\u0627\u06A9 \u06A9\u0631\u062F\u0646 \u0645\u062A\u0646" }
-      });
-      (0, import_obsidian8.setIcon)(clearSearch, "x");
-      clearSearch.addEventListener("click", () => {
-        input.value = "";
-        this.host.onFilterChange({ ...state, searchText: "" });
-      });
+    (0, import_obsidian8.setIcon)(this.searchClearBtn, "x");
+    this.updateSearchClearButton();
+    this.searchClearBtn.addEventListener("click", () => {
+      if (this.searchInput) {
+        this.searchInput.value = "";
+        this.searchInput.focus();
+      }
+      this.updateSearchClearButton();
+      this.notifyFilterChange({ ...this.host.filterState(), searchText: "" });
+      this.renderChips();
+    });
+    this.searchInput.addEventListener("input", () => {
+      this.updateSearchClearButton();
+      if (this.debounceTimer !== null) {
+        window.clearTimeout(this.debounceTimer);
+      }
+      this.debounceTimer = window.setTimeout(() => {
+        this.debounceTimer = null;
+        this.notifyFilterChange({
+          ...this.host.filterState(),
+          searchText: this.searchInput?.value || ""
+        });
+        this.renderChips();
+      }, 120);
+    });
+    this.searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        if (this.debounceTimer !== null) {
+          window.clearTimeout(this.debounceTimer);
+          this.debounceTimer = null;
+        }
+        this.notifyFilterChange({
+          ...this.host.filterState(),
+          searchText: this.searchInput?.value || ""
+        });
+        this.renderChips();
+      } else if (e.key === "Escape") {
+        if (this.debounceTimer !== null) {
+          window.clearTimeout(this.debounceTimer);
+          this.debounceTimer = null;
+        }
+        if (this.searchInput) {
+          this.searchInput.value = "";
+        }
+        this.updateSearchClearButton();
+        this.notifyFilterChange({
+          ...this.host.filterState(),
+          searchText: ""
+        });
+        this.renderChips();
+      }
+    });
+    this.chipsContainer = this.element.createDiv({ cls: "ticktick-filter-chips-container" });
+    this.renderChips();
+    if (wasSearchFocused && this.searchInput) {
+      this.searchInput.focus();
+      if (selStart !== null && selEnd !== null) {
+        this.searchInput.setSelectionRange(selStart, selEnd);
+      }
     }
+  }
+  updateSearchClearButton() {
+    if (!this.searchClearBtn) return;
+    const hasText = Boolean(this.searchInput?.value);
+    this.searchClearBtn.style.display = hasText ? "flex" : "none";
+  }
+  notifyFilterChange(nextState) {
+    this.host.onFilterChange(nextState);
+  }
+  renderChips() {
+    if (!this.chipsContainer) return;
+    this.chipsContainer.empty();
+    const state = this.host.filterState();
     const projects = this.host.projects();
     const selProjects = new Set(state.projects || []);
-    const projBtn = this.element.createEl("button", {
+    const projBtn = this.chipsContainer.createEl("button", {
       cls: `ticktick-filter-chip ${selProjects.size ? "is-active" : ""}`,
       attr: { type: "button" }
     });
@@ -3490,16 +3559,17 @@ var FilterBar = class {
         projects.map((p) => ({ id: p.id, label: p.name })),
         selProjects,
         (selected) => {
-          this.host.onFilterChange({
+          this.notifyFilterChange({
             ...state,
             projects: [...selected]
           });
+          this.renderChips();
         }
       ).open();
     });
     const tags = this.host.tags();
     const selTags = new Set(state.tags || []);
-    const tagBtn = this.element.createEl("button", {
+    const tagBtn = this.chipsContainer.createEl("button", {
       cls: `ticktick-filter-chip ${selTags.size ? "is-active" : ""}`,
       attr: { type: "button" }
     });
@@ -3514,15 +3584,16 @@ var FilterBar = class {
         tags.map((t) => ({ id: t, label: `#${t}` })),
         selTags,
         (selected) => {
-          this.host.onFilterChange({
+          this.notifyFilterChange({
             ...state,
             tags: [...selected]
           });
+          this.renderChips();
         }
       ).open();
     });
     const selPriorities = new Set(state.priorities || []);
-    const priorityBtn = this.element.createEl("button", {
+    const priorityBtn = this.chipsContainer.createEl("button", {
       cls: `ticktick-filter-chip ${selPriorities.size ? "is-active" : ""}`,
       attr: { type: "button" }
     });
@@ -3543,23 +3614,25 @@ var FilterBar = class {
           item.setTitle(pText).setChecked(selPriorities.has(pVal)).onClick(() => {
             const next = new Set(selPriorities);
             next.has(pVal) ? next.delete(pVal) : next.add(pVal);
-            this.host.onFilterChange({
+            this.notifyFilterChange({
               ...state,
               priorities: [...next]
             });
+            this.renderChips();
           });
         });
       }
       menu.addSeparator();
       menu.addItem((item) => {
         item.setTitle("\u067E\u0627\u06A9 \u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631 \u0627\u0648\u0644\u0648\u06CC\u062A").onClick(() => {
-          this.host.onFilterChange({ ...state, priorities: [] });
+          this.notifyFilterChange({ ...state, priorities: [] });
+          this.renderChips();
         });
       });
       menu.showAtMouseEvent(e);
     });
     const selStatuses = state.statuses || [];
-    const statusBtn = this.element.createEl("button", {
+    const statusBtn = this.chipsContainer.createEl("button", {
       cls: `ticktick-filter-chip ${selStatuses.length ? "is-active" : ""}`,
       attr: { type: "button" }
     });
@@ -3570,18 +3643,21 @@ var FilterBar = class {
     statusBtn.addEventListener("click", (e) => {
       const menu = new import_obsidian8.Menu();
       menu.addItem((item) => item.setTitle("\u0647\u0645\u0647\u0654 \u0648\u0636\u0639\u06CC\u062A\u200C\u0647\u0627").setChecked(!selStatuses.length).onClick(() => {
-        this.host.onFilterChange({ ...state, statuses: [] });
+        this.notifyFilterChange({ ...state, statuses: [] });
+        this.renderChips();
       }));
       menu.addItem((item) => item.setTitle("\u0641\u0642\u0637 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u0627\u0632").setChecked(selStatuses.length === 1 && selStatuses[0] === 0).onClick(() => {
-        this.host.onFilterChange({ ...state, statuses: [0] });
+        this.notifyFilterChange({ ...state, statuses: [0] });
+        this.renderChips();
       }));
       menu.addItem((item) => item.setTitle("\u0641\u0642\u0637 \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647\u200C\u0647\u0627").setChecked(selStatuses.length === 1 && selStatuses[0] === 2).onClick(() => {
-        this.host.onFilterChange({ ...state, statuses: [2] });
+        this.notifyFilterChange({ ...state, statuses: [2] });
+        this.renderChips();
       }));
       menu.showAtMouseEvent(e);
     });
     const savedViews = this.host.savedViews();
-    const savedViewsBtn = this.element.createEl("button", {
+    const savedViewsBtn = this.chipsContainer.createEl("button", {
       cls: "ticktick-filter-chip ticktick-saved-views-chip",
       attr: { type: "button" }
     });
@@ -3595,8 +3671,13 @@ var FilterBar = class {
       menu.addItem((item) => {
         item.setTitle("\u{1F4BE} \u0630\u062E\u06CC\u0631\u0647\u0654 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0641\u0639\u0644\u06CC \u0628\u0647 \u0639\u0646\u0648\u0627\u0646 \u0646\u0645\u0627\u06CC \u062C\u062F\u06CC\u062F\u2026").setIcon("plus").onClick(() => {
           new SaveViewModal(this.host.app, "", async (name) => {
-            const newView = createSavedView(name, state, { scope: this.host.scope });
+            const currentFilter = {
+              ...state,
+              searchText: this.searchInput?.value || ""
+            };
+            const newView = createSavedView(name, currentFilter, { scope: this.host.scope });
             await this.host.saveSavedViews([...savedViews, newView]);
+            this.renderChips();
             new import_obsidian8.Notice(`\u0646\u0645\u0627\u06CC \xAB${name}\xBB \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F.`);
           }).open();
         });
@@ -3606,10 +3687,15 @@ var FilterBar = class {
         for (const view of savedViews) {
           menu.addItem((item) => {
             item.setTitle(`\u{1F4CC} ${view.name}`).onClick(() => {
-              this.host.onFilterChange({
+              if (this.searchInput && view.filter.searchText !== void 0) {
+                this.searchInput.value = view.filter.searchText;
+              }
+              this.updateSearchClearButton();
+              this.notifyFilterChange({
                 ...state,
                 ...view.filter
               });
+              this.renderChips();
               new import_obsidian8.Notice(`\u0646\u0645\u0627\u06CC \xAB${view.name}\xBB \u0627\u0639\u0645\u0627\u0644 \u0634\u062F.`);
             });
           });
@@ -3623,11 +3709,12 @@ var FilterBar = class {
       }
       menu.showAtMouseEvent(e);
     });
+    const activeSearch = Boolean(this.searchInput?.value || state.searchText);
     const hasActiveFilters = Boolean(
-      state.searchText || state.projects && state.projects.length > 0 || state.tags && state.tags.length > 0 || state.priorities && state.priorities.length > 0 || state.statuses && state.statuses.length > 0 || state.dateRange
+      activeSearch || state.projects && state.projects.length > 0 || state.tags && state.tags.length > 0 || state.priorities && state.priorities.length > 0 || state.statuses && state.statuses.length > 0 || state.dateRange
     );
     if (hasActiveFilters) {
-      const resetBtn = this.element.createEl("button", {
+      const resetBtn = this.chipsContainer.createEl("button", {
         cls: "ticktick-filter-clear-btn",
         attr: { type: "button", title: "\u067E\u0627\u06A9 \u06A9\u0631\u062F\u0646 \u0647\u0645\u0647\u0654 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627", "aria-label": "\u067E\u0627\u06A9 \u06A9\u0631\u062F\u0646 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627" }
       });
@@ -3635,7 +3722,11 @@ var FilterBar = class {
       (0, import_obsidian8.setIcon)(rIcon, "rotate-ccw");
       resetBtn.createSpan({ text: "\u067E\u0627\u06A9\u200C\u0633\u0627\u0632\u06CC \u0641\u06CC\u0644\u062A\u0631\u0647\u0627" });
       resetBtn.addEventListener("click", () => {
-        this.host.onFilterChange({
+        if (this.searchInput) {
+          this.searchInput.value = "";
+        }
+        this.updateSearchClearButton();
+        this.notifyFilterChange({
           projects: [],
           tags: [],
           statuses: [],
@@ -3645,6 +3736,7 @@ var FilterBar = class {
           grouping: state.grouping || "none",
           sort: state.sort || "ticktick"
         });
+        this.renderChips();
       });
     }
   }
@@ -3656,6 +3748,7 @@ var FilterBar = class {
         item.setTitle(`\u062D\u0630\u0641 \xAB${view.name}\xBB`).setIcon("trash").onClick(async () => {
           const next = savedViews.filter((v) => v.id !== view.id);
           await this.host.saveSavedViews(next);
+          this.renderChips();
           new import_obsidian8.Notice(`\u0646\u0645\u0627\u06CC \xAB${view.name}\xBB \u062D\u0630\u0641 \u0634\u062F.`);
         });
       });
@@ -3689,6 +3782,12 @@ var ProjectBoard = class {
     grouping: "none",
     sort: "ticktick"
   };
+  currentRawData = null;
+  currentProject;
+  currentDisplayProject;
+  columnsContainer = null;
+  headerBadgeEl = null;
+  filterBarInstance = null;
   async render() {
     if (!this.initialized) {
       const saved = this.host.preferences();
@@ -3879,7 +3978,7 @@ var ProjectBoard = class {
       headerInfo.createEl("h2", { cls: "ticktick-project-title", text: displayProject.name });
       const isCompletedView = displayProject.id === COMPLETED_BOARD_VIEW_ID;
       const countLabel = isCompletedView ? `${virtualData?.tasks.length ?? 0} \u062A\u0633\u06A9 \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647` : `${virtualData ? virtualData.tasks.filter((task) => Number(task.status ?? 0) === 0).length : project?.openCount ?? 0} \u062A\u0633\u06A9 \u0628\u0627\u0632`;
-      headerInfo.createSpan({
+      this.headerBadgeEl = headerInfo.createSpan({
         cls: "ticktick-project-badge",
         text: countLabel
       });
@@ -3975,7 +4074,16 @@ var ProjectBoard = class {
           menu.addItem((item) => {
             item.setTitle(label).setChecked(this.sortMode === value).onClick(() => {
               this.sortMode = value;
-              void this.render();
+              if (this.columnsContainer && this.currentRawData) {
+                this.renderColumnsContainer(
+                  this.columnsContainer,
+                  this.currentRawData,
+                  this.currentProject,
+                  this.currentDisplayProject
+                );
+              } else {
+                void this.render();
+              }
             });
           });
         }
@@ -4069,112 +4177,147 @@ var ProjectBoard = class {
         },
         filterState: () => this.filterState,
         onFilterChange: (nextState) => {
-          this.filterState = nextState;
-          void this.render();
+          this.applyFilter(nextState);
         }
       };
-      new FilterBar(main, filterBarHost).render();
+      this.filterBarInstance = new FilterBar(main, filterBarHost);
+      this.filterBarInstance.render();
       const rawData = virtualData ?? await this.host.board(project);
       if (!rawData) return;
-      const filteredTasks = rawData.tasks.filter(
-        (task) => matchesTaskFilter(task, this.filterState, { timeZone: this.host.timeZone })
-      );
-      const data = {
-        ...rawData,
-        tasks: filteredTasks
-      };
+      this.currentRawData = rawData;
+      this.currentProject = project;
+      this.currentDisplayProject = displayProject;
       const columns = main.createDiv({ cls: "ticktick-project-columns" });
-      enhanceHorizontalScroll(columns);
-      if (this.lastSelectedProject === this.selected && this.savedColumnsScrollLeft > 0) {
-        columns.scrollLeft = this.savedColumnsScrollLeft;
-      } else {
-        scrollToStart(columns);
-      }
-      this.lastSelectedProject = this.selected;
-      for (const column of boardColumns(data, this.host.showCompleted())) {
-        const shell = columns.createDiv({ cls: "ticktick-project-column" });
-        shell.dataset.columnId = String(column.id);
-        const colHeader = shell.createDiv({ cls: "ticktick-column-header" });
-        colHeader.createEl("strong", { cls: "ticktick-column-name", text: column.name });
-        colHeader.createSpan({ cls: "ticktick-column-count", text: String(column.count) });
-        const movableColumn = Boolean(project) && !column.synthetic;
-        if (movableColumn) {
-          const addToColumn = colHeader.createEl("button", { cls: "ticktick-column-add mod-icon", attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 ${column.name}`, title: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0627\u06CC\u0646 \u0633\u062A\u0648\u0646" } });
-          (0, import_obsidian9.setIcon)(addToColumn, "plus");
-          addToColumn.addEventListener("click", async (event) => {
-            event.stopPropagation();
-            addToColumn.disabled = true;
-            try {
-              await this.host.createTask({ projectId: project.id, columnId: column.id });
-              new import_obsidian9.Notice(`\u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F \u0628\u0647 \u0633\u062A\u0648\u0646 \xAB${column.name}\xBB \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.`);
-              await this.render();
-            } catch (error) {
-              new import_obsidian9.Notice(error instanceof Error ? error.message : "\u0633\u0627\u062E\u062A \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
-            } finally {
-              addToColumn.disabled = false;
-            }
-          });
-        }
-        if (column.synthetic) {
-          shell.createEl("small", { cls: "ticktick-column-hint", text: "\u0633\u062A\u0648\u0646 \u0646\u0645\u0627\u06CC\u0634\u06CC\u061B \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062A" });
-        }
-        shell.addEventListener("dragover", (event) => {
-          if (!movableColumn) return;
-          event.preventDefault();
-          event.dataTransfer.dropEffect = "move";
-          shell.addClass("is-drag-over");
-        });
-        shell.addEventListener("dragleave", (event) => {
-          if (!shell.contains(event.relatedTarget)) shell.removeClass("is-drag-over");
-        });
-        shell.addEventListener("drop", (event) => {
-          event.preventDefault();
-          shell.removeClass("is-drag-over");
-          if (!movableColumn) {
-            new import_obsidian9.Notice("\u0627\u06CC\u0646 \u0633\u062A\u0648\u0646 \u0646\u0645\u0627\u06CC\u0634\u06CC \u0627\u0633\u062A \u0648 \u0645\u0642\u0635\u062F \u0627\u0646\u062A\u0642\u0627\u0644 \u0646\u06CC\u0633\u062A.");
-            return;
-          }
-          const id = event.dataTransfer?.getData("text/ticktick-board-task");
-          const task = data.tasks.find((item) => String(item.id) === id);
-          if (!task || String(task.columnId ?? "") === String(column.id)) return;
-          const cardEl = this.element.querySelector(`[data-task-id="${task.id}"]`);
-          const sourceCol = cardEl?.closest(".ticktick-project-column");
-          const oldColumnId = task.columnId;
-          if (cardEl && listWrap) {
-            listWrap.appendChild(cardEl);
-            const srcBadge = sourceCol?.querySelector(".ticktick-column-count");
-            if (srcBadge) {
-              const count = parseInt(srcBadge.textContent || "0", 10);
-              if (count > 0) srcBadge.textContent = String(count - 1);
-            }
-            const tgtBadge = shell.querySelector(".ticktick-column-count");
-            if (tgtBadge) {
-              const count = parseInt(tgtBadge.textContent || "0", 10);
-              tgtBadge.textContent = String(count + 1);
-            }
-          }
-          task.columnId = String(column.id);
-          void this.moveTask(task, String(column.id), cardEl, sourceCol, oldColumnId);
-        });
-        const listWrap = shell.createDiv({ cls: "ticktick-column-cards" });
-        for (const group of column.groups) {
-          if (group.name) {
-            listWrap.createEl("h4", { cls: "ticktick-group-heading", text: group.name });
-          }
-          for (const task of sortPlanningTasks(group.tasks, this.sortMode)) {
-            this.card(listWrap, task, task.projectColor || displayProject.color, Boolean(project));
-          }
-        }
-      }
-      if (data.tasks.length === 0) {
-        const emptyState2 = columns.createDiv({ cls: "ticktick-board-empty ticktick-smart-view-empty" });
-        const emptyIcon = emptyState2.createSpan({ cls: "ticktick-empty-icon" });
-        (0, import_obsidian9.setIcon)(emptyIcon, "check-circle");
-        emptyState2.createEl("h3", { text: `\u0647\u06CC\u0686 \u062A\u0633\u06A9\u06CC \u062F\u0631 \u0646\u0645\u0627\u06CC \xAB${displayProject.name}\xBB \u0646\u06CC\u0633\u062A` });
-        emptyState2.createEl("p", { text: "\u0647\u0645\u0647\u0654 \u062A\u0633\u06A9\u200C\u0647\u0627 \u0627\u0646\u062C\u0627\u0645 \u0634\u062F\u0647\u200C\u0627\u0646\u062F \u06CC\u0627 \u062A\u0633\u06A9\u06CC \u0645\u0637\u0627\u0628\u0642 \u0627\u06CC\u0646 \u0646\u0645\u0627 \u062F\u0631 \u06A9\u0634 \u0645\u062D\u0644\u06CC \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F." });
-      }
+      this.columnsContainer = columns;
+      this.renderColumnsContainer(columns, rawData, project, displayProject);
     } catch (error) {
       root.createEl("p", { text: error instanceof Error ? error.message : "\u062F\u0627\u062F\u0647\u0654 \u067E\u0631\u0648\u0698\u0647 \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0646\u06CC\u0633\u062A." });
+    }
+  }
+  applyFilter(nextState) {
+    this.filterState = nextState;
+    if (this.columnsContainer && this.currentRawData) {
+      this.renderColumnsContainer(
+        this.columnsContainer,
+        this.currentRawData,
+        this.currentProject,
+        this.currentDisplayProject
+      );
+    } else {
+      void this.render();
+    }
+  }
+  renderColumnsContainer(columns, rawData, project, displayProject) {
+    if (this.lastSelectedProject === this.selected && columns.scrollLeft > 0) {
+      this.savedColumnsScrollLeft = columns.scrollLeft;
+    }
+    columns.empty();
+    enhanceHorizontalScroll(columns);
+    if (this.lastSelectedProject === this.selected && this.savedColumnsScrollLeft > 0) {
+      columns.scrollLeft = this.savedColumnsScrollLeft;
+    } else {
+      scrollToStart(columns);
+    }
+    this.lastSelectedProject = this.selected;
+    const filteredTasks = rawData.tasks.filter(
+      (task) => matchesTaskFilter(task, this.filterState, { timeZone: this.host.timeZone })
+    );
+    const data = {
+      ...rawData,
+      tasks: filteredTasks
+    };
+    if (this.headerBadgeEl) {
+      const isCompletedView = displayProject?.id === COMPLETED_BOARD_VIEW_ID;
+      const countLabel = isCompletedView ? `${data.tasks.length} \u062A\u0633\u06A9 \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647` : `${data.tasks.filter((task) => Number(task.status ?? 0) === 0).length} \u062A\u0633\u06A9 \u0628\u0627\u0632`;
+      const isFiltered = Boolean(
+        this.filterState.searchText || this.filterState.projects && this.filterState.projects.length || this.filterState.tags && this.filterState.tags.length || this.filterState.priorities && this.filterState.priorities.length || this.filterState.statuses && this.filterState.statuses.length
+      );
+      this.headerBadgeEl.setText(isFiltered ? `${countLabel} (\u0641\u06CC\u0644\u062A\u0631 \u0634\u062F\u0647)` : countLabel);
+    }
+    for (const column of boardColumns(data, this.host.showCompleted())) {
+      const shell = columns.createDiv({ cls: "ticktick-project-column" });
+      shell.dataset.columnId = String(column.id);
+      const colHeader = shell.createDiv({ cls: "ticktick-column-header" });
+      colHeader.createEl("strong", { cls: "ticktick-column-name", text: column.name });
+      colHeader.createSpan({ cls: "ticktick-column-count", text: String(column.count) });
+      const movableColumn = Boolean(project) && !column.synthetic;
+      if (movableColumn) {
+        const addToColumn = colHeader.createEl("button", {
+          cls: "ticktick-column-add mod-icon",
+          attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 ${column.name}`, title: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0627\u06CC\u0646 \u0633\u062A\u0648\u0646" }
+        });
+        (0, import_obsidian9.setIcon)(addToColumn, "plus");
+        addToColumn.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          addToColumn.disabled = true;
+          try {
+            await this.host.createTask({ projectId: project.id, columnId: column.id });
+            new import_obsidian9.Notice(`\u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F \u0628\u0647 \u0633\u062A\u0648\u0646 \xAB${column.name}\xBB \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.`);
+            await this.render();
+          } catch (error) {
+            new import_obsidian9.Notice(error instanceof Error ? error.message : "\u0633\u0627\u062E\u062A \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+          } finally {
+            addToColumn.disabled = false;
+          }
+        });
+      }
+      if (column.synthetic) {
+        shell.createEl("small", { cls: "ticktick-column-hint", text: "\u0633\u062A\u0648\u0646 \u0646\u0645\u0627\u06CC\u0634\u06CC\u061B \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062A" });
+      }
+      const listWrap = shell.createDiv({ cls: "ticktick-column-cards" });
+      shell.addEventListener("dragover", (event) => {
+        if (!movableColumn) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        shell.addClass("is-drag-over");
+      });
+      shell.addEventListener("dragleave", (event) => {
+        if (!shell.contains(event.relatedTarget)) shell.removeClass("is-drag-over");
+      });
+      shell.addEventListener("drop", (event) => {
+        event.preventDefault();
+        shell.removeClass("is-drag-over");
+        if (!movableColumn) {
+          new import_obsidian9.Notice("\u0627\u06CC\u0646 \u0633\u062A\u0648\u0646 \u0646\u0645\u0627\u06CC\u0634\u06CC \u0627\u0633\u062A \u0648 \u0645\u0642\u0635\u062F \u0627\u0646\u062A\u0642\u0627\u0644 \u0646\u06CC\u0633\u062A.");
+          return;
+        }
+        const id = event.dataTransfer?.getData("text/ticktick-board-task");
+        const task = data.tasks.find((item) => String(item.id) === id);
+        if (!task || String(task.columnId ?? "") === String(column.id)) return;
+        const cardEl = this.element.querySelector(`[data-task-id="${task.id}"]`);
+        const sourceCol = cardEl?.closest(".ticktick-project-column");
+        const oldColumnId = task.columnId;
+        if (cardEl && listWrap) {
+          listWrap.appendChild(cardEl);
+          const srcBadge = sourceCol?.querySelector(".ticktick-column-count");
+          if (srcBadge) {
+            const count = parseInt(srcBadge.textContent || "0", 10);
+            if (count > 0) srcBadge.textContent = String(count - 1);
+          }
+          const tgtBadge = shell.querySelector(".ticktick-column-count");
+          if (tgtBadge) {
+            const count = parseInt(tgtBadge.textContent || "0", 10);
+            tgtBadge.textContent = String(count + 1);
+          }
+        }
+        task.columnId = String(column.id);
+        void this.moveTask(task, String(column.id), cardEl, sourceCol, oldColumnId);
+      });
+      for (const group of column.groups) {
+        if (group.name) {
+          listWrap.createEl("h4", { cls: "ticktick-group-heading", text: group.name });
+        }
+        for (const task of sortPlanningTasks(group.tasks, this.sortMode)) {
+          this.card(listWrap, task, task.projectColor || displayProject?.color, Boolean(project));
+        }
+      }
+    }
+    if (data.tasks.length === 0) {
+      const emptyState2 = columns.createDiv({ cls: "ticktick-board-empty ticktick-smart-view-empty" });
+      const emptyIcon = emptyState2.createSpan({ cls: "ticktick-empty-icon" });
+      (0, import_obsidian9.setIcon)(emptyIcon, "check-circle");
+      emptyState2.createEl("h3", { text: `\u0647\u06CC\u0686 \u062A\u0633\u06A9\u06CC \u062F\u0631 \u0646\u0645\u0627\u06CC \xAB${displayProject?.name ?? ""}\xBB \u0646\u06CC\u0633\u062A` });
+      emptyState2.createEl("p", { text: "\u0647\u0645\u0647\u0654 \u062A\u0633\u06A9\u200C\u0647\u0627 \u0627\u0646\u062C\u0627\u0645 \u0634\u062F\u0647\u200C\u0627\u0646\u062F \u06CC\u0627 \u062A\u0633\u06A9\u06CC \u0645\u0637\u0627\u0628\u0642 \u0627\u06CC\u0646 \u0646\u0645\u0627 \u06CC\u0627 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u06CC \u062F\u0631 \u06A9\u0634 \u0645\u062D\u0644\u06CC \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F." });
     }
   }
   async persistAndRender() {
@@ -6167,10 +6310,10 @@ var TickTickBridgePlugin = class extends import_obsidian22.Plugin {
     const fromDay = shiftIsoDay(today, -90);
     const officialDocuments = !cacheAvailable && activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit) => habit.id), fromDay, today) : [];
     const checkins = { ...this.cache.habitCheckins };
-    for (const document of officialDocuments ?? []) {
-      const habitId = String(document?.habitId ?? "");
+    for (const document2 of officialDocuments ?? []) {
+      const habitId = String(document2?.habitId ?? "");
       if (!habitId) continue;
-      checkins[habitId] = (document.checkins ?? []).map((entry) => ({ stamp: Number(entry.stamp), value: Number(entry.value ?? 0), goal: Number(entry.goal ?? 1), status: Number(entry.status ?? 0) }));
+      checkins[habitId] = (document2.checkins ?? []).map((entry) => ({ stamp: Number(entry.stamp), value: Number(entry.value ?? 0), goal: Number(entry.goal ?? 1), status: Number(entry.status ?? 0) }));
     }
     const webCheckins = await this.webHabitCheckins(activeHabits.map((habit) => habit.id), today, 91);
     if (webCheckins) for (const [habitId, entries] of webCheckins) checkins[habitId] = entries;
@@ -6475,7 +6618,7 @@ var TickTickBridgePlugin = class extends import_obsidian22.Plugin {
     if (navigator.onLine && Date.now() >= this.rateLimitedUntil) {
       try {
         const documents = await this.client().getHabitCheckins([habitId], from, to);
-        const remote = (documents ?? []).find((document) => String(document?.habitId) === habitId)?.checkins ?? [];
+        const remote = (documents ?? []).find((document2) => String(document2?.habitId) === habitId)?.checkins ?? [];
         if (remote.length || entries.length) {
           const byStamp = new Map(entries.map((entry) => [Number(entry.stamp), entry]));
           for (const entry of remote) byStamp.set(Number(entry.stamp), { stamp: Number(entry.stamp), value: Number(entry.value ?? 0), goal: Number(entry.goal ?? habit.goal ?? 1), status: Number(entry.status ?? 0) });
@@ -6648,12 +6791,12 @@ var TickTickBridgePlugin = class extends import_obsidian22.Plugin {
     }
   }
   async webOpenTasks() {
-    const document = await this.webRequest("batch/check/0");
-    if (!document) return null;
-    const profiles = Array.isArray(document.projectProfiles) ? document.projectProfiles : [];
+    const document2 = await this.webRequest("batch/check/0");
+    if (!document2) return null;
+    const profiles = Array.isArray(document2.projectProfiles) ? document2.projectProfiles : [];
     const projectNames = new Map(profiles.map((project) => [String(project.id ?? ""), String(project.name ?? "")]));
-    if (!Array.isArray(document.syncTaskBean?.update)) return null;
-    const updates = document.syncTaskBean.update;
+    if (!Array.isArray(document2.syncTaskBean?.update)) return null;
+    const updates = document2.syncTaskBean.update;
     return updates.filter((task) => Boolean(task?.id) && Number(task.status ?? 0) === 0).map((task) => ({
       ...task,
       projectName: String(task.projectName ?? projectNames.get(String(task.projectId ?? "")) ?? "\u0648\u0631\u0648\u062F\u06CC")

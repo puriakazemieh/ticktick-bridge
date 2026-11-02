@@ -142,12 +142,21 @@ export class SaveViewModal extends Modal {
 
 export class FilterBar {
   private element: HTMLElement;
+  private searchInput: HTMLInputElement | null = null;
+  private searchClearBtn: HTMLElement | null = null;
+  private chipsContainer: HTMLElement | null = null;
+  private debounceTimer: number | null = null;
 
   constructor(private parent: HTMLElement, private host: FilterBarHost) {
     this.element = this.parent.createDiv({ cls: "ticktick-shared-filter-bar" });
   }
 
   render() {
+    const wasSearchFocused = this.searchInput === document.activeElement;
+    const selStart = this.searchInput?.selectionStart ?? null;
+    const selEnd = this.searchInput?.selectionEnd ?? null;
+    const prevText = this.searchInput ? this.searchInput.value : null;
+
     this.element.empty();
     const state = this.host.filterState();
 
@@ -155,35 +164,106 @@ export class FilterBar {
     const searchWrapper = this.element.createDiv({ cls: "ticktick-filter-search-pill" });
     const sIcon = searchWrapper.createSpan({ cls: "ticktick-search-icon" });
     setIcon(sIcon, "search");
-    const input = searchWrapper.createEl("input", {
+
+    const inputVal = prevText !== null ? prevText : (state.searchText || "");
+    this.searchInput = searchWrapper.createEl("input", {
       type: "search",
       placeholder: "جست‌وجوی تسک‌ها…",
-      value: state.searchText || "",
+      value: inputVal,
       cls: "ticktick-filter-search-field"
     });
-    input.addEventListener("input", () => {
-      this.host.onFilterChange({
-        ...state,
-        searchText: input.value
-      });
+
+    this.searchClearBtn = searchWrapper.createEl("button", {
+      cls: "ticktick-filter-clear-search",
+      attr: { type: "button", "aria-label": "پاک کردن متن" }
+    });
+    setIcon(this.searchClearBtn, "x");
+    this.updateSearchClearButton();
+
+    this.searchClearBtn.addEventListener("click", () => {
+      if (this.searchInput) {
+        this.searchInput.value = "";
+        this.searchInput.focus();
+      }
+      this.updateSearchClearButton();
+      this.notifyFilterChange({ ...this.host.filterState(), searchText: "" });
+      this.renderChips();
     });
 
-    if (state.searchText) {
-      const clearSearch = searchWrapper.createEl("button", {
-        cls: "ticktick-filter-clear-search",
-        attr: { type: "button", "aria-label": "پاک کردن متن" }
-      });
-      setIcon(clearSearch, "x");
-      clearSearch.addEventListener("click", () => {
-        input.value = "";
-        this.host.onFilterChange({ ...state, searchText: "" });
-      });
+    this.searchInput.addEventListener("input", () => {
+      this.updateSearchClearButton();
+      if (this.debounceTimer !== null) {
+        window.clearTimeout(this.debounceTimer);
+      }
+      this.debounceTimer = window.setTimeout(() => {
+        this.debounceTimer = null;
+        this.notifyFilterChange({
+          ...this.host.filterState(),
+          searchText: this.searchInput?.value || ""
+        });
+        this.renderChips();
+      }, 120);
+    });
+
+    this.searchInput.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        if (this.debounceTimer !== null) {
+          window.clearTimeout(this.debounceTimer);
+          this.debounceTimer = null;
+        }
+        this.notifyFilterChange({
+          ...this.host.filterState(),
+          searchText: this.searchInput?.value || ""
+        });
+        this.renderChips();
+      } else if (e.key === "Escape") {
+        if (this.debounceTimer !== null) {
+          window.clearTimeout(this.debounceTimer);
+          this.debounceTimer = null;
+        }
+        if (this.searchInput) {
+          this.searchInput.value = "";
+        }
+        this.updateSearchClearButton();
+        this.notifyFilterChange({
+          ...this.host.filterState(),
+          searchText: ""
+        });
+        this.renderChips();
+      }
+    });
+
+    // 2. Chips Container (Projects, Tags, Priority, Status, Saved Views, Reset)
+    this.chipsContainer = this.element.createDiv({ cls: "ticktick-filter-chips-container" });
+    this.renderChips();
+
+    if (wasSearchFocused && this.searchInput) {
+      this.searchInput.focus();
+      if (selStart !== null && selEnd !== null) {
+        this.searchInput.setSelectionRange(selStart, selEnd);
+      }
     }
+  }
+
+  private updateSearchClearButton() {
+    if (!this.searchClearBtn) return;
+    const hasText = Boolean(this.searchInput?.value);
+    this.searchClearBtn.style.display = hasText ? "flex" : "none";
+  }
+
+  private notifyFilterChange(nextState: TaskFilterState) {
+    this.host.onFilterChange(nextState);
+  }
+
+  renderChips() {
+    if (!this.chipsContainer) return;
+    this.chipsContainer.empty();
+    const state = this.host.filterState();
 
     // 2. Projects Pill
     const projects = this.host.projects();
     const selProjects = new Set(state.projects || []);
-    const projBtn = this.element.createEl("button", {
+    const projBtn = this.chipsContainer.createEl("button", {
       cls: `ticktick-filter-chip ${selProjects.size ? "is-active" : ""}`,
       attr: { type: "button" }
     });
@@ -200,10 +280,11 @@ export class FilterBar {
         projects.map(p => ({ id: p.id, label: p.name })),
         selProjects,
         selected => {
-          this.host.onFilterChange({
+          this.notifyFilterChange({
             ...state,
             projects: [...selected]
           });
+          this.renderChips();
         }
       ).open();
     });
@@ -211,7 +292,7 @@ export class FilterBar {
     // 3. Tags Pill
     const tags = this.host.tags();
     const selTags = new Set(state.tags || []);
-    const tagBtn = this.element.createEl("button", {
+    const tagBtn = this.chipsContainer.createEl("button", {
       cls: `ticktick-filter-chip ${selTags.size ? "is-active" : ""}`,
       attr: { type: "button" }
     });
@@ -226,17 +307,18 @@ export class FilterBar {
         tags.map(t => ({ id: t, label: `#${t}` })),
         selTags,
         selected => {
-          this.host.onFilterChange({
+          this.notifyFilterChange({
             ...state,
             tags: [...selected]
           });
+          this.renderChips();
         }
       ).open();
     });
 
     // 4. Priority Dropdown Pill
     const selPriorities = new Set(state.priorities || []);
-    const priorityBtn = this.element.createEl("button", {
+    const priorityBtn = this.chipsContainer.createEl("button", {
       cls: `ticktick-filter-chip ${selPriorities.size ? "is-active" : ""}`,
       attr: { type: "button" }
     });
@@ -259,17 +341,19 @@ export class FilterBar {
             .onClick(() => {
               const next = new Set(selPriorities);
               next.has(pVal) ? next.delete(pVal) : next.add(pVal);
-              this.host.onFilterChange({
+              this.notifyFilterChange({
                 ...state,
                 priorities: [...next]
               });
+              this.renderChips();
             });
         });
       }
       menu.addSeparator();
       menu.addItem(item => {
         item.setTitle("پاک کردن فیلتر اولویت").onClick(() => {
-          this.host.onFilterChange({ ...state, priorities: [] });
+          this.notifyFilterChange({ ...state, priorities: [] });
+          this.renderChips();
         });
       });
       menu.showAtMouseEvent(e);
@@ -277,7 +361,7 @@ export class FilterBar {
 
     // 5. Status Dropdown Pill
     const selStatuses = state.statuses || [];
-    const statusBtn = this.element.createEl("button", {
+    const statusBtn = this.chipsContainer.createEl("button", {
       cls: `ticktick-filter-chip ${selStatuses.length ? "is-active" : ""}`,
       attr: { type: "button" }
     });
@@ -292,20 +376,23 @@ export class FilterBar {
     statusBtn.addEventListener("click", (e: MouseEvent) => {
       const menu = new Menu();
       menu.addItem(item => item.setTitle("همهٔ وضعیت‌ها").setChecked(!selStatuses.length).onClick(() => {
-        this.host.onFilterChange({ ...state, statuses: [] });
+        this.notifyFilterChange({ ...state, statuses: [] });
+        this.renderChips();
       }));
       menu.addItem(item => item.setTitle("فقط تسک‌های باز").setChecked(selStatuses.length === 1 && selStatuses[0] === 0).onClick(() => {
-        this.host.onFilterChange({ ...state, statuses: [0] });
+        this.notifyFilterChange({ ...state, statuses: [0] });
+        this.renderChips();
       }));
       menu.addItem(item => item.setTitle("فقط تکمیل‌شده‌ها").setChecked(selStatuses.length === 1 && selStatuses[0] === 2).onClick(() => {
-        this.host.onFilterChange({ ...state, statuses: [2] });
+        this.notifyFilterChange({ ...state, statuses: [2] });
+        this.renderChips();
       }));
       menu.showAtMouseEvent(e);
     });
 
     // 6. Saved Views Dropdown
     const savedViews = this.host.savedViews();
-    const savedViewsBtn = this.element.createEl("button", {
+    const savedViewsBtn = this.chipsContainer.createEl("button", {
       cls: "ticktick-filter-chip ticktick-saved-views-chip",
       attr: { type: "button" }
     });
@@ -322,8 +409,13 @@ export class FilterBar {
           .setIcon("plus")
           .onClick(() => {
             new SaveViewModal(this.host.app, "", async name => {
-              const newView = createSavedView(name, state, { scope: this.host.scope });
+              const currentFilter = {
+                ...state,
+                searchText: this.searchInput?.value || ""
+              };
+              const newView = createSavedView(name, currentFilter, { scope: this.host.scope });
               await this.host.saveSavedViews([...savedViews, newView]);
+              this.renderChips();
               new Notice(`نمای «${name}» با موفقیت ذخیره شد.`);
             }).open();
           });
@@ -335,10 +427,15 @@ export class FilterBar {
           menu.addItem(item => {
             item.setTitle(`📌 ${view.name}`)
               .onClick(() => {
-                this.host.onFilterChange({
+                if (this.searchInput && view.filter.searchText !== undefined) {
+                  this.searchInput.value = view.filter.searchText;
+                }
+                this.updateSearchClearButton();
+                this.notifyFilterChange({
                   ...state,
                   ...view.filter
                 });
+                this.renderChips();
                 new Notice(`نمای «${view.name}» اعمال شد.`);
               });
           });
@@ -356,8 +453,9 @@ export class FilterBar {
     });
 
     // 7. Clear All Filters Button (if any active filter)
+    const activeSearch = Boolean(this.searchInput?.value || state.searchText);
     const hasActiveFilters = Boolean(
-      state.searchText ||
+      activeSearch ||
       (state.projects && state.projects.length > 0) ||
       (state.tags && state.tags.length > 0) ||
       (state.priorities && state.priorities.length > 0) ||
@@ -366,7 +464,7 @@ export class FilterBar {
     );
 
     if (hasActiveFilters) {
-      const resetBtn = this.element.createEl("button", {
+      const resetBtn = this.chipsContainer.createEl("button", {
         cls: "ticktick-filter-clear-btn",
         attr: { type: "button", title: "پاک کردن همهٔ فیلترها", "aria-label": "پاک کردن فیلترها" }
       });
@@ -374,7 +472,11 @@ export class FilterBar {
       setIcon(rIcon, "rotate-ccw");
       resetBtn.createSpan({ text: "پاک‌سازی فیلترها" });
       resetBtn.addEventListener("click", () => {
-        this.host.onFilterChange({
+        if (this.searchInput) {
+          this.searchInput.value = "";
+        }
+        this.updateSearchClearButton();
+        this.notifyFilterChange({
           projects: [],
           tags: [],
           statuses: [],
@@ -384,6 +486,7 @@ export class FilterBar {
           grouping: state.grouping || "none",
           sort: state.sort || "ticktick"
         });
+        this.renderChips();
       });
     }
   }
@@ -398,6 +501,7 @@ export class FilterBar {
           .onClick(async () => {
             const next = savedViews.filter(v => v.id !== view.id);
             await this.host.saveSavedViews(next);
+            this.renderChips();
             new Notice(`نمای «${view.name}» حذف شد.`);
           });
       });
