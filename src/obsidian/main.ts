@@ -712,7 +712,23 @@ export default class TickTickBridgePlugin extends Plugin {
       if (type === "update") {
         const updatePayload = payload as Partial<TickTickTask> & { id: string };
         this.cache.tasks = this.cache.tasks.map(task => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
-        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).map((task: TickTickTask) => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
+        const prior = this.cache.tasks.find(task => task.id === updatePayload.id);
+        const priorProjectId = prior?.projectId;
+        if (updatePayload.projectId && priorProjectId && updatePayload.projectId !== priorProjectId) {
+          const oldBoard = this.cache.projectBoards[priorProjectId];
+          if (oldBoard) {
+            oldBoard.tasks = (oldBoard.tasks ?? []).filter((task: TickTickTask) => task.id !== updatePayload.id);
+          }
+          const newBoard = this.cache.projectBoards[updatePayload.projectId];
+          if (newBoard) {
+            const updatedTask = this.cache.tasks.find(t => t.id === updatePayload.id);
+            if (updatedTask && !(newBoard.tasks ?? []).some(t => t.id === updatePayload.id)) {
+              newBoard.tasks = [...(newBoard.tasks ?? []), updatedTask];
+            }
+          }
+        } else {
+          for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).map((task: TickTickTask) => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
+        }
         bridgeEvents.emit("task:updated", { task: updatePayload });
       }
       if (type === "complete" || type === "delete") {
@@ -1048,13 +1064,13 @@ export default class TickTickBridgePlugin extends Plugin {
         return { status: 2 };
       }
       if (operationType === "reopen") {
-        const payload = toTaskPayload({ ...task, status: 0 }, this.settings.timeZone);
+        const payload: Partial<TickTickTask> = { ...task, status: 0 };
         await this.updateTask(payload);
         return { status: 0 };
       }
       const mutation = computeBulkTaskMutation(task, operationType, parameters, this.settings.timeZone);
       if (!mutation) return { noop: true };
-      const payload = toTaskPayload({ ...task, ...mutation }, this.settings.timeZone);
+      const payload: Partial<TickTickTask> = { ...task, ...mutation };
       await this.updateTask(payload);
       return mutation;
     }, 3);

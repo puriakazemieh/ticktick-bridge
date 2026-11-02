@@ -989,6 +989,7 @@ export class PlanningCalendar {
           tabindex: "0"
         }
       });
+      bar.dataset.taskId = String(task.id);
       bar.style.gridColumn = `${first + 1} / ${last + 2}`;
       bar.style.setProperty("--ticktick-task-tone", tone);
 

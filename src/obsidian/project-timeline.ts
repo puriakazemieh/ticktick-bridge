@@ -420,6 +420,7 @@ export class ProjectTimeline {
         title: `${task.title} · ${range.start} تا ${range.end}`
       }
     });
+    bar.dataset.taskId = String(task.id);
 
     bar.style.gridColumn = placement.gridColumn;
     if (bulkSelectionStore.isSelected(String(task.id))) {
@@ -646,6 +647,19 @@ export class ProjectTimeline {
     // 1. Point tasks (have single due date)
     for (const item of pointTasks) {
       const card = cardsContainer.createDiv({ cls: "ticktick-backlog-card is-point" });
+      card.dataset.taskId = String(item.task.id);
+      if (bulkSelectionStore.isSelected(String(item.task.id))) {
+        card.addClass("is-bulk-selected");
+      }
+
+      card.addEventListener("click", (e) => {
+        if (e.shiftKey || e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          bulkSelectionStore.toggle(String(item.task.id));
+        }
+      });
+
       card.createDiv({ cls: "ticktick-card-title", text: item.task.title });
       card.createDiv({ cls: "ticktick-card-date", text: `سررسید: ${item.range.end}` });
       
@@ -653,7 +667,8 @@ export class ProjectTimeline {
         cls: "ticktick-card-plan-btn",
         text: "ایجاد بازهٔ ۳ روزه"
       });
-      planBtn.addEventListener("click", async () => {
+      planBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
         const start = item.range.end;
         const due = shiftCalendarDay(start, 3);
         await this.host.rescheduleRange(item.task, start, due);
@@ -664,6 +679,19 @@ export class ProjectTimeline {
     // 2. Unscheduled backlog tasks
     for (const task of backlogTasks) {
       const card = cardsContainer.createDiv({ cls: "ticktick-backlog-card is-unscheduled" });
+      card.dataset.taskId = String(task.id);
+      if (bulkSelectionStore.isSelected(String(task.id))) {
+        card.addClass("is-bulk-selected");
+      }
+
+      card.addEventListener("click", (e) => {
+        if (e.shiftKey || e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          bulkSelectionStore.toggle(String(task.id));
+        }
+      });
+
       card.createDiv({ cls: "ticktick-card-title", text: task.title });
       card.createDiv({ cls: "ticktick-card-badge", text: "بدون تاریخ" });
 
@@ -671,7 +699,8 @@ export class ProjectTimeline {
         cls: "ticktick-card-plan-btn",
         text: "برنامه‌ریزی از امروز"
       });
-      planBtn.addEventListener("click", async () => {
+      planBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
         const today = todayInZone(this.host.timeZone);
         const due = shiftCalendarDay(today, 2);
         await this.host.rescheduleRange(task, today, due);

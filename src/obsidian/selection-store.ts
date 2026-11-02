@@ -82,6 +82,21 @@ class BulkSelectionStore {
   }
 
   private notify() {
+    if (typeof document !== "undefined") {
+      // Remove selection class from elements that are no longer selected
+      document.querySelectorAll<HTMLElement>(".is-bulk-selected").forEach(el => {
+        const id = el.dataset.taskId;
+        if (!id || !this.selected.has(id)) {
+          el.classList.remove("is-bulk-selected");
+        }
+      });
+      // Add selection class to elements currently selected
+      for (const id of this.selected) {
+        document.querySelectorAll<HTMLElement>(`[data-task-id="${id}"]`).forEach(el => {
+          el.classList.add("is-bulk-selected");
+        });
+      }
+    }
     for (const listener of this.listeners) {
       try {
         listener();

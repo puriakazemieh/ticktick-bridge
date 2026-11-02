@@ -2242,6 +2242,19 @@ var BulkSelectionStore = class {
     };
   }
   notify() {
+    if (typeof document !== "undefined") {
+      document.querySelectorAll(".is-bulk-selected").forEach((el) => {
+        const id = el.dataset.taskId;
+        if (!id || !this.selected.has(id)) {
+          el.classList.remove("is-bulk-selected");
+        }
+      });
+      for (const id of this.selected) {
+        document.querySelectorAll(`[data-task-id="${id}"]`).forEach((el) => {
+          el.classList.add("is-bulk-selected");
+        });
+      }
+    }
     for (const listener of this.listeners) {
       try {
         listener();
@@ -3479,6 +3492,7 @@ var PlanningCalendar = class {
           tabindex: "0"
         }
       });
+      bar.dataset.taskId = String(task.id);
       bar.style.gridColumn = `${first + 1} / ${last + 2}`;
       bar.style.setProperty("--ticktick-task-tone", tone);
       const openDetails = () => new TaskDetailsModal(this.host.app, task, {
@@ -5915,6 +5929,7 @@ var ProjectTimeline = class {
         title: `${task.title} \xB7 ${range.start} \u062A\u0627 ${range.end}`
       }
     });
+    bar.dataset.taskId = String(task.id);
     bar.style.gridColumn = placement.gridColumn;
     if (bulkSelectionStore.isSelected(String(task.id))) {
       bar.addClass("is-bulk-selected");
@@ -6086,13 +6101,25 @@ var ProjectTimeline = class {
     const cardsContainer = drawer.createDiv({ cls: "ticktick-backlog-cards" });
     for (const item of pointTasks) {
       const card = cardsContainer.createDiv({ cls: "ticktick-backlog-card is-point" });
+      card.dataset.taskId = String(item.task.id);
+      if (bulkSelectionStore.isSelected(String(item.task.id))) {
+        card.addClass("is-bulk-selected");
+      }
+      card.addEventListener("click", (e) => {
+        if (e.shiftKey || e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          bulkSelectionStore.toggle(String(item.task.id));
+        }
+      });
       card.createDiv({ cls: "ticktick-card-title", text: item.task.title });
       card.createDiv({ cls: "ticktick-card-date", text: `\u0633\u0631\u0631\u0633\u06CC\u062F: ${item.range.end}` });
       const planBtn = card.createEl("button", {
         cls: "ticktick-card-plan-btn",
         text: "\u0627\u06CC\u062C\u0627\u062F \u0628\u0627\u0632\u0647\u0654 \u06F3 \u0631\u0648\u0632\u0647"
       });
-      planBtn.addEventListener("click", async () => {
+      planBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
         const start = item.range.end;
         const due = shiftCalendarDay(start, 3);
         await this.host.rescheduleRange(item.task, start, due);
@@ -6101,13 +6128,25 @@ var ProjectTimeline = class {
     }
     for (const task of backlogTasks) {
       const card = cardsContainer.createDiv({ cls: "ticktick-backlog-card is-unscheduled" });
+      card.dataset.taskId = String(task.id);
+      if (bulkSelectionStore.isSelected(String(task.id))) {
+        card.addClass("is-bulk-selected");
+      }
+      card.addEventListener("click", (e) => {
+        if (e.shiftKey || e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          bulkSelectionStore.toggle(String(task.id));
+        }
+      });
       card.createDiv({ cls: "ticktick-card-title", text: task.title });
       card.createDiv({ cls: "ticktick-card-badge", text: "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E" });
       const planBtn = card.createEl("button", {
         cls: "ticktick-card-plan-btn",
         text: "\u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC \u0627\u0632 \u0627\u0645\u0631\u0648\u0632"
       });
-      planBtn.addEventListener("click", async () => {
+      planBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
         const today = todayInZone(this.host.timeZone);
         const due = shiftCalendarDay(today, 2);
         await this.host.rescheduleRange(task, today, due);
@@ -8248,7 +8287,23 @@ var TickTickBridgePlugin = class extends import_obsidian27.Plugin {
       if (type === "update") {
         const updatePayload = payload;
         this.cache.tasks = this.cache.tasks.map((task) => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
-        for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).map((task) => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
+        const prior = this.cache.tasks.find((task) => task.id === updatePayload.id);
+        const priorProjectId = prior?.projectId;
+        if (updatePayload.projectId && priorProjectId && updatePayload.projectId !== priorProjectId) {
+          const oldBoard = this.cache.projectBoards[priorProjectId];
+          if (oldBoard) {
+            oldBoard.tasks = (oldBoard.tasks ?? []).filter((task) => task.id !== updatePayload.id);
+          }
+          const newBoard = this.cache.projectBoards[updatePayload.projectId];
+          if (newBoard) {
+            const updatedTask = this.cache.tasks.find((t) => t.id === updatePayload.id);
+            if (updatedTask && !(newBoard.tasks ?? []).some((t) => t.id === updatePayload.id)) {
+              newBoard.tasks = [...newBoard.tasks ?? [], updatedTask];
+            }
+          }
+        } else {
+          for (const board of Object.values(this.cache.projectBoards)) board.tasks = (board.tasks ?? []).map((task) => task.id === updatePayload.id ? { ...task, ...updatePayload } : task);
+        }
         bridgeEvents.emit("task:updated", { task: updatePayload });
       }
       if (type === "complete" || type === "delete") {
@@ -8561,13 +8616,13 @@ var TickTickBridgePlugin = class extends import_obsidian27.Plugin {
         return { status: 2 };
       }
       if (operationType === "reopen") {
-        const payload2 = toTaskPayload({ ...task, status: 0 }, this.settings.timeZone);
+        const payload2 = { ...task, status: 0 };
         await this.updateTask(payload2);
         return { status: 0 };
       }
       const mutation = computeBulkTaskMutation(task, operationType, parameters, this.settings.timeZone);
       if (!mutation) return { noop: true };
-      const payload = toTaskPayload({ ...task, ...mutation }, this.settings.timeZone);
+      const payload = { ...task, ...mutation };
       await this.updateTask(payload);
       return mutation;
     }, 3);
