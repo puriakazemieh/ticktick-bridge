@@ -1372,7 +1372,8 @@
   width: 100%;
 }
 
-.ticktick-planner-workspace .ticktick-planner-days {
+.ticktick-planner-workspace .ticktick-planner-days,
+.ticktick-planner-workspace .ticktick-planner-month {
   flex: 1 1 0;
   min-width: 0;
 }

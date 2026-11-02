@@ -832,7 +832,13 @@ export class PlanningCalendar {
 
   private renderMonth(root: HTMLElement, tasks: TickTickTask[]) {
     const today = todayInZone(this.host.timeZone);
-    const grid = root.createDiv({ cls: "ticktick-planner-month" });
+    const workspace = root.createDiv({ cls: `ticktick-planner-workspace ${this.backlogCollapsed ? "is-backlog-collapsed" : ""}` });
+
+    if (!this.backlogCollapsed) {
+      this.renderBacklogColumn(workspace, tasks);
+    }
+
+    const grid = workspace.createDiv({ cls: "ticktick-planner-month" });
     enhanceHorizontalScroll(grid);
     scrollToStart(grid);
     this.bindCalendarDrop(grid, tasks);
@@ -1472,7 +1478,8 @@ for (const habit of habits) {
     const id = event.dataTransfer?.getData("text/ticktick-task")
       || event.dataTransfer?.getData("text/plain")
       || this.draggingTaskId;
-    return tasks.find(item => String(item.id) === String(id));
+    return tasks.find(item => String(item.id) === String(id))
+      || this.host.tasks().find(item => String(item.id) === String(id));
   }
 
   /** Capture drops before a theme, card, or embedded Obsidian view can stop
@@ -1496,8 +1503,15 @@ for (const habit of habits) {
       surface.querySelectorAll(".is-drag-over").forEach(item => item.removeClass("is-drag-over"));
       const task = this.draggedTask(event, tasks);
       const sourceDay = this.draggingSourceDay;
-      if (task) void this.dropTask(task, day, sourceDay);
-      else new Notice("تسکِ در حال جابه‌جایی پیدا نشد؛ دوباره تلاش کن.");
+      const targetEl = event.target as HTMLElement | null;
+      const slot = targetEl?.closest<HTMLElement>(".ticktick-timegrid-slot")?.dataset.time;
+      if (task) {
+        if (slot) {
+          void this.dropTaskToTime(task, day, slot);
+        } else {
+          void this.dropTask(task, day, sourceDay);
+        }
+      } else new Notice("تسکِ در حال جابه‌جایی پیدا نشد؛ دوباره تلاش کن.");
     }, true);
   }
 

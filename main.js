@@ -2891,7 +2891,11 @@ var PlanningCalendar = class {
   }
   renderMonth(root, tasks) {
     const today = todayInZone(this.host.timeZone);
-    const grid = root.createDiv({ cls: "ticktick-planner-month" });
+    const workspace = root.createDiv({ cls: `ticktick-planner-workspace ${this.backlogCollapsed ? "is-backlog-collapsed" : ""}` });
+    if (!this.backlogCollapsed) {
+      this.renderBacklogColumn(workspace, tasks);
+    }
+    const grid = workspace.createDiv({ cls: "ticktick-planner-month" });
     enhanceHorizontalScroll(grid);
     scrollToStart(grid);
     this.bindCalendarDrop(grid, tasks);
@@ -3448,7 +3452,7 @@ var PlanningCalendar = class {
   }
   draggedTask(event, tasks) {
     const id = event.dataTransfer?.getData("text/ticktick-task") || event.dataTransfer?.getData("text/plain") || this.draggingTaskId;
-    return tasks.find((item) => String(item.id) === String(id));
+    return tasks.find((item) => String(item.id) === String(id)) || this.host.tasks().find((item) => String(item.id) === String(id));
   }
   /** Capture drops before a theme, card, or embedded Obsidian view can stop
    * propagation. Cells still keep their local listeners for visual feedback. */
@@ -3471,8 +3475,15 @@ var PlanningCalendar = class {
       surface.querySelectorAll(".is-drag-over").forEach((item) => item.removeClass("is-drag-over"));
       const task = this.draggedTask(event, tasks);
       const sourceDay = this.draggingSourceDay;
-      if (task) void this.dropTask(task, day, sourceDay);
-      else new import_obsidian6.Notice("\u062A\u0633\u06A9\u0650 \u062F\u0631 \u062D\u0627\u0644 \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F\u061B \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u06A9\u0646.");
+      const targetEl = event.target;
+      const slot = targetEl?.closest(".ticktick-timegrid-slot")?.dataset.time;
+      if (task) {
+        if (slot) {
+          void this.dropTaskToTime(task, day, slot);
+        } else {
+          void this.dropTask(task, day, sourceDay);
+        }
+      } else new import_obsidian6.Notice("\u062A\u0633\u06A9\u0650 \u062F\u0631 \u062D\u0627\u0644 \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F\u061B \u062F\u0648\u0628\u0627\u0631\u0647 \u062A\u0644\u0627\u0634 \u06A9\u0646.");
     }, true);
   }
   /** Resolve the destination from the visible date header instead of the DOM
