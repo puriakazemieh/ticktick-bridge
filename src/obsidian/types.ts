@@ -36,6 +36,9 @@ export interface BridgeSettings {
   boardSmartViewGrouping?: string;
   savedViews: SavedView[];
   experimentalHierarchyWrites: boolean;
+  enableDueReminders?: boolean;
+  reminderLeadMinutes?: number;
+  enableReminderChime?: boolean;
 }
 
 export interface TaskFilterState {

@@ -67,6 +67,7 @@ import { ActivityHeatmap } from "./activity-heatmap";
 import { QueryBlockRenderer } from "./query-block";
 import { TickTickEditorSuggest } from "./editor-suggest";
 import { CanvasExportModal } from "./canvas-exporter";
+import { ReminderService } from "./reminder-service";
 import { TickTickBridgeSettings } from "./settings";
 
 export default class TickTickBridgePlugin extends Plugin {
@@ -97,6 +98,7 @@ export default class TickTickBridgePlugin extends Plugin {
   private timeblockStatusTimer: number | null = null;
   pomodoroService: PomodoroTimerService | null = null;
   private pomodoroStatusBarItem: HTMLElement | null = null;
+  reminderService: ReminderService | null = null;
 
   async onload() {
     this.managedStorage = new ManagedStorage(this.app.vault.adapter as unknown as VaultAdapter);
@@ -204,6 +206,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "quick-capture-task", name: "Quick capture task (Natural language)", callback: () => this.openQuickCaptureModal() });
     this.addCommand({ id: "open-activity-heatmap", name: "Open TickTick activity and habit heatmap", callback: () => this.openActivityHeatmapView() });
     this.addCommand({ id: "export-tasks-to-canvas", name: "Export tasks to visual Obsidian Canvas", callback: () => this.openCanvasExportModal() });
+    this.addCommand({ id: "test-reminder-chime", name: "Test reminder audio chime", callback: () => this.reminderService?.playReminderChime() });
     this.addCommand({ id: "probe-task-hierarchy", name: "Probe task hierarchy and generate audit report", callback: () => this.probeTaskHierarchyAndReport() });
     this.addCommand({ id: "open-smart-views", name: "Open smart views (TickTick board)", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
@@ -234,6 +237,8 @@ export default class TickTickBridgePlugin extends Plugin {
       logPomodoroToDailyNote: async (session) => this.logPomodoroToDailyNote(session),
       onStateChanged: (st) => this.updatePomodoroStatusBar(st),
     });
+    this.reminderService = new ReminderService(this);
+    this.reminderService.start();
     // Build the complete local mirror after Obsidian has finished opening.
     // The UI can then stay entirely local between background syncs.
     this.app.workspace.onLayoutReady(() => void this.syncNow({ quiet: true }));
@@ -245,6 +250,8 @@ export default class TickTickBridgePlugin extends Plugin {
       this.timeblockStatusTimer = null;
     }
     this.pomodoroService?.destroy();
+    this.reminderService?.stop();
+    this.reminderService = null;
     this.pomodoroService = null;
   }
 

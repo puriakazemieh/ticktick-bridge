@@ -1,0 +1,32 @@
+/* Reminder Notice Styles */
+.ticktick-reminder-notice {
+  direction: rtl;
+  font-family: inherit;
+  padding: 0.75rem 1rem;
+  border-right: 4px solid var(--interactive-accent);
+}
+
+.reminder-notice-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-normal);
+  margin-bottom: 0.25rem;
+}
+
+.reminder-notice-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+}
+
+.reminder-notice-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.reminder-notice-buttons button {
+  font-size: 0.8rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+}

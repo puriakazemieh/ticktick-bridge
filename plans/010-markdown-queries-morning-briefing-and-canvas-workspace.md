@@ -1,6 +1,6 @@
 # Plan 010: Dynamic query embeds, morning briefing, editor autocomplete, canvas board, and smart reminders
 
-> Status: IN PROGRESS  
+> Status: DONE  
 > Priority: P1  
 > Effort: Large  
 > Risk: Low to Medium  
@@ -95,7 +95,7 @@ Bring the TickTick task ecosystem directly into the user's Obsidian writing flow
 
 ---
 
-### Milestone 5: Smart Background Reminders & Audio Alerts (سیستم یادآوری صوتی و هشدارهای سررسید)
+### Milestone 5: Smart Background Reminders & Audio Alerts (سیستم یادآوری صوتی و هشدارهای سررسید) [DONE]
 1. **Pure Daemon Logic (`src/core/reminder-daemon.js`)**:
    - `checkDueReminders(tasks, currentTime, acknowledgedIds, leadMinutes = 5)`: Identifies tasks needing reminder notifications.
    - Handles snooze mutations (`computeSnoozeMutation(task, minutes)`).

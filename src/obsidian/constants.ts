@@ -35,4 +35,7 @@ export const DEFAULT_SETTINGS: BridgeSettings = {
   boardSmartViewGrouping: "project",
   savedViews: [],
   experimentalHierarchyWrites: false,
+  enableDueReminders: true,
+  reminderLeadMinutes: 5,
+  enableReminderChime: true,
 };

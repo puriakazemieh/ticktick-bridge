@@ -15,7 +15,7 @@ Generated on 2026-10-14 against commit `b86e322`. Execute in this order. Each ex
 | 007 | Import selected TickTick Notes into managed Obsidian files | P2 | L | 001 | DONE (reviewed & verified - selective import & managed boundary) |
 | 008 | Build cache-first smart planning views and project execution tools | P1 | L | 001, current cache/mutation layer | DONE (all 7 phases complete on `main`) |
 | 009 | Deep focus, Eisenhower decision matrix, and daily timeblocking workspace | P1 | L | 001–008, Daily Note integration | DONE (all 5 milestones complete on `main`) |
-| 010 | Dynamic query embeds, morning briefing, editor autocomplete, canvas board, and smart reminders | P1 | L | 001–009, Jalali calendar, Web Audio | IN PROGRESS |
+| 010 | Dynamic query embeds, morning briefing, editor autocomplete, canvas board, and smart reminders | P1 | L | 001–009, Jalali calendar, Web Audio | DONE (all 5 milestones complete on `main`) |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED` (include a reason) | `REJECTED` (include a reason).
 
