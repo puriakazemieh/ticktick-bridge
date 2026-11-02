@@ -27,4 +27,5 @@ export const DEFAULT_SETTINGS: BridgeSettings = {
   boardCollapsedGroups: [],
   boardSidebarCollapsed: true,
   boardSidebarPreferenceInitialized: false,
+  boardSmartViewGrouping: "project",
 };

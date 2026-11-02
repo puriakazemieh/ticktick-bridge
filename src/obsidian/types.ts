@@ -33,6 +33,7 @@ export interface BridgeSettings {
   boardCollapsedGroups: string[];
   boardSidebarCollapsed: boolean;
   boardSidebarPreferenceInitialized: boolean;
+  boardSmartViewGrouping?: string;
 }
 
 export type BridgeCache = {

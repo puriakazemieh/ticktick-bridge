@@ -515,6 +515,11 @@
   color: var(--text-muted);
   margin: 0;
 }
+.ticktick-smart-view-empty {
+  margin: 1.5rem auto;
+  max-width: 32rem;
+  width: 100%;
+}
 .ticktick-project-header {
   display: flex;
   align-items: center;

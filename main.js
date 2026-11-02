@@ -20,137 +20,6 @@ var __copyProps = (to, from, except, desc) => {
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/core/project-board.js
-var project_board_exports = {};
-__export(project_board_exports, {
-  ALL_BOARD_VIEW_ID: () => ALL_BOARD_VIEW_ID,
-  INBOX_BOARD_VIEW_ID: () => INBOX_BOARD_VIEW_ID,
-  RECURRING_BOARD_VIEW_ID: () => RECURRING_BOARD_VIEW_ID,
-  boardColumns: () => boardColumns,
-  normalizeProjectData: () => normalizeProjectData,
-  sidebarTree: () => sidebarTree,
-  virtualBoardData: () => virtualBoardData,
-  virtualBoardEntries: () => virtualBoardEntries
-});
-function normalizeProjectData(document = {}, fallbackProject = {}) {
-  const project = { ...fallbackProject, ...document.project ?? {}, id: document.project?.id ?? fallbackProject.id ?? document.projectId, name: document.project?.name ?? fallbackProject.name ?? "\u0628\u062F\u0648\u0646 \u0646\u0627\u0645" };
-  const columns = (document.columns ?? []).map((column, index) => ({ id: String(column.id ?? ""), name: String(column.name ?? `\u0633\u062A\u0648\u0646 ${index + 1}`), sortOrder: Number(column.sortOrder ?? index) }));
-  const names = new Map(columns.map((column) => [column.id, column.name]));
-  const tasks = (document.tasks ?? []).map((task) => ({ ...task, projectId: task.projectId ?? project.id, projectName: project.name, projectColor: project.color, columnId: task.columnId ?? "", columnName: names.get(String(task.columnId ?? "")) ?? "Tasks" }));
-  return { project, columns, tasks };
-}
-function sidebarTree(projects, tasks = []) {
-  const groups = /* @__PURE__ */ new Map();
-  for (const [index, project] of (projects ?? []).entries()) {
-    const group = String(project.groupName ?? project.folderName ?? "");
-    if (!groups.has(group)) groups.set(group, []);
-    groups.get(group).push({ ...project, sidebarIndex: index, openCount: tasks.filter((task) => String(task.projectId) === String(project.id) && Number(task.status ?? 0) === 0).length });
-  }
-  const key = (value) => String(value ?? "").replace(/ي/g, "\u06CC").replace(/ك/g, "\u06A9").replace(/[\s‌]+/g, "").trim();
-  const groupRank = (name) => ({ "": 0, "\u06A9\u0627\u0631": 10, "\u0644\u06CC\u0633\u062A\u0647\u0627": 20 })[key(name)] ?? 50;
-  const projectRank = (name) => ({ "\u0627\u0642\u062F\u0627\u0645": 0, "\u0634\u062E\u0635\u06CC": 1, "\u0628\u0631\u0646\u0627\u0645\u0647\u0631\u06CC\u0632\u06CC": 10, "\u0645\u062F\u06CC\u0631\u06CC\u062A\u0645\u0627\u0644\u06CC": 11, "\u0641\u0631\u0648\u0634\u06AF\u0627\u0647": 12, "\u062A\u0648\u0633\u0646\u062A\u06A9\u0648": 13, "\u0634\u0627\u06CC\u062F\u06CC\u0647\u0631\u0648\u0632\u06CC": 20, "\u0622\u0631\u0634\u06CC\u0648": 21 })[key(name)] ?? 100;
-  const remoteOrder = (project) => Number(project.sortOrder ?? project.order ?? Number.NaN);
-  const compareProjects = (left, right) => {
-    const rank = projectRank(left.name) - projectRank(right.name);
-    if (rank) return rank;
-    const leftOrder = remoteOrder(left);
-    const rightOrder = remoteOrder(right);
-    if (Number.isFinite(leftOrder) && Number.isFinite(rightOrder) && leftOrder !== rightOrder) return leftOrder - rightOrder;
-    return left.sidebarIndex - right.sidebarIndex;
-  };
-  return [...groups.entries()].map(([name, items], index) => ({ name, index, projects: items.sort(compareProjects) })).sort((left, right) => groupRank(left.name) - groupRank(right.name) || left.index - right.index).map(({ name, projects: projects2 }) => ({ name, projects: projects2 }));
-}
-function virtualBoardEntries(tasks = []) {
-  const open = tasks.filter((task) => Number(task?.status ?? 0) === 0);
-  const tags = /* @__PURE__ */ new Map();
-  for (const task of open) {
-    for (const tag of Array.isArray(task.tags) ? task.tags : []) {
-      const name = String(tag ?? "").trim();
-      if (name) tags.set(name, (tags.get(name) ?? 0) + 1);
-    }
-  }
-  return {
-    all: { id: ALL_BOARD_VIEW_ID, name: "\u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627", count: open.length },
-    inbox: { id: INBOX_BOARD_VIEW_ID, name: "\u0648\u0631\u0648\u062F\u06CC", count: open.filter((task) => Boolean(task.isInbox) || String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId).length },
-    recurring: { id: RECURRING_BOARD_VIEW_ID, name: "\u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647\u200C\u0647\u0627", count: open.filter((task) => Boolean(task.repeatFlag)).length },
-    tags: [...tags.entries()].sort(([left], [right]) => left.localeCompare(right, "fa")).map(([name, count]) => ({ id: `${TAG_BOARD_VIEW_PREFIX}${encodeURIComponent(name)}`, name, count }))
-  };
-}
-function virtualBoardData(selection, tasks = [], projects = []) {
-  const entries = virtualBoardEntries(tasks);
-  let name = "";
-  let matching = [];
-  if (selection === ALL_BOARD_VIEW_ID) {
-    name = entries.all.name;
-    matching = tasks;
-  } else if (selection === INBOX_BOARD_VIEW_ID) {
-    name = entries.inbox.name;
-    matching = tasks.filter((task) => Boolean(task.isInbox) || String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId);
-  } else if (selection === RECURRING_BOARD_VIEW_ID) {
-    name = entries.recurring.name;
-    matching = tasks.filter((task) => Boolean(task.repeatFlag));
-  } else if (String(selection ?? "").startsWith(TAG_BOARD_VIEW_PREFIX)) {
-    const tag = decodeURIComponent(String(selection).slice(TAG_BOARD_VIEW_PREFIX.length));
-    const entry = entries.tags.find((item) => item.name === tag);
-    if (!entry) return null;
-    name = `#${tag}`;
-    matching = tasks.filter((task) => (task.tags ?? []).some((value) => String(value) === tag));
-  } else return null;
-  const usedProjectIds = new Set(matching.map((task) => String(task.projectId ?? "")));
-  const columns = projects.filter((project) => usedProjectIds.has(String(project.id))).map((project, index) => ({
-    id: String(project.id),
-    name: String(project.name ?? "\u0628\u062F\u0648\u0646 \u067E\u0631\u0648\u0698\u0647"),
-    color: project.color,
-    sortOrder: index,
-    synthetic: true
-  }));
-  const known = new Set(columns.map((column) => column.id));
-  for (const task of matching) {
-    const projectId = String(task.projectId ?? "");
-    if (known.has(projectId)) continue;
-    known.add(projectId);
-    columns.push({ id: projectId, name: projectId.toLowerCase() === "inbox" || !projectId ? "\u0648\u0631\u0648\u062F\u06CC" : String(task.projectName ?? "\u0628\u062F\u0648\u0646 \u067E\u0631\u0648\u0698\u0647"), sortOrder: columns.length, synthetic: true });
-  }
-  return {
-    project: { id: selection, name, virtual: true },
-    columns,
-    tasks: matching.map((task) => ({ ...task, columnId: String(task.projectId ?? "") }))
-  };
-}
-function boardColumns(data, showCompleted = false) {
-  const columns = data.columns.length ? data.columns : [{ id: "", name: "Tasks", synthetic: true, sortOrder: 0 }];
-  return columns.map((column) => {
-    const matching = data.tasks.filter((task) => String(task.columnId ?? "") === String(column.id) && (showCompleted || Number(task.status ?? 0) === 0));
-    const ordered = matching.slice().sort((a, b) => Number(isPinned(b)) - Number(isPinned(a)) || Number(a.sortOrder ?? a.order ?? 0) - Number(b.sortOrder ?? b.order ?? 0) || String(a.title).localeCompare(String(b.title), "fa"));
-    const groups = ["Pinned", "High", "Medium", "Low", "No priority", ...showCompleted ? ["Completed"] : []].map((name) => ({ name, tasks: ordered.filter((task) => {
-      if (name === "Pinned") return isPinned(task);
-      if (isPinned(task)) return false;
-      return Number(task.status ?? 0) !== 0 ? name === "Completed" : groupName(task.priority) === name;
-    }) })).filter((group) => group.tasks.length);
-    return { ...column, count: matching.length, groups };
-  });
-}
-var RECURRING_BOARD_VIEW_ID, ALL_BOARD_VIEW_ID, INBOX_BOARD_VIEW_ID, TAG_BOARD_VIEW_PREFIX, isPinned, groupName;
-var init_project_board = __esm({
-  "src/core/project-board.js"() {
-    "use strict";
-    RECURRING_BOARD_VIEW_ID = "ticktick:view:recurring";
-    ALL_BOARD_VIEW_ID = "ticktick:view:all";
-    INBOX_BOARD_VIEW_ID = "ticktick:view:inbox";
-    TAG_BOARD_VIEW_PREFIX = "ticktick:view:tag:";
-    isPinned = (task) => Boolean(task?.pinned ?? task?.isPinned ?? task?.pin ?? task?.pinnedTime ?? task?.pinnedAt ?? task?.pinTime);
-    groupName = (priority) => ({ 5: "High", 3: "Medium", 1: "Low" })[Number(priority)] ?? "No priority";
-  }
-});
-
-// src/obsidian/main.ts
-var main_exports = {};
-__export(main_exports, {
-  default: () => TickTickBridgePlugin
-});
-module.exports = __toCommonJS(main_exports);
-var import_obsidian20 = require("obsidian");
-
 // src/core/date.js
 function toDateKey(value, timeZone = "Asia/Tehran") {
   if (!value) return null;
@@ -215,8 +84,556 @@ function isHabitScheduledForDay(habit, day) {
   const jsDay = (/* @__PURE__ */ new Date(`${day}T12:00:00`)).getDay();
   return byDay.includes(["SU", "MO", "TU", "WE", "TH", "FR", "SA"][jsDay]);
 }
+var init_date = __esm({
+  "src/core/date.js"() {
+    "use strict";
+  }
+});
+
+// src/core/calendar-range.js
+function shiftCalendarDay(day, amount) {
+  const date = /* @__PURE__ */ new Date(`${day}T12:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + amount);
+  return date.toISOString().slice(0, 10);
+}
+function weekdayIndex(day) {
+  return (/* @__PURE__ */ new Date(`${day}T12:00:00.000Z`)).getUTCDay();
+}
+function weekRange(day, firstWeekday = 6) {
+  const offset = (weekdayIndex(day) - firstWeekday + 7) % 7;
+  const start = shiftCalendarDay(day, -offset);
+  return Array.from({ length: 7 }, (_, index) => shiftCalendarDay(start, index));
+}
+function monthRange(day, firstWeekday = 6) {
+  const monthStart = `${String(day).slice(0, 7)}-01`;
+  const offset = (weekdayIndex(monthStart) - firstWeekday + 7) % 7;
+  const start = shiftCalendarDay(monthStart, -offset);
+  return Array.from({ length: 42 }, (_, index) => shiftCalendarDay(start, index));
+}
+function persianParts(day) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US-u-ca-persian", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(/* @__PURE__ */ new Date(`${day}T12:00:00Z`)).filter((part) => part.type !== "literal").map((part) => [part.type, Number(part.value)]));
+  return { year: parts.year, month: parts.month, day: parts.day };
+}
+function pad(value) {
+  return String(value).padStart(2, "0");
+}
+function persianMonthStart(year, month) {
+  return jalaliDateKeyToGregorian(`${year}-${pad(month)}-01`);
+}
+function shiftedPersianMonth(year, month, amount) {
+  const index = year * 12 + (month - 1) + amount;
+  return { year: Math.floor(index / 12), month: index % 12 + 1 };
+}
+function isSamePersianMonth(day, referenceDay) {
+  const left = persianParts(day);
+  const right = persianParts(referenceDay);
+  return left.year === right.year && left.month === right.month;
+}
+function persianMonthRange(day, firstWeekday = 6) {
+  const current = persianParts(day);
+  const monthStart = persianMonthStart(current.year, current.month);
+  if (!monthStart) return monthRange(day, firstWeekday);
+  const next = shiftedPersianMonth(current.year, current.month, 1);
+  const nextStart = persianMonthStart(next.year, next.month);
+  const last = nextStart ? shiftCalendarDay(nextStart, -1) : shiftCalendarDay(monthStart, 30);
+  const offset = (weekdayIndex(monthStart) - firstWeekday + 7) % 7;
+  const start = shiftCalendarDay(monthStart, -offset);
+  const needed = Math.ceil((dayNumber(last) - dayNumber(start) + 1) / 7) * 7;
+  return Array.from({ length: Math.max(35, needed) }, (_, index) => shiftCalendarDay(start, index));
+}
+function shiftPersianMonth(day, amount) {
+  const current = persianParts(day);
+  const target = shiftedPersianMonth(current.year, current.month, amount);
+  const start = persianMonthStart(target.year, target.month);
+  const following = shiftedPersianMonth(target.year, target.month, 1);
+  const nextStart = persianMonthStart(following.year, following.month);
+  if (!start || !nextStart) return shiftCalendarDay(day, amount * 30);
+  const length = dayNumber(nextStart) - dayNumber(start);
+  return shiftCalendarDay(start, Math.min(current.day, length) - 1);
+}
+function taskDay(task, timeZone) {
+  return toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone);
+}
+function isMidnightInZone(value, timeZone) {
+  if (!value || !String(value).includes("T")) return false;
+  const instant = new Date(value);
+  if (Number.isNaN(instant.getTime())) return false;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(instant).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return parts.hour === "00" && parts.minute === "00";
+}
+function taskDateRange(task, timeZone = "Asia/Tehran") {
+  const zone = task?.timeZone || timeZone;
+  let start = toDateKey(task?.startDate, zone);
+  let end = toDateKey(task?.dueDate, zone);
+  if (start && end && start < end && task?.isAllDay !== false && isMidnightInZone(task?.startDate, zone) && isMidnightInZone(task?.dueDate, zone)) {
+    end = shiftCalendarDay(end, -1);
+  }
+  if (start && end && start < end && task?.repeatFlag) {
+    const rule = ruleParts(task);
+    const frequency = rule.FREQ ?? "";
+    const interval = Math.max(1, Number(rule.INTERVAL ?? 1));
+    const period = frequency === "WEEKLY" ? interval * 7 : frequency === "DAILY" ? interval : 0;
+    const span = dayNumber(end) - dayNumber(start);
+    if (period > 0 && span >= period) {
+      const currentSpan = span % period || Math.max(1, period - 1);
+      start = shiftCalendarDay(end, -currentSpan);
+    }
+  }
+  return start && end && start < end ? { start, end } : null;
+}
+function taskTime(task) {
+  return String(task.startDate ?? task.dueDate ?? "").match(/T(\d{2}:\d{2})/)?.[1] ?? "";
+}
+function dayNumber(day) {
+  return Math.floor(Date.parse(`${day}T12:00:00Z`) / 864e5);
+}
+function ruleParts(task) {
+  const source = String(task.repeatFlag ?? "").toUpperCase().replace(/^RRULE:/, "");
+  return Object.fromEntries(source.split(";").map((part) => part.split("=", 2)).filter(([key, value]) => key && value));
+}
+function ruleDate(value) {
+  const match = String(value ?? "").match(/^(\d{4})(\d{2})(\d{2})/);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+}
+function weekdayCode(day) {
+  return ["SU", "MO", "TU", "WE", "TH", "FR", "SA"][weekdayIndex(day)];
+}
+function excluded(task, day) {
+  const values = [task.exDates, task.exDate, task.exdate].flatMap((value) => Array.isArray(value) ? value : value == null ? [] : String(value).split(","));
+  return values.some((value) => ruleDate(value) === day || String(value).replaceAll("-", "").slice(0, 8) === day.replaceAll("-", ""));
+}
+function taskOccursOnCalendarDay(task, day, timeZone = "Asia/Tehran", showCompleted = false) {
+  if (Number(task?.status ?? 0) !== 0) return showCompleted && taskDay(task, timeZone) === day;
+  const due = toDateKey(task?.dueDate, task?.timeZone || timeZone);
+  const start = toDateKey(task?.startDate, task?.timeZone || timeZone);
+  const anchor = start ?? due;
+  if (!anchor) return false;
+  if (!task?.repeatFlag) return start && due ? day >= start && day <= due : day === anchor;
+  if (due) return day === due;
+  if (day < anchor || excluded(task, day)) return false;
+  const rule = ruleParts(task);
+  const frequency = rule.FREQ ?? "DAILY";
+  const interval = Math.max(1, Number(rule.INTERVAL ?? 1));
+  const until = ruleDate(rule.UNTIL);
+  if (until && day > until) return false;
+  const distance = dayNumber(day) - dayNumber(anchor);
+  if (frequency === "DAILY") return distance % interval === 0;
+  if (frequency === "WEEKLY") {
+    const weeks = Math.floor(distance / 7);
+    if (weeks % interval) return false;
+    const days = rule.BYDAY ? rule.BYDAY.split(",").map((value2) => value2.replace(/^[-+]?\d+/, "")) : [weekdayCode(anchor)];
+    return days.includes(weekdayCode(day));
+  }
+  const value = /* @__PURE__ */ new Date(`${day}T12:00:00Z`);
+  const base = /* @__PURE__ */ new Date(`${anchor}T12:00:00Z`);
+  if (frequency === "MONTHLY") {
+    const months = (value.getUTCFullYear() - base.getUTCFullYear()) * 12 + value.getUTCMonth() - base.getUTCMonth();
+    const dates = (rule.BYMONTHDAY ?? String(base.getUTCDate())).split(",").map(Number);
+    return months >= 0 && months % interval === 0 && dates.includes(value.getUTCDate());
+  }
+  if (frequency === "YEARLY") return value.getUTCFullYear() >= base.getUTCFullYear() && (value.getUTCFullYear() - base.getUTCFullYear()) % interval === 0 && value.getUTCMonth() === base.getUTCMonth() && value.getUTCDate() === base.getUTCDate();
+  return day === anchor;
+}
+function recurringTaskOccursOnDay(task, day, timeZone = "Asia/Tehran") {
+  if (Number(task?.status ?? 0) !== 0 || !task?.repeatFlag || excluded(task, day)) return false;
+  const due = toDateKey(task?.dueDate, task?.timeZone || timeZone);
+  const start = toDateKey(task?.startDate, task?.timeZone || timeZone);
+  const anchor = start ?? due;
+  if (!anchor || day < anchor) return false;
+  const rule = ruleParts(task);
+  const frequency = rule.FREQ ?? "DAILY";
+  const interval = Math.max(1, Number(rule.INTERVAL ?? 1));
+  const until = ruleDate(rule.UNTIL);
+  if (until && day > until) return false;
+  const distance = dayNumber(day) - dayNumber(anchor);
+  if (frequency === "DAILY") return distance % interval === 0;
+  if (frequency === "WEEKLY") {
+    const weeks = Math.floor(distance / 7);
+    if (weeks % interval) return false;
+    const days = rule.BYDAY ? rule.BYDAY.split(",").map((value2) => value2.replace(/^[-+]?\d+/, "")) : [weekdayCode(anchor)];
+    return days.includes(weekdayCode(day));
+  }
+  const value = /* @__PURE__ */ new Date(`${day}T12:00:00Z`);
+  const base = /* @__PURE__ */ new Date(`${anchor}T12:00:00Z`);
+  if (frequency === "MONTHLY") {
+    const months = (value.getUTCFullYear() - base.getUTCFullYear()) * 12 + value.getUTCMonth() - base.getUTCMonth();
+    const dates = (rule.BYMONTHDAY ?? String(base.getUTCDate())).split(",").map(Number);
+    return months >= 0 && months % interval === 0 && dates.includes(value.getUTCDate());
+  }
+  if (frequency === "YEARLY") return value.getUTCFullYear() >= base.getUTCFullYear() && (value.getUTCFullYear() - base.getUTCFullYear()) % interval === 0 && value.getUTCMonth() === base.getUTCMonth() && value.getUTCDate() === base.getUTCDate();
+  return day === anchor;
+}
+function sortPlanningTasks(tasks, mode = "ticktick") {
+  const byTickTick = (left, right) => Number(left.sortOrder ?? left.order ?? 0) - Number(right.sortOrder ?? right.order ?? 0) || taskTime(left).localeCompare(taskTime(right)) || Number(right.priority ?? 0) - Number(left.priority ?? 0) || String(left.title ?? "").localeCompare(String(right.title ?? ""), "fa");
+  return [...tasks].sort((left, right) => {
+    if (mode === "priority") {
+      const priority = Number(right.priority ?? 0) - Number(left.priority ?? 0);
+      if (priority) return priority;
+    } else if (mode === "time") {
+      const time = taskTime(left).localeCompare(taskTime(right));
+      if (time) return time;
+    } else if (mode === "title") {
+      const title = String(left.title ?? "").localeCompare(String(right.title ?? ""), "fa");
+      if (title) return title;
+    }
+    return byTickTick(left, right);
+  });
+}
+function tasksForCalendarDay(tasks, day, timeZone = "Asia/Tehran", showCompleted = false, sortMode = "ticktick") {
+  return sortPlanningTasks((tasks ?? []).filter((task) => taskOccursOnCalendarDay(task, day, timeZone, showCompleted)), sortMode);
+}
+var init_calendar_range = __esm({
+  "src/core/calendar-range.js"() {
+    "use strict";
+    init_date();
+  }
+});
+
+// src/core/project-board.js
+var project_board_exports = {};
+__export(project_board_exports, {
+  ALL_BOARD_VIEW_ID: () => ALL_BOARD_VIEW_ID,
+  COMPLETED_BOARD_VIEW_ID: () => COMPLETED_BOARD_VIEW_ID,
+  HIGH_PRIORITY_BOARD_VIEW_ID: () => HIGH_PRIORITY_BOARD_VIEW_ID,
+  INBOX_BOARD_VIEW_ID: () => INBOX_BOARD_VIEW_ID,
+  OVERDUE_BOARD_VIEW_ID: () => OVERDUE_BOARD_VIEW_ID,
+  RECURRING_BOARD_VIEW_ID: () => RECURRING_BOARD_VIEW_ID,
+  TAG_BOARD_VIEW_PREFIX: () => TAG_BOARD_VIEW_PREFIX,
+  TODAY_BOARD_VIEW_ID: () => TODAY_BOARD_VIEW_ID,
+  UNSCHEDULED_BOARD_VIEW_ID: () => UNSCHEDULED_BOARD_VIEW_ID,
+  UPCOMING_BOARD_VIEW_ID: () => UPCOMING_BOARD_VIEW_ID,
+  boardColumns: () => boardColumns,
+  normalizeProjectData: () => normalizeProjectData,
+  selectSmartViewTasks: () => selectSmartViewTasks,
+  sidebarTree: () => sidebarTree,
+  virtualBoardData: () => virtualBoardData,
+  virtualBoardEntries: () => virtualBoardEntries
+});
+function normalizeProjectData(document = {}, fallbackProject = {}) {
+  const project = { ...fallbackProject, ...document.project ?? {}, id: document.project?.id ?? fallbackProject.id ?? document.projectId, name: document.project?.name ?? fallbackProject.name ?? "\u0628\u062F\u0648\u0646 \u0646\u0627\u0645" };
+  const columns = (document.columns ?? []).map((column, index) => ({ id: String(column.id ?? ""), name: String(column.name ?? `\u0633\u062A\u0648\u0646 ${index + 1}`), sortOrder: Number(column.sortOrder ?? index) }));
+  const names = new Map(columns.map((column) => [column.id, column.name]));
+  const tasks = (document.tasks ?? []).map((task) => ({ ...task, projectId: task.projectId ?? project.id, projectName: project.name, projectColor: project.color, columnId: task.columnId ?? "", columnName: names.get(String(task.columnId ?? "")) ?? "Tasks" }));
+  return { project, columns, tasks };
+}
+function sidebarTree(projects, tasks = []) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const [index, project] of (projects ?? []).entries()) {
+    const group = String(project.groupName ?? project.folderName ?? "");
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group).push({ ...project, sidebarIndex: index, openCount: tasks.filter((task) => String(task.projectId) === String(project.id) && Number(task.status ?? 0) === 0).length });
+  }
+  const key = (value) => String(value ?? "").replace(/ي/g, "\u06CC").replace(/ك/g, "\u06A9").replace(/[\s‌]+/g, "").trim();
+  const groupRank = (name) => ({ "": 0, "\u06A9\u0627\u0631": 10, "\u0644\u06CC\u0633\u062A\u0647\u0627": 20 })[key(name)] ?? 50;
+  const projectRank = (name) => ({ "\u0627\u0642\u062F\u0627\u0645": 0, "\u0634\u062E\u0635\u06CC": 1, "\u0628\u0631\u0646\u0627\u0645\u0647\u0631\u06CC\u0632\u06CC": 10, "\u0645\u062F\u06CC\u0631\u06CC\u062A\u0645\u0627\u0644\u06CC": 11, "\u0641\u0631\u0648\u0634\u06AF\u0627\u0647": 12, "\u062A\u0648\u0633\u0646\u062A\u06A9\u0648": 13, "\u0634\u0627\u06CC\u062F\u06CC\u0647\u0631\u0648\u0632\u06CC": 20, "\u0622\u0631\u0634\u06CC\u0648": 21 })[key(name)] ?? 100;
+  const remoteOrder = (project) => Number(project.sortOrder ?? project.order ?? Number.NaN);
+  const compareProjects = (left, right) => {
+    const rank = projectRank(left.name) - projectRank(right.name);
+    if (rank) return rank;
+    const leftOrder = remoteOrder(left);
+    const rightOrder = remoteOrder(right);
+    if (Number.isFinite(leftOrder) && Number.isFinite(rightOrder) && leftOrder !== rightOrder) return leftOrder - rightOrder;
+    return left.sidebarIndex - right.sidebarIndex;
+  };
+  return [...groups.entries()].map(([name, items], index) => ({ name, index, projects: items.sort(compareProjects) })).sort((left, right) => groupRank(left.name) - groupRank(right.name) || left.index - right.index).map(({ name, projects: projects2 }) => ({ name, projects: projects2 }));
+}
+function virtualBoardEntries(tasks = [], options = {}) {
+  const timeZone = options.timeZone || "Asia/Tehran";
+  const todayKey = options.todayKey || todayInZone(timeZone);
+  const open = tasks.filter((task) => Number(task?.status ?? 0) === 0);
+  const tags = /* @__PURE__ */ new Map();
+  for (const task of open) {
+    for (const tag of Array.isArray(task.tags) ? task.tags : []) {
+      const name = String(tag ?? "").trim();
+      if (name) tags.set(name, (tags.get(name) ?? 0) + 1);
+    }
+  }
+  const tomorrow = shiftCalendarDay(todayKey, 1);
+  const nextWeekEnd = shiftCalendarDay(todayKey, 7);
+  const recurringCount = open.filter((task) => Boolean(task.repeatFlag)).length;
+  const unscheduledCount = open.filter((task) => !toDateKey(task.dueDate, task.timeZone || timeZone) && !toDateKey(task.startDate, task.timeZone || timeZone)).length;
+  const todayCount = open.filter((task) => {
+    const due = toDateKey(task.dueDate, task.timeZone || timeZone);
+    const start = toDateKey(task.startDate, task.timeZone || timeZone);
+    if (due === todayKey || start === todayKey) return true;
+    if (start && due && start <= todayKey && due >= todayKey) return true;
+    return false;
+  }).length;
+  const upcomingCount = open.filter((task) => {
+    const due = toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone);
+    return Boolean(due && due >= tomorrow && due <= nextWeekEnd);
+  }).length;
+  const overdueCount = open.filter((task) => {
+    const due = toDateKey(task.dueDate, task.timeZone || timeZone);
+    return Boolean(due && due < todayKey);
+  }).length;
+  const inboxCount = open.filter((task) => Boolean(task.isInbox) || String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId).length;
+  const highPriorityCount = open.filter((task) => Number(task.priority) === 5).length;
+  const completedCount = tasks.filter((task) => Number(task.status ?? 0) !== 0).length;
+  const smartViews = [
+    { id: RECURRING_BOARD_VIEW_ID, key: "recurring", name: "\u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647\u200C\u0647\u0627", icon: "repeat-2", count: recurringCount },
+    { id: UNSCHEDULED_BOARD_VIEW_ID, key: "unscheduled", name: "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", icon: "calendar-off", count: unscheduledCount },
+    { id: TODAY_BOARD_VIEW_ID, key: "today", name: "\u0627\u0645\u0631\u0648\u0632", icon: "sun", count: todayCount },
+    { id: UPCOMING_BOARD_VIEW_ID, key: "upcoming", name: "\u0647\u0641\u062A\u0647\u0654 \u0622\u06CC\u0646\u062F\u0647", icon: "calendar-days", count: upcomingCount },
+    { id: OVERDUE_BOARD_VIEW_ID, key: "overdue", name: "\u0639\u0642\u0628\u200C\u0627\u0641\u062A\u0627\u062F\u0647", icon: "alert-circle", count: overdueCount },
+    { id: INBOX_BOARD_VIEW_ID, key: "inbox", name: "\u0648\u0631\u0648\u062F\u06CC", icon: "inbox", count: inboxCount },
+    { id: HIGH_PRIORITY_BOARD_VIEW_ID, key: "highPriority", name: "\u0627\u0648\u0644\u0648\u06CC\u062A \u0628\u0627\u0644\u0627", icon: "alert-triangle", count: highPriorityCount },
+    { id: COMPLETED_BOARD_VIEW_ID, key: "completed", name: "\u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647\u200C\u0647\u0627", icon: "check-circle-2", count: completedCount }
+  ];
+  return {
+    all: { id: ALL_BOARD_VIEW_ID, name: "\u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627", count: open.length },
+    inbox: { id: INBOX_BOARD_VIEW_ID, name: "\u0648\u0631\u0648\u062F\u06CC", count: inboxCount },
+    recurring: { id: RECURRING_BOARD_VIEW_ID, name: "\u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647\u200C\u0647\u0627", count: recurringCount },
+    unscheduled: { id: UNSCHEDULED_BOARD_VIEW_ID, name: "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", count: unscheduledCount },
+    today: { id: TODAY_BOARD_VIEW_ID, name: "\u0627\u0645\u0631\u0648\u0632", count: todayCount },
+    upcoming: { id: UPCOMING_BOARD_VIEW_ID, name: "\u0647\u0641\u062A\u0647\u0654 \u0622\u06CC\u0646\u062F\u0647", count: upcomingCount },
+    overdue: { id: OVERDUE_BOARD_VIEW_ID, name: "\u0639\u0642\u0628\u200C\u0627\u0641\u062A\u0627\u062F\u0647", count: overdueCount },
+    highPriority: { id: HIGH_PRIORITY_BOARD_VIEW_ID, name: "\u0627\u0648\u0644\u0648\u06CC\u062A \u0628\u0627\u0644\u0627", count: highPriorityCount },
+    completed: { id: COMPLETED_BOARD_VIEW_ID, name: "\u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647\u200C\u0647\u0627", count: completedCount },
+    smartViews,
+    tags: [...tags.entries()].sort(([left], [right]) => left.localeCompare(right, "fa")).map(([name, count]) => ({ id: `${TAG_BOARD_VIEW_PREFIX}${encodeURIComponent(name)}`, name, count }))
+  };
+}
+function selectSmartViewTasks(selection, tasks = [], options = {}) {
+  const timeZone = options.timeZone || "Asia/Tehran";
+  const todayKey = options.todayKey || todayInZone(timeZone);
+  const open = tasks.filter((task) => Number(task?.status ?? 0) === 0);
+  if (selection === ALL_BOARD_VIEW_ID) {
+    return { name: "\u0647\u0645\u0647\u0654 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627", tasks: open };
+  }
+  if (selection === RECURRING_BOARD_VIEW_ID) {
+    return { name: "\u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647\u200C\u0647\u0627", tasks: open.filter((task) => Boolean(task.repeatFlag)) };
+  }
+  if (selection === UNSCHEDULED_BOARD_VIEW_ID) {
+    return {
+      name: "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E",
+      tasks: open.filter((task) => !toDateKey(task.dueDate, task.timeZone || timeZone) && !toDateKey(task.startDate, task.timeZone || timeZone))
+    };
+  }
+  if (selection === TODAY_BOARD_VIEW_ID) {
+    return {
+      name: "\u0627\u0645\u0631\u0648\u0632",
+      tasks: open.filter((task) => {
+        const due = toDateKey(task.dueDate, task.timeZone || timeZone);
+        const start = toDateKey(task.startDate, task.timeZone || timeZone);
+        if (due === todayKey || start === todayKey) return true;
+        if (start && due && start <= todayKey && due >= todayKey) return true;
+        return false;
+      })
+    };
+  }
+  if (selection === UPCOMING_BOARD_VIEW_ID) {
+    const tomorrow = shiftCalendarDay(todayKey, 1);
+    const nextWeekEnd = shiftCalendarDay(todayKey, 7);
+    return {
+      name: "\u0647\u0641\u062A\u0647\u0654 \u0622\u06CC\u0646\u062F\u0647",
+      tasks: open.filter((task) => {
+        const due = toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone);
+        return Boolean(due && due >= tomorrow && due <= nextWeekEnd);
+      })
+    };
+  }
+  if (selection === OVERDUE_BOARD_VIEW_ID) {
+    return {
+      name: "\u0639\u0642\u0628\u200C\u0627\u0641\u062A\u0627\u062F\u0647",
+      tasks: open.filter((task) => {
+        const due = toDateKey(task.dueDate, task.timeZone || timeZone);
+        return Boolean(due && due < todayKey);
+      })
+    };
+  }
+  if (selection === INBOX_BOARD_VIEW_ID) {
+    return {
+      name: "\u0648\u0631\u0648\u062F\u06CC",
+      tasks: open.filter((task) => Boolean(task.isInbox) || String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId)
+    };
+  }
+  if (selection === HIGH_PRIORITY_BOARD_VIEW_ID) {
+    return {
+      name: "\u0627\u0648\u0644\u0648\u06CC\u062A \u0628\u0627\u0644\u0627",
+      tasks: open.filter((task) => Number(task.priority) === 5)
+    };
+  }
+  if (selection === COMPLETED_BOARD_VIEW_ID) {
+    return {
+      name: "\u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647\u200C\u0647\u0627",
+      tasks: tasks.filter((task) => Number(task.status ?? 0) !== 0)
+    };
+  }
+  if (String(selection ?? "").startsWith(TAG_BOARD_VIEW_PREFIX)) {
+    const tag = decodeURIComponent(String(selection).slice(TAG_BOARD_VIEW_PREFIX.length));
+    return {
+      name: `#${tag}`,
+      tasks: open.filter((task) => (task.tags ?? []).some((value) => String(value) === tag))
+    };
+  }
+  return null;
+}
+function virtualBoardData(selection, tasks = [], projects = [], options = {}) {
+  const selected = selectSmartViewTasks(selection, tasks, options);
+  if (!selected) return null;
+  const { name, tasks: matching } = selected;
+  const grouping = options.grouping || "project";
+  const timeZone = options.timeZone || "Asia/Tehran";
+  const todayKey = options.todayKey || todayInZone(timeZone);
+  let columns = [];
+  let mappedTasks = [];
+  if (grouping === "priority") {
+    columns = [
+      { id: "p-high", name: "\u0627\u0648\u0644\u0648\u06CC\u062A \u0628\u0627\u0644\u0627", color: "var(--text-error, #e53935)", sortOrder: 0, synthetic: true },
+      { id: "p-medium", name: "\u0627\u0648\u0644\u0648\u06CC\u062A \u0645\u062A\u0648\u0633\u0637", color: "var(--text-warning, #fb8c00)", sortOrder: 1, synthetic: true },
+      { id: "p-low", name: "\u0627\u0648\u0644\u0648\u06CC\u062A \u067E\u0627\u06CC\u06CC\u0646", color: "var(--text-accent, #1e88e5)", sortOrder: 2, synthetic: true },
+      { id: "p-none", name: "\u0628\u062F\u0648\u0646 \u0627\u0648\u0644\u0648\u06CC\u062A", color: "var(--text-muted, #757575)", sortOrder: 3, synthetic: true }
+    ];
+    mappedTasks = matching.map((task) => {
+      const priority = Number(task.priority ?? 0);
+      const columnId = priority === 5 ? "p-high" : priority === 3 ? "p-medium" : priority === 1 ? "p-low" : "p-none";
+      return { ...task, columnId };
+    });
+  } else if (grouping === "date") {
+    const tomorrow = shiftCalendarDay(todayKey, 1);
+    const nextWeekEnd = shiftCalendarDay(todayKey, 7);
+    const dateDefs = [
+      { id: "d-overdue", name: "\u0639\u0642\u0628\u200C\u0627\u0641\u062A\u0627\u062F\u0647", color: "var(--text-error, #e53935)", sortOrder: 0, synthetic: true },
+      { id: "d-today", name: "\u0627\u0645\u0631\u0648\u0632", color: "var(--interactive-accent, #2196f3)", sortOrder: 1, synthetic: true },
+      { id: "d-tomorrow", name: "\u0641\u0631\u062F\u0627", color: "var(--text-accent, #00acc1)", sortOrder: 2, synthetic: true },
+      { id: "d-week", name: "\u0627\u06CC\u0646 \u0647\u0641\u062A\u0647", color: "var(--text-success, #43a047)", sortOrder: 3, synthetic: true },
+      { id: "d-later", name: "\u0622\u06CC\u0646\u062F\u0647", color: "var(--text-muted, #7e57c2)", sortOrder: 4, synthetic: true },
+      { id: "d-unscheduled", name: "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", color: "var(--text-muted, #9e9e9e)", sortOrder: 5, synthetic: true }
+    ];
+    mappedTasks = matching.map((task) => {
+      const due = toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone);
+      let columnId = "d-unscheduled";
+      if (!due) columnId = "d-unscheduled";
+      else if (due < todayKey) columnId = "d-overdue";
+      else if (due === todayKey) columnId = "d-today";
+      else if (due === tomorrow) columnId = "d-tomorrow";
+      else if (due <= nextWeekEnd) columnId = "d-week";
+      else columnId = "d-later";
+      return { ...task, columnId };
+    });
+    const usedColIds = new Set(mappedTasks.map((t) => t.columnId));
+    columns = dateDefs.filter((d) => usedColIds.has(d.id));
+    if (columns.length === 0) columns = dateDefs;
+  } else if (grouping === "tag") {
+    const allTags = /* @__PURE__ */ new Set();
+    let hasUntagged = false;
+    for (const task of matching) {
+      const taskTags = Array.isArray(task.tags) ? task.tags : [];
+      if (taskTags.length === 0) {
+        hasUntagged = true;
+      } else {
+        for (const t of taskTags) {
+          const clean = String(t ?? "").trim();
+          if (clean) allTags.add(clean);
+        }
+      }
+    }
+    const sortedTags = [...allTags].sort((a, b) => a.localeCompare(b, "fa"));
+    columns = sortedTags.map((tag, index) => ({
+      id: `t-${encodeURIComponent(tag)}`,
+      name: `#${tag}`,
+      sortOrder: index,
+      synthetic: true
+    }));
+    if (hasUntagged || columns.length === 0) {
+      columns.push({
+        id: "t-none",
+        name: "\u0628\u062F\u0648\u0646 \u0628\u0631\u0686\u0633\u0628",
+        sortOrder: columns.length,
+        synthetic: true
+      });
+    }
+    mappedTasks = matching.map((task) => {
+      const taskTags = Array.isArray(task.tags) ? task.tags : [];
+      const primaryTag = taskTags.find((t) => String(t ?? "").trim());
+      const columnId = primaryTag ? `t-${encodeURIComponent(primaryTag)}` : "t-none";
+      return { ...task, columnId };
+    });
+  } else {
+    const usedProjectIds = new Set(matching.map((task) => String(task.projectId ?? "")));
+    columns = projects.filter((project) => usedProjectIds.has(String(project.id))).map((project, index) => ({
+      id: String(project.id),
+      name: String(project.name ?? "\u0628\u062F\u0648\u0646 \u067E\u0631\u0648\u0698\u0647"),
+      color: project.color,
+      sortOrder: index,
+      synthetic: true
+    }));
+    const known = new Set(columns.map((column) => column.id));
+    for (const task of matching) {
+      const projectId = String(task.projectId ?? "");
+      if (known.has(projectId)) continue;
+      known.add(projectId);
+      columns.push({ id: projectId, name: projectId.toLowerCase() === "inbox" || !projectId ? "\u0648\u0631\u0648\u062F\u06CC" : String(task.projectName ?? "\u0628\u062F\u0648\u0646 \u067E\u0631\u0648\u0698\u0647"), sortOrder: columns.length, synthetic: true });
+    }
+    mappedTasks = matching.map((task) => ({ ...task, columnId: String(task.projectId ?? "") }));
+  }
+  return {
+    project: { id: selection, name, virtual: true, grouping },
+    columns,
+    tasks: mappedTasks
+  };
+}
+function boardColumns(data, showCompleted = false) {
+  const isCompletedView = data.project?.id === COMPLETED_BOARD_VIEW_ID;
+  const effectiveShowCompleted = showCompleted || isCompletedView;
+  const columns = data.columns.length ? data.columns : [{ id: "", name: "Tasks", synthetic: true, sortOrder: 0 }];
+  const isPriorityGrouping = data.project?.grouping === "priority";
+  return columns.map((column) => {
+    const matching = data.tasks.filter((task) => String(task.columnId ?? "") === String(column.id) && (effectiveShowCompleted || Number(task.status ?? 0) === 0));
+    const ordered = matching.slice().sort((a, b) => Number(isPinned(b)) - Number(isPinned(a)) || Number(a.sortOrder ?? a.order ?? 0) - Number(b.sortOrder ?? b.order ?? 0) || String(a.title).localeCompare(String(b.title), "fa"));
+    if (isPriorityGrouping) {
+      const groups2 = [
+        { name: "Pinned", tasks: ordered.filter((task) => isPinned(task)) },
+        { name: "", tasks: ordered.filter((task) => !isPinned(task)) }
+      ].filter((group) => group.tasks.length);
+      return { ...column, count: matching.length, groups: groups2 };
+    }
+    const groups = ["Pinned", "High", "Medium", "Low", "No priority", ...effectiveShowCompleted ? ["Completed"] : []].map((name) => ({ name, tasks: ordered.filter((task) => {
+      if (name === "Pinned") return isPinned(task);
+      if (isPinned(task)) return false;
+      return Number(task.status ?? 0) !== 0 ? name === "Completed" : groupName(task.priority) === name;
+    }) })).filter((group) => group.tasks.length);
+    return { ...column, count: matching.length, groups };
+  });
+}
+var RECURRING_BOARD_VIEW_ID, ALL_BOARD_VIEW_ID, INBOX_BOARD_VIEW_ID, UNSCHEDULED_BOARD_VIEW_ID, TODAY_BOARD_VIEW_ID, UPCOMING_BOARD_VIEW_ID, OVERDUE_BOARD_VIEW_ID, HIGH_PRIORITY_BOARD_VIEW_ID, COMPLETED_BOARD_VIEW_ID, TAG_BOARD_VIEW_PREFIX, isPinned, groupName;
+var init_project_board = __esm({
+  "src/core/project-board.js"() {
+    "use strict";
+    init_date();
+    init_calendar_range();
+    RECURRING_BOARD_VIEW_ID = "ticktick:view:recurring";
+    ALL_BOARD_VIEW_ID = "ticktick:view:all";
+    INBOX_BOARD_VIEW_ID = "ticktick:view:inbox";
+    UNSCHEDULED_BOARD_VIEW_ID = "ticktick:view:unscheduled";
+    TODAY_BOARD_VIEW_ID = "ticktick:view:today";
+    UPCOMING_BOARD_VIEW_ID = "ticktick:view:upcoming";
+    OVERDUE_BOARD_VIEW_ID = "ticktick:view:overdue";
+    HIGH_PRIORITY_BOARD_VIEW_ID = "ticktick:view:high-priority";
+    COMPLETED_BOARD_VIEW_ID = "ticktick:view:completed";
+    TAG_BOARD_VIEW_PREFIX = "ticktick:view:tag:";
+    isPinned = (task) => Boolean(task?.pinned ?? task?.isPinned ?? task?.pin ?? task?.pinnedTime ?? task?.pinnedAt ?? task?.pinTime);
+    groupName = (priority) => ({ 5: "High", 3: "Medium", 1: "Low" })[Number(priority)] ?? "No priority";
+  }
+});
+
+// src/obsidian/main.ts
+var main_exports = {};
+__export(main_exports, {
+  default: () => TickTickBridgePlugin
+});
+module.exports = __toCommonJS(main_exports);
+var import_obsidian20 = require("obsidian");
+init_date();
 
 // src/core/ticktick-client.js
+init_date();
 var TickTickApiError = class extends Error {
   constructor(message, { status, body, retryAfter } = {}) {
     super(message);
@@ -1022,6 +1439,7 @@ function checklistSummary(items) {
 }
 
 // src/obsidian/helpers.ts
+init_date();
 function currentPlatformName() {
   if (import_obsidian3.Platform.isWin) return "Windows";
   if (import_obsidian3.Platform.isMacOS) return "macOS";
@@ -1362,203 +1780,9 @@ function renderUnifiedHabitCard(parent, options) {
   return card;
 }
 
-// src/core/calendar-range.js
-function shiftCalendarDay(day, amount) {
-  const date = /* @__PURE__ */ new Date(`${day}T12:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + amount);
-  return date.toISOString().slice(0, 10);
-}
-function weekdayIndex(day) {
-  return (/* @__PURE__ */ new Date(`${day}T12:00:00.000Z`)).getUTCDay();
-}
-function weekRange(day, firstWeekday = 6) {
-  const offset = (weekdayIndex(day) - firstWeekday + 7) % 7;
-  const start = shiftCalendarDay(day, -offset);
-  return Array.from({ length: 7 }, (_, index) => shiftCalendarDay(start, index));
-}
-function monthRange(day, firstWeekday = 6) {
-  const monthStart = `${String(day).slice(0, 7)}-01`;
-  const offset = (weekdayIndex(monthStart) - firstWeekday + 7) % 7;
-  const start = shiftCalendarDay(monthStart, -offset);
-  return Array.from({ length: 42 }, (_, index) => shiftCalendarDay(start, index));
-}
-function persianParts(day) {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US-u-ca-persian", { timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(/* @__PURE__ */ new Date(`${day}T12:00:00Z`)).filter((part) => part.type !== "literal").map((part) => [part.type, Number(part.value)]));
-  return { year: parts.year, month: parts.month, day: parts.day };
-}
-function pad(value) {
-  return String(value).padStart(2, "0");
-}
-function persianMonthStart(year, month) {
-  return jalaliDateKeyToGregorian(`${year}-${pad(month)}-01`);
-}
-function shiftedPersianMonth(year, month, amount) {
-  const index = year * 12 + (month - 1) + amount;
-  return { year: Math.floor(index / 12), month: index % 12 + 1 };
-}
-function isSamePersianMonth(day, referenceDay) {
-  const left = persianParts(day);
-  const right = persianParts(referenceDay);
-  return left.year === right.year && left.month === right.month;
-}
-function persianMonthRange(day, firstWeekday = 6) {
-  const current = persianParts(day);
-  const monthStart = persianMonthStart(current.year, current.month);
-  if (!monthStart) return monthRange(day, firstWeekday);
-  const next = shiftedPersianMonth(current.year, current.month, 1);
-  const nextStart = persianMonthStart(next.year, next.month);
-  const last = nextStart ? shiftCalendarDay(nextStart, -1) : shiftCalendarDay(monthStart, 30);
-  const offset = (weekdayIndex(monthStart) - firstWeekday + 7) % 7;
-  const start = shiftCalendarDay(monthStart, -offset);
-  const needed = Math.ceil((dayNumber(last) - dayNumber(start) + 1) / 7) * 7;
-  return Array.from({ length: Math.max(35, needed) }, (_, index) => shiftCalendarDay(start, index));
-}
-function shiftPersianMonth(day, amount) {
-  const current = persianParts(day);
-  const target = shiftedPersianMonth(current.year, current.month, amount);
-  const start = persianMonthStart(target.year, target.month);
-  const following = shiftedPersianMonth(target.year, target.month, 1);
-  const nextStart = persianMonthStart(following.year, following.month);
-  if (!start || !nextStart) return shiftCalendarDay(day, amount * 30);
-  const length = dayNumber(nextStart) - dayNumber(start);
-  return shiftCalendarDay(start, Math.min(current.day, length) - 1);
-}
-function taskDay(task, timeZone) {
-  return toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone);
-}
-function isMidnightInZone(value, timeZone) {
-  if (!value || !String(value).includes("T")) return false;
-  const instant = new Date(value);
-  if (Number.isNaN(instant.getTime())) return false;
-  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23"
-  }).formatToParts(instant).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
-  return parts.hour === "00" && parts.minute === "00";
-}
-function taskDateRange(task, timeZone = "Asia/Tehran") {
-  const zone = task?.timeZone || timeZone;
-  let start = toDateKey(task?.startDate, zone);
-  let end = toDateKey(task?.dueDate, zone);
-  if (start && end && start < end && task?.isAllDay !== false && isMidnightInZone(task?.startDate, zone) && isMidnightInZone(task?.dueDate, zone)) {
-    end = shiftCalendarDay(end, -1);
-  }
-  if (start && end && start < end && task?.repeatFlag) {
-    const rule = ruleParts(task);
-    const frequency = rule.FREQ ?? "";
-    const interval = Math.max(1, Number(rule.INTERVAL ?? 1));
-    const period = frequency === "WEEKLY" ? interval * 7 : frequency === "DAILY" ? interval : 0;
-    const span = dayNumber(end) - dayNumber(start);
-    if (period > 0 && span >= period) {
-      const currentSpan = span % period || Math.max(1, period - 1);
-      start = shiftCalendarDay(end, -currentSpan);
-    }
-  }
-  return start && end && start < end ? { start, end } : null;
-}
-function taskTime(task) {
-  return String(task.startDate ?? task.dueDate ?? "").match(/T(\d{2}:\d{2})/)?.[1] ?? "";
-}
-function dayNumber(day) {
-  return Math.floor(Date.parse(`${day}T12:00:00Z`) / 864e5);
-}
-function ruleParts(task) {
-  const source = String(task.repeatFlag ?? "").toUpperCase().replace(/^RRULE:/, "");
-  return Object.fromEntries(source.split(";").map((part) => part.split("=", 2)).filter(([key, value]) => key && value));
-}
-function ruleDate(value) {
-  const match = String(value ?? "").match(/^(\d{4})(\d{2})(\d{2})/);
-  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
-}
-function weekdayCode(day) {
-  return ["SU", "MO", "TU", "WE", "TH", "FR", "SA"][weekdayIndex(day)];
-}
-function excluded(task, day) {
-  const values = [task.exDates, task.exDate, task.exdate].flatMap((value) => Array.isArray(value) ? value : value == null ? [] : String(value).split(","));
-  return values.some((value) => ruleDate(value) === day || String(value).replaceAll("-", "").slice(0, 8) === day.replaceAll("-", ""));
-}
-function taskOccursOnCalendarDay(task, day, timeZone = "Asia/Tehran", showCompleted = false) {
-  if (Number(task?.status ?? 0) !== 0) return showCompleted && taskDay(task, timeZone) === day;
-  const due = toDateKey(task?.dueDate, task?.timeZone || timeZone);
-  const start = toDateKey(task?.startDate, task?.timeZone || timeZone);
-  const anchor = start ?? due;
-  if (!anchor) return false;
-  if (!task?.repeatFlag) return start && due ? day >= start && day <= due : day === anchor;
-  if (due) return day === due;
-  if (day < anchor || excluded(task, day)) return false;
-  const rule = ruleParts(task);
-  const frequency = rule.FREQ ?? "DAILY";
-  const interval = Math.max(1, Number(rule.INTERVAL ?? 1));
-  const until = ruleDate(rule.UNTIL);
-  if (until && day > until) return false;
-  const distance = dayNumber(day) - dayNumber(anchor);
-  if (frequency === "DAILY") return distance % interval === 0;
-  if (frequency === "WEEKLY") {
-    const weeks = Math.floor(distance / 7);
-    if (weeks % interval) return false;
-    const days = rule.BYDAY ? rule.BYDAY.split(",").map((value2) => value2.replace(/^[-+]?\d+/, "")) : [weekdayCode(anchor)];
-    return days.includes(weekdayCode(day));
-  }
-  const value = /* @__PURE__ */ new Date(`${day}T12:00:00Z`);
-  const base = /* @__PURE__ */ new Date(`${anchor}T12:00:00Z`);
-  if (frequency === "MONTHLY") {
-    const months = (value.getUTCFullYear() - base.getUTCFullYear()) * 12 + value.getUTCMonth() - base.getUTCMonth();
-    const dates = (rule.BYMONTHDAY ?? String(base.getUTCDate())).split(",").map(Number);
-    return months >= 0 && months % interval === 0 && dates.includes(value.getUTCDate());
-  }
-  if (frequency === "YEARLY") return value.getUTCFullYear() >= base.getUTCFullYear() && (value.getUTCFullYear() - base.getUTCFullYear()) % interval === 0 && value.getUTCMonth() === base.getUTCMonth() && value.getUTCDate() === base.getUTCDate();
-  return day === anchor;
-}
-function recurringTaskOccursOnDay(task, day, timeZone = "Asia/Tehran") {
-  if (Number(task?.status ?? 0) !== 0 || !task?.repeatFlag || excluded(task, day)) return false;
-  const due = toDateKey(task?.dueDate, task?.timeZone || timeZone);
-  const start = toDateKey(task?.startDate, task?.timeZone || timeZone);
-  const anchor = start ?? due;
-  if (!anchor || day < anchor) return false;
-  const rule = ruleParts(task);
-  const frequency = rule.FREQ ?? "DAILY";
-  const interval = Math.max(1, Number(rule.INTERVAL ?? 1));
-  const until = ruleDate(rule.UNTIL);
-  if (until && day > until) return false;
-  const distance = dayNumber(day) - dayNumber(anchor);
-  if (frequency === "DAILY") return distance % interval === 0;
-  if (frequency === "WEEKLY") {
-    const weeks = Math.floor(distance / 7);
-    if (weeks % interval) return false;
-    const days = rule.BYDAY ? rule.BYDAY.split(",").map((value2) => value2.replace(/^[-+]?\d+/, "")) : [weekdayCode(anchor)];
-    return days.includes(weekdayCode(day));
-  }
-  const value = /* @__PURE__ */ new Date(`${day}T12:00:00Z`);
-  const base = /* @__PURE__ */ new Date(`${anchor}T12:00:00Z`);
-  if (frequency === "MONTHLY") {
-    const months = (value.getUTCFullYear() - base.getUTCFullYear()) * 12 + value.getUTCMonth() - base.getUTCMonth();
-    const dates = (rule.BYMONTHDAY ?? String(base.getUTCDate())).split(",").map(Number);
-    return months >= 0 && months % interval === 0 && dates.includes(value.getUTCDate());
-  }
-  if (frequency === "YEARLY") return value.getUTCFullYear() >= base.getUTCFullYear() && (value.getUTCFullYear() - base.getUTCFullYear()) % interval === 0 && value.getUTCMonth() === base.getUTCMonth() && value.getUTCDate() === base.getUTCDate();
-  return day === anchor;
-}
-function sortPlanningTasks(tasks, mode = "ticktick") {
-  const byTickTick = (left, right) => Number(left.sortOrder ?? left.order ?? 0) - Number(right.sortOrder ?? right.order ?? 0) || taskTime(left).localeCompare(taskTime(right)) || Number(right.priority ?? 0) - Number(left.priority ?? 0) || String(left.title ?? "").localeCompare(String(right.title ?? ""), "fa");
-  return [...tasks].sort((left, right) => {
-    if (mode === "priority") {
-      const priority = Number(right.priority ?? 0) - Number(left.priority ?? 0);
-      if (priority) return priority;
-    } else if (mode === "time") {
-      const time = taskTime(left).localeCompare(taskTime(right));
-      if (time) return time;
-    } else if (mode === "title") {
-      const title = String(left.title ?? "").localeCompare(String(right.title ?? ""), "fa");
-      if (title) return title;
-    }
-    return byTickTick(left, right);
-  });
-}
-function tasksForCalendarDay(tasks, day, timeZone = "Asia/Tehran", showCompleted = false, sortMode = "ticktick") {
-  return sortPlanningTasks((tasks ?? []).filter((task) => taskOccursOnCalendarDay(task, day, timeZone, showCompleted)), sortMode);
-}
+// src/obsidian/planning-calendar.ts
+init_calendar_range();
+init_date();
 
 // src/obsidian/task-details-modal.ts
 var import_obsidian5 = require("obsidian");
@@ -1596,6 +1820,7 @@ function reconcileOpenTasks(cached = [], fresh = null) {
 }
 
 // src/core/persian-date.js
+init_date();
 function formatPersianDate(value, timeZone = "Asia/Tehran") {
   const day = toDateKey(value, timeZone);
   if (!day) return "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E";
@@ -2979,6 +3204,7 @@ var ProjectEditorModal = class extends import_obsidian7.Modal {
 };
 
 // src/obsidian/project-board.ts
+init_calendar_range();
 var HABIT_BOARD_VIEW_ID = "ticktick:view:habits";
 var ProjectBoard = class {
   constructor(element, host) {
@@ -2989,6 +3215,7 @@ var ProjectBoard = class {
   collapsed = /* @__PURE__ */ new Set();
   initialized = false;
   sortMode = "ticktick";
+  smartViewGrouping = "project";
   sidebarCollapsed = false;
   lastSelectedProject = null;
   savedColumnsScrollLeft = 0;
@@ -2998,8 +3225,11 @@ var ProjectBoard = class {
       this.selected = saved.selected;
       this.collapsed = new Set(saved.collapsed);
       this.sidebarCollapsed = saved.sidebarPreferenceInitialized ? Boolean(saved.sidebarCollapsed) : true;
+      if (saved.smartViewGrouping && ["project", "priority", "date", "tag"].includes(saved.smartViewGrouping)) {
+        this.smartViewGrouping = saved.smartViewGrouping;
+      }
       this.initialized = true;
-      if (!saved.sidebarPreferenceInitialized) void this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: true, sidebarPreferenceInitialized: true });
+      if (!saved.sidebarPreferenceInitialized) void this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: true, sidebarPreferenceInitialized: true, smartViewGrouping: this.smartViewGrouping });
     }
     const existingCols = this.element.querySelector(".ticktick-project-columns");
     this.savedColumnsScrollLeft = existingCols?.scrollLeft ?? 0;
@@ -3027,16 +3257,7 @@ var ProjectBoard = class {
           void this.persistAndRender();
         });
       } else {
-        const virtual = virtualBoardEntries(this.host.tasks());
-        const inbox = rail.createEl("button", { cls: `ticktick-project-row ${this.selected === INBOX_BOARD_VIEW_ID ? "is-selected" : ""}`, attr: { type: "button", "aria-label": `\u0648\u0631\u0648\u062F\u06CC\u060C ${virtual.inbox.count} \u062A\u0633\u06A9 \u0628\u0627\u0632` } });
-        const inboxIcon = inbox.createSpan({ cls: "ticktick-project-row-icon" });
-        (0, import_obsidian8.setIcon)(inboxIcon, "inbox");
-        inbox.createSpan({ cls: "ticktick-project-name", text: "\u0648\u0631\u0648\u062F\u06CC" });
-        inbox.createSpan({ cls: "ticktick-project-count", text: String(virtual.inbox.count) });
-        inbox.addEventListener("click", () => {
-          this.selected = INBOX_BOARD_VIEW_ID;
-          void this.persistAndRender();
-        });
+        const virtual = virtualBoardEntries(this.host.tasks(), { timeZone: this.host.timeZone });
         const habits = rail.createEl("button", { cls: `ticktick-project-row ${this.selected === HABIT_BOARD_VIEW_ID ? "is-selected" : ""}`, attr: { type: "button", "aria-label": `\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u060C ${this.host.habits().length} \u0639\u0627\u062F\u062A` } });
         const habitsIcon = habits.createSpan({ cls: "ticktick-project-row-icon" });
         (0, import_obsidian8.setIcon)(habitsIcon, "activity");
@@ -3046,30 +3267,39 @@ var ProjectBoard = class {
           this.selected = HABIT_BOARD_VIEW_ID;
           void this.persistAndRender();
         });
-        const viewHeading = rail.createEl("button", {
-          cls: `ticktick-project-group ${this.collapsed.has("virtual-views") ? "is-collapsed" : ""}`,
+        const isSmartCollapsed = this.collapsed.has("smart-views") || this.collapsed.has("virtual-views");
+        const smartHeading = rail.createEl("button", {
+          cls: `ticktick-project-group ${isSmartCollapsed ? "is-collapsed" : ""}`,
           attr: { type: "button" }
         });
-        const viewChevron = viewHeading.createSpan({ cls: "ticktick-group-chevron" });
-        (0, import_obsidian8.setIcon)(viewChevron, this.collapsed.has("virtual-views") ? "chevron-left" : "chevron-down");
-        viewHeading.createSpan({ cls: "ticktick-group-title", text: "\u0646\u0645\u0627\u06CC\u0634\u200C\u0647\u0627" });
-        viewHeading.addEventListener("click", () => {
-          this.collapsed.has("virtual-views") ? this.collapsed.delete("virtual-views") : this.collapsed.add("virtual-views");
+        const smartChevron = smartHeading.createSpan({ cls: "ticktick-group-chevron" });
+        (0, import_obsidian8.setIcon)(smartChevron, isSmartCollapsed ? "chevron-left" : "chevron-down");
+        smartHeading.createSpan({ cls: "ticktick-group-title", text: "\u0646\u0645\u0627\u0647\u0627\u06CC \u0647\u0648\u0634\u0645\u0646\u062F" });
+        smartHeading.addEventListener("click", () => {
+          if (isSmartCollapsed) {
+            this.collapsed.delete("smart-views");
+            this.collapsed.delete("virtual-views");
+          } else {
+            this.collapsed.add("smart-views");
+            this.collapsed.add("virtual-views");
+          }
           void this.persistAndRender();
         });
-        if (!this.collapsed.has("virtual-views")) {
-          const recurring = rail.createEl("button", {
-            cls: `ticktick-project-row ${this.selected === RECURRING_BOARD_VIEW_ID ? "is-selected" : ""}`,
-            attr: { type: "button", "aria-label": `\u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647\u200C\u0647\u0627\u060C ${virtual.recurring.count} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
-          });
-          const recurringIcon = recurring.createSpan({ cls: "ticktick-project-row-icon" });
-          (0, import_obsidian8.setIcon)(recurringIcon, "repeat-2");
-          recurring.createSpan({ cls: "ticktick-project-name", text: virtual.recurring.name });
-          recurring.createSpan({ cls: "ticktick-project-count", text: String(virtual.recurring.count) });
-          recurring.addEventListener("click", () => {
-            this.selected = RECURRING_BOARD_VIEW_ID;
-            void this.persistAndRender();
-          });
+        if (!isSmartCollapsed) {
+          for (const view of virtual.smartViews) {
+            const row = rail.createEl("button", {
+              cls: `ticktick-project-row ${this.selected === view.id ? "is-selected" : ""}`,
+              attr: { type: "button", "aria-label": `${view.name}\u060C ${view.count} \u062A\u0633\u06A9` }
+            });
+            const rowIcon = row.createSpan({ cls: "ticktick-project-row-icon" });
+            (0, import_obsidian8.setIcon)(rowIcon, view.icon);
+            row.createSpan({ cls: "ticktick-project-name", text: view.name });
+            row.createSpan({ cls: "ticktick-project-count", text: String(view.count) });
+            row.addEventListener("click", () => {
+              this.selected = view.id;
+              void this.persistAndRender();
+            });
+          }
         }
         const tagHeading = rail.createEl("button", {
           cls: `ticktick-project-group ${this.collapsed.has("virtual-tags") ? "is-collapsed" : ""}`,
@@ -3157,7 +3387,10 @@ var ProjectBoard = class {
         return;
       }
       const project = projects.find((item) => String(item.id) === this.selected);
-      const virtualData = virtualBoardData(this.selected, this.host.tasks(), projects);
+      const virtualData = virtualBoardData(this.selected, this.host.tasks(), projects, {
+        grouping: this.smartViewGrouping,
+        timeZone: this.host.timeZone
+      });
       const displayProject = virtualData?.project ?? project;
       if (!displayProject) {
         const emptyState2 = main.createDiv({ cls: "ticktick-board-empty" });
@@ -3174,9 +3407,11 @@ var ProjectBoard = class {
         pDot.style.setProperty("--project-color", displayProject.color);
       }
       headerInfo.createEl("h2", { cls: "ticktick-project-title", text: displayProject.name });
+      const isCompletedView = displayProject.id === COMPLETED_BOARD_VIEW_ID;
+      const countLabel = isCompletedView ? `${virtualData?.tasks.length ?? 0} \u062A\u0633\u06A9 \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647` : `${virtualData ? virtualData.tasks.filter((task) => Number(task.status ?? 0) === 0).length : project?.openCount ?? 0} \u062A\u0633\u06A9 \u0628\u0627\u0632`;
       headerInfo.createSpan({
         cls: "ticktick-project-badge",
-        text: `${virtualData ? virtualData.tasks.filter((task) => Number(task.status ?? 0) === 0).length : project?.openCount ?? 0} \u062A\u0633\u06A9 \u0628\u0627\u0632`
+        text: countLabel
       });
       const toolbar = projectHeader.createDiv({ cls: "ticktick-project-toolbar" });
       if (project) {
@@ -3199,6 +3434,50 @@ var ProjectBoard = class {
             new import_obsidian8.Notice(error instanceof Error ? error.message : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
           } finally {
             addTaskBtn.disabled = false;
+          }
+        });
+      }
+      if (displayProject.virtual) {
+        const groupLabels = {
+          project: "\u067E\u0631\u0648\u0698\u0647",
+          priority: "\u0627\u0648\u0644\u0648\u06CC\u062A",
+          date: "\u062A\u0627\u0631\u06CC\u062E",
+          tag: "\u0628\u0631\u0686\u0633\u0628"
+        };
+        const groupBtn = toolbar.createDiv({
+          cls: "ticktick-filter-select-wrapper",
+          attr: { role: "button", tabindex: "0", "aria-label": "\u0633\u062A\u0648\u0646\u200C\u0628\u0646\u062F\u06CC \u06A9\u0627\u0631\u062A\u200C\u0647\u0627\u06CC \u0646\u0645\u0627" }
+        });
+        const groupIcon = groupBtn.createSpan({ cls: "ticktick-select-icon" });
+        (0, import_obsidian8.setIcon)(groupIcon, "columns-3");
+        groupBtn.createSpan({
+          cls: "ticktick-filter-select-label",
+          text: `\u0633\u062A\u0648\u0646\u200C\u0628\u0646\u062F\u06CC: ${groupLabels[this.smartViewGrouping] ?? "\u067E\u0631\u0648\u0698\u0647"}`
+        });
+        const groupChevron = groupBtn.createSpan({ cls: "ticktick-select-chevron" });
+        (0, import_obsidian8.setIcon)(groupChevron, "chevron-down");
+        const openGroupMenu = (event) => {
+          const menu = new import_obsidian8.Menu();
+          for (const [value, label] of [["project", "\u0628\u0631 \u0627\u0633\u0627\u0633 \u067E\u0631\u0648\u0698\u0647"], ["priority", "\u0628\u0631 \u0627\u0633\u0627\u0633 \u0627\u0648\u0644\u0648\u06CC\u062A"], ["date", "\u0628\u0631 \u0627\u0633\u0627\u0633 \u062A\u0627\u0631\u06CC\u062E"], ["tag", "\u0628\u0631 \u0627\u0633\u0627\u0633 \u0628\u0631\u0686\u0633\u0628"]]) {
+            menu.addItem((item) => {
+              item.setTitle(label).setChecked(this.smartViewGrouping === value).onClick(() => {
+                this.smartViewGrouping = value;
+                void this.persistAndRender();
+              });
+            });
+          }
+          if (event instanceof MouseEvent) {
+            menu.showAtMouseEvent(event);
+          } else {
+            const rect = groupBtn.getBoundingClientRect();
+            menu.showAtPosition({ x: rect.right, y: rect.bottom });
+          }
+        };
+        groupBtn.addEventListener("click", openGroupMenu);
+        groupBtn.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openGroupMenu(event);
           }
         });
       }
@@ -3390,16 +3669,23 @@ var ProjectBoard = class {
             listWrap.createEl("h4", { cls: "ticktick-group-heading", text: group.name });
           }
           for (const task of sortPlanningTasks(group.tasks, this.sortMode)) {
-            this.card(listWrap, task, displayProject.color, Boolean(project));
+            this.card(listWrap, task, task.projectColor || displayProject.color, Boolean(project));
           }
         }
+      }
+      if (data.tasks.length === 0) {
+        const emptyState2 = columns.createDiv({ cls: "ticktick-board-empty ticktick-smart-view-empty" });
+        const emptyIcon = emptyState2.createSpan({ cls: "ticktick-empty-icon" });
+        (0, import_obsidian8.setIcon)(emptyIcon, "check-circle");
+        emptyState2.createEl("h3", { text: `\u0647\u06CC\u0686 \u062A\u0633\u06A9\u06CC \u062F\u0631 \u0646\u0645\u0627\u06CC \xAB${displayProject.name}\xBB \u0646\u06CC\u0633\u062A` });
+        emptyState2.createEl("p", { text: "\u0647\u0645\u0647\u0654 \u062A\u0633\u06A9\u200C\u0647\u0627 \u0627\u0646\u062C\u0627\u0645 \u0634\u062F\u0647\u200C\u0627\u0646\u062F \u06CC\u0627 \u062A\u0633\u06A9\u06CC \u0645\u0637\u0627\u0628\u0642 \u0627\u06CC\u0646 \u0646\u0645\u0627 \u062F\u0631 \u06A9\u0634 \u0645\u062D\u0644\u06CC \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F." });
       }
     } catch (error) {
       root.createEl("p", { text: error instanceof Error ? error.message : "\u062F\u0627\u062F\u0647\u0654 \u067E\u0631\u0648\u0698\u0647 \u062F\u0631 \u062F\u0633\u062A\u0631\u0633 \u0646\u06CC\u0633\u062A." });
     }
   }
   async persistAndRender() {
-    await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: this.sidebarCollapsed, sidebarPreferenceInitialized: true });
+    await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: this.sidebarCollapsed, sidebarPreferenceInitialized: true, smartViewGrouping: this.smartViewGrouping });
     await this.render();
   }
   renderHabitBoard(main) {
@@ -3725,11 +4011,13 @@ var DEFAULT_SETTINGS = {
   boardLastProjectId: "",
   boardCollapsedGroups: [],
   boardSidebarCollapsed: true,
-  boardSidebarPreferenceInitialized: false
+  boardSidebarPreferenceInitialized: false,
+  boardSmartViewGrouping: "project"
 };
 
 // src/obsidian/modals/task-editor-modal.ts
 var import_obsidian10 = require("obsidian");
+init_date();
 var TaskEditorModal = class extends import_obsidian10.Modal {
   constructor(app, projects, initial) {
     super(app);
@@ -3942,6 +4230,7 @@ var bridgeEvents = new BridgeEventBus();
 
 // src/obsidian/views/today-tasks-view.ts
 var import_obsidian11 = require("obsidian");
+init_date();
 var TodayTasksView = class extends import_obsidian11.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -4279,6 +4568,7 @@ var TickTickControlView = class extends import_obsidian15.ItemView {
 
 // src/obsidian/settings.ts
 var import_obsidian19 = require("obsidian");
+init_date();
 
 // src/obsidian/modals/web-login-modal.ts
 var import_obsidian16 = require("obsidian");
@@ -4816,12 +5106,13 @@ var TickTickBridgePlugin = class extends import_obsidian20.Plugin {
       edit: async (task) => this.editTaskFromSurface(task),
       moveToColumn: async (task, columnId) => this.moveTaskToBoardColumn(task, columnId),
       showCompleted: () => this.settings.plannerShowCompleted,
-      preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups, sidebarCollapsed: this.settings.boardSidebarCollapsed, sidebarPreferenceInitialized: this.settings.boardSidebarPreferenceInitialized }),
+      preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups, sidebarCollapsed: this.settings.boardSidebarCollapsed, sidebarPreferenceInitialized: this.settings.boardSidebarPreferenceInitialized, smartViewGrouping: this.settings.boardSmartViewGrouping }),
       savePreferences: async (value) => {
         this.settings.boardLastProjectId = value.selected;
         this.settings.boardCollapsedGroups = value.collapsed;
         this.settings.boardSidebarCollapsed = value.sidebarCollapsed;
         this.settings.boardSidebarPreferenceInitialized = value.sidebarPreferenceInitialized ?? true;
+        if (value.smartViewGrouping) this.settings.boardSmartViewGrouping = value.smartViewGrouping;
         await this.saveSettings();
       }
     };

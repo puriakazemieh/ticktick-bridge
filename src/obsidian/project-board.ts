@@ -1,5 +1,5 @@
 import { App, Menu, Notice, setIcon } from "obsidian";
-import { boardColumns, INBOX_BOARD_VIEW_ID, RECURRING_BOARD_VIEW_ID, sidebarTree, virtualBoardData, virtualBoardEntries } from "../core/project-board.js";
+import { boardColumns, COMPLETED_BOARD_VIEW_ID, INBOX_BOARD_VIEW_ID, RECURRING_BOARD_VIEW_ID, sidebarTree, virtualBoardData, virtualBoardEntries } from "../core/project-board.js";
 import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
 import { ProjectEditorModal } from "./project-editor-modal";
@@ -46,8 +46,8 @@ export type ProjectBoardHost = {
   edit: (task: TickTickTask) => Promise<unknown>;
   moveToColumn: (task: TickTickTask, columnId: string) => Promise<unknown>;
   showCompleted: () => boolean;
-  preferences: () => { selected: string; collapsed: string[]; sidebarCollapsed?: boolean; sidebarPreferenceInitialized?: boolean };
-  savePreferences: (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean; sidebarPreferenceInitialized?: boolean }) => Promise<void>;
+  preferences: () => { selected: string; collapsed: string[]; sidebarCollapsed?: boolean; sidebarPreferenceInitialized?: boolean; smartViewGrouping?: string };
+  savePreferences: (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean; sidebarPreferenceInitialized?: boolean; smartViewGrouping?: string }) => Promise<void>;
 };
 
 export class ProjectBoard {
@@ -55,6 +55,7 @@ export class ProjectBoard {
   private collapsed = new Set<string>();
   private initialized = false;
   private sortMode = "ticktick";
+  private smartViewGrouping: "project" | "priority" | "date" | "tag" = "project";
   private sidebarCollapsed = false;
   private lastSelectedProject: string | null = null;
   private savedColumnsScrollLeft = 0;
@@ -67,8 +68,11 @@ export class ProjectBoard {
       this.selected = saved.selected;
       this.collapsed = new Set(saved.collapsed);
       this.sidebarCollapsed = saved.sidebarPreferenceInitialized ? Boolean(saved.sidebarCollapsed) : true;
+      if (saved.smartViewGrouping && ["project", "priority", "date", "tag"].includes(saved.smartViewGrouping)) {
+        this.smartViewGrouping = saved.smartViewGrouping as "project" | "priority" | "date" | "tag";
+      }
       this.initialized = true;
-      if (!saved.sidebarPreferenceInitialized) void this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: true, sidebarPreferenceInitialized: true });
+      if (!saved.sidebarPreferenceInitialized) void this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: true, sidebarPreferenceInitialized: true, smartViewGrouping: this.smartViewGrouping });
     }
 
     const existingCols = this.element.querySelector<HTMLElement>(".ticktick-project-columns");
@@ -99,40 +103,44 @@ export class ProjectBoard {
         rail.createEl("button", { cls: "ticktick-rail-expand-label", text: "لیست‌ها", attr: { type: "button" } }).addEventListener("click", () => { this.sidebarCollapsed = false; void this.persistAndRender(); });
       } else {
 
-      const virtual = virtualBoardEntries(this.host.tasks());
-      const inbox = rail.createEl("button", { cls: `ticktick-project-row ${this.selected === INBOX_BOARD_VIEW_ID ? "is-selected" : ""}`, attr: { type: "button", "aria-label": `ورودی، ${virtual.inbox.count} تسک باز` } });
-      const inboxIcon = inbox.createSpan({ cls: "ticktick-project-row-icon" });
-      setIcon(inboxIcon, "inbox");
-      inbox.createSpan({ cls: "ticktick-project-name", text: "ورودی" });
-      inbox.createSpan({ cls: "ticktick-project-count", text: String(virtual.inbox.count) });
-      inbox.addEventListener("click", () => { this.selected = INBOX_BOARD_VIEW_ID; void this.persistAndRender(); });
+      const virtual = virtualBoardEntries(this.host.tasks(), { timeZone: this.host.timeZone });
       const habits = rail.createEl("button", { cls: `ticktick-project-row ${this.selected === HABIT_BOARD_VIEW_ID ? "is-selected" : ""}`, attr: { type: "button", "aria-label": `عادت‌ها، ${this.host.habits().length} عادت` } });
       const habitsIcon = habits.createSpan({ cls: "ticktick-project-row-icon" });
       setIcon(habitsIcon, "activity");
       habits.createSpan({ cls: "ticktick-project-name", text: "عادت‌ها" });
       habits.createSpan({ cls: "ticktick-project-count", text: String(this.host.habits().length) });
       habits.addEventListener("click", () => { this.selected = HABIT_BOARD_VIEW_ID; void this.persistAndRender(); });
-      const viewHeading = rail.createEl("button", {
-        cls: `ticktick-project-group ${this.collapsed.has("virtual-views") ? "is-collapsed" : ""}`,
+
+      const isSmartCollapsed = this.collapsed.has("smart-views") || this.collapsed.has("virtual-views");
+      const smartHeading = rail.createEl("button", {
+        cls: `ticktick-project-group ${isSmartCollapsed ? "is-collapsed" : ""}`,
         attr: { type: "button" }
       });
-      const viewChevron = viewHeading.createSpan({ cls: "ticktick-group-chevron" });
-      setIcon(viewChevron, this.collapsed.has("virtual-views") ? "chevron-left" : "chevron-down");
-      viewHeading.createSpan({ cls: "ticktick-group-title", text: "نمایش‌ها" });
-      viewHeading.addEventListener("click", () => {
-        this.collapsed.has("virtual-views") ? this.collapsed.delete("virtual-views") : this.collapsed.add("virtual-views");
+      const smartChevron = smartHeading.createSpan({ cls: "ticktick-group-chevron" });
+      setIcon(smartChevron, isSmartCollapsed ? "chevron-left" : "chevron-down");
+      smartHeading.createSpan({ cls: "ticktick-group-title", text: "نماهای هوشمند" });
+      smartHeading.addEventListener("click", () => {
+        if (isSmartCollapsed) {
+          this.collapsed.delete("smart-views");
+          this.collapsed.delete("virtual-views");
+        } else {
+          this.collapsed.add("smart-views");
+          this.collapsed.add("virtual-views");
+        }
         void this.persistAndRender();
       });
-      if (!this.collapsed.has("virtual-views")) {
-        const recurring = rail.createEl("button", {
-          cls: `ticktick-project-row ${this.selected === RECURRING_BOARD_VIEW_ID ? "is-selected" : ""}`,
-          attr: { type: "button", "aria-label": `تکرارشونده‌ها، ${virtual.recurring.count} تسک باز` }
-        });
-        const recurringIcon = recurring.createSpan({ cls: "ticktick-project-row-icon" });
-        setIcon(recurringIcon, "repeat-2");
-        recurring.createSpan({ cls: "ticktick-project-name", text: virtual.recurring.name });
-        recurring.createSpan({ cls: "ticktick-project-count", text: String(virtual.recurring.count) });
-        recurring.addEventListener("click", () => { this.selected = RECURRING_BOARD_VIEW_ID; void this.persistAndRender(); });
+      if (!isSmartCollapsed) {
+        for (const view of virtual.smartViews) {
+          const row = rail.createEl("button", {
+            cls: `ticktick-project-row ${this.selected === view.id ? "is-selected" : ""}`,
+            attr: { type: "button", "aria-label": `${view.name}، ${view.count} تسک` }
+          });
+          const rowIcon = row.createSpan({ cls: "ticktick-project-row-icon" });
+          setIcon(rowIcon, view.icon);
+          row.createSpan({ cls: "ticktick-project-name", text: view.name });
+          row.createSpan({ cls: "ticktick-project-count", text: String(view.count) });
+          row.addEventListener("click", () => { this.selected = view.id; void this.persistAndRender(); });
+        }
       }
 
       const tagHeading = rail.createEl("button", {
@@ -228,7 +236,10 @@ export class ProjectBoard {
       }
 
       const project = projects.find(item => String(item.id) === this.selected);
-      const virtualData = virtualBoardData(this.selected, this.host.tasks(), projects);
+      const virtualData = virtualBoardData(this.selected, this.host.tasks(), projects, {
+        grouping: this.smartViewGrouping,
+        timeZone: this.host.timeZone,
+      });
       const displayProject = (virtualData?.project ?? project) as TickTickProject | undefined;
       if (!displayProject) {
         const emptyState = main.createDiv({ cls: "ticktick-board-empty" });
@@ -247,9 +258,13 @@ export class ProjectBoard {
         pDot.style.setProperty("--project-color", displayProject.color);
       }
       headerInfo.createEl("h2", { cls: "ticktick-project-title", text: displayProject.name });
+      const isCompletedView = displayProject.id === COMPLETED_BOARD_VIEW_ID;
+      const countLabel = isCompletedView
+        ? `${virtualData?.tasks.length ?? 0} تسک تکمیل‌شده`
+        : `${virtualData ? virtualData.tasks.filter(task => Number(task.status ?? 0) === 0).length : project?.openCount ?? 0} تسک باز`;
       headerInfo.createSpan({
         cls: "ticktick-project-badge",
-        text: `${virtualData ? virtualData.tasks.filter(task => Number(task.status ?? 0) === 0).length : project?.openCount ?? 0} تسک باز`
+        text: countLabel
       });
 
       // Toolbar Controls
@@ -278,6 +293,55 @@ export class ProjectBoard {
           addTaskBtn.disabled = false;
         }
       });
+      }
+
+      // Grouping Menu Dropdown Pill (for smart views and virtual boards)
+      if (displayProject.virtual) {
+        const groupLabels: Record<string, string> = {
+          project: "پروژه",
+          priority: "اولویت",
+          date: "تاریخ",
+          tag: "برچسب",
+        };
+        const groupBtn = toolbar.createDiv({
+          cls: "ticktick-filter-select-wrapper",
+          attr: { role: "button", tabindex: "0", "aria-label": "ستون‌بندی کارت‌های نما" }
+        });
+        const groupIcon = groupBtn.createSpan({ cls: "ticktick-select-icon" });
+        setIcon(groupIcon, "columns-3");
+        groupBtn.createSpan({
+          cls: "ticktick-filter-select-label",
+          text: `ستون‌بندی: ${groupLabels[this.smartViewGrouping] ?? "پروژه"}`
+        });
+        const groupChevron = groupBtn.createSpan({ cls: "ticktick-select-chevron" });
+        setIcon(groupChevron, "chevron-down");
+
+        const openGroupMenu = (event: MouseEvent | KeyboardEvent) => {
+          const menu = new Menu();
+          for (const [value, label] of [["project", "بر اساس پروژه"], ["priority", "بر اساس اولویت"], ["date", "بر اساس تاریخ"], ["tag", "بر اساس برچسب"]]) {
+            menu.addItem(item => {
+              item.setTitle(label)
+                  .setChecked(this.smartViewGrouping === value)
+                  .onClick(() => {
+                    this.smartViewGrouping = value as "project" | "priority" | "date" | "tag";
+                    void this.persistAndRender();
+                  });
+            });
+          }
+          if (event instanceof MouseEvent) {
+            menu.showAtMouseEvent(event);
+          } else {
+            const rect = groupBtn.getBoundingClientRect();
+            menu.showAtPosition({ x: rect.right, y: rect.bottom });
+          }
+        };
+        groupBtn.addEventListener("click", openGroupMenu);
+        groupBtn.addEventListener("keydown", event => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openGroupMenu(event);
+          }
+        });
       }
 
       // Sort Menu Dropdown Pill
@@ -482,9 +546,17 @@ export class ProjectBoard {
             listWrap.createEl("h4", { cls: "ticktick-group-heading", text: group.name });
           }
           for (const task of sortPlanningTasks(group.tasks, this.sortMode)) {
-            this.card(listWrap, task, displayProject.color, Boolean(project));
+            this.card(listWrap, task, task.projectColor || displayProject.color, Boolean(project));
           }
         }
+      }
+
+      if (data.tasks.length === 0) {
+        const emptyState = columns.createDiv({ cls: "ticktick-board-empty ticktick-smart-view-empty" });
+        const emptyIcon = emptyState.createSpan({ cls: "ticktick-empty-icon" });
+        setIcon(emptyIcon, "check-circle");
+        emptyState.createEl("h3", { text: `هیچ تسکی در نمای «${displayProject.name}» نیست` });
+        emptyState.createEl("p", { text: "همهٔ تسک‌ها انجام شده‌اند یا تسکی مطابق این نما در کش محلی وجود ندارد." });
       }
     } catch (error) {
       root.createEl("p", { text: error instanceof Error ? error.message : "دادهٔ پروژه در دسترس نیست." });
@@ -492,7 +564,7 @@ export class ProjectBoard {
   }
 
   private async persistAndRender() {
-    await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: this.sidebarCollapsed, sidebarPreferenceInitialized: true });
+    await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: this.sidebarCollapsed, sidebarPreferenceInitialized: true, smartViewGrouping: this.smartViewGrouping });
     await this.render();
   }
 

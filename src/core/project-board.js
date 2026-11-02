@@ -1,3 +1,6 @@
+import { toDateKey, todayInZone } from "./date.js";
+import { shiftCalendarDay } from "./calendar-range.js";
+
 export function normalizeProjectData(document = {}, fallbackProject = {}) {
   const project = { ...fallbackProject, ...(document.project ?? {}), id: document.project?.id ?? fallbackProject.id ?? document.projectId, name: document.project?.name ?? fallbackProject.name ?? "بدون نام" };
   const columns = (document.columns ?? []).map((column, index) => ({ id: String(column.id ?? ""), name: String(column.name ?? `ستون ${index + 1}`), sortOrder: Number(column.sortOrder ?? index) }));
@@ -5,6 +8,7 @@ export function normalizeProjectData(document = {}, fallbackProject = {}) {
   const tasks = (document.tasks ?? []).map(task => ({ ...task, projectId: task.projectId ?? project.id, projectName: project.name, projectColor: project.color, columnId: task.columnId ?? "", columnName: names.get(String(task.columnId ?? "")) ?? "Tasks" }));
   return { project, columns, tasks };
 }
+
 export function sidebarTree(projects, tasks = []) {
   const groups = new Map();
   for (const [index, project] of (projects ?? []).entries()) {
@@ -32,12 +36,20 @@ export function sidebarTree(projects, tasks = []) {
 export const RECURRING_BOARD_VIEW_ID = "ticktick:view:recurring";
 export const ALL_BOARD_VIEW_ID = "ticktick:view:all";
 export const INBOX_BOARD_VIEW_ID = "ticktick:view:inbox";
-const TAG_BOARD_VIEW_PREFIX = "ticktick:view:tag:";
+export const UNSCHEDULED_BOARD_VIEW_ID = "ticktick:view:unscheduled";
+export const TODAY_BOARD_VIEW_ID = "ticktick:view:today";
+export const UPCOMING_BOARD_VIEW_ID = "ticktick:view:upcoming";
+export const OVERDUE_BOARD_VIEW_ID = "ticktick:view:overdue";
+export const HIGH_PRIORITY_BOARD_VIEW_ID = "ticktick:view:high-priority";
+export const COMPLETED_BOARD_VIEW_ID = "ticktick:view:completed";
+export const TAG_BOARD_VIEW_PREFIX = "ticktick:view:tag:";
 
 /** Virtual board entries are derived from the local TickTick cache. They never
  * represent remote projects, so selecting one must not enable project edits or
  * cross-column moves. */
-export function virtualBoardEntries(tasks = []) {
+export function virtualBoardEntries(tasks = [], options = {}) {
+  const timeZone = options.timeZone || "Asia/Tehran";
+  const todayKey = options.todayKey || todayInZone(timeZone);
   const open = tasks.filter(task => Number(task?.status ?? 0) === 0);
   const tags = new Map();
   for (const task of open) {
@@ -46,64 +58,266 @@ export function virtualBoardEntries(tasks = []) {
       if (name) tags.set(name, (tags.get(name) ?? 0) + 1);
     }
   }
+
+  const tomorrow = shiftCalendarDay(todayKey, 1);
+  const nextWeekEnd = shiftCalendarDay(todayKey, 7);
+
+  const recurringCount = open.filter(task => Boolean(task.repeatFlag)).length;
+  const unscheduledCount = open.filter(task => !toDateKey(task.dueDate, task.timeZone || timeZone) && !toDateKey(task.startDate, task.timeZone || timeZone)).length;
+  const todayCount = open.filter(task => {
+    const due = toDateKey(task.dueDate, task.timeZone || timeZone);
+    const start = toDateKey(task.startDate, task.timeZone || timeZone);
+    if (due === todayKey || start === todayKey) return true;
+    if (start && due && start <= todayKey && due >= todayKey) return true;
+    return false;
+  }).length;
+  const upcomingCount = open.filter(task => {
+    const due = toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone);
+    return Boolean(due && due >= tomorrow && due <= nextWeekEnd);
+  }).length;
+  const overdueCount = open.filter(task => {
+    const due = toDateKey(task.dueDate, task.timeZone || timeZone);
+    return Boolean(due && due < todayKey);
+  }).length;
+  const inboxCount = open.filter(task => Boolean(task.isInbox) || String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId).length;
+  const highPriorityCount = open.filter(task => Number(task.priority) === 5).length;
+  const completedCount = tasks.filter(task => Number(task.status ?? 0) !== 0).length;
+
+  const smartViews = [
+    { id: RECURRING_BOARD_VIEW_ID, key: "recurring", name: "تکرارشونده‌ها", icon: "repeat-2", count: recurringCount },
+    { id: UNSCHEDULED_BOARD_VIEW_ID, key: "unscheduled", name: "بدون تاریخ", icon: "calendar-off", count: unscheduledCount },
+    { id: TODAY_BOARD_VIEW_ID, key: "today", name: "امروز", icon: "sun", count: todayCount },
+    { id: UPCOMING_BOARD_VIEW_ID, key: "upcoming", name: "هفتهٔ آینده", icon: "calendar-days", count: upcomingCount },
+    { id: OVERDUE_BOARD_VIEW_ID, key: "overdue", name: "عقب‌افتاده", icon: "alert-circle", count: overdueCount },
+    { id: INBOX_BOARD_VIEW_ID, key: "inbox", name: "ورودی", icon: "inbox", count: inboxCount },
+    { id: HIGH_PRIORITY_BOARD_VIEW_ID, key: "highPriority", name: "اولویت بالا", icon: "alert-triangle", count: highPriorityCount },
+    { id: COMPLETED_BOARD_VIEW_ID, key: "completed", name: "تکمیل‌شده‌ها", icon: "check-circle-2", count: completedCount },
+  ];
+
   return {
     all: { id: ALL_BOARD_VIEW_ID, name: "همهٔ لیست‌ها", count: open.length },
-    inbox: { id: INBOX_BOARD_VIEW_ID, name: "ورودی", count: open.filter(task => Boolean(task.isInbox) || String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId).length },
-    recurring: { id: RECURRING_BOARD_VIEW_ID, name: "تکرارشونده‌ها", count: open.filter(task => Boolean(task.repeatFlag)).length },
+    inbox: { id: INBOX_BOARD_VIEW_ID, name: "ورودی", count: inboxCount },
+    recurring: { id: RECURRING_BOARD_VIEW_ID, name: "تکرارشونده‌ها", count: recurringCount },
+    unscheduled: { id: UNSCHEDULED_BOARD_VIEW_ID, name: "بدون تاریخ", count: unscheduledCount },
+    today: { id: TODAY_BOARD_VIEW_ID, name: "امروز", count: todayCount },
+    upcoming: { id: UPCOMING_BOARD_VIEW_ID, name: "هفتهٔ آینده", count: upcomingCount },
+    overdue: { id: OVERDUE_BOARD_VIEW_ID, name: "عقب‌افتاده", count: overdueCount },
+    highPriority: { id: HIGH_PRIORITY_BOARD_VIEW_ID, name: "اولویت بالا", count: highPriorityCount },
+    completed: { id: COMPLETED_BOARD_VIEW_ID, name: "تکمیل‌شده‌ها", count: completedCount },
+    smartViews,
     tags: [...tags.entries()]
       .sort(([left], [right]) => left.localeCompare(right, "fa"))
       .map(([name, count]) => ({ id: `${TAG_BOARD_VIEW_PREFIX}${encodeURIComponent(name)}`, name, count })),
   };
 }
 
-export function virtualBoardData(selection, tasks = [], projects = []) {
-  const entries = virtualBoardEntries(tasks);
-  let name = "";
-  let matching = [];
-  if (selection === ALL_BOARD_VIEW_ID) {
-    name = entries.all.name;
-    matching = tasks;
-  } else if (selection === INBOX_BOARD_VIEW_ID) {
-    name = entries.inbox.name;
-    matching = tasks.filter(task => Boolean(task.isInbox) || String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId);
-  } else if (selection === RECURRING_BOARD_VIEW_ID) {
-    name = entries.recurring.name;
-    matching = tasks.filter(task => Boolean(task.repeatFlag));
-  } else if (String(selection ?? "").startsWith(TAG_BOARD_VIEW_PREFIX)) {
-    const tag = decodeURIComponent(String(selection).slice(TAG_BOARD_VIEW_PREFIX.length));
-    const entry = entries.tags.find(item => item.name === tag);
-    if (!entry) return null;
-    name = `#${tag}`;
-    matching = tasks.filter(task => (task.tags ?? []).some(value => String(value) === tag));
-  } else return null;
+export function selectSmartViewTasks(selection, tasks = [], options = {}) {
+  const timeZone = options.timeZone || "Asia/Tehran";
+  const todayKey = options.todayKey || todayInZone(timeZone);
+  const open = tasks.filter(task => Number(task?.status ?? 0) === 0);
 
-  const usedProjectIds = new Set(matching.map(task => String(task.projectId ?? "")));
-  const columns = projects.filter(project => usedProjectIds.has(String(project.id))).map((project, index) => ({
-    id: String(project.id), name: String(project.name ?? "بدون پروژه"), color: project.color, sortOrder: index, synthetic: true,
-  }));
-  const known = new Set(columns.map(column => column.id));
-  for (const task of matching) {
-    const projectId = String(task.projectId ?? "");
-    if (known.has(projectId)) continue;
-    known.add(projectId);
-    columns.push({ id: projectId, name: projectId.toLowerCase() === "inbox" || !projectId ? "ورودی" : String(task.projectName ?? "بدون پروژه"), sortOrder: columns.length, synthetic: true });
+  if (selection === ALL_BOARD_VIEW_ID) {
+    return { name: "همهٔ لیست‌ها", tasks: open };
   }
+  if (selection === RECURRING_BOARD_VIEW_ID) {
+    return { name: "تکرارشونده‌ها", tasks: open.filter(task => Boolean(task.repeatFlag)) };
+  }
+  if (selection === UNSCHEDULED_BOARD_VIEW_ID) {
+    return {
+      name: "بدون تاریخ",
+      tasks: open.filter(task => !toDateKey(task.dueDate, task.timeZone || timeZone) && !toDateKey(task.startDate, task.timeZone || timeZone))
+    };
+  }
+  if (selection === TODAY_BOARD_VIEW_ID) {
+    return {
+      name: "امروز",
+      tasks: open.filter(task => {
+        const due = toDateKey(task.dueDate, task.timeZone || timeZone);
+        const start = toDateKey(task.startDate, task.timeZone || timeZone);
+        if (due === todayKey || start === todayKey) return true;
+        if (start && due && start <= todayKey && due >= todayKey) return true;
+        return false;
+      })
+    };
+  }
+  if (selection === UPCOMING_BOARD_VIEW_ID) {
+    const tomorrow = shiftCalendarDay(todayKey, 1);
+    const nextWeekEnd = shiftCalendarDay(todayKey, 7);
+    return {
+      name: "هفتهٔ آینده",
+      tasks: open.filter(task => {
+        const due = toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone);
+        return Boolean(due && due >= tomorrow && due <= nextWeekEnd);
+      })
+    };
+  }
+  if (selection === OVERDUE_BOARD_VIEW_ID) {
+    return {
+      name: "عقب‌افتاده",
+      tasks: open.filter(task => {
+        const due = toDateKey(task.dueDate, task.timeZone || timeZone);
+        return Boolean(due && due < todayKey);
+      })
+    };
+  }
+  if (selection === INBOX_BOARD_VIEW_ID) {
+    return {
+      name: "ورودی",
+      tasks: open.filter(task => Boolean(task.isInbox) || String(task.projectId ?? "").toLowerCase() === "inbox" || !task.projectId)
+    };
+  }
+  if (selection === HIGH_PRIORITY_BOARD_VIEW_ID) {
+    return {
+      name: "اولویت بالا",
+      tasks: open.filter(task => Number(task.priority) === 5)
+    };
+  }
+  if (selection === COMPLETED_BOARD_VIEW_ID) {
+    return {
+      name: "تکمیل‌شده‌ها",
+      tasks: tasks.filter(task => Number(task.status ?? 0) !== 0)
+    };
+  }
+  if (String(selection ?? "").startsWith(TAG_BOARD_VIEW_PREFIX)) {
+    const tag = decodeURIComponent(String(selection).slice(TAG_BOARD_VIEW_PREFIX.length));
+    return {
+      name: `#${tag}`,
+      tasks: open.filter(task => (task.tags ?? []).some(value => String(value) === tag))
+    };
+  }
+  return null;
+}
+
+export function virtualBoardData(selection, tasks = [], projects = [], options = {}) {
+  const selected = selectSmartViewTasks(selection, tasks, options);
+  if (!selected) return null;
+
+  const { name, tasks: matching } = selected;
+  const grouping = options.grouping || "project";
+  const timeZone = options.timeZone || "Asia/Tehran";
+  const todayKey = options.todayKey || todayInZone(timeZone);
+
+  let columns = [];
+  let mappedTasks = [];
+
+  if (grouping === "priority") {
+    columns = [
+      { id: "p-high", name: "اولویت بالا", color: "var(--text-error, #e53935)", sortOrder: 0, synthetic: true },
+      { id: "p-medium", name: "اولویت متوسط", color: "var(--text-warning, #fb8c00)", sortOrder: 1, synthetic: true },
+      { id: "p-low", name: "اولویت پایین", color: "var(--text-accent, #1e88e5)", sortOrder: 2, synthetic: true },
+      { id: "p-none", name: "بدون اولویت", color: "var(--text-muted, #757575)", sortOrder: 3, synthetic: true },
+    ];
+    mappedTasks = matching.map(task => {
+      const priority = Number(task.priority ?? 0);
+      const columnId = priority === 5 ? "p-high" : priority === 3 ? "p-medium" : priority === 1 ? "p-low" : "p-none";
+      return { ...task, columnId };
+    });
+  } else if (grouping === "date") {
+    const tomorrow = shiftCalendarDay(todayKey, 1);
+    const nextWeekEnd = shiftCalendarDay(todayKey, 7);
+    const dateDefs = [
+      { id: "d-overdue", name: "عقب‌افتاده", color: "var(--text-error, #e53935)", sortOrder: 0, synthetic: true },
+      { id: "d-today", name: "امروز", color: "var(--interactive-accent, #2196f3)", sortOrder: 1, synthetic: true },
+      { id: "d-tomorrow", name: "فردا", color: "var(--text-accent, #00acc1)", sortOrder: 2, synthetic: true },
+      { id: "d-week", name: "این هفته", color: "var(--text-success, #43a047)", sortOrder: 3, synthetic: true },
+      { id: "d-later", name: "آینده", color: "var(--text-muted, #7e57c2)", sortOrder: 4, synthetic: true },
+      { id: "d-unscheduled", name: "بدون تاریخ", color: "var(--text-muted, #9e9e9e)", sortOrder: 5, synthetic: true },
+    ];
+    mappedTasks = matching.map(task => {
+      const due = toDateKey(task.dueDate, task.timeZone || timeZone) ?? toDateKey(task.startDate, task.timeZone || timeZone);
+      let columnId = "d-unscheduled";
+      if (!due) columnId = "d-unscheduled";
+      else if (due < todayKey) columnId = "d-overdue";
+      else if (due === todayKey) columnId = "d-today";
+      else if (due === tomorrow) columnId = "d-tomorrow";
+      else if (due <= nextWeekEnd) columnId = "d-week";
+      else columnId = "d-later";
+      return { ...task, columnId };
+    });
+    const usedColIds = new Set(mappedTasks.map(t => t.columnId));
+    columns = dateDefs.filter(d => usedColIds.has(d.id));
+    if (columns.length === 0) columns = dateDefs;
+  } else if (grouping === "tag") {
+    const allTags = new Set();
+    let hasUntagged = false;
+    for (const task of matching) {
+      const taskTags = Array.isArray(task.tags) ? task.tags : [];
+      if (taskTags.length === 0) {
+        hasUntagged = true;
+      } else {
+        for (const t of taskTags) {
+          const clean = String(t ?? "").trim();
+          if (clean) allTags.add(clean);
+        }
+      }
+    }
+    const sortedTags = [...allTags].sort((a, b) => a.localeCompare(b, "fa"));
+    columns = sortedTags.map((tag, index) => ({
+      id: `t-${encodeURIComponent(tag)}`,
+      name: `#${tag}`,
+      sortOrder: index,
+      synthetic: true,
+    }));
+    if (hasUntagged || columns.length === 0) {
+      columns.push({
+        id: "t-none",
+        name: "بدون برچسب",
+        sortOrder: columns.length,
+        synthetic: true,
+      });
+    }
+    mappedTasks = matching.map(task => {
+      const taskTags = Array.isArray(task.tags) ? task.tags : [];
+      const primaryTag = taskTags.find(t => String(t ?? "").trim());
+      const columnId = primaryTag ? `t-${encodeURIComponent(primaryTag)}` : "t-none";
+      return { ...task, columnId };
+    });
+  } else {
+    // Default: grouping === "project"
+    const usedProjectIds = new Set(matching.map(task => String(task.projectId ?? "")));
+    columns = projects.filter(project => usedProjectIds.has(String(project.id))).map((project, index) => ({
+      id: String(project.id), name: String(project.name ?? "بدون پروژه"), color: project.color, sortOrder: index, synthetic: true,
+    }));
+    const known = new Set(columns.map(column => column.id));
+    for (const task of matching) {
+      const projectId = String(task.projectId ?? "");
+      if (known.has(projectId)) continue;
+      known.add(projectId);
+      columns.push({ id: projectId, name: projectId.toLowerCase() === "inbox" || !projectId ? "ورودی" : String(task.projectName ?? "بدون پروژه"), sortOrder: columns.length, synthetic: true });
+    }
+    mappedTasks = matching.map(task => ({ ...task, columnId: String(task.projectId ?? "") }));
+  }
+
   return {
-    project: { id: selection, name, virtual: true },
+    project: { id: selection, name, virtual: true, grouping },
     columns,
-    tasks: matching.map(task => ({ ...task, columnId: String(task.projectId ?? "") })),
+    tasks: mappedTasks,
   };
 }
 
 const isNote = task => String(task?.kind ?? task?.type ?? task?.taskType ?? "").toUpperCase() === "NOTE";
 const isPinned = task => Boolean(task?.pinned ?? task?.isPinned ?? task?.pin ?? task?.pinnedTime ?? task?.pinnedAt ?? task?.pinTime);
 const groupName = priority => ({ 5: "High", 3: "Medium", 1: "Low" }[Number(priority)] ?? "No priority");
+
 export function boardColumns(data, showCompleted = false) {
+  const isCompletedView = data.project?.id === COMPLETED_BOARD_VIEW_ID;
+  const effectiveShowCompleted = showCompleted || isCompletedView;
   const columns = data.columns.length ? data.columns : [{ id: "", name: "Tasks", synthetic: true, sortOrder: 0 }];
+  const isPriorityGrouping = data.project?.grouping === "priority";
+
   return columns.map(column => {
-    const matching = data.tasks.filter(task => String(task.columnId ?? "") === String(column.id) && (showCompleted || Number(task.status ?? 0) === 0));
+    const matching = data.tasks.filter(task => String(task.columnId ?? "") === String(column.id) && (effectiveShowCompleted || Number(task.status ?? 0) === 0));
     const ordered = matching.slice().sort((a, b) => Number(isPinned(b)) - Number(isPinned(a)) || Number(a.sortOrder ?? a.order ?? 0) - Number(b.sortOrder ?? b.order ?? 0) || String(a.title).localeCompare(String(b.title), "fa"));
-    const groups = ["Pinned", "High", "Medium", "Low", "No priority", ...(showCompleted ? ["Completed"] : [])].map(name => ({ name, tasks: ordered.filter(task => {
+    
+    if (isPriorityGrouping) {
+      const groups = [
+        { name: "Pinned", tasks: ordered.filter(task => isPinned(task)) },
+        { name: "", tasks: ordered.filter(task => !isPinned(task)) },
+      ].filter(group => group.tasks.length);
+      return { ...column, count: matching.length, groups };
+    }
+
+    const groups = ["Pinned", "High", "Medium", "Low", "No priority", ...(effectiveShowCompleted ? ["Completed"] : [])].map(name => ({ name, tasks: ordered.filter(task => {
       if (name === "Pinned") return isPinned(task);
       if (isPinned(task)) return false;
       return Number(task.status ?? 0) !== 0 ? name === "Completed" : groupName(task.priority) === name;
