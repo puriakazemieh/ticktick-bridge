@@ -79,7 +79,7 @@ Bring the TickTick task ecosystem directly into the user's Obsidian writing flow
 
 ---
 
-### Milestone 4: Visual Canvas Board Exporter (`ticktick-canvas`)
+### Milestone 4: Visual Canvas Board Exporter (`ticktick-canvas`) [DONE]
 1. **Pure Canvas Generator (`src/core/canvas-exporter.js`)**:
    - `generateCanvasFromTasks(tasks, options)`: Produces Obsidian `.canvas` JSON structure:
      - Nodes: Color-coded cards (High = red, Medium = orange/yellow, Low = blue, None = gray).

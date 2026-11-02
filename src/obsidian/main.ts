@@ -66,6 +66,7 @@ import { ActivityHeatmapView } from "./views/activity-heatmap-view";
 import { ActivityHeatmap } from "./activity-heatmap";
 import { QueryBlockRenderer } from "./query-block";
 import { TickTickEditorSuggest } from "./editor-suggest";
+import { CanvasExportModal } from "./canvas-exporter";
 import { TickTickBridgeSettings } from "./settings";
 
 export default class TickTickBridgePlugin extends Plugin {
@@ -202,6 +203,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-pomodoro-timer", name: "Open TickTick focus and pomodoro timer", callback: () => this.openPomodoroModal() });
     this.addCommand({ id: "quick-capture-task", name: "Quick capture task (Natural language)", callback: () => this.openQuickCaptureModal() });
     this.addCommand({ id: "open-activity-heatmap", name: "Open TickTick activity and habit heatmap", callback: () => this.openActivityHeatmapView() });
+    this.addCommand({ id: "export-tasks-to-canvas", name: "Export tasks to visual Obsidian Canvas", callback: () => this.openCanvasExportModal() });
     this.addCommand({ id: "probe-task-hierarchy", name: "Probe task hierarchy and generate audit report", callback: () => this.probeTaskHierarchyAndReport() });
     this.addCommand({ id: "open-smart-views", name: "Open smart views (TickTick board)", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
@@ -1699,6 +1701,10 @@ export default class TickTickBridgePlugin extends Plugin {
 
   openMorningBriefing() {
     new MorningBriefingModal(this.app, this).open();
+  }
+
+  openCanvasExportModal() {
+    new CanvasExportModal(this.app, this).open();
   }
 
   async logMorningBriefingToDailyNote(briefingMarkdown: string): Promise<boolean> {
