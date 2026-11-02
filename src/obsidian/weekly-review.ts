@@ -13,6 +13,7 @@ import { bulkSelectionStore } from "./selection-store";
 import { BulkActionBar } from "./bulk-action-bar";
 import { BulkConfirmModal } from "./modals/bulk-confirm-modal";
 import { TaskDetailsModal } from "./task-details-modal";
+import { formatTaskEstimate } from "../core/task-hierarchy.js";
 import type { TickTickTask, TickTickProject } from "./types";
 
 export interface WeeklyReviewHost {
@@ -384,6 +385,19 @@ export class WeeklyReview {
         cls: "ticktick-review-task-date",
         text: formatPersianDate(task.dueDate, this.host.timeZone)
       });
+    }
+
+    if (task.parentId) {
+      meta.createSpan({ cls: "ticktick-review-task-proj", text: "↳ زیرتسک" });
+    }
+
+    const estText = formatTaskEstimate(task);
+    if (estText) {
+      meta.createSpan({ cls: "ticktick-review-task-date", text: estText });
+    }
+
+    if (Array.isArray(task.blockedBy) && task.blockedBy.length > 0) {
+      meta.createSpan({ cls: "ticktick-review-task-tag", text: "⛔ وابسته" });
     }
 
     if (Array.isArray(task.tags) && task.tags.length > 0) {

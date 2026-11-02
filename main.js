@@ -3885,10 +3885,17 @@ var PlanningCalendar = class {
     check.addEventListener("change", () => void this.completeTask(task, check));
     const content = card.createDiv({ cls: "ticktick-task-content" });
     const timeStr = formatTaskTime(task, this.host.timeZone);
-    if (timeStr || priority.value > 0 || task.projectName) {
+    const estText = formatTaskEstimate(task);
+    if (timeStr || priority.value > 0 || task.projectName || task.parentId || estText) {
       const metaRow = content.createDiv({ cls: "ticktick-task-meta-row" });
+      if (task.parentId) {
+        metaRow.createSpan({ cls: "ticktick-task-project-chip", text: "\u21B3" });
+      }
       if (task.projectName) {
         metaRow.createSpan({ cls: "ticktick-task-project-chip", text: task.projectName });
+      }
+      if (estText) {
+        metaRow.createSpan({ cls: "ticktick-task-project-chip", text: estText });
       }
       if (timeStr) {
         const timeBadge = metaRow.createSpan({ cls: "ticktick-task-time-badge" });
@@ -5452,8 +5459,22 @@ var ProjectBoard = class {
     const hasDueDate = Boolean(task.dueDate);
     const hasRepeat = Boolean(task.repeatFlag);
     const tags = task.tags ?? [];
-    if (hasDueDate || hasRepeat || tags.length > 0 || bound) {
+    const estText = formatTaskEstimate(task);
+    const hasBlocked = Array.isArray(task.blockedBy) && task.blockedBy.length > 0;
+    if (hasDueDate || hasRepeat || tags.length > 0 || bound || task.parentId || estText || hasBlocked) {
       const meta = card.createDiv({ cls: "ticktick-project-card-meta" });
+      if (task.parentId) {
+        const subChip = meta.createSpan({ cls: "ticktick-meta-chip" });
+        subChip.createSpan({ text: "\u21B3 \u0632\u06CC\u0631\u062A\u0633\u06A9" });
+      }
+      if (estText) {
+        const estChip = meta.createSpan({ cls: "ticktick-meta-chip" });
+        estChip.createSpan({ text: estText });
+      }
+      if (hasBlocked) {
+        const depChip = meta.createSpan({ cls: "ticktick-meta-chip" });
+        depChip.createSpan({ text: "\u26D4 \u0648\u0627\u0628\u0633\u062A\u0647" });
+      }
       if (hasDueDate) {
         const dueChip = meta.createSpan({ cls: "ticktick-meta-chip" });
         const dueIcon = dueChip.createSpan({ cls: "ticktick-meta-icon" });
@@ -8028,6 +8049,16 @@ var WeeklyReview = class {
         cls: "ticktick-review-task-date",
         text: formatPersianDate(task.dueDate, this.host.timeZone)
       });
+    }
+    if (task.parentId) {
+      meta.createSpan({ cls: "ticktick-review-task-proj", text: "\u21B3 \u0632\u06CC\u0631\u062A\u0633\u06A9" });
+    }
+    const estText = formatTaskEstimate(task);
+    if (estText) {
+      meta.createSpan({ cls: "ticktick-review-task-date", text: estText });
+    }
+    if (Array.isArray(task.blockedBy) && task.blockedBy.length > 0) {
+      meta.createSpan({ cls: "ticktick-review-task-tag", text: "\u26D4 \u0648\u0627\u0628\u0633\u062A\u0647" });
     }
     if (Array.isArray(task.tags) && task.tags.length > 0) {
       for (const tag of task.tags.slice(0, 3)) {

@@ -8,6 +8,7 @@ import { taskPriority } from "./task-priority";
 import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
 
 import { matchesTaskFilter } from "../core/task-filter.js";
+import { formatTaskEstimate } from "../core/task-hierarchy.js";
 import { bulkSelectionStore } from "./selection-store";
 import { BulkActionBar } from "./bulk-action-bar";
 import type { TickTickTask, TickTickHabit, CachedHabitCheckin, HabitHistoryEntry, SavedView, TaskFilterState } from "./types";
@@ -1168,10 +1169,17 @@ for (const habit of habits) {
 
     // Meta chips (Project, Time, Priority)
     const timeStr = formatTaskTime(task, this.host.timeZone);
-    if (timeStr || priority.value > 0 || task.projectName) {
+    const estText = formatTaskEstimate(task);
+    if (timeStr || priority.value > 0 || task.projectName || task.parentId || estText) {
       const metaRow = content.createDiv({ cls: "ticktick-task-meta-row" });
+      if (task.parentId) {
+        metaRow.createSpan({ cls: "ticktick-task-project-chip", text: "↳" });
+      }
       if (task.projectName) {
         metaRow.createSpan({ cls: "ticktick-task-project-chip", text: task.projectName });
+      }
+      if (estText) {
+        metaRow.createSpan({ cls: "ticktick-task-project-chip", text: estText });
       }
       if (timeStr) {
         const timeBadge = metaRow.createSpan({ cls: "ticktick-task-time-badge" });

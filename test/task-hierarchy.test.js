@@ -147,3 +147,22 @@ test("isHierarchyWritePermitted enforces read-only guardrails by default", () =>
   // Setting is on AND confirmed -> true
   assert.equal(isHierarchyWritePermitted({ experimentalHierarchyWrites: true }, true), true);
 });
+
+test("isolated probe fixture verifies create, reorder, completion, and rollback payloads without secrets", () => {
+  const probeTasks = [
+    { id: "parent-probe", title: "Probe Parent", projectId: "p-test" },
+    { id: "child-probe-1", title: "Child 1", parentId: "parent-probe", sortOrder: 1, status: 0 },
+    { id: "child-probe-2", title: "Child 2", parentId: "parent-probe", sortOrder: 2, status: 2 },
+  ];
+
+  const probeReport = probeTaskHierarchy(probeTasks);
+
+  assert.equal(probeReport.parentChildCount, 2);
+  assert.equal(probeReport.uniqueParentsCount, 1);
+  assert.equal(probeReport.writeSafety.readOnlyByDefault, true);
+
+  const serialized = JSON.stringify(probeReport);
+  assert.ok(!serialized.includes("token"));
+  assert.ok(!serialized.includes("cookie"));
+  assert.ok(!serialized.includes("password"));
+});

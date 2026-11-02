@@ -13,6 +13,7 @@ import { FilterBar, type FilterBarHost } from "./filter-bar";
 import { bulkSelectionStore } from "./selection-store";
 import { BulkActionBar } from "./bulk-action-bar";
 import { matchesTaskFilter } from "../core/task-filter.js";
+import { formatTaskEstimate } from "../core/task-hierarchy.js";
 import type { TickTickTask, TickTickProject, TickTickHabit, CachedHabitCheckin, ProjectBoardData, HabitHistoryEntry, SavedView, TaskFilterState } from "./types";
 
 const HABIT_BOARD_VIEW_ID = "ticktick:view:habits";
@@ -817,8 +818,22 @@ for (const habit of habits) {
     const hasDueDate = Boolean(task.dueDate);
     const hasRepeat = Boolean(task.repeatFlag);
     const tags = task.tags ?? [];
-    if (hasDueDate || hasRepeat || tags.length > 0 || bound) {
+    const estText = formatTaskEstimate(task);
+    const hasBlocked = Array.isArray(task.blockedBy) && task.blockedBy.length > 0;
+    if (hasDueDate || hasRepeat || tags.length > 0 || bound || task.parentId || estText || hasBlocked) {
       const meta = card.createDiv({ cls: "ticktick-project-card-meta" });
+      if (task.parentId) {
+        const subChip = meta.createSpan({ cls: "ticktick-meta-chip" });
+        subChip.createSpan({ text: "↳ زیرتسک" });
+      }
+      if (estText) {
+        const estChip = meta.createSpan({ cls: "ticktick-meta-chip" });
+        estChip.createSpan({ text: estText });
+      }
+      if (hasBlocked) {
+        const depChip = meta.createSpan({ cls: "ticktick-meta-chip" });
+        depChip.createSpan({ text: "⛔ وابسته" });
+      }
       if (hasDueDate) {
         const dueChip = meta.createSpan({ cls: "ticktick-meta-chip" });
         const dueIcon = dueChip.createSpan({ cls: "ticktick-meta-icon" });
