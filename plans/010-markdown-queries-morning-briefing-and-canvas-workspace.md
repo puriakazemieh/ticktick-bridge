@@ -64,7 +64,7 @@ Bring the TickTick task ecosystem directly into the user's Obsidian writing flow
 
 ---
 
-### Milestone 3: In-Editor Quick Suggest & Task Autocomplete (`EditorSuggest`)
+### Milestone 3: In-Editor Quick Suggest & Task Autocomplete (`EditorSuggest`) [DONE]
 1. **Pure Matcher (`src/core/editor-suggest-matcher.js`)**:
    - Detects trigger prefix (e.g. `[[tt:` or `@task:`) at cursor position.
    - Performs fuzzy search against cached active tasks with Persian character and diacritic normalization.

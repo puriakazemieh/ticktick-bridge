@@ -7632,4 +7632,54 @@
   border-top: 1px solid var(--background-modifier-border);
 }
 
+/* src/styles/editor-suggest.css */
+.ticktick-suggest-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.4rem 0.6rem;
+  direction: rtl;
+  font-family: inherit;
+}
+.suggest-main-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.suggest-prio-flag {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.suggest-task-title {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--text-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.suggest-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+.suggest-chip {
+  font-size: 0.72rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--background-secondary-alt);
+  color: var(--text-muted);
+}
+.suggest-chip.chip-project {
+  color: var(--text-accent);
+}
+.suggest-chip.chip-due {
+  color: var(--text-muted);
+}
+.suggest-chip.chip-tag {
+  color: var(--text-accent);
+  background: var(--interactive-accent-opacity);
+}
+
 /* src/styles/main.css */

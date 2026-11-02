@@ -65,6 +65,7 @@ import { MorningBriefingModal } from "./modals/morning-briefing-modal";
 import { ActivityHeatmapView } from "./views/activity-heatmap-view";
 import { ActivityHeatmap } from "./activity-heatmap";
 import { QueryBlockRenderer } from "./query-block";
+import { TickTickEditorSuggest } from "./editor-suggest";
 import { TickTickBridgeSettings } from "./settings";
 
 export default class TickTickBridgePlugin extends Plugin {
@@ -182,6 +183,7 @@ export default class TickTickBridgePlugin extends Plugin {
       element.empty();
       await MarkdownRenderer.render(this.app, md, element, "", this);
     });
+    this.registerEditorSuggest(new TickTickEditorSuggest(this.app, this));
     this.configurePanelMenuRibbonIcon();
     this.configureSyncRibbonIcon();
     this.configureRibbonIcons();
@@ -1689,6 +1691,10 @@ export default class TickTickBridgePlugin extends Plugin {
 
   getCacheHabits(): TickTickHabit[] {
     return this.cache.habits;
+  }
+
+  getCacheProjects(): TickTickProject[] {
+    return this.cache.projects;
   }
 
   openMorningBriefing() {
