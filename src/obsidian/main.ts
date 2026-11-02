@@ -8,13 +8,14 @@ import { MarkdownConflictModal, PendingMutationConflictModal } from "./conflict-
 import { PlanningCalendar, HabitDetailsModal } from "./planning-calendar";
 import { renderUnifiedHabitCard } from "./habit-card";
 import { ProjectBoard } from "./project-board";
+import { ProjectTimeline } from "./project-timeline";
 import { NoteImport, NoteImportModal } from "./note-import";
 import { LocalHabitMigrationModal } from "./modals/local-habit-migration-modal";
 import { mergeTaskDetails, reconcileOpenTasks, taskDescription } from "../core/task-description.js";
 import { normalizeProjectData } from "../core/project-board.js";
 
 import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit, ProjectBoardData, TickTickNote, SavedView } from "./types";
-import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
+import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, TIMELINE_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
 import {
   currentPlatformName,
   appendChecklistSummary,
@@ -46,6 +47,7 @@ import { TodayHabitsView } from "./views/today-habits-view";
 import { PlanningView } from "./views/planning-view";
 import { ProjectBoardView } from "./views/project-board-view";
 import { TickTickControlView } from "./views/ticktick-control-view";
+import { ProjectTimelineView } from "./views/project-timeline-view";
 import { TickTickBridgeSettings } from "./settings";
 
 export default class TickTickBridgePlugin extends Plugin {
@@ -106,6 +108,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.registerView(PLANNER_VIEW_TYPE, leaf => new PlanningView(leaf, this));
     this.registerView(PROJECT_BOARD_VIEW_TYPE, leaf => new ProjectBoardView(leaf, this));
     this.registerView(CONTROL_VIEW_TYPE, leaf => new TickTickControlView(leaf, this));
+    this.registerView(TIMELINE_VIEW_TYPE, leaf => new ProjectTimelineView(leaf, this));
     this.registerMarkdownCodeBlockProcessor("ticktick-today", async (_source, element, context) => {
       const day = dailyNoteDateFromPath(context.sourcePath);
       this.taskBlocks.set(element, day);
@@ -125,6 +128,9 @@ export default class TickTickBridgePlugin extends Plugin {
     this.registerMarkdownCodeBlockProcessor("ticktick-board", async (_source, element) => {
       await new ProjectBoard(element, this.projectBoardHost()).render();
     });
+    this.registerMarkdownCodeBlockProcessor("ticktick-timeline", async (_source, element) => {
+      await new ProjectTimeline(element, this.timelineHost()).render();
+    });
     this.configurePanelMenuRibbonIcon();
     this.configureSyncRibbonIcon();
     this.configureRibbonIcons();
@@ -135,6 +141,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "review-local-habits", name: "Review local habits and migration preview", callback: () => this.openLocalHabitReviewModal() });
     this.addCommand({ id: "open-weekly-planner", name: "Open TickTick weekly planner", callback: () => this.openPlannerView() });
     this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
+    this.addCommand({ id: "open-project-timeline", name: "Open TickTick project timeline (Gantt)", callback: () => this.openTimelineView() });
     this.addCommand({ id: "open-smart-views", name: "Open smart views (TickTick board)", callback: () => this.openProjectBoardView() });
     this.addCommand({ id: "refresh-project-board", name: "Refresh TickTick project board", callback: () => this.syncNow() });
     this.addCommand({ id: "sync-now", name: "Sync TickTick now", callback: () => this.syncNow() });
@@ -309,6 +316,24 @@ export default class TickTickBridgePlugin extends Plugin {
     };
   }
 
+  timelineHost() {
+    return {
+      app: this.app,
+      timeZone: this.settings.timeZone,
+      firstWeekday: 6,
+      projects: async () => this.cache.projects.length ? this.cache.projects : this.client().listProjects(),
+      tasks: () => this.cache.tasks,
+      refresh: async () => { await this.syncNow(); },
+      rescheduleRange: async (task: TickTickTask, newStart: string | null, newDue: string | null) => this.rescheduleTaskRange(task, newStart, newDue),
+      complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
+      edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
+      load: async (task: TickTickTask) => this.loadTaskDetails(task),
+      showCompleted: () => this.settings.plannerShowCompleted,
+      savedViews: () => this.settings.savedViews || [],
+      saveSavedViews: async (views: SavedView[]) => { this.settings.savedViews = views; await this.saveSettings(); },
+    };
+  }
+
   private async importTaggedCheckboxes(file: TFile, quiet = false) {
     const tag = this.settings.checkboxImportTag.trim().replace(/^#/, "") || "ticktick";
     const tagPattern = new RegExp(`(^|\\s)#${escapeRegExp(tag)}(?=\\s|$)`, "i");
@@ -376,6 +401,7 @@ export default class TickTickBridgePlugin extends Plugin {
       this.addRibbonIcon("activity", "TickTick Bridge: عادت‌های امروز", () => this.openHabitView()),
       this.addRibbonIcon("calendar-days", "TickTick Bridge: تقویم و برنامه‌ریزی", () => void this.openPlannerView()),
       this.addRibbonIcon("kanban-square", "TickTick Bridge: برد پروژه‌ها و نماهای هوشمند", () => void this.openProjectBoardView()),
+      this.addRibbonIcon("calendar-range", "TickTick Bridge: تایم‌لاین و گانت پروژه‌ها", () => void this.openTimelineView()),
     );
   }
 
@@ -398,6 +424,7 @@ export default class TickTickBridgePlugin extends Plugin {
     menu.addItem(item => item.setTitle("عادت‌های امروز").setIcon("activity").onClick(() => void this.openHabitView()));
     menu.addItem(item => item.setTitle("تقویم و برنامهٔ هفتگی").setIcon("calendar-days").onClick(() => void this.openPlannerView()));
     menu.addItem(item => item.setTitle("برد پروژه‌ها").setIcon("kanban-square").onClick(() => void this.openProjectBoardView()));
+    menu.addItem(item => item.setTitle("تایم‌لاین و گانت پروژه‌ها").setIcon("calendar-range").onClick(() => void this.openTimelineView()));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("مرکز همگام‌سازی و تعارض‌ها").setIcon("arrow-down-up").onClick(() => void this.openControlPage("sync")));
     menu.addItem(item => item.setTitle("پیش‌نمایش انتقال TickTick Notes").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
@@ -952,6 +979,53 @@ export default class TickTickBridgePlugin extends Plugin {
     }
   }
 
+  async rescheduleTaskRange(task: TickTickTask, newStartDate: string | null, newDueDate: string | null) {
+    const previous = { ...task };
+    try {
+      const isTimed = !task.isAllDay && (String(task.startDate ?? task.dueDate ?? "").includes("T"));
+      const startTimePart = String(task.startDate ?? "").match(/T(\d{2}:\d{2}:\d{2})/)?.[1] ?? "00:00:00";
+      const dueTimePart = String(task.dueDate ?? "").match(/T(\d{2}:\d{2}:\d{2})/)?.[1] ?? "00:00:00";
+      const tzOffset = "+0330";
+
+      const formattedStart = newStartDate ? (isTimed ? `${newStartDate}T${startTimePart}${tzOffset}` : `${newStartDate}T00:00:00${tzOffset}`) : null;
+      const formattedDue = newDueDate ? (isTimed ? `${newDueDate}T${dueTimePart}${tzOffset}` : `${newDueDate}T00:00:00${tzOffset}`) : null;
+
+      const payload: Partial<TickTickTask> = {
+        id: task.id,
+        projectId: task.projectId,
+        startDate: formattedStart,
+        dueDate: formattedDue,
+        isAllDay: !isTimed,
+        timeZone: this.settings.timeZone
+      };
+
+      this.cache.tasks = this.cache.tasks.map(t => t.id === task.id ? { ...t, ...payload } : t);
+      for (const board of Object.values(this.cache.projectBoards)) {
+        board.tasks = (board.tasks ?? []).map(t => t.id === task.id ? { ...t, ...payload } : t);
+      }
+      bridgeEvents.emit("state:changed", undefined as void);
+
+      await this.updateTask(payload);
+      return { ...task, ...payload };
+    } catch (error) {
+      this.cache.tasks = this.cache.tasks.map(t => t.id === previous.id ? previous : t);
+      for (const board of Object.values(this.cache.projectBoards)) {
+        board.tasks = (board.tasks ?? []).map(t => t.id === previous.id ? previous : t);
+      }
+      await this.managedStorage.writeReport("timeline-reschedule-failure", {
+        taskId: task.id,
+        title: task.title,
+        previousStart: task.startDate,
+        previousDue: task.dueDate,
+        targetStart: newStartDate,
+        targetDue: newDueDate,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      bridgeEvents.emit("state:changed", undefined as void);
+      throw error;
+    }
+  }
+
   private async moveTaskToBoardColumn(task: TickTickTask, columnId: string) {
     if (!columnId) throw new Error("ستون مقصد برای انتقال قابل‌استفاده نیست.");
     if (String(task.columnId ?? "") === columnId) return task;
@@ -1231,6 +1305,11 @@ export default class TickTickBridgePlugin extends Plugin {
   async openProjectBoardView() {
     const leaf = this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: PROJECT_BOARD_VIEW_TYPE, active: true });
+  }
+
+  async openTimelineView() {
+    const leaf = this.app.workspace.getLeaf("tab");
+    await leaf.setViewState({ type: TIMELINE_VIEW_TYPE, active: true });
   }
 
   async openControlPage(screen: ControlScreen) {

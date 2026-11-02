@@ -10,7 +10,7 @@ import type { SavedView, TaskFilterState } from "./types";
 
 export interface FilterBarHost {
   app: App;
-  scope: "all" | "board" | "calendar";
+  scope: "all" | "board" | "calendar" | "timeline";
   projects: () => Array<{ id: string; name: string }>;
   tags: () => string[];
   savedViews: () => SavedView[];

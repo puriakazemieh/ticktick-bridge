@@ -5,6 +5,7 @@ export const HABIT_VIEW_TYPE = "ticktick-bridge-habits";
 export const PLANNER_VIEW_TYPE = "ticktick-bridge-planner";
 export const PROJECT_BOARD_VIEW_TYPE = "ticktick-bridge-project-board";
 export const CONTROL_VIEW_TYPE = "ticktick-bridge-control";
+export const TIMELINE_VIEW_TYPE = "ticktick-bridge-timeline";
 
 export const DEFAULT_SETTINGS: BridgeSettings = {
   apiToken: "",

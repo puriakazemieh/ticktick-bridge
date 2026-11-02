@@ -51,7 +51,7 @@ export interface TaskFilterState {
 export interface SavedView {
   id: string;
   name: string;
-  scope: "all" | "board" | "calendar";
+  scope: "all" | "board" | "calendar" | "timeline";
   filter: TaskFilterState;
   grouping?: string;
   sort?: string;

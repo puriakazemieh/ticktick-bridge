@@ -1,6 +1,6 @@
 # Plan 008: Cache-first smart planning workspace
 
-> Status: IN PROGRESS (Phases 1, 2 & 3 complete on `main`)  
+> Status: IN PROGRESS (Phases 1, 2, 3 & 4 complete on `main`)  
 > Priority: P1  
 > Effort: Large  
 > Risk: Medium  
