@@ -1430,12 +1430,31 @@ var import_obsidian4 = require("obsidian");
 var import_obsidian3 = require("obsidian");
 
 // src/core/checklist.js
+var CHECKLIST_CAPABILITY = Object.freeze({
+  UNAVAILABLE: "unavailable",
+  READ_ONLY: "read-only",
+  ENABLED_UNVERIFIED: "enabled-unverified",
+  VERIFIED: "verified"
+});
 function normalizeChecklist(items) {
-  return (Array.isArray(items) ? items : []).map((item, index) => ({ id: item?.id ? String(item.id) : null, title: String(item?.title ?? item?.content ?? "").trim(), completed: item?.completed !== void 0 ? Boolean(item.completed) : Number(item?.status ?? 0) !== 0, sortOrder: Number(item?.sortOrder ?? index), unknown: Object.fromEntries(Object.entries(item ?? {}).filter(([key]) => !["id", "title", "content", "status", "sortOrder", "completed", "completedTime", "startDate", "dueDate", "isAllDay", "timeZone"].includes(key))) })).sort((a, b) => a.sortOrder - b.sortOrder);
+  return (Array.isArray(items) ? items : []).map((item, index) => ({
+    id: item?.id ? String(item.id) : null,
+    title: String(item?.title ?? item?.content ?? "").trim(),
+    completed: item?.completed !== void 0 ? Boolean(item.completed) : Number(item?.status ?? 0) !== 0,
+    sortOrder: Number(item?.sortOrder ?? index),
+    unknown: Object.fromEntries(
+      Object.entries(item ?? {}).filter(
+        ([key]) => !["id", "title", "content", "status", "sortOrder", "completed", "completedTime", "startDate", "dueDate", "isAllDay", "timeZone"].includes(key)
+      )
+    )
+  })).sort((a, b) => a.sortOrder - b.sortOrder);
 }
 function checklistSummary(items) {
   const normalized = normalizeChecklist(items);
-  return { total: normalized.length, completed: normalized.filter((item) => item.completed).length };
+  return {
+    total: normalized.length,
+    completed: normalized.filter((item) => item.completed).length
+  };
 }
 
 // src/obsidian/helpers.ts

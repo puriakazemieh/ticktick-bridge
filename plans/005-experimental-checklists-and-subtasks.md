@@ -90,7 +90,7 @@ Add an "Experimental checklist editing" setting with a clear warning, capability
 
 - [x] Checklist display is safe and read-only by default.
 - [x] No edit is visible until the user opts in and the capability says it is supported.
-- [ ] Write operations are blocked pending API characterization.
+- [x] Write operations are blocked pending API characterization.
 - [x] `npm test`, `npm run check`, and `npm run build` pass.
 
 ## STOP conditions
