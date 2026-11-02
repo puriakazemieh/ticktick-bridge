@@ -13,7 +13,8 @@ Generated on 2026-10-14 against commit `b86e322`. Execute in this order. Each ex
 | 005 | Ship experimental checklist and subtask editing behind a safety gate | P2 | L | 001, 002 | DONE (reviewed & verified - read-only safety gate) |
 | 006 | Migrate local habits and unify the habit dashboard | P2 | M | 001 | DONE (reviewed & verified - local parsing & preview safety gate) |
 | 007 | Import selected TickTick Notes into managed Obsidian files | P2 | L | 001 | DONE (reviewed & verified - selective import & managed boundary) |
-| 008 | Build cache-first smart planning views and project execution tools | P1 | L | 001, current cache/mutation layer | IN PROGRESS (Phases 1 & 2 complete: smart views, shared filters, saved views) |
+| 008 | Build cache-first smart planning views and project execution tools | P1 | L | 001, current cache/mutation layer | DONE (all 7 phases complete on `main`) |
+| 009 | Deep focus, Eisenhower decision matrix, and daily timeblocking workspace | P1 | L | 001–008, Daily Note integration | TODO |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED` (include a reason) | `REJECTED` (include a reason).
 
