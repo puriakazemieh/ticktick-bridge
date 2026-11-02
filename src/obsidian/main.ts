@@ -13,7 +13,7 @@ import { LocalHabitMigrationModal } from "./modals/local-habit-migration-modal";
 import { mergeTaskDetails, reconcileOpenTasks, taskDescription } from "../core/task-description.js";
 import { normalizeProjectData } from "../core/project-board.js";
 
-import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit, ProjectBoardData, TickTickNote } from "./types";
+import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit, ProjectBoardData, TickTickNote, SavedView } from "./types";
 import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
 import {
   currentPlatformName,
@@ -266,6 +266,8 @@ export default class TickTickBridgePlugin extends Plugin {
       loadHabit: async (habit: TickTickHabit) => this.loadHabitDetails(habit),
       showHabits: () => this.settings.plannerShowHabits,
       setShowHabits: async (value: boolean) => { this.settings.plannerShowHabits = value; await this.saveSettings(); },
+      savedViews: () => this.settings.savedViews || [],
+      saveSavedViews: async (views: SavedView[]) => { this.settings.savedViews = views; await this.saveSettings(); },
     };
   }
 
@@ -301,6 +303,8 @@ export default class TickTickBridgePlugin extends Plugin {
       showCompleted: () => this.settings.plannerShowCompleted,
       preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups, sidebarCollapsed: this.settings.boardSidebarCollapsed, sidebarPreferenceInitialized: this.settings.boardSidebarPreferenceInitialized, smartViewGrouping: this.settings.boardSmartViewGrouping }),
       savePreferences: async (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean; sidebarPreferenceInitialized?: boolean; smartViewGrouping?: string }) => { this.settings.boardLastProjectId = value.selected; this.settings.boardCollapsedGroups = value.collapsed; this.settings.boardSidebarCollapsed = value.sidebarCollapsed; this.settings.boardSidebarPreferenceInitialized = value.sidebarPreferenceInitialized ?? true; if (value.smartViewGrouping) this.settings.boardSmartViewGrouping = value.smartViewGrouping; await this.saveSettings(); },
+      savedViews: () => this.settings.savedViews || [],
+      saveSavedViews: async (views: SavedView[]) => { this.settings.savedViews = views; await this.saveSettings(); },
     };
   }
 

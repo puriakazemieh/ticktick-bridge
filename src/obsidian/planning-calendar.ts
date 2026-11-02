@@ -7,7 +7,8 @@ import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
 import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
 
-import type { TickTickTask, TickTickHabit, CachedHabitCheckin, HabitHistoryEntry } from "./types";
+import { matchesTaskFilter } from "../core/task-filter.js";
+import type { TickTickTask, TickTickHabit, CachedHabitCheckin, HabitHistoryEntry, SavedView, TaskFilterState } from "./types";
 
 export type HabitDetailsHost = {
   firstWeekday: number;
@@ -35,6 +36,8 @@ export type PlannerHost = HabitDetailsHost & {
   loadHabit: (habit: TickTickHabit) => Promise<TickTickHabit | undefined>;
   showHabits: () => boolean;
   setShowHabits: (value: boolean) => Promise<void>;
+  savedViews?: () => SavedView[];
+  saveSavedViews?: (views: SavedView[]) => Promise<void>;
 };
 
 type Mode = "day" | "week" | "month";
@@ -337,6 +340,16 @@ export class PlanningCalendar {
   private showHabitsForAllDays = false;
   private showAllRecurring = false;
   private draggingTaskId = "";
+  private filterState: TaskFilterState = {
+    projects: [],
+    tags: [],
+    statuses: [],
+    priorities: [],
+    dateRange: null,
+    searchText: "",
+    grouping: "none",
+    sort: "ticktick"
+  };
   private draggingSourceDay = "";
   private displayedHabitIds = new Set<string>();
   private lastRenderedDay?: string;
@@ -662,6 +675,7 @@ export class PlanningCalendar {
 
   private filteredTasks() {
     return this.host.tasks().filter(task =>
+      matchesTaskFilter(task, this.filterState, { timeZone: this.host.timeZone }) &&
       (!this.projects.size || this.projects.has(String(task.projectName ?? task.projectId ?? "ورودی"))) &&
       (!this.tags.size || (task.tags ?? []).some((tag: string) => this.tags.has(String(tag))))
     );

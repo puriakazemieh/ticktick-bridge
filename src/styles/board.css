@@ -744,3 +744,86 @@
 .ticktick-column-count {
   transition: transform 180ms ease, background-color 180ms ease;
 }
+
+/* ── Shared Filter Bar (Plan 008 Phase 2) ── */
+.ticktick-shared-filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0.45rem 0.65rem;
+  background: color-mix(in srgb, var(--background-secondary) 50%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+  border-radius: 0.75rem;
+  margin-bottom: 0.25rem;
+  direction: rtl;
+}
+
+.ticktick-filter-search-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+  min-width: 11rem;
+  flex: 1 1 11rem;
+  max-width: 20rem;
+}
+
+.ticktick-filter-search-pill:focus-within {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 20%, transparent);
+}
+
+.ticktick-search-icon {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+.ticktick-search-icon svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.ticktick-filter-search-field {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 0 !important;
+  font-size: 0.82rem;
+  color: var(--text-normal);
+  width: 100%;
+}
+
+.ticktick-filter-clear-search {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  padding: 0 !important;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+
+.ticktick-filter-clear-search:hover {
+  color: var(--text-normal);
+}
+
+.ticktick-saved-views-chip {
+  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-secondary));
+  border-color: color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+  color: var(--text-normal);
+}
+
+.ticktick-saved-view-input {
+  width: 100%;
+  margin: 0.75rem 0 1rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.95rem;
+  direction: rtl;
+}

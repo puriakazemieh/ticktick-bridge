@@ -62,6 +62,16 @@ export class TickTickBridgeSettings extends PluginSettingTab {
     }));
     new Setting(containerEl).setName("Checklist و Subtask آزمایشی").setDesc("فعلاً فقط خواندنی است؛ API رسمی برای ویرایش امن child item تأیید نشده و هیچ checkboxای در این بخش چیزی را تغییر نمی‌دهد.").addToggle(toggle => toggle.setValue(this.plugin.settings.experimentalChecklistReadOnly).setDisabled(true));
     new Setting(containerEl).setName("انتقال TickTick Notes").setDesc("فقط Noteهای دارای kind: NOTE را پس از انتخاب شما در فولدر قابل‌مشاهده وارد می‌کند؛ یک‌طرفه و بدون overwrite.").addText(input => input.setValue(this.plugin.settings.ticktickNotesFolder).onChange(async value => { this.plugin.settings.ticktickNotesFolder = value.trim().replace(/^\/+|\/+$/g, "") || "TickTick Notes"; await this.plugin.saveSettings(); })).addButton(button => button.setButtonText("انتخاب Noteها").onClick(() => void this.plugin.previewTickTickNotes()));
+    const savedViews = this.plugin.settings.savedViews || [];
+    const savedSetting = new Setting(containerEl).setName("نماهای ذخیره‌شده (Saved Views)").setDesc(`${savedViews.length} نمای فیلتر ذخیره شده است. این نماها ترکیب‌های سریع فیلترها و جست‌وجو را در برد و تقویم به اشتراک می‌گذارند.`);
+    if (savedViews.length) {
+      savedSetting.addButton(btn => btn.setButtonText("پاک‌سازی همهٔ نماها").setWarning().onClick(async () => {
+        this.plugin.settings.savedViews = [];
+        await this.plugin.saveSettings();
+        this.display();
+        new Notice("همهٔ نماهای ذخیره‌شده پاک شدند.");
+      }));
+    }
     new Setting(containerEl).setName("ورود مستقل برای عادت‌ها").setDesc("مستقیم وارد TickTick می‌شود و نشست لازم را در خود Bridge نگه می‌دارد. نام کاربری و رمز ذخیره نمی‌شوند.").addButton(button => button
       .setButtonText("ورود به TickTick")
       .setCta()

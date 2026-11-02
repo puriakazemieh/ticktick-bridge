@@ -9,7 +9,9 @@ import { sortPlanningTasks } from "../core/calendar-range.js";
 import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
 import { HabitDetailsModal } from "./planning-calendar";
 import { renderUnifiedHabitCard } from "./habit-card";
-import type { TickTickTask, TickTickProject, TickTickHabit, CachedHabitCheckin, ProjectBoardData, HabitHistoryEntry } from "./types";
+import { FilterBar, type FilterBarHost } from "./filter-bar";
+import { matchesTaskFilter } from "../core/task-filter.js";
+import type { TickTickTask, TickTickProject, TickTickHabit, CachedHabitCheckin, ProjectBoardData, HabitHistoryEntry, SavedView, TaskFilterState } from "./types";
 
 const HABIT_BOARD_VIEW_ID = "ticktick:view:habits";
 
@@ -48,6 +50,8 @@ export type ProjectBoardHost = {
   showCompleted: () => boolean;
   preferences: () => { selected: string; collapsed: string[]; sidebarCollapsed?: boolean; sidebarPreferenceInitialized?: boolean; smartViewGrouping?: string };
   savePreferences: (value: { selected: string; collapsed: string[]; sidebarCollapsed: boolean; sidebarPreferenceInitialized?: boolean; smartViewGrouping?: string }) => Promise<void>;
+  savedViews?: () => SavedView[];
+  saveSavedViews?: (views: SavedView[]) => Promise<void>;
 };
 
 export class ProjectBoard {
@@ -59,6 +63,16 @@ export class ProjectBoard {
   private sidebarCollapsed = false;
   private lastSelectedProject: string | null = null;
   private savedColumnsScrollLeft = 0;
+  private filterState: TaskFilterState = {
+    projects: [],
+    tags: [],
+    statuses: [],
+    priorities: [],
+    dateRange: null,
+    searchText: "",
+    grouping: "none",
+    sort: "ticktick"
+  };
 
   constructor(private element: HTMLElement, private host: ProjectBoardHost) {}
 
@@ -462,9 +476,34 @@ export class ProjectBoard {
       });
       }
 
+      // ── Filter Bar (Shared across views) ──
+      const filterBarHost: FilterBarHost = {
+        app: this.host.app,
+        scope: "board",
+        projects: () => projects.map(p => ({ id: String(p.id), name: p.name })),
+        tags: () => [...new Set(this.host.tasks().flatMap(t => t.tags ?? []).map(String))],
+        savedViews: () => this.host.savedViews ? this.host.savedViews() : [],
+        saveSavedViews: async (views: SavedView[]) => {
+          if (this.host.saveSavedViews) await this.host.saveSavedViews(views);
+        },
+        filterState: () => this.filterState,
+        onFilterChange: (nextState: TaskFilterState) => {
+          this.filterState = nextState;
+          void this.render();
+        }
+      };
+      new FilterBar(main, filterBarHost).render();
+
       // ── 3. Kanban Columns ──
-      const data = virtualData ?? await this.host.board(project!);
-      if (!data) return;
+      const rawData = virtualData ?? await this.host.board(project!);
+      if (!rawData) return;
+      const filteredTasks = rawData.tasks.filter(task =>
+        matchesTaskFilter(task, this.filterState, { timeZone: this.host.timeZone })
+      );
+      const data = {
+        ...rawData,
+        tasks: filteredTasks
+      };
       const columns = main.createDiv({ cls: "ticktick-project-columns" });
       enhanceHorizontalScroll(columns);
       if (this.lastSelectedProject === this.selected && this.savedColumnsScrollLeft > 0) {

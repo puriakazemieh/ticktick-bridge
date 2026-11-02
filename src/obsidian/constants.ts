@@ -28,4 +28,5 @@ export const DEFAULT_SETTINGS: BridgeSettings = {
   boardSidebarCollapsed: false,
   boardSidebarPreferenceInitialized: false,
   boardSmartViewGrouping: "project",
+  savedViews: [],
 };

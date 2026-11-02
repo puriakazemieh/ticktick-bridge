@@ -34,6 +34,29 @@ export interface BridgeSettings {
   boardSidebarCollapsed: boolean;
   boardSidebarPreferenceInitialized: boolean;
   boardSmartViewGrouping?: string;
+  savedViews: SavedView[];
+}
+
+export interface TaskFilterState {
+  projects: string[];
+  tags: string[];
+  statuses: number[];
+  priorities: number[];
+  dateRange: { start?: string; end?: string } | null;
+  searchText: string;
+  grouping?: string;
+  sort?: string;
+}
+
+export interface SavedView {
+  id: string;
+  name: string;
+  scope: "all" | "board" | "calendar";
+  filter: TaskFilterState;
+  grouping?: string;
+  sort?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type BridgeCache = {
