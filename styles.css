@@ -7336,4 +7336,133 @@
   color: var(--text-muted);
 }
 
+/* src/styles/query-block.css */
+.ticktick-query-container {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: var(--background-secondary-alt);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  direction: rtl;
+  font-family: inherit;
+}
+.ticktick-query-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.ticktick-query-title {
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--text-normal);
+}
+.ticktick-query-count-badge {
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--background-modifier-accent-opacity);
+  color: var(--text-muted);
+}
+.ticktick-query-empty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+.ticktick-query-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.ticktick-query-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.ticktick-query-item:hover {
+  background: var(--background-modifier-hover);
+}
+.ticktick-query-item.is-completed .ticktick-query-item-title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.ticktick-query-item.priority-high {
+  border-right: 3px solid #ef4444;
+}
+.ticktick-query-item.priority-med {
+  border-right: 3px solid #f59e0b;
+}
+.ticktick-query-item.priority-low {
+  border-right: 3px solid #3b82f6;
+}
+.ticktick-query-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+.ticktick-query-item-title {
+  cursor: pointer;
+  color: var(--text-normal);
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+.ticktick-query-item-title:hover {
+  color: var(--text-accent);
+}
+.ticktick-query-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.ticktick-query-chip {
+  font-size: 0.75rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+.ticktick-query-chip.chip-priority {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+.ticktick-query-chip.chip-due.is-overdue {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  font-weight: 500;
+}
+.ticktick-query-chip.chip-tag {
+  background: var(--interactive-accent-opacity);
+  color: var(--text-accent);
+}
+.ticktick-query-compact .ticktick-query-item {
+  padding: 0.3rem 0.5rem;
+  align-items: center;
+}
+.ticktick-query-compact .ticktick-query-item-content {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.ticktick-query-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.6rem;
+}
+.ticktick-query-cards .ticktick-query-item {
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
 /* src/styles/main.css */

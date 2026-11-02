@@ -62,6 +62,7 @@ import { PomodoroTimerService, PomodoroModal } from "./pomodoro-timer";
 import { formatPomodoroLogEntry, appendPomodoroLogToDailyNoteMarkdown } from "../core/pomodoro-engine.js";
 import { ActivityHeatmapView } from "./views/activity-heatmap-view";
 import { ActivityHeatmap } from "./activity-heatmap";
+import { QueryBlockRenderer } from "./query-block";
 import { TickTickBridgeSettings } from "./settings";
 
 export default class TickTickBridgePlugin extends Plugin {
@@ -164,6 +165,9 @@ export default class TickTickBridgePlugin extends Plugin {
     });
     this.registerMarkdownCodeBlockProcessor("ticktick-heatmap", async (_source, element) => {
       await new ActivityHeatmap(element, this.activityHeatmapHost()).render();
+    });
+    this.registerMarkdownCodeBlockProcessor("ticktick-query", async (source, element, context) => {
+      await new QueryBlockRenderer(this.queryBlockHost()).render(source, element, context);
     });
     this.configurePanelMenuRibbonIcon();
     this.configureSyncRibbonIcon();
@@ -321,7 +325,13 @@ export default class TickTickBridgePlugin extends Plugin {
       refresh: async () => { await this.syncNow(); },
       reschedule: async (task: TickTickTask, day: string, time?: string) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.rescheduleBoundTask(String(task.id), day) : this.rescheduleTaskFromPlanner(task, day, time),
       unschedule: async (task: TickTickTask) => this.unscheduleTaskFromPlanner(task),
-      complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
+      complete: async (task: TickTickTask) => {
+        if (this.markdownSync.bindingForTask(String(task.id))) {
+          await this.markdownSync.completeBoundTask(String(task.id));
+        } else {
+          await this.completeTask(task);
+        }
+      },
       binding: (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task: TickTickTask) => this.loadTaskDetails(task),
       edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
@@ -371,7 +381,13 @@ export default class TickTickBridgePlugin extends Plugin {
       // This host is called by an explicit toolbar action. Let the central
       // sync layer report an honest success/fallback/error notification.
       refresh: async () => { await this.syncNow(); },
-      complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
+      complete: async (task: TickTickTask) => {
+        if (this.markdownSync.bindingForTask(String(task.id))) {
+          await this.markdownSync.completeBoundTask(String(task.id));
+        } else {
+          await this.completeTask(task);
+        }
+      },
       binding: (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task: TickTickTask) => this.loadTaskDetails(task),
       edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
@@ -394,7 +410,13 @@ export default class TickTickBridgePlugin extends Plugin {
       tasks: () => this.cache.tasks,
       refresh: async () => { await this.syncNow(); },
       rescheduleRange: async (task: TickTickTask, newStart: string | null, newDue: string | null) => this.rescheduleTaskRange(task, newStart, newDue),
-      complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
+      complete: async (task: TickTickTask) => {
+        if (this.markdownSync.bindingForTask(String(task.id))) {
+          await this.markdownSync.completeBoundTask(String(task.id));
+        } else {
+          await this.completeTask(task);
+        }
+      },
       edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
       load: async (task: TickTickTask) => this.loadTaskDetails(task),
       showCompleted: () => this.settings.plannerShowCompleted,
@@ -416,7 +438,13 @@ export default class TickTickBridgePlugin extends Plugin {
       refresh: async () => { await this.syncNow(); },
       load: async (task: TickTickTask) => this.loadTaskDetails(task),
       edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
-      complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
+      complete: async (task: TickTickTask) => {
+        if (this.markdownSync.bindingForTask(String(task.id))) {
+          await this.markdownSync.completeBoundTask(String(task.id));
+        } else {
+          await this.completeTask(task);
+        }
+      },
     };
   }
 
@@ -430,7 +458,13 @@ export default class TickTickBridgePlugin extends Plugin {
       refresh: async () => { await this.syncNow(); },
       updateTask: async (mutation: Partial<TickTickTask>) => this.updateTask(mutation),
       createTask: async (initial: Partial<TickTickTask>) => this.createTaskFromSurface(initial),
-      complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
+      complete: async (task: TickTickTask) => {
+        if (this.markdownSync.bindingForTask(String(task.id))) {
+          await this.markdownSync.completeBoundTask(String(task.id));
+        } else {
+          await this.completeTask(task);
+        }
+      },
       load: async (task: TickTickTask) => this.loadTaskDetails(task),
       edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
       executeBulkOperation: async (taskIds: string[], op: string, params: any) => this.executeBulkOperation(taskIds, op, params),
@@ -447,7 +481,13 @@ export default class TickTickBridgePlugin extends Plugin {
       refresh: async () => { await this.syncNow(); },
       updateTask: async (mutation: Partial<TickTickTask>) => this.updateTask(mutation),
       createTask: async (initial: Partial<TickTickTask>) => this.createTaskFromSurface(initial),
-      complete: async (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)) ? this.markdownSync.completeBoundTask(String(task.id)) : this.completeTask(task),
+      complete: async (task: TickTickTask) => {
+        if (this.markdownSync.bindingForTask(String(task.id))) {
+          await this.markdownSync.completeBoundTask(String(task.id));
+        } else {
+          await this.completeTask(task);
+        }
+      },
       load: async (task: TickTickTask) => this.loadTaskDetails(task),
       edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
       executeBulkOperation: async (taskIds: string[], op: string, params: any) => this.executeBulkOperation(taskIds, op, params),
@@ -461,6 +501,25 @@ export default class TickTickBridgePlugin extends Plugin {
       habitCheckins: () => this.cache.habitCheckins,
       timeZone: this.settings.timeZone,
       refresh: async () => { await this.syncNow(); },
+    };
+  }
+
+  queryBlockHost() {
+    return {
+      app: this.app,
+      tasks: () => this.cache.tasks,
+      projects: () => this.cache.projects,
+      timeZone: this.settings.timeZone,
+      edit: (task: TickTickTask) => { void this.editTaskFromSurface(task); },
+      load: async (task: TickTickTask) => this.loadTaskDetails(task),
+      complete: async (task: TickTickTask) => {
+        if (this.markdownSync.bindingForTask(String(task.id))) {
+          await this.markdownSync.completeBoundTask(String(task.id));
+        } else {
+          await this.completeTask(task);
+        }
+      },
+      updateTask: async (mutation: Partial<TickTickTask> & { id: string }) => this.updateTask(mutation),
     };
   }
 

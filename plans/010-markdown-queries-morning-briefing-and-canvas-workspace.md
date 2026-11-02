@@ -30,7 +30,7 @@ Bring the TickTick task ecosystem directly into the user's Obsidian writing flow
 
 ## Delivery Order & Milestones
 
-### Milestone 1: Dynamic Query Embed Engine (`ticktick-query`)
+### Milestone 1: Dynamic Query Embed Engine (`ticktick-query`) [DONE]
 1. **Pure Engine (`src/core/query-engine.js`)**:
    - `parseQueryBlockSpec(yamlText)`: Extracts project, tags, priority filters (`0`, `1`, `3`, `5`, `>=3`), status (`uncompleted`, `completed`, `all`), due date ranges (`today`, `overdue`, `tomorrow`, `this-week`, `unscheduled`), sorting, and item limit.
    - `executeTaskQuery(tasks, spec, options = { today, timeZone })`: Evaluates in-memory tasks against parsed specification.
