@@ -1,0 +1,320 @@
+/* ══════════════════════════════════════════════════════════
+   TickTick Bridge — Palette Playground & Component Utilities
+   Design System Utilities Inspired by:
+   - Dribbble 26349883 (To-Do App Palette Playground)
+   - Dribbble 26171921 (To-do Productivity App)
+   ══════════════════════════════════════════════════════════ */
+
+/* ── 1. Tonal Card Utilities ── */
+.tb-tone-coral {
+  --card-accent: var(--tb-palette-coral);
+  background: var(--tb-palette-coral-tint) !important;
+  border-color: var(--tb-palette-coral-border) !important;
+}
+.tb-tone-coral:hover {
+  border-color: var(--tb-palette-coral) !important;
+  box-shadow: 0 6px 20px var(--tb-palette-coral-glow) !important;
+}
+
+.tb-tone-amber {
+  --card-accent: var(--tb-palette-amber);
+  background: var(--tb-palette-amber-tint) !important;
+  border-color: var(--tb-palette-amber-border) !important;
+}
+.tb-tone-amber:hover {
+  border-color: var(--tb-palette-amber) !important;
+  box-shadow: 0 6px 20px var(--tb-palette-amber-glow) !important;
+}
+
+.tb-tone-cobalt {
+  --card-accent: var(--tb-palette-cobalt);
+  background: var(--tb-palette-cobalt-tint) !important;
+  border-color: var(--tb-palette-cobalt-border) !important;
+}
+.tb-tone-cobalt:hover {
+  border-color: var(--tb-palette-cobalt) !important;
+  box-shadow: 0 6px 20px var(--tb-palette-cobalt-glow) !important;
+}
+
+.tb-tone-slate {
+  --card-accent: var(--tb-palette-slate);
+  background: var(--tb-palette-slate-tint) !important;
+  border-color: var(--tb-palette-slate-border) !important;
+}
+.tb-tone-slate:hover {
+  border-color: color-mix(in srgb, var(--tb-palette-slate) 45%, transparent) !important;
+  box-shadow: 0 4px 14px var(--tb-palette-slate-glow) !important;
+}
+
+.tb-tone-mint {
+  --card-accent: var(--tb-palette-mint);
+  background: var(--tb-palette-mint-tint) !important;
+  border-color: var(--tb-palette-mint-border) !important;
+}
+.tb-tone-mint:hover {
+  border-color: var(--tb-palette-mint) !important;
+  box-shadow: 0 6px 20px var(--tb-palette-mint-glow) !important;
+}
+
+.tb-tone-cyan {
+  --card-accent: var(--tb-palette-cyan);
+  background: var(--tb-palette-cyan-tint) !important;
+  border-color: var(--tb-palette-cyan-border) !important;
+}
+.tb-tone-cyan:hover {
+  border-color: var(--tb-palette-cyan) !important;
+  box-shadow: 0 6px 20px var(--tb-palette-cyan-glow) !important;
+}
+
+.tb-tone-orchid {
+  --card-accent: var(--tb-palette-orchid);
+  background: var(--tb-palette-orchid-tint) !important;
+  border-color: var(--tb-palette-orchid-border) !important;
+}
+.tb-tone-orchid:hover {
+  border-color: var(--tb-palette-orchid) !important;
+  box-shadow: 0 6px 20px var(--tb-palette-orchid-glow) !important;
+}
+
+/* ── 2. Dual-Tone Badges & Pills (Dribbble 26349883) ── */
+.tb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tb-space-1);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--tb-radius-pill);
+  border: 1px solid transparent;
+  line-height: var(--tb-line-height-tight);
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  transition: var(--tb-transition-fast);
+}
+
+.tb-badge-coral {
+  color: var(--tb-palette-coral);
+  background: color-mix(in srgb, var(--tb-palette-coral) 12%, transparent);
+  border-color: color-mix(in srgb, var(--tb-palette-coral) 28%, transparent);
+}
+
+.tb-badge-amber {
+  color: var(--tb-palette-amber);
+  background: color-mix(in srgb, var(--tb-palette-amber) 12%, transparent);
+  border-color: color-mix(in srgb, var(--tb-palette-amber) 28%, transparent);
+}
+
+.tb-badge-cobalt {
+  color: var(--tb-palette-cobalt);
+  background: color-mix(in srgb, var(--tb-palette-cobalt) 12%, transparent);
+  border-color: color-mix(in srgb, var(--tb-palette-cobalt) 28%, transparent);
+}
+
+.tb-badge-mint {
+  color: var(--tb-palette-mint);
+  background: color-mix(in srgb, var(--tb-palette-mint) 12%, transparent);
+  border-color: color-mix(in srgb, var(--tb-palette-mint) 28%, transparent);
+}
+
+.tb-badge-cyan {
+  color: var(--tb-palette-cyan);
+  background: color-mix(in srgb, var(--tb-palette-cyan) 12%, transparent);
+  border-color: color-mix(in srgb, var(--tb-palette-cyan) 28%, transparent);
+}
+
+.tb-badge-orchid {
+  color: var(--tb-palette-orchid);
+  background: color-mix(in srgb, var(--tb-palette-orchid) 12%, transparent);
+  border-color: color-mix(in srgb, var(--tb-palette-orchid) 28%, transparent);
+}
+
+.tb-badge-slate {
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+  border-color: color-mix(in srgb, var(--text-muted) 28%, transparent);
+}
+
+/* ── 3. Tactile Spring Checkbox ── */
+.tb-checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--tb-radius-s);
+  border: 1.5px solid var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--background-primary);
+  transition: transform var(--tb-duration-fast) var(--tb-ease-spring),
+              border-color var(--tb-duration-fast) ease,
+              background-color var(--tb-duration-fast) ease;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.tb-checkbox:hover {
+  border-color: var(--interactive-accent);
+  transform: scale(1.1);
+}
+
+.tb-checkbox:active {
+  transform: scale(0.92);
+}
+
+.tb-checkbox.is-checked {
+  background: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+  animation: tb-check-bounce 260ms var(--tb-ease-spring);
+}
+
+.tb-checkbox svg {
+  width: 11px;
+  height: 11px;
+  color: var(--text-on-accent);
+  stroke-width: 2.5;
+  display: block;
+}
+
+@keyframes tb-check-bounce {
+  0% { transform: scale(0.85); }
+  50% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+/* ── 4. Unified Button Hierarchy ── */
+.tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tb-space-1);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: var(--tb-radius-button);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: var(--tb-transition-fast);
+  user-select: none;
+  line-height: var(--tb-line-height-tight);
+  text-decoration: none !important;
+  box-sizing: border-box;
+}
+
+.tb-btn:active {
+  transform: scale(0.97);
+}
+
+.tb-btn-primary {
+  background: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 28%, transparent) !important;
+  border-color: color-mix(in srgb, var(--interactive-accent-hover) 40%, transparent) !important;
+}
+.tb-btn-primary:hover {
+  background: var(--interactive-accent-hover) !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--interactive-accent) 38%, transparent) !important;
+}
+
+.tb-btn-secondary {
+  background: var(--background-secondary) !important;
+  color: var(--text-normal) !important;
+  border-color: var(--background-modifier-border) !important;
+}
+.tb-btn-secondary:hover {
+  background: var(--background-modifier-hover) !important;
+  border-color: color-mix(in srgb, var(--interactive-accent) 35%, transparent) !important;
+  color: var(--text-normal) !important;
+}
+
+.tb-btn-ghost {
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  border-color: transparent !important;
+}
+.tb-btn-ghost:hover {
+  background: var(--background-modifier-hover) !important;
+  color: var(--text-normal) !important;
+}
+
+.tb-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: var(--tb-radius-m);
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: var(--tb-transition-fast);
+  flex-shrink: 0;
+}
+.tb-btn-icon:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  border-color: var(--tb-border-subtle);
+}
+.tb-btn-icon:active {
+  transform: scale(0.94);
+}
+.tb-btn-icon svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
+/* ── 5. Glassmorphic Panels & Segmented Controls (Dribbble 26171921) ── */
+.tb-glass {
+  background: var(--tb-surface-glass);
+  backdrop-filter: var(--tb-backdrop-blur);
+  -webkit-backdrop-filter: var(--tb-backdrop-blur);
+  border: 1px solid var(--tb-surface-glass-border);
+}
+
+.tb-segmented-control {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  background: var(--tb-surface-inset);
+  border-radius: var(--tb-radius-pill);
+  border: 1px solid var(--tb-border-subtle);
+  gap: 2px;
+  box-sizing: border-box;
+  direction: rtl;
+}
+
+.tb-segment-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--tb-radius-pill);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--tb-transition-fast);
+  border: none;
+  background: transparent;
+  text-decoration: none !important;
+  white-space: nowrap;
+}
+
+.tb-segment-item:hover {
+  color: var(--text-normal);
+  background: color-mix(in srgb, var(--background-modifier-hover) 60%, transparent);
+}
+
+.tb-segment-item.is-active {
+  background: var(--background-primary);
+  color: var(--interactive-accent);
+  box-shadow: var(--tb-shadow-s);
+  font-weight: 700;
+}
+
+.tb-segment-item svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+  opacity: 0.85;
+}
