@@ -671,13 +671,29 @@ export class ProjectBoard {
         void this.moveTask(task, String(column.id), cardEl, sourceCol, oldColumnId);
       });
 
+      let colTaskCount = 0;
       for (const group of column.groups) {
         if (group.name) {
           listWrap.createEl("h4", { cls: "ticktick-group-heading", text: group.name });
         }
         for (const task of sortPlanningTasks(group.tasks, this.sortMode)) {
+          colTaskCount++;
           this.card(listWrap, task, task.projectColor || displayProject?.color, Boolean(project));
         }
+      }
+
+      if (colTaskCount === 0 && movableColumn) {
+        const emptyCard = listWrap.createDiv({
+          cls: "ticktick-column-empty-card",
+          attr: { role: "button", tabindex: "0", "aria-label": `افزودن تسک به ستون ${column.name}` }
+        });
+        const plusIcon = emptyCard.createSpan({ cls: "ticktick-empty-plus" });
+        setIcon(plusIcon, "plus");
+        emptyCard.createSpan({ text: "افزودن تسک به این ستون" });
+        emptyCard.addEventListener("click", async () => {
+          await this.host.createTask({ projectId: project!.id, columnId: column.id });
+          await this.render();
+        });
       }
     }
 

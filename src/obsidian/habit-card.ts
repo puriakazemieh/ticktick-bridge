@@ -115,7 +115,11 @@ export function renderUnifiedHabitCard(parent: HTMLElement, options: UnifiedHabi
   });
 
   if (options.streak && options.streak > 1 && !isPlanner) {
-    meta.createSpan({ cls: "ticktick-habit-streak-pill", text: `🔥 ${options.streak}` });
+    meta.createSpan({
+      cls: "ticktick-habit-streak-pill",
+      text: `🔥 ${options.streak} روز`,
+      attr: { title: `${options.streak} روز پیوسته انجام شده` }
+    });
   }
 
   // 3. Optional history dots for month/week views

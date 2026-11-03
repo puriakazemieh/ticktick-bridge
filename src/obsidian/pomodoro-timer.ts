@@ -211,6 +211,9 @@ export class PomodoroModal extends Modal {
     // Mode Badge
     root.createDiv({ cls: "ticktick-pomodoro-badge" });
 
+    // Session Progress Dots (WorkPulse inspiration)
+    root.createDiv({ cls: "ticktick-pomodoro-sessions" });
+
     // Countdown Display
     root.createDiv({ cls: "ticktick-pomodoro-timer-display" });
 
@@ -283,23 +286,39 @@ export class PomodoroModal extends Modal {
   private updateView() {
     const st = this.service.getState();
 
-    // 1. Badge
+    // 1. Badge & Live State
     const badge = this.contentEl.querySelector<HTMLElement>(".ticktick-pomodoro-badge");
     if (badge) {
-      badge.className = `ticktick-pomodoro-badge is-${st.mode}`;
+      badge.className = `ticktick-pomodoro-badge is-${st.mode} ${st.isRunning ? "is-running" : ""}`;
       switch (st.mode) {
         case POMODORO_MODES.FOCUS:
-          badge.setText(`🍅 تمرکز عمیق (${st.completedPomodoros + 1})`);
+          badge.setText(`تمرکز عمیق (دوره ${st.completedPomodoros + 1})`);
           break;
         case POMODORO_MODES.SHORT_BREAK:
-          badge.setText("☕ استراحت کوتاه");
+          badge.setText("استراحت کوتاه");
           break;
         case POMODORO_MODES.LONG_BREAK:
-          badge.setText("🌴 استراحت طولانی");
+          badge.setText("استراحت طولانی");
           break;
         default:
-          badge.setText("آماده شروع 🎯");
+          badge.setText("آماده شروع");
           break;
+      }
+    }
+
+    // Session Progress Dots
+    const sessionsEl = this.contentEl.querySelector<HTMLElement>(".ticktick-pomodoro-sessions");
+    if (sessionsEl) {
+      sessionsEl.empty();
+      const cyclePos = st.completedPomodoros % 4;
+      for (let i = 0; i < 4; i++) {
+        sessionsEl.createSpan({
+          cls: `ticktick-pomodoro-session-dot ${i < cyclePos || (st.completedPomodoros > 0 && cyclePos === 0) ? "is-filled" : ""}`,
+          attr: { title: `دوره ${i + 1} از ۴` }
+        });
+      }
+      if (st.completedPomodoros > 0) {
+        sessionsEl.createSpan({ cls: "ticktick-pomodoro-session-count", text: `(تکمیل: ${st.completedPomodoros})` });
       }
     }
 

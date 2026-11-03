@@ -1797,7 +1797,11 @@ function renderUnifiedHabitCard(parent, options) {
     text: progressText
   });
   if (options.streak && options.streak > 1 && !isPlanner) {
-    meta.createSpan({ cls: "ticktick-habit-streak-pill", text: `\u{1F525} ${options.streak}` });
+    meta.createSpan({
+      cls: "ticktick-habit-streak-pill",
+      text: `\u{1F525} ${options.streak} \u0631\u0648\u0632`,
+      attr: { title: `${options.streak} \u0631\u0648\u0632 \u067E\u06CC\u0648\u0633\u062A\u0647 \u0627\u0646\u062C\u0627\u0645 \u0634\u062F\u0647` }
+    });
   }
   if (options.showHistoryDots && habit.history?.length) {
     const dotsWrap = card.createDiv({ cls: "ticktick-habit-history-dots" });
@@ -4844,7 +4848,7 @@ function renderTaskCard(parent, options) {
     (0, import_obsidian12.setIcon)(noteIcon, "file-text");
   } else {
     const checkEl = headerRow.createDiv({
-      cls: `tb-checkbox ${isCompleted ? "is-checked" : ""}`,
+      cls: `tb-checkbox tb-card-checkbox ${isCompleted ? "is-checked" : ""}`,
       attr: {
         role: "checkbox",
         "aria-checked": isCompleted ? "true" : "false",
@@ -4901,7 +4905,7 @@ function renderTaskCard(parent, options) {
     else if (prioNum === 3) prioBadgeClass = "tb-badge-amber";
     else if (prioNum === 1) prioBadgeClass = "tb-badge-cobalt";
     headerRow.createSpan({
-      cls: `tb-badge ${prioBadgeClass} tb-card-priority-badge`,
+      cls: `tb-badge ${prioBadgeClass} tb-card-priority-badge is-${priority.value}`,
       text: priority.label,
       attr: { title: `\u0627\u0648\u0644\u0648\u06CC\u062A: ${priority.label}` }
     });
@@ -4949,6 +4953,19 @@ function renderTaskCard(parent, options) {
   if (task.parentId) {
     const subChip = chipsRow.createSpan({ cls: "tb-badge tb-badge-slate" });
     subChip.createSpan({ text: "\u21B3 \u0632\u06CC\u0631\u062A\u0633\u06A9" });
+  }
+  const checklistItems = task.items;
+  if (Array.isArray(checklistItems) && checklistItems.length > 0) {
+    const totalItems = checklistItems.length;
+    const completedItems = checklistItems.filter((i) => Number(i.status ?? 0) !== 0).length;
+    const isAllDone = completedItems === totalItems;
+    const chkChip = chipsRow.createSpan({
+      cls: `tb-badge tb-chip mod-checklist ${isAllDone ? "tb-badge-mint is-all-done" : "tb-badge-slate"}`,
+      attr: { title: `\u0686\u06A9\u200C\u0644\u06CC\u0633\u062A: ${completedItems} \u0627\u0632 ${totalItems} \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647` }
+    });
+    const chkIcon = chkChip.createSpan({ cls: "tb-chip-icon" });
+    (0, import_obsidian12.setIcon)(chkIcon, isAllDone ? "check-check" : "list-checks");
+    chkChip.createSpan({ text: `${completedItems}/${totalItems}` });
   }
   const estText = formatTaskEstimate(task);
   if (estText) {
@@ -5607,13 +5624,28 @@ var ProjectBoard = class {
         task.columnId = String(column.id);
         void this.moveTask(task, String(column.id), cardEl, sourceCol, oldColumnId);
       });
+      let colTaskCount = 0;
       for (const group of column.groups) {
         if (group.name) {
           listWrap.createEl("h4", { cls: "ticktick-group-heading", text: group.name });
         }
         for (const task of sortPlanningTasks(group.tasks, this.sortMode)) {
+          colTaskCount++;
           this.card(listWrap, task, task.projectColor || displayProject?.color, Boolean(project));
         }
+      }
+      if (colTaskCount === 0 && movableColumn) {
+        const emptyCard = listWrap.createDiv({
+          cls: "ticktick-column-empty-card",
+          attr: { role: "button", tabindex: "0", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 ${column.name}` }
+        });
+        const plusIcon = emptyCard.createSpan({ cls: "ticktick-empty-plus" });
+        (0, import_obsidian13.setIcon)(plusIcon, "plus");
+        emptyCard.createSpan({ text: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0627\u06CC\u0646 \u0633\u062A\u0648\u0646" });
+        emptyCard.addEventListener("click", async () => {
+          await this.host.createTask({ projectId: project.id, columnId: column.id });
+          await this.render();
+        });
       }
     }
     if (data.tasks.length === 0) {
@@ -10506,6 +10538,7 @@ var PomodoroModal = class extends import_obsidian32.Modal {
     this.contentEl.empty();
     const root = this.contentEl.createDiv({ cls: "ticktick-pomodoro-container" });
     root.createDiv({ cls: "ticktick-pomodoro-badge" });
+    root.createDiv({ cls: "ticktick-pomodoro-sessions" });
     root.createDiv({ cls: "ticktick-pomodoro-timer-display" });
     const progWrap = root.createDiv({ cls: "ticktick-pomodoro-progress-wrap" });
     progWrap.createDiv({ cls: "ticktick-pomodoro-progress-bar" });
@@ -10561,20 +10594,34 @@ var PomodoroModal = class extends import_obsidian32.Modal {
     const st = this.service.getState();
     const badge = this.contentEl.querySelector(".ticktick-pomodoro-badge");
     if (badge) {
-      badge.className = `ticktick-pomodoro-badge is-${st.mode}`;
+      badge.className = `ticktick-pomodoro-badge is-${st.mode} ${st.isRunning ? "is-running" : ""}`;
       switch (st.mode) {
         case POMODORO_MODES.FOCUS:
-          badge.setText(`\u{1F345} \u062A\u0645\u0631\u06A9\u0632 \u0639\u0645\u06CC\u0642 (${st.completedPomodoros + 1})`);
+          badge.setText(`\u062A\u0645\u0631\u06A9\u0632 \u0639\u0645\u06CC\u0642 (\u062F\u0648\u0631\u0647 ${st.completedPomodoros + 1})`);
           break;
         case POMODORO_MODES.SHORT_BREAK:
-          badge.setText("\u2615 \u0627\u0633\u062A\u0631\u0627\u062D\u062A \u06A9\u0648\u062A\u0627\u0647");
+          badge.setText("\u0627\u0633\u062A\u0631\u0627\u062D\u062A \u06A9\u0648\u062A\u0627\u0647");
           break;
         case POMODORO_MODES.LONG_BREAK:
-          badge.setText("\u{1F334} \u0627\u0633\u062A\u0631\u0627\u062D\u062A \u0637\u0648\u0644\u0627\u0646\u06CC");
+          badge.setText("\u0627\u0633\u062A\u0631\u0627\u062D\u062A \u0637\u0648\u0644\u0627\u0646\u06CC");
           break;
         default:
-          badge.setText("\u0622\u0645\u0627\u062F\u0647 \u0634\u0631\u0648\u0639 \u{1F3AF}");
+          badge.setText("\u0622\u0645\u0627\u062F\u0647 \u0634\u0631\u0648\u0639");
           break;
+      }
+    }
+    const sessionsEl = this.contentEl.querySelector(".ticktick-pomodoro-sessions");
+    if (sessionsEl) {
+      sessionsEl.empty();
+      const cyclePos = st.completedPomodoros % 4;
+      for (let i = 0; i < 4; i++) {
+        sessionsEl.createSpan({
+          cls: `ticktick-pomodoro-session-dot ${i < cyclePos || st.completedPomodoros > 0 && cyclePos === 0 ? "is-filled" : ""}`,
+          attr: { title: `\u062F\u0648\u0631\u0647 ${i + 1} \u0627\u0632 \u06F4` }
+        });
+      }
+      if (st.completedPomodoros > 0) {
+        sessionsEl.createSpan({ cls: "ticktick-pomodoro-session-count", text: `(\u062A\u06A9\u0645\u06CC\u0644: ${st.completedPomodoros})` });
       }
     }
     const timerDisplay = this.contentEl.querySelector(".ticktick-pomodoro-timer-display");

@@ -75,6 +75,35 @@
   border: 1px solid var(--background-modifier-border);
 }
 
+/* Session Dots (WorkPulse cycle tracking) */
+.ticktick-pomodoro-sessions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: -6px;
+}
+
+.ticktick-pomodoro-session-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--background-modifier-border) 80%, transparent);
+  transition: all var(--tb-motion-smooth);
+}
+
+.ticktick-pomodoro-session-dot.is-filled {
+  background: var(--tb-palette-coral, #f43f5e);
+  box-shadow: 0 0 8px var(--tb-palette-coral-glow);
+  transform: scale(1.15);
+}
+
+.ticktick-pomodoro-session-count {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
 /* Digital Countdown Display (WorkPulse High-Contrast Clock Face) */
 .ticktick-pomodoro-timer-display {
   font-size: 64px;

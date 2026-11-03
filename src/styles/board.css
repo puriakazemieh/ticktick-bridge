@@ -455,6 +455,35 @@
   min-height: 4rem;
 }
 
+.ticktick-column-empty-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 12px;
+  border-radius: var(--tb-radius-l, 12px);
+  border: 1.5px dashed color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--tb-motion-smooth);
+  user-select: none;
+}
+
+.ticktick-column-empty-card:hover {
+  border-color: var(--interactive-accent);
+  color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 6%, transparent);
+  transform: translateY(-1px);
+}
+
+.ticktick-column-empty-card .ticktick-empty-plus svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
 .ticktick-group-heading {
   font-size: 0.72rem;
   font-weight: 700;

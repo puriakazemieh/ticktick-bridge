@@ -106,7 +106,7 @@ export function renderTaskCard(parent: HTMLElement, options: TaskCardOptions): H
     setIcon(noteIcon, "file-text");
   } else {
     const checkEl = headerRow.createDiv({
-      cls: `tb-checkbox ${isCompleted ? "is-checked" : ""}`,
+      cls: `tb-checkbox tb-card-checkbox ${isCompleted ? "is-checked" : ""}`,
       attr: {
         role: "checkbox",
         "aria-checked": isCompleted ? "true" : "false",
@@ -174,7 +174,7 @@ export function renderTaskCard(parent: HTMLElement, options: TaskCardOptions): H
     else if (prioNum === 1) prioBadgeClass = "tb-badge-cobalt";
 
     headerRow.createSpan({
-      cls: `tb-badge ${prioBadgeClass} tb-card-priority-badge`,
+      cls: `tb-badge ${prioBadgeClass} tb-card-priority-badge is-${priority.value}`,
       text: priority.label,
       attr: { title: `اولویت: ${priority.label}` }
     });
@@ -235,6 +235,21 @@ export function renderTaskCard(parent: HTMLElement, options: TaskCardOptions): H
   if (task.parentId) {
     const subChip = chipsRow.createSpan({ cls: "tb-badge tb-badge-slate" });
     subChip.createSpan({ text: "↳ زیرتسک" });
+  }
+
+  // Checklist Progress Chip (TaskFlow inspiration)
+  const checklistItems = (task as { items?: Array<{ status?: number }> }).items;
+  if (Array.isArray(checklistItems) && checklistItems.length > 0) {
+    const totalItems = checklistItems.length;
+    const completedItems = checklistItems.filter((i) => Number(i.status ?? 0) !== 0).length;
+    const isAllDone = completedItems === totalItems;
+    const chkChip = chipsRow.createSpan({
+      cls: `tb-badge tb-chip mod-checklist ${isAllDone ? "tb-badge-mint is-all-done" : "tb-badge-slate"}`,
+      attr: { title: `چک‌لیست: ${completedItems} از ${totalItems} تکمیل شده` }
+    });
+    const chkIcon = chkChip.createSpan({ cls: "tb-chip-icon" });
+    setIcon(chkIcon, isAllDone ? "check-check" : "list-checks");
+    chkChip.createSpan({ text: `${completedItems}/${totalItems}` });
   }
 
   // Estimate / Pomodoro Badge
