@@ -18,7 +18,7 @@ Generated on 2026-10-14 against commit `b86e322`. Execute in this order. Each ex
 | 010 | Dynamic query embeds, morning briefing, editor autocomplete, canvas board, and smart reminders | P1 | L | 001–009, Jalali calendar, Web Audio | DONE (all 5 milestones complete on `main`) |
 | 011 | Unified design system, palette playground, and modern UI refresh | P1 | L | 001–010, CSS token system, views | DONE (all 6 milestones complete on `main`) |
 | 012 | Multi-device responsive system, macOS/Todoist polish & modern dashboard | P1 | L | 001–011, responsive breakpoints, mobile views | DONE (all 6 milestones complete on `main`) |
-| 013 | Unified task modal priority selector, universal add-task button system & workspace hotkeys | P1 | M | 001–012, task modal, button design tokens | IN PROGRESS |
+| 013 | Unified task modal priority selector, universal add-task button system & workspace hotkeys | P1 | M | 001–012, task modal, button design tokens | DONE (reviewed & verified on `main`) |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED` (include a reason) | `REJECTED` (include a reason).
 
