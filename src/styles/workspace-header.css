@@ -114,34 +114,81 @@
   flex-shrink: 0;
 }
 
-.ticktick-workspace-quick-add {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 14px;
-  border-radius: var(--tb-radius-pill, 9999px);
+/* ── Universal "Add Task" Action Button (Plan 013) ── */
+.tb-action-add-task,
+.ticktick-workspace-quick-add,
+.ticktick-planner-add-btn,
+.ticktick-board-add-btn,
+.ticktick-matrix-add-btn,
+.ticktick-timeblock-btn-primary,
+.daily-task-add {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 14px !important;
+  border-radius: var(--tb-radius-pill, 9999px) !important;
   background: var(--interactive-accent) !important;
   color: var(--text-on-accent) !important;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 12px !important;
+  font-weight: 700 !important;
   border: none !important;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all var(--tb-motion-smooth);
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all var(--tb-motion-smooth, 150ms ease) !important;
+  user-select: none !important;
+  line-height: 1 !important;
+  box-sizing: border-box !important;
 }
 
-.ticktick-workspace-quick-add:hover {
-  filter: brightness(1.12);
-  transform: translateY(-0.5px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--interactive-accent) 55%, transparent) !important;
+.tb-action-add-task:hover,
+.ticktick-workspace-quick-add:hover,
+.ticktick-planner-add-btn:hover,
+.ticktick-board-add-btn:hover,
+.ticktick-matrix-add-btn:hover,
+.ticktick-timeblock-btn-primary:hover,
+.daily-task-add:hover {
+  filter: brightness(1.12) !important;
+  transform: translateY(-0.5px) !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--interactive-accent) 55%, transparent) !important;
 }
 
-.ticktick-workspace-quick-add svg {
-  width: 14px;
-  height: 14px;
-  display: block;
+.tb-action-add-task:active,
+.ticktick-workspace-quick-add:active,
+.ticktick-planner-add-btn:active,
+.ticktick-board-add-btn:active,
+.ticktick-matrix-add-btn:active,
+.ticktick-timeblock-btn-primary:active,
+.daily-task-add:active {
+  transform: translateY(0.5px) !important;
+  filter: brightness(0.95) !important;
+}
+
+.tb-action-add-task:disabled,
+.ticktick-workspace-quick-add:disabled,
+.ticktick-planner-add-btn:disabled,
+.ticktick-board-add-btn:disabled,
+.ticktick-matrix-add-btn:disabled,
+.ticktick-timeblock-btn-primary:disabled,
+.daily-task-add:disabled {
+  opacity: 0.55 !important;
+  cursor: wait !important;
+  transform: none !important;
+}
+
+.tb-action-add-task svg,
+.ticktick-workspace-quick-add svg,
+.ticktick-planner-add-btn svg,
+.ticktick-board-add-btn svg,
+.ticktick-matrix-add-btn svg,
+.ticktick-timeblock-btn-primary svg,
+.daily-task-add svg {
+  width: 14px !important;
+  height: 14px !important;
+  display: block !important;
 }
 
 .ticktick-workspace-actions .tb-btn-icon {

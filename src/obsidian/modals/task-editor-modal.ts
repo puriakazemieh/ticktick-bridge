@@ -1,4 +1,4 @@
-import { App, Component, MarkdownRenderer, Menu, Modal, Notice, Setting } from "obsidian";
+import { App, Component, MarkdownRenderer, Menu, Modal, Notice, Setting, setIcon } from "obsidian";
 import { taskDescription } from "../../core/task-description.js";
 import { toDateKey } from "../../core/date.js";
 import { reminderTimeFromTask } from "../helpers";
@@ -43,6 +43,7 @@ export class TaskEditorModal extends Modal {
     let projectId = String(this.initial.projectId ?? this.projects[0]?.id ?? "");
     let dueDate = toDateKey(String(this.initial.dueDate ?? ""), String(this.initial.timeZone ?? "Asia/Tehran")) ?? "";
     let reminderTime = reminderTimeFromTask(this.initial);
+    let priority = typeof this.initial.priority === "number" ? this.initial.priority : 0;
 
     new Setting(fields).setName("📝 عنوان").addText(input => {
       input.setValue(title).onChange(value => title = value);
@@ -74,6 +75,38 @@ export class TaskEditorModal extends Modal {
       input.setValue(reminderTime).onChange(value => reminderTime = value);
       input.inputEl.dir = "ltr";
     });
+
+    // ─── Priority Selector ───
+    const prioritySetting = new Setting(fields)
+      .setName("🚩 اولویت")
+      .setDesc("اولویت تسک را برای برنامه‌ریزی مشخص کن.");
+
+    const priorityControl = prioritySetting.controlEl.createDiv({ cls: "ticktick-priority-selector" });
+    const priorityLevels: Array<{ value: number; label: string; icon: string; cls: string }> = [
+      { value: 0, label: "عادی", icon: "circle", cls: "prio-none" },
+      { value: 1, label: "کم", icon: "flag", cls: "prio-low" },
+      { value: 3, label: "متوسط", icon: "flag", cls: "prio-med" },
+      { value: 5, label: "بالا", icon: "flag", cls: "prio-high" },
+    ];
+
+    const priorityButtons: HTMLElement[] = [];
+    for (const lvl of priorityLevels) {
+      const btn = priorityControl.createEl("button", {
+        cls: `ticktick-priority-btn ${lvl.cls} ${priority === lvl.value ? "is-active" : ""}`,
+        attr: { type: "button", "aria-label": `اولویت: ${lvl.label}` }
+      });
+      const iconSpan = btn.createSpan({ cls: "ticktick-priority-icon" });
+      setIcon(iconSpan, lvl.icon);
+      btn.createSpan({ text: lvl.label, cls: "ticktick-priority-label" });
+
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        priority = lvl.value;
+        for (const b of priorityButtons) b.removeClass("is-active");
+        btn.addClass("is-active");
+      });
+      priorityButtons.push(btn);
+    }
 
     // ─── Description Section (Full-width, Markdown Preview & Edit) ───
     const descSection = fields.createDiv({ cls: "ticktick-desc-section" });
@@ -136,7 +169,7 @@ export class TaskEditorModal extends Modal {
       description = descTextarea.value;
       if (!title.trim() || !projectId) return new Notice("عنوان و پروژه را وارد کن.");
       if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return new Notice("تاریخ باید به شکل YYYY-MM-DD باشد.");
-      this.finish({ ...this.initial, title: title.trim(), desc: description.trim(), projectId, dueDate, reminderTime });
+      this.finish({ ...this.initial, title: title.trim(), desc: description.trim(), projectId, dueDate, reminderTime, priority });
     });
   }
 

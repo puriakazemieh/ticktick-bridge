@@ -592,32 +592,76 @@
   gap: 8px;
   flex-shrink: 0;
 }
-.ticktick-workspace-quick-add {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 14px;
-  border-radius: var(--tb-radius-pill, 9999px);
+.tb-action-add-task,
+.ticktick-workspace-quick-add,
+.ticktick-planner-add-btn,
+.ticktick-board-add-btn,
+.ticktick-matrix-add-btn,
+.ticktick-timeblock-btn-primary,
+.daily-task-add {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 14px !important;
+  border-radius: var(--tb-radius-pill, 9999px) !important;
   background: var(--interactive-accent) !important;
   color: var(--text-on-accent) !important;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 12px !important;
+  font-weight: 700 !important;
   border: none !important;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all var(--tb-motion-smooth);
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all var(--tb-motion-smooth, 150ms ease) !important;
+  user-select: none !important;
+  line-height: 1 !important;
+  box-sizing: border-box !important;
 }
-.ticktick-workspace-quick-add:hover {
-  filter: brightness(1.12);
-  transform: translateY(-0.5px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--interactive-accent) 55%, transparent) !important;
+.tb-action-add-task:hover,
+.ticktick-workspace-quick-add:hover,
+.ticktick-planner-add-btn:hover,
+.ticktick-board-add-btn:hover,
+.ticktick-matrix-add-btn:hover,
+.ticktick-timeblock-btn-primary:hover,
+.daily-task-add:hover {
+  filter: brightness(1.12) !important;
+  transform: translateY(-0.5px) !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--interactive-accent) 55%, transparent) !important;
 }
-.ticktick-workspace-quick-add svg {
-  width: 14px;
-  height: 14px;
-  display: block;
+.tb-action-add-task:active,
+.ticktick-workspace-quick-add:active,
+.ticktick-planner-add-btn:active,
+.ticktick-board-add-btn:active,
+.ticktick-matrix-add-btn:active,
+.ticktick-timeblock-btn-primary:active,
+.daily-task-add:active {
+  transform: translateY(0.5px) !important;
+  filter: brightness(0.95) !important;
+}
+.tb-action-add-task:disabled,
+.ticktick-workspace-quick-add:disabled,
+.ticktick-planner-add-btn:disabled,
+.ticktick-board-add-btn:disabled,
+.ticktick-matrix-add-btn:disabled,
+.ticktick-timeblock-btn-primary:disabled,
+.daily-task-add:disabled {
+  opacity: 0.55 !important;
+  cursor: wait !important;
+  transform: none !important;
+}
+.tb-action-add-task svg,
+.ticktick-workspace-quick-add svg,
+.ticktick-planner-add-btn svg,
+.ticktick-board-add-btn svg,
+.ticktick-matrix-add-btn svg,
+.ticktick-timeblock-btn-primary svg,
+.daily-task-add svg {
+  width: 14px !important;
+  height: 14px !important;
+  display: block !important;
 }
 .ticktick-workspace-actions .tb-btn-icon {
   display: inline-flex;
@@ -2232,31 +2276,6 @@
   flex-wrap: wrap;
 }
 .ticktick-planner-add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: var(--tb-radius-pill, 9999px);
-  background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-secondary)) !important;
-  border: 1px solid color-mix(in srgb, var(--interactive-accent) 35%, transparent) !important;
-  color: var(--interactive-accent) !important;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--tb-motion-smooth);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-.ticktick-planner-add-btn:hover {
-  background: var(--interactive-accent) !important;
-  color: var(--text-on-accent) !important;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 40%, transparent);
-  transform: translateY(-0.5px);
-}
-.ticktick-planner-add-btn svg {
-  width: 14px;
-  height: 14px;
-  display: block;
 }
 .ticktick-planner-sync-btn {
   display: inline-flex;
@@ -5024,6 +5043,66 @@
   flex: 1;
   min-width: 0;
 }
+.ticktick-priority-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ticktick-priority-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--tb-radius-pill, 9999px);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--background-secondary);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  color: var(--text-muted);
+  transition: all var(--tb-motion-smooth, 150ms ease);
+  user-select: none;
+}
+.ticktick-priority-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  transform: translateY(-0.5px);
+}
+.ticktick-priority-btn svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+.ticktick-priority-btn.prio-none.is-active {
+  background: color-mix(in srgb, var(--text-muted) 20%, var(--background-secondary)) !important;
+  border-color: var(--text-muted) !important;
+  color: var(--text-normal) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
+}
+.ticktick-priority-btn.prio-low.is-active {
+  background: color-mix(in srgb, var(--color-blue, #3b82f6) 20%, var(--background-secondary)) !important;
+  border-color: var(--color-blue, #3b82f6) !important;
+  color: var(--color-blue, #3b82f6) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-blue, #3b82f6) 35%, transparent) !important;
+}
+.ticktick-priority-btn.prio-med.is-active {
+  background: color-mix(in srgb, var(--color-orange, #f97316) 20%, var(--background-secondary)) !important;
+  border-color: var(--color-orange, #f97316) !important;
+  color: var(--color-orange, #f97316) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-orange, #f97316) 35%, transparent) !important;
+}
+.ticktick-priority-btn.prio-high.is-active {
+  background: color-mix(in srgb, var(--color-red, #ef4444) 20%, var(--background-secondary)) !important;
+  border-color: var(--color-red, #ef4444) !important;
+  color: var(--color-red, #ef4444) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-red, #ef4444) 40%, transparent) !important;
+}
 .ticktick-desc-section {
   display: flex;
   flex-direction: column;
@@ -7454,7 +7533,7 @@
   background: var(--background-modifier-border);
   color: var(--text-muted);
 }
-.ticktick-matrix-add-btn {
+.ticktick-matrix-quadrant-add-btn {
   background: transparent;
   border: none;
   cursor: pointer;
@@ -7466,7 +7545,7 @@
   justify-content: center;
   transition: all 0.15s ease;
 }
-.ticktick-matrix-add-btn:hover {
+.ticktick-matrix-quadrant-add-btn:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }

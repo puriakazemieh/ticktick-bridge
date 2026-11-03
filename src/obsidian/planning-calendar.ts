@@ -484,12 +484,12 @@ export class PlanningCalendar {
     const actionsGroup = controls.createDiv({ cls: "ticktick-planner-actions" });
 
     const addBtn = actionsGroup.createEl("button", {
-      cls: "ticktick-planner-add-btn mod-cta",
-      attr: { type: "button" }
+      cls: "ticktick-planner-add-btn tb-action-add-task mod-cta",
+      attr: { type: "button", "aria-label": "افزودن تسک جدید" }
     });
     const addIcon = addBtn.createSpan({ cls: "ticktick-btn-icon" });
     setIcon(addIcon, "plus");
-    addBtn.createSpan({ text: "افزودن تسک" });
+    addBtn.createSpan({ text: "+ تسک جدید" });
     addBtn.addEventListener("click", () => void this.addTask(this.day));
 
     const refreshBtn = actionsGroup.createEl("button", {

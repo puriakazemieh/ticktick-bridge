@@ -299,12 +299,12 @@ export class ProjectBoard {
       // Add Task Button (CTA)
       if (project) {
       const addTaskBtn = toolbar.createEl("button", {
-        cls: "ticktick-toolbar-btn ticktick-toolbar-btn-cta",
+        cls: "ticktick-toolbar-btn ticktick-toolbar-btn-cta ticktick-board-add-btn tb-action-add-task",
         attr: { type: "button", "aria-label": "افزودن تسک جدید" }
       });
       const addIcon = addTaskBtn.createSpan({ cls: "ticktick-btn-icon" });
       setIcon(addIcon, "plus");
-      addTaskBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "افزودن تسک" });
+      addTaskBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "+ تسک جدید" });
       addTaskBtn.addEventListener("click", async () => {
         addTaskBtn.disabled = true;
         try {

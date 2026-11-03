@@ -60,18 +60,22 @@ export class WorkspaceHeader {
 
     // Quick Add Button
     const addBtn = actions.createEl("button", {
-      cls: "tb-btn tb-btn-primary ticktick-workspace-quick-add",
-      attr: { type: "button", "aria-label": "ثبت سریع تسک جدید (زبان طبیعی)" }
+      cls: "tb-btn tb-btn-primary ticktick-workspace-quick-add tb-action-add-task",
+      attr: { type: "button", "aria-label": "افزودن تسک جدید", title: "افزودن تسک جدید (کلیک: مودال | راست‌کلیک: ثبت سریع زبان طبیعی)" }
     });
     const addIcon = addBtn.createSpan();
     setIcon(addIcon, "plus");
-    addBtn.createSpan({ text: "تسک جدید" });
+    addBtn.createSpan({ text: "+ تسک جدید" });
     addBtn.addEventListener("click", () => {
       if (this.options.onQuickAdd) {
         this.options.onQuickAdd();
       } else {
-        this.options.plugin.openQuickCaptureModal();
+        void this.options.plugin.createTaskFromSurface();
       }
+    });
+    addBtn.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      this.options.plugin.openQuickCaptureModal();
     });
 
     // Morning Briefing Button

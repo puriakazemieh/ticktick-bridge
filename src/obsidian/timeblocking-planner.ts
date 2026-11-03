@@ -148,9 +148,12 @@ export class TimeblockingPlanner {
 
     // Quick add button
     const addBtn = actions.createEl("button", {
-      cls: "ticktick-timeblock-nav-btn",
-      text: "+ افزودن تسک"
+      cls: "ticktick-timeblock-btn ticktick-timeblock-btn-primary tb-action-add-task",
+      attr: { type: "button", "aria-label": "افزودن تسک جدید" }
     });
+    const addIcon = addBtn.createSpan({ cls: "ticktick-btn-icon" });
+    setIcon(addIcon, "plus");
+    addBtn.createSpan({ text: "+ تسک جدید" });
     addBtn.addEventListener("click", async () => {
       if (!this.host.createTask) return;
       await this.host.createTask({ dueDate: targetDay });

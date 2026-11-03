@@ -169,5 +169,31 @@ export class TickTickBridgeSettings extends PluginSettingTab {
           this.plugin.settings.experimentalHierarchyWrites = value;
           await this.plugin.saveSettings();
         }));
+
+    new Setting(containerEl)
+      .setName("یادآورهای سررسید تسک‌ها (Due Reminders)")
+      .setDesc("بررسی خودکار موعد سررسید تسک‌ها و نمایش نوتیفیکیشن با قابلیت انجام یا تعویق (Snooze).")
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.enableDueReminders !== false)
+        .onChange(async value => {
+          this.plugin.settings.enableDueReminders = value;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName("صدای زنگ هشدار (Audio Chime)")
+      .setDesc("پخش صدای زنگ اختصاصی هنگام یادآوری سررسید و پایان تایمر تمرکز.")
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.enableReminderChime !== false)
+        .onChange(async value => {
+          this.plugin.settings.enableReminderChime = value;
+          await this.plugin.saveSettings();
+        }))
+      .addButton(btn => btn
+        .setButtonText("تست صدای زنگ")
+        .onClick(() => {
+          this.plugin.reminderService?.playReminderChime();
+          new Notice("صدای زنگ هشدار پخش شد 🔔");
+        }));
   }
 }

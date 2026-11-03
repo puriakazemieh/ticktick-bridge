@@ -117,6 +117,79 @@
 
 .ticktick-task-editor-modal .setting-item-control { flex: 1; min-width: 0; }
 
+/* ─── Priority Selector Chips ─── */
+.ticktick-priority-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ticktick-priority-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--tb-radius-pill, 9999px);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--background-secondary);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  color: var(--text-muted);
+  transition: all var(--tb-motion-smooth, 150ms ease);
+  user-select: none;
+}
+
+.ticktick-priority-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  transform: translateY(-0.5px);
+}
+
+.ticktick-priority-btn svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+/* Priority 0: None */
+.ticktick-priority-btn.prio-none.is-active {
+  background: color-mix(in srgb, var(--text-muted) 20%, var(--background-secondary)) !important;
+  border-color: var(--text-muted) !important;
+  color: var(--text-normal) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Priority 1: Low (Blue) */
+.ticktick-priority-btn.prio-low.is-active {
+  background: color-mix(in srgb, var(--color-blue, #3b82f6) 20%, var(--background-secondary)) !important;
+  border-color: var(--color-blue, #3b82f6) !important;
+  color: var(--color-blue, #3b82f6) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-blue, #3b82f6) 35%, transparent) !important;
+}
+
+/* Priority 3: Medium (Orange) */
+.ticktick-priority-btn.prio-med.is-active {
+  background: color-mix(in srgb, var(--color-orange, #f97316) 20%, var(--background-secondary)) !important;
+  border-color: var(--color-orange, #f97316) !important;
+  color: var(--color-orange, #f97316) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-orange, #f97316) 35%, transparent) !important;
+}
+
+/* Priority 5: High (Red) */
+.ticktick-priority-btn.prio-high.is-active {
+  background: color-mix(in srgb, var(--color-red, #ef4444) 20%, var(--background-secondary)) !important;
+  border-color: var(--color-red, #ef4444) !important;
+  color: var(--color-red, #ef4444) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-red, #ef4444) 40%, transparent) !important;
+}
+
 /* Dedicated Description Section (Full-width, Markdown Preview & Edit) */
 .ticktick-desc-section {
   display: flex;

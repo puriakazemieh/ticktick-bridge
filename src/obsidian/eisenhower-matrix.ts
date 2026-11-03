@@ -143,10 +143,13 @@ export class EisenhowerMatrix {
     });
 
     // Quick Add Button
-    const addBtn = controls.createEl("button", { cls: "ticktick-matrix-btn ticktick-matrix-btn-accent" });
+    const addBtn = controls.createEl("button", {
+      cls: "ticktick-matrix-btn ticktick-matrix-btn-accent ticktick-matrix-add-btn tb-action-add-task",
+      attr: { type: "button", "aria-label": "افزودن تسک جدید" }
+    });
     const addIcon = addBtn.createSpan();
     setIcon(addIcon, "plus");
-    addBtn.createSpan({ text: "افزودن تسک" });
+    addBtn.createSpan({ text: "+ تسک جدید" });
     addBtn.addEventListener("click", () => {
       void this.promptAddTask("q1", today);
     });
@@ -206,7 +209,7 @@ export class EisenhowerMatrix {
     countBadge.setText(String(tasks.length));
 
     const addBtn = actions.createEl("button", {
-      cls: "ticktick-matrix-add-btn",
+      cls: "ticktick-matrix-quadrant-add-btn",
       attr: { "aria-label": `افزودن تسک به ${meta.shortName}`, title: `افزودن تسک به ${meta.shortName}` }
     });
     setIcon(addBtn, "plus");

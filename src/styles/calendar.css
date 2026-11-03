@@ -232,33 +232,7 @@
 }
 
 .ticktick-planner-add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: var(--tb-radius-pill, 9999px);
-  background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-secondary)) !important;
-  border: 1px solid color-mix(in srgb, var(--interactive-accent) 35%, transparent) !important;
-  color: var(--interactive-accent) !important;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--tb-motion-smooth);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-
-.ticktick-planner-add-btn:hover {
-  background: var(--interactive-accent) !important;
-  color: var(--text-on-accent) !important;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 40%, transparent);
-  transform: translateY(-0.5px);
-}
-
-.ticktick-planner-add-btn svg {
-  width: 14px;
-  height: 14px;
-  display: block;
+  /* Inherits full unified styling from .tb-action-add-task */
 }
 
 .ticktick-planner-sync-btn {

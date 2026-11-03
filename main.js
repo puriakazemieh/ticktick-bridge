@@ -3280,12 +3280,12 @@ var PlanningCalendar = class {
     });
     const actionsGroup = controls.createDiv({ cls: "ticktick-planner-actions" });
     const addBtn = actionsGroup.createEl("button", {
-      cls: "ticktick-planner-add-btn mod-cta",
-      attr: { type: "button" }
+      cls: "ticktick-planner-add-btn tb-action-add-task mod-cta",
+      attr: { type: "button", "aria-label": "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" }
     });
     const addIcon = addBtn.createSpan({ cls: "ticktick-btn-icon" });
     (0, import_obsidian9.setIcon)(addIcon, "plus");
-    addBtn.createSpan({ text: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9" });
+    addBtn.createSpan({ text: "+ \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" });
     addBtn.addEventListener("click", () => void this.addTask(this.day));
     const refreshBtn = actionsGroup.createEl("button", {
       cls: "ticktick-planner-sync-btn",
@@ -5277,12 +5277,12 @@ var ProjectBoard = class {
       const toolbar = projectHeader.createDiv({ cls: "ticktick-project-toolbar" });
       if (project) {
         const addTaskBtn = toolbar.createEl("button", {
-          cls: "ticktick-toolbar-btn ticktick-toolbar-btn-cta",
+          cls: "ticktick-toolbar-btn ticktick-toolbar-btn-cta ticktick-board-add-btn tb-action-add-task",
           attr: { type: "button", "aria-label": "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" }
         });
         const addIcon = addTaskBtn.createSpan({ cls: "ticktick-btn-icon" });
         (0, import_obsidian13.setIcon)(addIcon, "plus");
-        addTaskBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9" });
+        addTaskBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "+ \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" });
         addTaskBtn.addEventListener("click", async () => {
           addTaskBtn.disabled = true;
           try {
@@ -7251,6 +7251,7 @@ var TaskEditorModal = class extends import_obsidian17.Modal {
     let projectId = String(this.initial.projectId ?? this.projects[0]?.id ?? "");
     let dueDate = toDateKey(String(this.initial.dueDate ?? ""), String(this.initial.timeZone ?? "Asia/Tehran")) ?? "";
     let reminderTime = reminderTimeFromTask(this.initial);
+    let priority = typeof this.initial.priority === "number" ? this.initial.priority : 0;
     new import_obsidian17.Setting(fields2).setName("\u{1F4DD} \u0639\u0646\u0648\u0627\u0646").addText((input) => {
       input.setValue(title).onChange((value) => title = value);
       input.inputEl.dir = "rtl";
@@ -7279,6 +7280,31 @@ var TaskEditorModal = class extends import_obsidian17.Modal {
       input.setValue(reminderTime).onChange((value) => reminderTime = value);
       input.inputEl.dir = "ltr";
     });
+    const prioritySetting = new import_obsidian17.Setting(fields2).setName("\u{1F6A9} \u0627\u0648\u0644\u0648\u06CC\u062A").setDesc("\u0627\u0648\u0644\u0648\u06CC\u062A \u062A\u0633\u06A9 \u0631\u0627 \u0628\u0631\u0627\u06CC \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC \u0645\u0634\u062E\u0635 \u06A9\u0646.");
+    const priorityControl = prioritySetting.controlEl.createDiv({ cls: "ticktick-priority-selector" });
+    const priorityLevels = [
+      { value: 0, label: "\u0639\u0627\u062F\u06CC", icon: "circle", cls: "prio-none" },
+      { value: 1, label: "\u06A9\u0645", icon: "flag", cls: "prio-low" },
+      { value: 3, label: "\u0645\u062A\u0648\u0633\u0637", icon: "flag", cls: "prio-med" },
+      { value: 5, label: "\u0628\u0627\u0644\u0627", icon: "flag", cls: "prio-high" }
+    ];
+    const priorityButtons = [];
+    for (const lvl of priorityLevels) {
+      const btn = priorityControl.createEl("button", {
+        cls: `ticktick-priority-btn ${lvl.cls} ${priority === lvl.value ? "is-active" : ""}`,
+        attr: { type: "button", "aria-label": `\u0627\u0648\u0644\u0648\u06CC\u062A: ${lvl.label}` }
+      });
+      const iconSpan = btn.createSpan({ cls: "ticktick-priority-icon" });
+      (0, import_obsidian17.setIcon)(iconSpan, lvl.icon);
+      btn.createSpan({ text: lvl.label, cls: "ticktick-priority-label" });
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        priority = lvl.value;
+        for (const b of priorityButtons) b.removeClass("is-active");
+        btn.addClass("is-active");
+      });
+      priorityButtons.push(btn);
+    }
     const descSection = fields2.createDiv({ cls: "ticktick-desc-section" });
     const descHeader = descSection.createDiv({ cls: "ticktick-desc-header" });
     const descHeaderInfo = descHeader.createDiv({ cls: "ticktick-desc-header-info" });
@@ -7339,7 +7365,7 @@ var TaskEditorModal = class extends import_obsidian17.Modal {
       description = descTextarea.value;
       if (!title.trim() || !projectId) return new import_obsidian17.Notice("\u0639\u0646\u0648\u0627\u0646 \u0648 \u067E\u0631\u0648\u0698\u0647 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646.");
       if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return new import_obsidian17.Notice("\u062A\u0627\u0631\u06CC\u062E \u0628\u0627\u06CC\u062F \u0628\u0647 \u0634\u06A9\u0644 YYYY-MM-DD \u0628\u0627\u0634\u062F.");
-      this.finish({ ...this.initial, title: title.trim(), desc: description.trim(), projectId, dueDate, reminderTime });
+      this.finish({ ...this.initial, title: title.trim(), desc: description.trim(), projectId, dueDate, reminderTime, priority });
     });
   }
   onClose() {
@@ -7982,18 +8008,22 @@ var WorkspaceHeader = class {
     brandTitle.setAttribute("title", "\u0633\u06CC\u0633\u062A\u0645 \u06CC\u06A9\u067E\u0627\u0631\u0686\u0647 \u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0627\u0631 \u0648 \u062A\u0645\u0631\u06A9\u0632 TickTick Bridge");
     const actions = topBar.createDiv({ cls: "ticktick-workspace-actions" });
     const addBtn = actions.createEl("button", {
-      cls: "tb-btn tb-btn-primary ticktick-workspace-quick-add",
-      attr: { type: "button", "aria-label": "\u062B\u0628\u062A \u0633\u0631\u06CC\u0639 \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F (\u0632\u0628\u0627\u0646 \u0637\u0628\u06CC\u0639\u06CC)" }
+      cls: "tb-btn tb-btn-primary ticktick-workspace-quick-add tb-action-add-task",
+      attr: { type: "button", "aria-label": "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F", title: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F (\u06A9\u0644\u06CC\u06A9: \u0645\u0648\u062F\u0627\u0644 | \u0631\u0627\u0633\u062A\u200C\u06A9\u0644\u06CC\u06A9: \u062B\u0628\u062A \u0633\u0631\u06CC\u0639 \u0632\u0628\u0627\u0646 \u0637\u0628\u06CC\u0639\u06CC)" }
     });
     const addIcon = addBtn.createSpan();
     (0, import_obsidian21.setIcon)(addIcon, "plus");
-    addBtn.createSpan({ text: "\u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" });
+    addBtn.createSpan({ text: "+ \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" });
     addBtn.addEventListener("click", () => {
       if (this.options.onQuickAdd) {
         this.options.onQuickAdd();
       } else {
-        this.options.plugin.openQuickCaptureModal();
+        void this.options.plugin.createTaskFromSurface();
       }
+    });
+    addBtn.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      this.options.plugin.openQuickCaptureModal();
     });
     const briefingBtn = actions.createEl("button", {
       cls: "tb-btn-icon",
@@ -9198,10 +9228,13 @@ var EisenhowerMatrix = class {
         refreshBtn.disabled = false;
       }
     });
-    const addBtn = controls.createEl("button", { cls: "ticktick-matrix-btn ticktick-matrix-btn-accent" });
+    const addBtn = controls.createEl("button", {
+      cls: "ticktick-matrix-btn ticktick-matrix-btn-accent ticktick-matrix-add-btn tb-action-add-task",
+      attr: { type: "button", "aria-label": "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" }
+    });
     const addIcon = addBtn.createSpan();
     (0, import_obsidian28.setIcon)(addIcon, "plus");
-    addBtn.createSpan({ text: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9" });
+    addBtn.createSpan({ text: "+ \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" });
     addBtn.addEventListener("click", () => {
       void this.promptAddTask("q1", today);
     });
@@ -9242,7 +9275,7 @@ var EisenhowerMatrix = class {
     const countBadge = actions.createSpan({ cls: "ticktick-matrix-count-badge" });
     countBadge.setText(String(tasks.length));
     const addBtn = actions.createEl("button", {
-      cls: "ticktick-matrix-add-btn",
+      cls: "ticktick-matrix-quadrant-add-btn",
       attr: { "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 ${meta.shortName}`, title: `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 ${meta.shortName}` }
     });
     (0, import_obsidian28.setIcon)(addBtn, "plus");
@@ -9739,9 +9772,12 @@ var TimeblockingPlanner = class {
       }
     });
     const addBtn = actions.createEl("button", {
-      cls: "ticktick-timeblock-nav-btn",
-      text: "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9"
+      cls: "ticktick-timeblock-btn ticktick-timeblock-btn-primary tb-action-add-task",
+      attr: { type: "button", "aria-label": "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" }
     });
+    const addIcon = addBtn.createSpan({ cls: "ticktick-btn-icon" });
+    (0, import_obsidian30.setIcon)(addIcon, "plus");
+    addBtn.createSpan({ text: "+ \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" });
     addBtn.addEventListener("click", async () => {
       if (!this.host.createTask) return;
       await this.host.createTask({ dueDate: targetDay });
@@ -12195,6 +12231,17 @@ var TickTickBridgeSettings = class extends import_obsidian43.PluginSettingTab {
       this.plugin.settings.experimentalHierarchyWrites = value;
       await this.plugin.saveSettings();
     }));
+    new import_obsidian43.Setting(containerEl).setName("\u06CC\u0627\u062F\u0622\u0648\u0631\u0647\u0627\u06CC \u0633\u0631\u0631\u0633\u06CC\u062F \u062A\u0633\u06A9\u200C\u0647\u0627 (Due Reminders)").setDesc("\u0628\u0631\u0631\u0633\u06CC \u062E\u0648\u062F\u06A9\u0627\u0631 \u0645\u0648\u0639\u062F \u0633\u0631\u0631\u0633\u06CC\u062F \u062A\u0633\u06A9\u200C\u0647\u0627 \u0648 \u0646\u0645\u0627\u06CC\u0634 \u0646\u0648\u062A\u06CC\u0641\u06CC\u06A9\u06CC\u0634\u0646 \u0628\u0627 \u0642\u0627\u0628\u0644\u06CC\u062A \u0627\u0646\u062C\u0627\u0645 \u06CC\u0627 \u062A\u0639\u0648\u06CC\u0642 (Snooze).").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableDueReminders !== false).onChange(async (value) => {
+      this.plugin.settings.enableDueReminders = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian43.Setting(containerEl).setName("\u0635\u062F\u0627\u06CC \u0632\u0646\u06AF \u0647\u0634\u062F\u0627\u0631 (Audio Chime)").setDesc("\u067E\u062E\u0634 \u0635\u062F\u0627\u06CC \u0632\u0646\u06AF \u0627\u062E\u062A\u0635\u0627\u0635\u06CC \u0647\u0646\u06AF\u0627\u0645 \u06CC\u0627\u062F\u0622\u0648\u0631\u06CC \u0633\u0631\u0631\u0633\u06CC\u062F \u0648 \u067E\u0627\u06CC\u0627\u0646 \u062A\u0627\u06CC\u0645\u0631 \u062A\u0645\u0631\u06A9\u0632.").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableReminderChime !== false).onChange(async (value) => {
+      this.plugin.settings.enableReminderChime = value;
+      await this.plugin.saveSettings();
+    })).addButton((btn) => btn.setButtonText("\u062A\u0633\u062A \u0635\u062F\u0627\u06CC \u0632\u0646\u06AF").onClick(() => {
+      this.plugin.reminderService?.playReminderChime();
+      new import_obsidian43.Notice("\u0635\u062F\u0627\u06CC \u0632\u0646\u06AF \u0647\u0634\u062F\u0627\u0631 \u067E\u062E\u0634 \u0634\u062F \u{1F514}");
+    }));
   }
 };
 
@@ -12315,21 +12362,22 @@ var TickTickBridgePlugin = class extends import_obsidian44.Plugin {
     this.configurePanelMenuRibbonIcon();
     this.configureSyncRibbonIcon();
     this.configureRibbonIcons();
-    this.addCommand({ id: "open-morning-briefing", name: "Open morning briefing and daily kickoff", callback: () => this.openMorningBriefing() });
-    this.addCommand({ id: "open-today-tasks", name: "Open today's TickTick tasks", callback: () => this.openTodayView() });
-    this.addCommand({ id: "open-today-habits", name: "Open today's TickTick habits", callback: () => this.openHabitView() });
-    this.addCommand({ id: "open-ticktick-sync-center", name: "Open TickTick sync center", callback: () => this.openControlPage("sync") });
-    this.addCommand({ id: "preview-ticktick-notes", name: "Preview TickTick Notes import", callback: () => this.openControlPage("notes") });
-    this.addCommand({ id: "review-local-habits", name: "Review local habits and migration preview", callback: () => this.openLocalHabitReviewModal() });
-    this.addCommand({ id: "open-weekly-planner", name: "Open TickTick weekly planner", callback: () => this.openPlannerView() });
-    this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
-    this.addCommand({ id: "open-project-timeline", name: "Open TickTick project timeline (Gantt)", callback: () => this.openTimelineView() });
-    this.addCommand({ id: "open-weekly-review", name: "Open TickTick weekly review and execution dashboard", callback: () => this.openWeeklyReviewView() });
-    this.addCommand({ id: "open-eisenhower-matrix", name: "Open TickTick Eisenhower decision matrix", callback: () => this.openEisenhowerMatrixView() });
-    this.addCommand({ id: "open-timeblocking-planner", name: "Open TickTick day planner and timeblocks", callback: () => this.openTimeblockingPlannerView() });
-    this.addCommand({ id: "open-pomodoro-timer", name: "Open TickTick focus and pomodoro timer", callback: () => this.openPomodoroModal() });
-    this.addCommand({ id: "quick-capture-task", name: "Quick capture task (Natural language)", callback: () => this.openQuickCaptureModal() });
-    this.addCommand({ id: "open-activity-heatmap", name: "Open TickTick activity and habit heatmap", callback: () => this.openActivityHeatmapView() });
+    this.addCommand({ id: "open-task-editor", name: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F (Add task modal)", callback: () => void this.createTaskFromSurface() });
+    this.addCommand({ id: "quick-capture-task", name: "\u062B\u0628\u062A \u0633\u0631\u06CC\u0639 \u062A\u0633\u06A9 \u0628\u0627 \u0632\u0628\u0627\u0646 \u0637\u0628\u06CC\u0639\u06CC (Quick capture NLP)", callback: () => this.openQuickCaptureModal() });
+    this.addCommand({ id: "open-morning-briefing", name: "\u0628\u0631\u06CC\u0641\u06CC\u0646\u06AF \u0635\u0628\u062D\u06AF\u0627\u0647\u06CC (Morning briefing and daily kickoff)", callback: () => this.openMorningBriefing() });
+    this.addCommand({ id: "open-project-board", name: "\u0646\u0645\u0627\u06CC \u06A9\u0627\u0646\u0628\u0627\u0646 (Open Kanban Board)", callback: () => this.openProjectBoardView() });
+    this.addCommand({ id: "open-weekly-planner", name: "\u0646\u0645\u0627\u06CC \u062A\u0642\u0648\u06CC\u0645 \u0648 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC (Open Weekly/Monthly Planner)", callback: () => this.openPlannerView() });
+    this.addCommand({ id: "open-eisenhower-matrix", name: "\u0646\u0645\u0627\u06CC \u0645\u0627\u062A\u0631\u06CC\u0633 \u0622\u06CC\u0632\u0646\u0647\u0627\u0648\u0631 (Open Eisenhower Decision Matrix)", callback: () => this.openEisenhowerMatrixView() });
+    this.addCommand({ id: "open-timeblocking-planner", name: "\u0646\u0645\u0627\u06CC \u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u0648 \u062A\u0627\u06CC\u0645\u200C\u0628\u0644\u0627\u06A9\u200C\u0647\u0627 (Open Timeblocking Planner)", callback: () => this.openTimeblockingPlannerView() });
+    this.addCommand({ id: "open-project-timeline", name: "\u0646\u0645\u0627\u06CC \u062A\u0627\u06CC\u0645\u200C\u0644\u0627\u06CC\u0646 \u0648 \u06AF\u0627\u0646\u062A (Open Project Timeline & Gantt)", callback: () => this.openTimelineView() });
+    this.addCommand({ id: "open-weekly-review", name: "\u0646\u0645\u0627\u06CC \u0645\u0631\u0648\u0631 \u0647\u0641\u062A\u06AF\u06CC \u0648 \u067E\u06CC\u0634\u0631\u0641\u062A (Open Weekly Review Dashboard)", callback: () => this.openWeeklyReviewView() });
+    this.addCommand({ id: "open-activity-heatmap", name: "\u0646\u0645\u0627\u06CC \u0646\u0642\u0634\u0647 \u0641\u0639\u0627\u0644\u06CC\u062A \u0648 \u0647\u06CC\u062A\u200C\u0645\u067E (Open Activity Heatmap)", callback: () => this.openActivityHeatmapView() });
+    this.addCommand({ id: "open-today-tasks", name: "\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632 (Open today's tasks)", callback: () => this.openTodayView() });
+    this.addCommand({ id: "open-today-habits", name: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632 (Open today's habits)", callback: () => this.openHabitView() });
+    this.addCommand({ id: "open-pomodoro-timer", name: "\u062A\u0627\u06CC\u0645\u0631 \u062A\u0645\u0631\u06A9\u0632 \u0639\u0645\u06CC\u0642 \u0648 \u067E\u0648\u0645\u0648\u062F\u0648\u0631\u0648 (Open Pomodoro timer)", callback: () => this.openPomodoroModal() });
+    this.addCommand({ id: "open-ticktick-sync-center", name: "\u0645\u0631\u06A9\u0632 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0648 \u062A\u0639\u0627\u0631\u0636\u200C\u0647\u0627 (Open Sync Center)", callback: () => this.openControlPage("sync") });
+    this.addCommand({ id: "preview-ticktick-notes", name: "\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0627\u0646\u062A\u0642\u0627\u0644 \u06CC\u0627\u062F\u062F\u0627\u0634\u062A\u200C\u0647\u0627 (Preview Notes Import)", callback: () => this.openControlPage("notes") });
+    this.addCommand({ id: "review-local-habits", name: "\u0645\u0631\u0648\u0631 \u0648 \u0645\u0627\u06CC\u06AF\u0631\u06CC\u0634\u0646 \u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0645\u062D\u0644\u06CC (Review Local Habits)", callback: () => this.openLocalHabitReviewModal() });
     this.addCommand({ id: "export-tasks-to-canvas", name: "Export tasks to visual Obsidian Canvas", callback: () => this.openCanvasExportModal() });
     this.addCommand({ id: "test-reminder-chime", name: "Test reminder audio chime", callback: () => this.reminderService?.playReminderChime() });
     this.addCommand({ id: "probe-task-hierarchy", name: "Probe task hierarchy and generate audit report", callback: () => this.probeTaskHierarchyAndReport() });
@@ -13802,7 +13850,13 @@ var TickTickBridgePlugin = class extends import_obsidian44.Plugin {
       const client = this.client();
       const day = dayOverride ?? todayInZone(this.settings.timeZone);
       const toolbar = root.createDiv({ cls: "daily-task-toolbar" });
-      const addButton = toolbar.createEl("button", { text: "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9", cls: "daily-task-add" });
+      const addButton = toolbar.createEl("button", {
+        cls: "daily-task-add tb-action-add-task",
+        attr: { type: "button", "aria-label": "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" }
+      });
+      const addIcon = addButton.createSpan({ cls: "ticktick-btn-icon" });
+      (0, import_obsidian44.setIcon)(addIcon, "plus");
+      addButton.createSpan({ text: "+ \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" });
       addButton.addEventListener("click", async () => {
         addButton.disabled = true;
         try {

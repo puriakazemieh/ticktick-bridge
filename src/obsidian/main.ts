@@ -190,21 +190,22 @@ export default class TickTickBridgePlugin extends Plugin {
     this.configurePanelMenuRibbonIcon();
     this.configureSyncRibbonIcon();
     this.configureRibbonIcons();
-    this.addCommand({ id: "open-morning-briefing", name: "Open morning briefing and daily kickoff", callback: () => this.openMorningBriefing() });
-    this.addCommand({ id: "open-today-tasks", name: "Open today's TickTick tasks", callback: () => this.openTodayView() });
-    this.addCommand({ id: "open-today-habits", name: "Open today's TickTick habits", callback: () => this.openHabitView() });
-    this.addCommand({ id: "open-ticktick-sync-center", name: "Open TickTick sync center", callback: () => this.openControlPage("sync") });
-    this.addCommand({ id: "preview-ticktick-notes", name: "Preview TickTick Notes import", callback: () => this.openControlPage("notes") });
-    this.addCommand({ id: "review-local-habits", name: "Review local habits and migration preview", callback: () => this.openLocalHabitReviewModal() });
-    this.addCommand({ id: "open-weekly-planner", name: "Open TickTick weekly planner", callback: () => this.openPlannerView() });
-    this.addCommand({ id: "open-project-board", name: "Open TickTick project board", callback: () => this.openProjectBoardView() });
-    this.addCommand({ id: "open-project-timeline", name: "Open TickTick project timeline (Gantt)", callback: () => this.openTimelineView() });
-    this.addCommand({ id: "open-weekly-review", name: "Open TickTick weekly review and execution dashboard", callback: () => this.openWeeklyReviewView() });
-    this.addCommand({ id: "open-eisenhower-matrix", name: "Open TickTick Eisenhower decision matrix", callback: () => this.openEisenhowerMatrixView() });
-    this.addCommand({ id: "open-timeblocking-planner", name: "Open TickTick day planner and timeblocks", callback: () => this.openTimeblockingPlannerView() });
-    this.addCommand({ id: "open-pomodoro-timer", name: "Open TickTick focus and pomodoro timer", callback: () => this.openPomodoroModal() });
-    this.addCommand({ id: "quick-capture-task", name: "Quick capture task (Natural language)", callback: () => this.openQuickCaptureModal() });
-    this.addCommand({ id: "open-activity-heatmap", name: "Open TickTick activity and habit heatmap", callback: () => this.openActivityHeatmapView() });
+    this.addCommand({ id: "open-task-editor", name: "افزودن تسک جدید (Add task modal)", callback: () => void this.createTaskFromSurface() });
+    this.addCommand({ id: "quick-capture-task", name: "ثبت سریع تسک با زبان طبیعی (Quick capture NLP)", callback: () => this.openQuickCaptureModal() });
+    this.addCommand({ id: "open-morning-briefing", name: "بریفینگ صبحگاهی (Morning briefing and daily kickoff)", callback: () => this.openMorningBriefing() });
+    this.addCommand({ id: "open-project-board", name: "نمای کانبان (Open Kanban Board)", callback: () => this.openProjectBoardView() });
+    this.addCommand({ id: "open-weekly-planner", name: "نمای تقویم و برنامه‌ریزی (Open Weekly/Monthly Planner)", callback: () => this.openPlannerView() });
+    this.addCommand({ id: "open-eisenhower-matrix", name: "نمای ماتریس آیزنهاور (Open Eisenhower Decision Matrix)", callback: () => this.openEisenhowerMatrixView() });
+    this.addCommand({ id: "open-timeblocking-planner", name: "نمای زمان‌بندی و تایم‌بلاک‌ها (Open Timeblocking Planner)", callback: () => this.openTimeblockingPlannerView() });
+    this.addCommand({ id: "open-project-timeline", name: "نمای تایم‌لاین و گانت (Open Project Timeline & Gantt)", callback: () => this.openTimelineView() });
+    this.addCommand({ id: "open-weekly-review", name: "نمای مرور هفتگی و پیشرفت (Open Weekly Review Dashboard)", callback: () => this.openWeeklyReviewView() });
+    this.addCommand({ id: "open-activity-heatmap", name: "نمای نقشه فعالیت و هیت‌مپ (Open Activity Heatmap)", callback: () => this.openActivityHeatmapView() });
+    this.addCommand({ id: "open-today-tasks", name: "تسک‌های امروز (Open today's tasks)", callback: () => this.openTodayView() });
+    this.addCommand({ id: "open-today-habits", name: "عادت‌های امروز (Open today's habits)", callback: () => this.openHabitView() });
+    this.addCommand({ id: "open-pomodoro-timer", name: "تایمر تمرکز عمیق و پومودورو (Open Pomodoro timer)", callback: () => this.openPomodoroModal() });
+    this.addCommand({ id: "open-ticktick-sync-center", name: "مرکز همگام‌سازی و تعارض‌ها (Open Sync Center)", callback: () => this.openControlPage("sync") });
+    this.addCommand({ id: "preview-ticktick-notes", name: "پیش‌نمایش انتقال یادداشت‌ها (Preview Notes Import)", callback: () => this.openControlPage("notes") });
+    this.addCommand({ id: "review-local-habits", name: "مرور و مایگریشن عادت‌های محلی (Review Local Habits)", callback: () => this.openLocalHabitReviewModal() });
     this.addCommand({ id: "export-tasks-to-canvas", name: "Export tasks to visual Obsidian Canvas", callback: () => this.openCanvasExportModal() });
     this.addCommand({ id: "test-reminder-chime", name: "Test reminder audio chime", callback: () => this.reminderService?.playReminderChime() });
     this.addCommand({ id: "probe-task-hierarchy", name: "Probe task hierarchy and generate audit report", callback: () => this.probeTaskHierarchyAndReport() });
@@ -1797,7 +1798,13 @@ export default class TickTickBridgePlugin extends Plugin {
       const client = this.client();
       const day = dayOverride ?? todayInZone(this.settings.timeZone);
       const toolbar = root.createDiv({ cls: "daily-task-toolbar" });
-      const addButton = toolbar.createEl("button", { text: "+ افزودن تسک", cls: "daily-task-add" });
+      const addButton = toolbar.createEl("button", {
+        cls: "daily-task-add tb-action-add-task",
+        attr: { type: "button", "aria-label": "افزودن تسک جدید" }
+      });
+      const addIcon = addButton.createSpan({ cls: "ticktick-btn-icon" });
+      setIcon(addIcon, "plus");
+      addButton.createSpan({ text: "+ تسک جدید" });
       addButton.addEventListener("click", async () => {
         addButton.disabled = true;
         try {

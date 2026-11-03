@@ -262,7 +262,7 @@
   color: var(--text-muted);
 }
 
-.ticktick-matrix-add-btn {
+.ticktick-matrix-quadrant-add-btn {
   background: transparent;
   border: none;
   cursor: pointer;
@@ -275,7 +275,7 @@
   transition: all 0.15s ease;
 }
 
-.ticktick-matrix-add-btn:hover {
+.ticktick-matrix-quadrant-add-btn:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
