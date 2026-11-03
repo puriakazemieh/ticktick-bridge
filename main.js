@@ -8045,7 +8045,7 @@ var WorkspaceHeader = class {
     });
     const addIcon = addBtn.createSpan();
     (0, import_obsidian21.setIcon)(addIcon, "plus");
-    addBtn.createSpan({ text: "+ \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" });
+    addBtn.createSpan({ text: "\u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" });
     addBtn.addEventListener("click", () => {
       if (this.options.onQuickAdd) {
         this.options.onQuickAdd();
@@ -8094,7 +8094,10 @@ var WorkspaceHeader = class {
     });
     const tabsBar = header.createDiv({ cls: "ticktick-workspace-tabs-bar" });
     const navWrapper = tabsBar.createDiv({ cls: "ticktick-workspace-nav-wrapper" });
-    const segmentedControl = navWrapper.createDiv({ cls: "tb-segmented-control" });
+    const segmentedControl = navWrapper.createDiv({
+      cls: "tb-segmented-control",
+      attr: { role: "tablist", "aria-label": "\u0646\u0645\u0627\u0647\u0627\u06CC \u0641\u0636\u0627\u06CC \u06A9\u0627\u0631 \u062A\u06CC\u06A9\u200C\u062A\u06CC\u06A9" }
+    });
     tabsBar.addEventListener(
       "wheel",
       (e) => {
@@ -8187,16 +8190,20 @@ var WorkspaceHeader = class {
       window.addEventListener("mouseup", onWindowMouseUp);
     });
     let activeTabEl = null;
+    const tabElements = [];
     for (const tab of WORKSPACE_NAV_TABS) {
       const isActive = tab.viewType === this.options.activeViewType;
       const tabBtn = segmentedControl.createEl("button", {
         cls: `tb-segment-item ${isActive ? "is-active" : ""}`,
         attr: {
           type: "button",
+          role: "tab",
+          "aria-selected": isActive ? "true" : "false",
           "aria-label": `\u0646\u0645\u0627\u06CC ${tab.label}`,
-          "aria-current": isActive ? "page" : "false"
+          tabindex: isActive ? "0" : "-1"
         }
       });
+      tabElements.push(tabBtn);
       const iconSpan = tabBtn.createSpan({ cls: "tb-segment-icon" });
       (0, import_obsidian21.setIcon)(iconSpan, tab.icon);
       tabBtn.createSpan({ cls: "tb-segment-label", text: tab.label });
@@ -8223,6 +8230,20 @@ var WorkspaceHeader = class {
           }
         });
       }
+      tabBtn.addEventListener("keydown", (e) => {
+        const index = tabElements.indexOf(tabBtn);
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          const next = (index + 1) % tabElements.length;
+          tabElements[next]?.focus();
+          tabElements[next]?.click();
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault();
+          const prev = (index - 1 + tabElements.length) % tabElements.length;
+          tabElements[prev]?.focus();
+          tabElements[prev]?.click();
+        }
+      });
     }
     if (activeTabEl) {
       window.requestAnimationFrame(() => {

@@ -248,6 +248,25 @@
   --tb-surface-glass: color-mix(in srgb, var(--background-secondary) 85%, transparent);
   --tb-surface-glass-border: color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
 }
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+.tb-tabular-nums,
+.ticktick-pomodoro-time,
+.ticktick-metric-value,
+.ticktick-stat-number,
+.tb-chip.mod-checklist {
+  font-variant-numeric: tabular-nums;
+  -webkit-font-feature-settings: "tnum" 1;
+  font-feature-settings: "tnum" 1;
+}
 
 /* src/styles/palette-playground.css */
 .tb-tone-coral {
@@ -748,6 +767,15 @@
   border-color: var(--interactive-accent);
   transform: translateY(-0.5px);
 }
+.ticktick-workspace-actions .tb-btn-icon:active {
+  transform: scale(0.92);
+  filter: brightness(0.95);
+}
+.tb-action-add-task:focus-visible,
+.ticktick-workspace-actions .tb-btn-icon:focus-visible {
+  outline: 2px solid var(--interactive-accent) !important;
+  outline-offset: 2px !important;
+}
 .ticktick-workspace-actions .tb-btn-icon svg {
   width: 15px;
   height: 15px;
@@ -845,6 +873,14 @@
 .ticktick-workspace-nav-wrapper .tb-segment-item:hover {
   color: var(--text-normal);
   background: color-mix(in srgb, var(--background-modifier-hover) 65%, transparent);
+}
+.ticktick-workspace-nav-wrapper .tb-segment-item:active {
+  transform: scale(0.96) !important;
+}
+.ticktick-workspace-nav-wrapper .tb-segment-item:focus-visible {
+  outline: 2px solid var(--interactive-accent) !important;
+  outline-offset: 2px !important;
+  z-index: 2;
 }
 .ticktick-workspace-nav-wrapper .tb-segment-item.is-active {
   background: var(--interactive-accent) !important;
@@ -977,6 +1013,11 @@
   transform: translateY(-2px);
   box-shadow: var(--tb-shadow-hover);
 }
+.tb-task-card:focus-visible {
+  outline: 2px solid var(--interactive-accent) !important;
+  outline-offset: 2px !important;
+  box-shadow: var(--tb-shadow-hover) !important;
+}
 .tb-task-card[draggable=true] {
   cursor: grab;
 }
@@ -1086,6 +1127,11 @@
   border-color: var(--interactive-accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
   transform: scale(1.05);
+}
+.tb-card-checkbox:focus-visible {
+  outline: 2px solid var(--interactive-accent) !important;
+  outline-offset: 2px !important;
+  border-color: var(--interactive-accent) !important;
 }
 .tb-card-checkbox.is-checked {
   background: var(--tb-gradient-mint);
@@ -1210,7 +1256,8 @@
   transition: opacity var(--tb-duration-fast) ease, transform var(--tb-duration-fast) var(--tb-ease-smooth);
   z-index: 5;
 }
-.tb-task-card:hover .tb-card-hover-actions {
+.tb-task-card:hover .tb-card-hover-actions,
+.tb-task-card:focus-within .tb-card-hover-actions {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
@@ -1230,6 +1277,11 @@
 .tb-card-action-btn:hover {
   color: var(--interactive-accent);
   background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+}
+.tb-card-action-btn:focus-visible {
+  outline: 2px solid var(--interactive-accent) !important;
+  outline-offset: 1px !important;
+  color: var(--interactive-accent) !important;
 }
 .tb-card-action-btn svg {
   width: 13px;
@@ -5364,6 +5416,13 @@
   color: var(--text-normal);
   transform: translateY(-0.5px);
 }
+.ticktick-priority-btn:focus-visible {
+  outline: 2px solid var(--interactive-accent) !important;
+  outline-offset: 2px !important;
+}
+.ticktick-priority-btn:active {
+  transform: scale(0.96) !important;
+}
 .ticktick-priority-btn svg {
   width: 12px;
   height: 12px;
@@ -5668,6 +5727,12 @@
   }
   .overview-month {
     font-size: 0.62rem;
+  }
+  .ticktick-priority-btn {
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 12px !important;
+    font-size: 13px !important;
   }
 }
 .ticktick-recurring-title {

@@ -29,6 +29,12 @@
   box-shadow: var(--tb-shadow-hover);
 }
 
+.tb-task-card:focus-visible {
+  outline: 2px solid var(--interactive-accent) !important;
+  outline-offset: 2px !important;
+  box-shadow: var(--tb-shadow-hover) !important;
+}
+
 .tb-task-card[draggable="true"] {
   cursor: grab;
 }
@@ -155,6 +161,12 @@
   border-color: var(--interactive-accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
   transform: scale(1.05);
+}
+
+.tb-card-checkbox:focus-visible {
+  outline: 2px solid var(--interactive-accent) !important;
+  outline-offset: 2px !important;
+  border-color: var(--interactive-accent) !important;
 }
 
 .tb-card-checkbox.is-checked {
@@ -301,7 +313,8 @@
   z-index: 5;
 }
 
-.tb-task-card:hover .tb-card-hover-actions {
+.tb-task-card:hover .tb-card-hover-actions,
+.tb-task-card:focus-within .tb-card-hover-actions {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
@@ -324,6 +337,11 @@
 .tb-card-action-btn:hover {
   color: var(--interactive-accent);
   background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+}
+.tb-card-action-btn:focus-visible {
+  outline: 2px solid var(--interactive-accent) !important;
+  outline-offset: 1px !important;
+  color: var(--interactive-accent) !important;
 }
 .tb-card-action-btn svg {
   width: 13px;

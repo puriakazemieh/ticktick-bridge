@@ -258,3 +258,26 @@
   --tb-surface-glass: color-mix(in srgb, var(--background-secondary) 85%, transparent);
   --tb-surface-glass-border: color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
 }
+
+/* ── 11. Accessibility & Reduced Motion (UI/UX Pro Max Standard) ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Universal Tabular Figures for Numbers, Timers & Counters */
+.tb-tabular-nums,
+.ticktick-pomodoro-time,
+.ticktick-metric-value,
+.ticktick-stat-number,
+.tb-chip.mod-checklist {
+  font-variant-numeric: tabular-nums;
+  -webkit-font-feature-settings: "tnum" 1;
+  font-feature-settings: "tnum" 1;
+}

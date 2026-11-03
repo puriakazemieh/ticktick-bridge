@@ -65,7 +65,7 @@ export class WorkspaceHeader {
     });
     const addIcon = addBtn.createSpan();
     setIcon(addIcon, "plus");
-    addBtn.createSpan({ text: "+ تسک جدید" });
+    addBtn.createSpan({ text: "تسک جدید" });
     addBtn.addEventListener("click", () => {
       if (this.options.onQuickAdd) {
         this.options.onQuickAdd();
@@ -120,7 +120,10 @@ export class WorkspaceHeader {
     // ── Tier 2: Dedicated Navigation Tab Bar ──
     const tabsBar = header.createDiv({ cls: "ticktick-workspace-tabs-bar" });
     const navWrapper = tabsBar.createDiv({ cls: "ticktick-workspace-nav-wrapper" });
-    const segmentedControl = navWrapper.createDiv({ cls: "tb-segmented-control" });
+    const segmentedControl = navWrapper.createDiv({
+      cls: "tb-segmented-control",
+      attr: { role: "tablist", "aria-label": "نماهای فضای کار تیک‌تیک" }
+    });
 
     // Enable horizontal mouse wheel scrolling in Windows!
     tabsBar.addEventListener(
@@ -233,16 +236,20 @@ export class WorkspaceHeader {
 
     let activeTabEl: HTMLElement | null = null;
 
+    const tabElements: HTMLElement[] = [];
     for (const tab of WORKSPACE_NAV_TABS) {
       const isActive = tab.viewType === this.options.activeViewType;
       const tabBtn = segmentedControl.createEl("button", {
         cls: `tb-segment-item ${isActive ? "is-active" : ""}`,
         attr: {
           type: "button",
+          role: "tab",
+          "aria-selected": isActive ? "true" : "false",
           "aria-label": `نمای ${tab.label}`,
-          "aria-current": isActive ? "page" : "false"
+          tabindex: isActive ? "0" : "-1"
         }
       });
+      tabElements.push(tabBtn);
 
       const iconSpan = tabBtn.createSpan({ cls: "tb-segment-icon" });
       setIcon(iconSpan, tab.icon);
@@ -271,6 +278,22 @@ export class WorkspaceHeader {
           }
         });
       }
+
+      // W3C Tablist arrow key navigation (RTL aware)
+      tabBtn.addEventListener("keydown", (e) => {
+        const index = tabElements.indexOf(tabBtn);
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          const next = (index + 1) % tabElements.length;
+          tabElements[next]?.focus();
+          tabElements[next]?.click();
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault();
+          const prev = (index - 1 + tabElements.length) % tabElements.length;
+          tabElements[prev]?.focus();
+          tabElements[prev]?.click();
+        }
+      });
     }
 
     // Ensure active tab is visible in view without jumping the main window
