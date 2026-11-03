@@ -8972,4 +8972,89 @@
   border-radius: 4px;
 }
 
+/* src/styles/menu.css */
+.menu.ticktick-bridge-panel-menu {
+  direction: rtl !important;
+  text-align: right !important;
+  background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary)) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent) !important;
+  border-radius: var(--tb-radius-l, 14px) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25), 0 3px 10px rgba(0, 0, 0, 0.1) !important;
+  padding: 6px !important;
+  min-width: 260px !important;
+  box-sizing: border-box !important;
+}
+.menu.ticktick-bridge-panel-menu .menu-item {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  padding: 7px 12px !important;
+  border-radius: var(--tb-radius-s, 8px) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--text-normal) !important;
+  cursor: pointer !important;
+  transition: all var(--tb-motion-smooth, 150ms ease) !important;
+  user-select: none !important;
+}
+.menu.ticktick-bridge-panel-menu .menu-item:hover {
+  background: color-mix(in srgb, var(--background-modifier-hover) 85%, transparent) !important;
+  color: var(--text-normal) !important;
+  transform: translateX(-2px) !important;
+}
+.menu.ticktick-bridge-panel-menu .menu-item-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 18px !important;
+  height: 18px !important;
+  color: var(--text-muted) !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+}
+.menu.ticktick-bridge-panel-menu .menu-item-icon svg {
+  width: 16px !important;
+  height: 16px !important;
+  display: block !important;
+}
+.menu.ticktick-bridge-panel-menu .menu-item:hover .menu-item-icon {
+  color: var(--interactive-accent) !important;
+}
+.menu.ticktick-bridge-panel-menu .menu-item-title {
+  flex: 1 1 auto !important;
+  text-align: right !important;
+  line-height: 1.4 !important;
+  font-family: inherit !important;
+}
+.menu.ticktick-bridge-panel-menu .menu-item.ticktick-menu-item-cta {
+  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)) !important;
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
+  color: var(--interactive-accent) !important;
+  font-weight: 700 !important;
+  margin-bottom: 4px !important;
+  border-radius: var(--tb-radius-pill, 9999px) !important;
+  padding: 8px 14px !important;
+}
+.menu.ticktick-bridge-panel-menu .menu-item.ticktick-menu-item-cta .menu-item-icon {
+  color: var(--interactive-accent) !important;
+}
+.menu.ticktick-bridge-panel-menu .menu-item.ticktick-menu-item-cta:hover {
+  background: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  border-color: var(--interactive-accent) !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--interactive-accent) 45%, transparent) !important;
+  transform: translateY(-1px) !important;
+}
+.menu.ticktick-bridge-panel-menu .menu-item.ticktick-menu-item-cta:hover .menu-item-icon {
+  color: var(--text-on-accent) !important;
+}
+.menu.ticktick-bridge-panel-menu .menu-separator {
+  margin: 5px 6px !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent) !important;
+}
+
 /* src/styles/main.css */

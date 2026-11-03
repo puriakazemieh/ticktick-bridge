@@ -613,7 +613,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.ribbonIcons.push(
       this.addRibbonIcon("check-square", "TickTick Bridge: تسک‌های امروز", () => this.openTodayView()),
       this.addRibbonIcon("activity", "TickTick Bridge: عادت‌های امروز", () => this.openHabitView()),
-      this.addRibbonIcon("calendar-days", "TickTick Bridge: تقویم و برنامه‌ریزی", () => void this.openPlannerView()),
+      this.addRibbonIcon("calendar", "TickTick Bridge: تقویم و برنامه‌ریزی", () => void this.openPlannerView()),
       this.addRibbonIcon("kanban-square", "TickTick Bridge: برد پروژه‌ها و نماهای هوشمند", () => void this.openProjectBoardView()),
       this.addRibbonIcon("calendar-range", "TickTick Bridge: تایم‌لاین و گانت پروژه‌ها", () => void this.openTimelineView()),
     );
@@ -634,24 +634,55 @@ export default class TickTickBridgePlugin extends Plugin {
 
   private showPanelMenu(event: MouseEvent) {
     const menu = new Menu();
+    const menuDom = (menu as any).dom as HTMLElement | undefined;
+    menuDom?.addClass("ticktick-bridge-panel-menu");
+    menuDom?.setAttribute("dir", "rtl");
+
+    // ── 1. Quick Add & Actions ──
+    menu.addItem(item => {
+      item.setTitle("افزودن تسک جدید").setIcon("plus").onClick(() => void this.createTaskFromSurface());
+      (item as any).dom?.addClass("ticktick-menu-item-cta");
+    });
+    menu.addItem(item => {
+      item.setTitle("ثبت سریع با زبان طبیعی").setIcon("zap").onClick(() => void this.openQuickCaptureModal());
+    });
+    menu.addItem(item => {
+      item.setTitle("بریفینگ صبحگاهی و اهداف روز").setIcon("sun").onClick(() => void this.openMorningBriefing());
+    });
+    menu.addItem(item => {
+      item.setTitle("تایمر تمرکز عمیق (پومودورو)").setIcon("timer").onClick(() => void this.openPomodoroModal());
+    });
+
+    menu.addSeparator();
+
+    // ── 2. Primary Workspace Views (Aligned 1:1 with Workspace Header Tabs) ──
+    menu.addItem(item => item.setTitle("کانبان (برد پروژه‌ها)").setIcon("kanban-square").onClick(() => void this.openProjectBoardView()));
+    menu.addItem(item => item.setTitle("تقویم و برنامه‌ریزی").setIcon("calendar").onClick(() => void this.openPlannerView()));
+    menu.addItem(item => item.setTitle("ماتریس آیزنهاور").setIcon("grid").onClick(() => void this.openEisenhowerMatrixView()));
+    menu.addItem(item => item.setTitle("زمان‌بندی و بلوک‌های روزانه").setIcon("clock").onClick(() => void this.openTimeblockingPlannerView()));
+    menu.addItem(item => item.setTitle("تایم‌لاین و گانت پروژه‌ها").setIcon("calendar-range").onClick(() => void this.openTimelineView()));
+    menu.addItem(item => item.setTitle("مرور هفتگی و پیشرفت").setIcon("check-check").onClick(() => void this.openWeeklyReviewView()));
+    menu.addItem(item => item.setTitle("نقشه فعالیت (هیت‌مپ سالانه)").setIcon("flame").onClick(() => void this.openActivityHeatmapView()));
+
+    menu.addSeparator();
+
+    // ── 3. Daily Panels ──
     menu.addItem(item => item.setTitle("تسک‌های امروز").setIcon("check-square").onClick(() => void this.openTodayView()));
     menu.addItem(item => item.setTitle("عادت‌های امروز").setIcon("activity").onClick(() => void this.openHabitView()));
-    menu.addItem(item => item.setTitle("تقویم و برنامهٔ هفتگی").setIcon("calendar-days").onClick(() => void this.openPlannerView()));
-    menu.addItem(item => item.setTitle("برد پروژه‌ها").setIcon("kanban-square").onClick(() => void this.openProjectBoardView()));
-    menu.addItem(item => item.setTitle("تایم‌لاین و گانت پروژه‌ها").setIcon("calendar-range").onClick(() => void this.openTimelineView()));
-    menu.addItem(item => item.setTitle("مرور هفتگی و داشبورد اجرا").setIcon("bar-chart-2").onClick(() => void this.openWeeklyReviewView()));
-    menu.addItem(item => item.setTitle("ماتریس تصمیم‌گیری آیزنهاور").setIcon("grid").onClick(() => void this.openEisenhowerMatrixView()));
-    menu.addItem(item => item.setTitle("برنامه‌ریز و بلوک‌های زمانی روزانه").setIcon("clock").onClick(() => void this.openTimeblockingPlannerView()));
-    menu.addItem(item => item.setTitle("تایمر تمرکز عمیق (پومودورو)").setIcon("timer").onClick(() => void this.openPomodoroModal()));
-    menu.addItem(item => item.setTitle("ثبت سریع با زبان طبیعی").setIcon("zap").onClick(() => void this.openQuickCaptureModal()));
-    menu.addItem(item => item.setTitle("هیت‌مپ فعالیت و پیوستگی سالانه").setIcon("flame").onClick(() => void this.openActivityHeatmapView()));
+
     menu.addSeparator();
+
+    // ── 4. Control, Sync & Tools ──
     menu.addItem(item => item.setTitle("مرکز همگام‌سازی و تعارض‌ها").setIcon("arrow-down-up").onClick(() => void this.openControlPage("sync")));
-    menu.addItem(item => item.setTitle("پیش‌نمایش انتقال TickTick Notes").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
+    menu.addItem(item => item.setTitle("پیش‌نمایش انتقال یادداشت‌ها (Notes)").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
     menu.addItem(item => item.setTitle("مرور و پیش‌نمایش عادت‌های محلی").setIcon("sparkles").onClick(() => void this.openLocalHabitReviewModal()));
-    menu.addItem(item => item.setTitle("Checklistهای task (فقط‌خواندنی)").setIcon("list-checks").onClick(() => void this.openControlPage("checklists")));
-    menu.addItem(item => item.setTitle("آخرین گزارش و backup").setIcon("shield-check").onClick(() => void this.openControlPage("reports")));
+    menu.addItem(item => item.setTitle("چک‌لیست‌های تسک (فقط‌خواندنی)").setIcon("list-checks").onClick(() => void this.openControlPage("checklists")));
+    menu.addItem(item => item.setTitle("آخرین گزارش و پشتیبان‌گیری (Backup)").setIcon("shield-check").onClick(() => void this.openControlPage("reports")));
+
     menu.showAtMouseEvent(event);
+    const postDom = (menu as any).dom as HTMLElement | undefined;
+    postDom?.addClass("ticktick-bridge-panel-menu");
+    postDom?.setAttribute("dir", "rtl");
   }
 
   private setSyncRibbonState(syncing: boolean) {
@@ -1104,7 +1135,7 @@ export default class TickTickBridgePlugin extends Plugin {
   async deleteTask(task: TickTickTask | { id: string; [key: string]: unknown }, originElement?: HTMLElement) { return this.runMutation("delete", task, originElement); }
   async checkInHabit(habitId: string, day: string, checkin: Partial<CachedHabitCheckin> | Record<string, unknown>) { return this.runMutation("habit", { habitId, day, checkin }); }
   async createTaskFromSurface(initial: TaskDraft = {}) {
-    const projects = await this.client().listProjects();
+    const projects = this.cache.projects.length ? this.cache.projects : await this.client().listProjects();
     const draft = await openTaskEditor(this.app, projects, initial);
     if (!draft) return null;
     return this.createTask(toTaskPayload(draft, this.settings.timeZone));

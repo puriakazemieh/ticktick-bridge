@@ -12761,7 +12761,7 @@ var TickTickBridgePlugin = class extends import_obsidian44.Plugin {
     this.ribbonIcons.push(
       this.addRibbonIcon("check-square", "TickTick Bridge: \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632", () => this.openTodayView()),
       this.addRibbonIcon("activity", "TickTick Bridge: \u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632", () => this.openHabitView()),
-      this.addRibbonIcon("calendar-days", "TickTick Bridge: \u062A\u0642\u0648\u06CC\u0645 \u0648 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC", () => void this.openPlannerView()),
+      this.addRibbonIcon("calendar", "TickTick Bridge: \u062A\u0642\u0648\u06CC\u0645 \u0648 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC", () => void this.openPlannerView()),
       this.addRibbonIcon("kanban-square", "TickTick Bridge: \u0628\u0631\u062F \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627 \u0648 \u0646\u0645\u0627\u0647\u0627\u06CC \u0647\u0648\u0634\u0645\u0646\u062F", () => void this.openProjectBoardView()),
       this.addRibbonIcon("calendar-range", "TickTick Bridge: \u062A\u0627\u06CC\u0645\u200C\u0644\u0627\u06CC\u0646 \u0648 \u06AF\u0627\u0646\u062A \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627", () => void this.openTimelineView())
     );
@@ -12779,24 +12779,43 @@ var TickTickBridgePlugin = class extends import_obsidian44.Plugin {
   }
   showPanelMenu(event) {
     const menu = new import_obsidian44.Menu();
+    const menuDom = menu.dom;
+    menuDom?.addClass("ticktick-bridge-panel-menu");
+    menuDom?.setAttribute("dir", "rtl");
+    menu.addItem((item) => {
+      item.setTitle("\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F").setIcon("plus").onClick(() => void this.createTaskFromSurface());
+      item.dom?.addClass("ticktick-menu-item-cta");
+    });
+    menu.addItem((item) => {
+      item.setTitle("\u062B\u0628\u062A \u0633\u0631\u06CC\u0639 \u0628\u0627 \u0632\u0628\u0627\u0646 \u0637\u0628\u06CC\u0639\u06CC").setIcon("zap").onClick(() => void this.openQuickCaptureModal());
+    });
+    menu.addItem((item) => {
+      item.setTitle("\u0628\u0631\u06CC\u0641\u06CC\u0646\u06AF \u0635\u0628\u062D\u06AF\u0627\u0647\u06CC \u0648 \u0627\u0647\u062F\u0627\u0641 \u0631\u0648\u0632").setIcon("sun").onClick(() => void this.openMorningBriefing());
+    });
+    menu.addItem((item) => {
+      item.setTitle("\u062A\u0627\u06CC\u0645\u0631 \u062A\u0645\u0631\u06A9\u0632 \u0639\u0645\u06CC\u0642 (\u067E\u0648\u0645\u0648\u062F\u0648\u0631\u0648)").setIcon("timer").onClick(() => void this.openPomodoroModal());
+    });
+    menu.addSeparator();
+    menu.addItem((item) => item.setTitle("\u06A9\u0627\u0646\u0628\u0627\u0646 (\u0628\u0631\u062F \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627)").setIcon("kanban-square").onClick(() => void this.openProjectBoardView()));
+    menu.addItem((item) => item.setTitle("\u062A\u0642\u0648\u06CC\u0645 \u0648 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC").setIcon("calendar").onClick(() => void this.openPlannerView()));
+    menu.addItem((item) => item.setTitle("\u0645\u0627\u062A\u0631\u06CC\u0633 \u0622\u06CC\u0632\u0646\u0647\u0627\u0648\u0631").setIcon("grid").onClick(() => void this.openEisenhowerMatrixView()));
+    menu.addItem((item) => item.setTitle("\u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC \u0648 \u0628\u0644\u0648\u06A9\u200C\u0647\u0627\u06CC \u0631\u0648\u0632\u0627\u0646\u0647").setIcon("clock").onClick(() => void this.openTimeblockingPlannerView()));
+    menu.addItem((item) => item.setTitle("\u062A\u0627\u06CC\u0645\u200C\u0644\u0627\u06CC\u0646 \u0648 \u06AF\u0627\u0646\u062A \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627").setIcon("calendar-range").onClick(() => void this.openTimelineView()));
+    menu.addItem((item) => item.setTitle("\u0645\u0631\u0648\u0631 \u0647\u0641\u062A\u06AF\u06CC \u0648 \u067E\u06CC\u0634\u0631\u0641\u062A").setIcon("check-check").onClick(() => void this.openWeeklyReviewView()));
+    menu.addItem((item) => item.setTitle("\u0646\u0642\u0634\u0647 \u0641\u0639\u0627\u0644\u06CC\u062A (\u0647\u06CC\u062A\u200C\u0645\u067E \u0633\u0627\u0644\u0627\u0646\u0647)").setIcon("flame").onClick(() => void this.openActivityHeatmapView()));
+    menu.addSeparator();
     menu.addItem((item) => item.setTitle("\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632").setIcon("check-square").onClick(() => void this.openTodayView()));
     menu.addItem((item) => item.setTitle("\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0627\u0645\u0631\u0648\u0632").setIcon("activity").onClick(() => void this.openHabitView()));
-    menu.addItem((item) => item.setTitle("\u062A\u0642\u0648\u06CC\u0645 \u0648 \u0628\u0631\u0646\u0627\u0645\u0647\u0654 \u0647\u0641\u062A\u06AF\u06CC").setIcon("calendar-days").onClick(() => void this.openPlannerView()));
-    menu.addItem((item) => item.setTitle("\u0628\u0631\u062F \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627").setIcon("kanban-square").onClick(() => void this.openProjectBoardView()));
-    menu.addItem((item) => item.setTitle("\u062A\u0627\u06CC\u0645\u200C\u0644\u0627\u06CC\u0646 \u0648 \u06AF\u0627\u0646\u062A \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627").setIcon("calendar-range").onClick(() => void this.openTimelineView()));
-    menu.addItem((item) => item.setTitle("\u0645\u0631\u0648\u0631 \u0647\u0641\u062A\u06AF\u06CC \u0648 \u062F\u0627\u0634\u0628\u0648\u0631\u062F \u0627\u062C\u0631\u0627").setIcon("bar-chart-2").onClick(() => void this.openWeeklyReviewView()));
-    menu.addItem((item) => item.setTitle("\u0645\u0627\u062A\u0631\u06CC\u0633 \u062A\u0635\u0645\u06CC\u0645\u200C\u06AF\u06CC\u0631\u06CC \u0622\u06CC\u0632\u0646\u0647\u0627\u0648\u0631").setIcon("grid").onClick(() => void this.openEisenhowerMatrixView()));
-    menu.addItem((item) => item.setTitle("\u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632 \u0648 \u0628\u0644\u0648\u06A9\u200C\u0647\u0627\u06CC \u0632\u0645\u0627\u0646\u06CC \u0631\u0648\u0632\u0627\u0646\u0647").setIcon("clock").onClick(() => void this.openTimeblockingPlannerView()));
-    menu.addItem((item) => item.setTitle("\u062A\u0627\u06CC\u0645\u0631 \u062A\u0645\u0631\u06A9\u0632 \u0639\u0645\u06CC\u0642 (\u067E\u0648\u0645\u0648\u062F\u0648\u0631\u0648)").setIcon("timer").onClick(() => void this.openPomodoroModal()));
-    menu.addItem((item) => item.setTitle("\u062B\u0628\u062A \u0633\u0631\u06CC\u0639 \u0628\u0627 \u0632\u0628\u0627\u0646 \u0637\u0628\u06CC\u0639\u06CC").setIcon("zap").onClick(() => void this.openQuickCaptureModal()));
-    menu.addItem((item) => item.setTitle("\u0647\u06CC\u062A\u200C\u0645\u067E \u0641\u0639\u0627\u0644\u06CC\u062A \u0648 \u067E\u06CC\u0648\u0633\u062A\u06AF\u06CC \u0633\u0627\u0644\u0627\u0646\u0647").setIcon("flame").onClick(() => void this.openActivityHeatmapView()));
     menu.addSeparator();
     menu.addItem((item) => item.setTitle("\u0645\u0631\u06A9\u0632 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0648 \u062A\u0639\u0627\u0631\u0636\u200C\u0647\u0627").setIcon("arrow-down-up").onClick(() => void this.openControlPage("sync")));
-    menu.addItem((item) => item.setTitle("\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0627\u0646\u062A\u0642\u0627\u0644 TickTick Notes").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
+    menu.addItem((item) => item.setTitle("\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0627\u0646\u062A\u0642\u0627\u0644 \u06CC\u0627\u062F\u062F\u0627\u0634\u062A\u200C\u0647\u0627 (Notes)").setIcon("file-down").onClick(() => void this.openControlPage("notes")));
     menu.addItem((item) => item.setTitle("\u0645\u0631\u0648\u0631 \u0648 \u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0639\u0627\u062F\u062A\u200C\u0647\u0627\u06CC \u0645\u062D\u0644\u06CC").setIcon("sparkles").onClick(() => void this.openLocalHabitReviewModal()));
-    menu.addItem((item) => item.setTitle("Checklist\u0647\u0627\u06CC task (\u0641\u0642\u0637\u200C\u062E\u0648\u0627\u0646\u062F\u0646\u06CC)").setIcon("list-checks").onClick(() => void this.openControlPage("checklists")));
-    menu.addItem((item) => item.setTitle("\u0622\u062E\u0631\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0648 backup").setIcon("shield-check").onClick(() => void this.openControlPage("reports")));
+    menu.addItem((item) => item.setTitle("\u0686\u06A9\u200C\u0644\u06CC\u0633\u062A\u200C\u0647\u0627\u06CC \u062A\u0633\u06A9 (\u0641\u0642\u0637\u200C\u062E\u0648\u0627\u0646\u062F\u0646\u06CC)").setIcon("list-checks").onClick(() => void this.openControlPage("checklists")));
+    menu.addItem((item) => item.setTitle("\u0622\u062E\u0631\u06CC\u0646 \u06AF\u0632\u0627\u0631\u0634 \u0648 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u200C\u06AF\u06CC\u0631\u06CC (Backup)").setIcon("shield-check").onClick(() => void this.openControlPage("reports")));
     menu.showAtMouseEvent(event);
+    const postDom = menu.dom;
+    postDom?.addClass("ticktick-bridge-panel-menu");
+    postDom?.setAttribute("dir", "rtl");
   }
   setSyncRibbonState(syncing) {
     if (!this.syncRibbonIcon) return;
@@ -13185,7 +13204,7 @@ var TickTickBridgePlugin = class extends import_obsidian44.Plugin {
     return this.runMutation("habit", { habitId, day, checkin });
   }
   async createTaskFromSurface(initial = {}) {
-    const projects = await this.client().listProjects();
+    const projects = this.cache.projects.length ? this.cache.projects : await this.client().listProjects();
     const draft = await openTaskEditor(this.app, projects, initial);
     if (!draft) return null;
     return this.createTask(toTaskPayload(draft, this.settings.timeZone));
