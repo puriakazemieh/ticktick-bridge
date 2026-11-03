@@ -4575,18 +4575,27 @@
 }
 
 /* src/styles/modals.css */
+.modal-container:has(.ticktick-modal),
+.modal-container:has([class*=ticktick-]) {
+  backdrop-filter: var(--tb-backdrop-blur, blur(16px)) !important;
+  -webkit-backdrop-filter: var(--tb-backdrop-blur, blur(16px)) !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  transition: backdrop-filter 200ms ease;
+}
 .modal.ticktick-modal {
   width: min(780px, 94vw) !important;
   max-width: 780px !important;
   max-height: 88vh !important;
   display: flex !important;
   flex-direction: column !important;
-  border-radius: 1.15rem !important;
+  border-radius: var(--tb-radius-modal, 22px) !important;
   overflow: hidden !important;
   direction: rtl !important;
   text-align: right !important;
   padding: 0 !important;
-  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.48), 0 0 0 1px color-mix(in srgb, #fff 5%, transparent) !important;
+  background: var(--background-primary) !important;
+  border: 1px solid var(--tb-surface-glass-border) !important;
+  box-shadow: var(--tb-shadow-modal) !important;
 }
 .modal.ticktick-modal .modal-close-button {
   top: 1.15rem !important;
@@ -4594,9 +4603,14 @@
   right: auto !important;
   z-index: 20 !important;
   cursor: pointer !important;
-  border-radius: 0.5rem !important;
+  border-radius: var(--tb-radius-m, 10px) !important;
   padding: 0.35rem !important;
   color: var(--text-muted) !important;
+  transition: var(--tb-transition-fast) !important;
+}
+.modal.ticktick-modal .modal-close-button:hover {
+  background: var(--background-modifier-hover) !important;
+  color: var(--text-normal) !important;
 }
 .ticktick-task-editor-modal {
   display: flex;
@@ -5171,29 +5185,29 @@
   z-index: 1000;
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.55rem 1rem;
-  background: color-mix(in srgb, var(--background-secondary) 90%, var(--background-primary));
-  border: 1px solid var(--interactive-accent);
-  border-radius: 9999px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), 0 2px 8px color-mix(in srgb, var(--interactive-accent) 25%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  gap: var(--tb-space-2, 8px);
+  padding: 6px 14px;
+  background: var(--tb-surface-glass);
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 45%, var(--tb-surface-glass-border));
+  border-radius: var(--tb-radius-pill);
+  box-shadow: var(--tb-shadow-floating);
+  backdrop-filter: var(--tb-backdrop-blur);
+  -webkit-backdrop-filter: var(--tb-backdrop-blur);
   direction: rtl;
   color: var(--text-normal);
-  font-family: var(--font-text);
+  font-family: var(--tb-font-persian, var(--font-text));
   max-width: 95vw;
   flex-wrap: wrap;
-  animation: ticktick-fade-up 180ms ease forwards;
+  animation: ticktick-fade-up 220ms var(--tb-ease-spring) forwards;
 }
 @keyframes ticktick-fade-up {
   from {
     opacity: 0;
-    transform: translate(-50%, 15px);
+    transform: translate(-50%, 15px) scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translate(-50%, 0) scale(1);
   }
 }
 .ticktick-bulk-action-bar.is-executing {
@@ -5203,45 +5217,50 @@
 .ticktick-bulk-counter {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.82rem;
+  gap: var(--tb-space-1, 4px);
+  font-size: 12px;
   font-weight: 700;
-  color: var(--text-accent);
-  padding-inline-end: 0.5rem;
-  border-inline-end: 1px solid var(--background-modifier-border);
+  color: var(--interactive-accent);
+  padding-inline-end: 0.65rem;
+  border-inline-end: 1px solid var(--tb-border-subtle);
 }
 .ticktick-bulk-buttons {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 4px;
   flex-wrap: wrap;
 }
 .ticktick-bulk-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.65rem;
-  background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 0.45rem;
-  font-size: 0.78rem;
+  gap: 5px;
+  padding: 4px 10px;
+  background: var(--background-secondary);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-button, 10px);
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-normal);
   cursor: pointer;
-  transition: all 140ms ease;
+  transition: var(--tb-transition-fast);
+  user-select: none;
 }
 .ticktick-bulk-btn:hover {
   background: var(--background-modifier-hover);
   border-color: var(--interactive-accent);
-  color: var(--text-accent);
+  color: var(--interactive-accent);
   transform: translateY(-1px);
 }
+.ticktick-bulk-btn:active {
+  transform: scale(0.96);
+}
 .ticktick-bulk-btn.mod-destructive {
-  color: var(--color-red);
+  color: var(--tb-palette-coral);
 }
 .ticktick-bulk-btn.mod-destructive:hover {
-  background: color-mix(in srgb, var(--color-red) 15%, var(--background-primary));
-  border-color: var(--color-red);
+  background: var(--tb-palette-coral-tint);
+  border-color: var(--tb-palette-coral);
+  color: var(--tb-palette-coral);
 }
 .ticktick-bulk-close {
   display: flex;
@@ -7649,35 +7668,37 @@
 
 /* src/styles/quick-capture.css */
 .ticktick-quick-capture-modal {
-  padding: 20px 24px;
-  border-radius: 14px;
+  padding: 22px 26px;
+  border-radius: var(--tb-radius-modal, 22px);
   background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
+  border: 1px solid var(--tb-surface-glass-border);
+  box-shadow: var(--tb-shadow-modal);
   direction: rtl;
-  font-family: var(--font-interface);
-  max-width: 520px;
+  font-family: var(--tb-font-persian, var(--font-interface));
+  max-width: 540px;
   margin: 0 auto;
 }
 .ticktick-quick-capture-container {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--tb-space-3, 12px);
 }
 .ticktick-quick-capture-input {
   width: 100%;
   font-size: 15px;
   padding: 10px 14px;
-  border-radius: 8px;
-  border: 1.5px solid var(--background-modifier-border);
+  border-radius: var(--tb-radius-input, 10px);
+  border: 1.5px solid var(--tb-border-subtle);
   background: var(--background-secondary);
   color: var(--text-normal);
+  font-family: inherit;
   outline: none;
   box-sizing: border-box;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color var(--tb-duration-fast) ease, box-shadow var(--tb-duration-fast) ease;
 }
 .ticktick-quick-capture-input:focus {
   border-color: var(--interactive-accent);
-  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 22%, transparent);
 }
 .ticktick-quick-capture-chips {
   display: flex;
@@ -7690,51 +7711,51 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 3px 9px;
+  border-radius: var(--tb-radius-pill);
   font-size: 11.5px;
   font-weight: 600;
   background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
+  border: 1px solid var(--tb-border-subtle);
   color: var(--text-normal);
-  animation: fadeIn 0.15s ease;
+  animation: fadeIn 0.18s var(--tb-ease-spring);
 }
 .ticktick-quick-chip.is-date {
-  color: #2563eb;
-  background: rgba(37, 99, 235, 0.08);
-  border-color: rgba(37, 99, 235, 0.25);
+  color: var(--tb-palette-cobalt);
+  background: var(--tb-palette-cobalt-tint);
+  border-color: var(--tb-palette-cobalt-border);
 }
 .ticktick-quick-chip.is-time {
-  color: #8b5cf6;
-  background: rgba(139, 92, 246, 0.08);
-  border-color: rgba(139, 92, 246, 0.25);
+  color: var(--tb-palette-orchid);
+  background: var(--tb-palette-orchid-tint);
+  border-color: var(--tb-palette-orchid-border);
 }
 .ticktick-quick-chip.is-priority {
-  color: #dc2626;
-  background: rgba(220, 38, 38, 0.08);
-  border-color: rgba(220, 38, 38, 0.25);
+  color: var(--tb-palette-coral);
+  background: var(--tb-palette-coral-tint);
+  border-color: var(--tb-palette-coral-border);
 }
 .ticktick-quick-chip.is-project {
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.25);
+  color: var(--tb-palette-amber);
+  background: var(--tb-palette-amber-tint);
+  border-color: var(--tb-palette-amber-border);
 }
 .ticktick-quick-chip.is-tag {
-  color: var(--interactive-accent);
-  background: var(--background-modifier-accent-subtle);
-  border-color: var(--interactive-accent);
+  color: var(--tb-palette-mint);
+  background: var(--tb-palette-mint-tint);
+  border-color: var(--tb-palette-mint-border);
 }
 .ticktick-quick-capture-hints {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: var(--background-primary-alt);
-  border: 1px dashed var(--background-modifier-border);
+  padding: 10px 14px;
+  border-radius: var(--tb-radius-m, 10px);
+  background: var(--tb-surface-inset);
+  border: 1px dashed var(--tb-border-subtle);
   font-size: 11.5px;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: var(--tb-line-height-normal);
 }
 .ticktick-quick-capture-hint-tokens {
   display: flex;
@@ -7743,10 +7764,10 @@
 }
 .ticktick-quick-token-badge {
   font-family: var(--font-monospace);
-  padding: 1px 4px;
-  border-radius: 4px;
+  padding: 2px 6px;
+  border-radius: var(--tb-radius-xs, 4px);
   background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
+  border: 1px solid var(--tb-border-subtle);
   font-size: 10.5px;
   color: var(--text-normal);
 }
@@ -7761,24 +7782,27 @@
   padding: 7px 18px;
   font-size: 13px;
   font-weight: 700;
-  border-radius: 6px;
+  border-radius: var(--tb-radius-button, 10px);
   background: var(--interactive-accent);
-  color: #fff;
-  border: none;
+  color: var(--text-on-accent);
+  border: 1px solid color-mix(in srgb, var(--interactive-accent-hover) 35%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 28%, transparent);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: var(--tb-transition-fast);
 }
 .ticktick-quick-capture-btn-primary:hover {
   background: var(--interactive-accent-hover);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--interactive-accent) 38%, transparent);
 }
 .ticktick-quick-capture-btn-cancel {
   padding: 7px 14px;
   font-size: 13px;
-  border-radius: 6px;
+  border-radius: var(--tb-radius-button, 10px);
   background: transparent;
-  border: 1px solid var(--background-modifier-border);
+  border: 1px solid var(--tb-border-subtle);
   color: var(--text-muted);
   cursor: pointer;
+  transition: var(--tb-transition-fast);
 }
 .ticktick-quick-capture-btn-cancel:hover {
   background: var(--background-modifier-hover);
@@ -7787,11 +7811,11 @@
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(2px);
+    transform: translateY(3px) scale(0.97);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -8146,93 +8170,108 @@
 /* src/styles/morning-briefing.css */
 .ticktick-briefing-modal {
   direction: rtl;
-  font-family: inherit;
-  padding: 1.25rem;
+  font-family: var(--tb-font-persian, var(--font-interface));
+  padding: var(--tb-space-4, 16px);
+  border-radius: var(--tb-radius-modal, 22px);
+  background: var(--background-primary);
+  border: 1px solid var(--tb-surface-glass-border);
+  box-shadow: var(--tb-shadow-modal);
+  box-sizing: border-box;
 }
 .briefing-header h2 {
   margin: 0 0 1rem 0;
   font-size: 1.35rem;
   font-weight: 700;
   color: var(--text-normal);
+  letter-spacing: -0.01em;
 }
 .briefing-quote-card {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  margin-bottom: 1.25rem;
+  gap: var(--tb-space-3, 12px);
+  padding: 10px 14px;
+  margin-bottom: var(--tb-space-4, 16px);
   background:
     linear-gradient(
       135deg,
-      rgba(var(--interactive-accent-rgb), 0.12),
-      rgba(var(--interactive-accent-rgb), 0.04));
-  border: 1px solid var(--interactive-accent-opacity);
-  border-radius: 8px;
+      color-mix(in srgb, var(--interactive-accent) 12%, var(--background-secondary)),
+      color-mix(in srgb, var(--interactive-accent) 4%, var(--background-secondary)));
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 25%, transparent);
+  border-radius: var(--tb-radius-card, 14px);
+  box-shadow: var(--tb-shadow-xs);
 }
 .quote-icon {
-  font-size: 1.4rem;
+  font-size: 1.3rem;
+  line-height: 1;
 }
 .quote-text {
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 500;
   color: var(--text-normal);
-  line-height: 1.4;
+  line-height: var(--tb-line-height-normal);
 }
 .briefing-kpi-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
+  gap: var(--tb-space-2, 8px);
+  margin-bottom: var(--tb-space-4, 16px);
 }
 .briefing-kpi-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 0.5rem;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
+  padding: 10px 8px;
+  background: var(--tb-surface-card);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-card, 14px);
+  box-shadow: var(--tb-shadow-card);
   text-align: center;
+  transition: transform var(--tb-duration-fast) var(--tb-ease-smooth), box-shadow var(--tb-duration-fast) var(--tb-ease-smooth);
+}
+.briefing-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--tb-shadow-hover);
 }
 .kpi-value {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 1.55rem;
+  font-weight: 800;
   line-height: 1.2;
 }
 .kpi-label {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
   color: var(--text-muted);
   margin-top: 0.25rem;
 }
 .briefing-kpi-card.tone-blue .kpi-value {
-  color: #3b82f6;
+  color: var(--tb-palette-cobalt);
 }
 .briefing-kpi-card.tone-red .kpi-value {
-  color: #ef4444;
+  color: var(--tb-palette-coral);
 }
 .briefing-kpi-card.tone-green .kpi-value {
-  color: #10b981;
+  color: var(--tb-palette-mint);
 }
 .briefing-kpi-card.tone-purple .kpi-value {
-  color: #8b5cf6;
+  color: var(--tb-palette-orchid);
 }
 .briefing-kpi-card.tone-emerald .kpi-value {
-  color: #059669;
+  color: var(--tb-palette-mint);
 }
 .briefing-sections-body {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--tb-space-3, 12px);
   max-height: 50vh;
   overflow-y: auto;
   padding-left: 0.25rem;
 }
 .briefing-section {
-  padding: 0.75rem 1rem;
-  background: var(--background-secondary-alt);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--tb-surface-inset);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-card, 14px);
 }
 .section-header {
   display: flex;
@@ -8242,72 +8281,90 @@
 }
 .section-header h3,
 .briefing-section h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1rem;
-  font-weight: 600;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--text-normal);
 }
 .briefing-action-btn {
-  font-size: 0.75rem;
-  padding: 3px 8px;
-  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--tb-radius-pill);
   background: var(--interactive-accent);
   color: var(--text-on-accent);
   border: none;
   cursor: pointer;
+  transition: var(--tb-transition-fast);
+}
+.briefing-action-btn:hover {
+  background: var(--interactive-accent-hover);
 }
 .briefing-task-list {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 6px;
 }
 .briefing-task-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.4rem 0.6rem;
-  background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--tb-surface-card);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-m, 10px);
   font-size: 0.85rem;
+  transition: border-color var(--tb-duration-fast) ease;
+}
+.briefing-task-item:hover {
+  border-color: var(--interactive-accent);
 }
 .briefing-task-item.is-overdue {
-  border-right: 3px solid #ef4444;
+  border-inline-start: 3.5px solid var(--tb-palette-coral);
+  background: var(--tb-palette-coral-tint);
 }
 .task-time-badge {
-  font-size: 0.75rem;
-  padding: 2px 6px;
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
-  border-radius: 4px;
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  background: var(--tb-palette-cobalt-tint);
+  color: var(--tb-palette-cobalt);
+  border: 1px solid var(--tb-palette-cobalt-border);
+  border-radius: var(--tb-radius-pill);
   font-weight: 600;
 }
 .task-prio-badge {
-  font-size: 0.75rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-.task-prio-badge.prio-5 {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  font-size: 0.72rem;
+  padding: 1px 7px;
+  border-radius: var(--tb-radius-pill);
   font-weight: 600;
 }
+.task-prio-badge.prio-5 {
+  background: var(--tb-palette-coral-tint);
+  color: var(--tb-palette-coral);
+  border: 1px solid var(--tb-palette-coral-border);
+}
 .task-prio-badge.prio-3 {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
+  background: var(--tb-palette-amber-tint);
+  color: var(--tb-palette-amber);
+  border: 1px solid var(--tb-palette-amber-border);
 }
 .task-meta {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
 }
 .briefing-modal-footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 1.25rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--background-modifier-border);
+  gap: var(--tb-space-2, 8px);
+  margin-top: var(--tb-space-4, 16px);
+  padding-top: var(--tb-space-3, 12px);
+  border-top: 1px solid var(--tb-border-subtle);
+}
+.briefing-modal-footer .mod-cta {
+  border-radius: var(--tb-radius-button, 10px);
+  font-weight: 700;
+  padding: 6px 14px;
 }
 
 /* src/styles/editor-suggest.css */
