@@ -19,6 +19,8 @@
   position: relative !important;
   container-type: inline-size;
   container-name: workspace;
+  touch-action: pan-y pinch-zoom;
+  overscroll-behavior-y: contain;
 }
 
 /* ── 1. Sticky Workspace Header Slot (Holds Tier 1 & Tier 2) ── */
@@ -48,6 +50,8 @@
   box-sizing: border-box !important;
   padding: var(--tb-space-3) !important;
   scrollbar-gutter: stable;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 /* ── 3. Workspace Header Structure (Two Tiers) ── */
@@ -231,13 +235,15 @@
   display: flex;
   align-items: center;
   width: 100%;
-  height: 38px;
-  min-height: 38px;
+  height: 40px;
+  min-height: 40px;
   padding: 3px var(--tb-space-4);
   background: color-mix(in srgb, var(--background-primary) 35%, transparent);
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
+  touch-action: pan-x !important;
+  overscroll-behavior-x: contain !important;
 }
 
 .ticktick-workspace-nav-wrapper {
@@ -253,7 +259,11 @@
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--interactive-accent) 35%, transparent) transparent;
   scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x !important;
+  overscroll-behavior-x: contain !important;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Sleek Windows scrollbar styling */
@@ -284,6 +294,8 @@
   gap: 3px;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
   flex-shrink: 0;
+  touch-action: pan-x !important;
+  user-select: none;
 }
 
 .ticktick-workspace-nav-wrapper .tb-segment-item {
@@ -291,7 +303,8 @@
   align-items: center;
   gap: 6px;
   padding: 0 12px;
-  height: 26px;
+  height: 28px;
+  min-height: 28px;
   border-radius: var(--tb-radius-pill, 9999px);
   font-size: 12px;
   font-weight: 500;
@@ -303,6 +316,9 @@
   white-space: nowrap;
   transition: all var(--tb-motion-smooth);
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-x !important;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .ticktick-workspace-nav-wrapper .tb-segment-item:hover {
@@ -324,7 +340,7 @@
   display: block;
 }
 
-/* ── 4. Responsive & Container Queries (Mobile, Tablet, Split Panes) ── */
+/* ── 4. Responsive & Mobile Touch Optimizations ── */
 @container workspace (max-width: 680px) {
   .ticktick-workspace-topbar {
     padding: 0 var(--tb-space-3);
@@ -356,13 +372,37 @@
   }
 }
 
-/* Fallback Media Queries for standard window resizing */
+/* Fallback Media Queries for standard window & mobile devices */
+@media (max-width: 768px), (pointer: coarse) {
+  .ticktick-workspace-tabs-bar {
+    height: 46px;
+    min-height: 46px;
+    padding: 4px var(--tb-space-3);
+  }
+
+  .ticktick-workspace-nav-wrapper .tb-segmented-control {
+    padding: 3px 4px;
+    gap: 4px;
+  }
+
+  .ticktick-workspace-nav-wrapper .tb-segment-item {
+    height: 34px;
+    min-height: 34px;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 600;
+    gap: 7px;
+  }
+
+  .ticktick-workspace-nav-wrapper .tb-segment-item svg {
+    width: 15px;
+    height: 15px;
+  }
+}
+
 @media (max-width: 680px) {
   .ticktick-workspace-topbar {
     padding: 0 var(--tb-space-3);
-  }
-  .ticktick-workspace-tabs-bar {
-    padding: 3px var(--tb-space-3);
   }
 }
 
@@ -386,4 +426,24 @@
     padding: 0 10px;
     font-size: 11px;
   }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Universal Horizontal Touch & Scroll Protection (All Views)
+   Prevents Obsidian Mobile left/right drawer hijacking
+   ══════════════════════════════════════════════════════════ */
+.ticktick-project-columns,
+.ticktick-planner-days,
+.ticktick-planner-month,
+.ticktick-planner-days-scroll,
+.ticktick-planner-month-scroll,
+.overview-calendar,
+.ticktick-backlog-cards,
+.ticktick-timeblock-actions,
+.ticktick-timeblock-grid,
+.ticktick-activity-heatmap-scroll,
+.ticktick-review-horizontal-scroll {
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior-x: contain !important;
+  -webkit-overflow-scrolling: touch !important;
 }

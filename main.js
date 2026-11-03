@@ -8075,6 +8075,85 @@ var WorkspaceHeader = class {
       },
       { passive: false }
     );
+    let isTouchDragging = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isHorizontalSwipe = false;
+    tabsBar.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        isTouchDragging = false;
+        isHorizontalSwipe = false;
+      },
+      { passive: true }
+    );
+    tabsBar.addEventListener(
+      "touchmove",
+      (e) => {
+        if (e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        const dx = touch.clientX - touchStartX;
+        const dy = touch.clientY - touchStartY;
+        if (!isHorizontalSwipe && Math.abs(dx) > 4 && Math.abs(dx) > Math.abs(dy)) {
+          isHorizontalSwipe = true;
+        }
+        if (isHorizontalSwipe) {
+          e.stopPropagation();
+          if (Math.abs(dx) > 6) {
+            isTouchDragging = true;
+          }
+        }
+      },
+      { passive: false }
+    );
+    const onTouchEnd = () => {
+      if (isTouchDragging) {
+        setTimeout(() => {
+          isTouchDragging = false;
+          isHorizontalSwipe = false;
+        }, 120);
+      } else {
+        isTouchDragging = false;
+        isHorizontalSwipe = false;
+      }
+    };
+    tabsBar.addEventListener("touchend", onTouchEnd, { passive: true });
+    tabsBar.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    let isMouseDown = false;
+    let mouseStartX = 0;
+    let mouseStartScrollLeft = 0;
+    let isMouseDragging = false;
+    navWrapper.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      isMouseDown = true;
+      mouseStartX = e.clientX;
+      mouseStartScrollLeft = navWrapper.scrollLeft;
+      isMouseDragging = false;
+      const onWindowMouseMove = (moveEv) => {
+        if (!isMouseDown) return;
+        const dx = moveEv.clientX - mouseStartX;
+        if (Math.abs(dx) > 5) {
+          isMouseDragging = true;
+          navWrapper.scrollLeft = mouseStartScrollLeft - dx;
+        }
+      };
+      const onWindowMouseUp = () => {
+        isMouseDown = false;
+        window.removeEventListener("mousemove", onWindowMouseMove);
+        window.removeEventListener("mouseup", onWindowMouseUp);
+        if (isMouseDragging) {
+          setTimeout(() => {
+            isMouseDragging = false;
+          }, 80);
+        }
+      };
+      window.addEventListener("mousemove", onWindowMouseMove);
+      window.addEventListener("mouseup", onWindowMouseUp);
+    });
     let activeTabEl = null;
     for (const tab of WORKSPACE_NAV_TABS) {
       const isActive = tab.viewType === this.options.activeViewType;
@@ -8091,8 +8170,19 @@ var WorkspaceHeader = class {
       tabBtn.createSpan({ cls: "tb-segment-label", text: tab.label });
       if (isActive) {
         activeTabEl = tabBtn;
+        tabBtn.addEventListener("click", (e) => {
+          if (isTouchDragging || isMouseDragging) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        });
       } else {
         tabBtn.addEventListener("click", async (e) => {
+          if (isTouchDragging || isMouseDragging) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
           e.preventDefault();
           try {
             await this.options.leaf.setViewState({ type: tab.viewType, active: true });
@@ -8119,9 +8209,57 @@ var WorkspaceHeader = class {
         }
       });
     }
+    const viewRoot = this.container.closest(".ticktick-workspace-view-root") ?? this.container;
+    attachHorizontalSwipeGuard(viewRoot);
     return header;
   }
 };
+function attachHorizontalSwipeGuard(rootEl) {
+  if (!rootEl || rootEl._tbSwipeGuardAttached) {
+    return;
+  }
+  rootEl._tbSwipeGuardAttached = true;
+  let startX = 0;
+  let startY = 0;
+  let isHorizontal = false;
+  rootEl.addEventListener(
+    "touchstart",
+    (e) => {
+      if (e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      isHorizontal = false;
+    },
+    { passive: true }
+  );
+  rootEl.addEventListener(
+    "touchmove",
+    (e) => {
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (!isHorizontal && Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
+        isHorizontal = true;
+      }
+      if (isHorizontal) {
+        const target = e.target;
+        const scrollableAncestor = target?.closest(
+          ".ticktick-workspace-tabs-bar, .ticktick-workspace-nav-wrapper, .tb-segmented-control, .ticktick-project-columns, .ticktick-planner-days, .ticktick-planner-month, .ticktick-planner-days-scroll, .ticktick-planner-month-scroll, .overview-calendar, .ticktick-backlog-cards, .ticktick-timeblock-actions, .ticktick-timeblock-grid, .ticktick-activity-heatmap-scroll, .ticktick-review-horizontal-scroll, [data-horizontal-scroll]"
+        );
+        if (scrollableAncestor) {
+          e.stopPropagation();
+        }
+      }
+    },
+    { passive: false }
+  );
+  const reset = () => {
+    isHorizontal = false;
+  };
+  rootEl.addEventListener("touchend", reset, { passive: true });
+  rootEl.addEventListener("touchcancel", reset, { passive: true });
+}
 function renderWorkspaceHeader(container, options) {
   const header = new WorkspaceHeader(container, options);
   header.render();

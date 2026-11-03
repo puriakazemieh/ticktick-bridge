@@ -511,6 +511,8 @@
   position: relative !important;
   container-type: inline-size;
   container-name: workspace;
+  touch-action: pan-y pinch-zoom;
+  overscroll-behavior-y: contain;
 }
 .ticktick-workspace-header-slot {
   flex: 0 0 auto !important;
@@ -536,6 +538,8 @@
   box-sizing: border-box !important;
   padding: var(--tb-space-3) !important;
   scrollbar-gutter: stable;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 .ticktick-workspace-header {
   display: flex;
@@ -699,13 +703,15 @@
   display: flex;
   align-items: center;
   width: 100%;
-  height: 38px;
-  min-height: 38px;
+  height: 40px;
+  min-height: 40px;
   padding: 3px var(--tb-space-4);
   background: color-mix(in srgb, var(--background-primary) 35%, transparent);
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
+  touch-action: pan-x !important;
+  overscroll-behavior-x: contain !important;
 }
 .ticktick-workspace-nav-wrapper {
   display: flex;
@@ -720,7 +726,11 @@
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--interactive-accent) 35%, transparent) transparent;
   scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x !important;
+  overscroll-behavior-x: contain !important;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .ticktick-workspace-nav-wrapper::-webkit-scrollbar {
   height: 3px;
@@ -745,13 +755,16 @@
   gap: 3px;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
   flex-shrink: 0;
+  touch-action: pan-x !important;
+  user-select: none;
 }
 .ticktick-workspace-nav-wrapper .tb-segment-item {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 0 12px;
-  height: 26px;
+  height: 28px;
+  min-height: 28px;
   border-radius: var(--tb-radius-pill, 9999px);
   font-size: 12px;
   font-weight: 500;
@@ -763,6 +776,9 @@
   white-space: nowrap;
   transition: all var(--tb-motion-smooth);
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-x !important;
+  -webkit-tap-highlight-color: transparent;
 }
 .ticktick-workspace-nav-wrapper .tb-segment-item:hover {
   color: var(--text-normal);
@@ -808,12 +824,32 @@
     font-size: 11px;
   }
 }
+@media (max-width: 768px), (pointer: coarse) {
+  .ticktick-workspace-tabs-bar {
+    height: 46px;
+    min-height: 46px;
+    padding: 4px var(--tb-space-3);
+  }
+  .ticktick-workspace-nav-wrapper .tb-segmented-control {
+    padding: 3px 4px;
+    gap: 4px;
+  }
+  .ticktick-workspace-nav-wrapper .tb-segment-item {
+    height: 34px;
+    min-height: 34px;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 600;
+    gap: 7px;
+  }
+  .ticktick-workspace-nav-wrapper .tb-segment-item svg {
+    width: 15px;
+    height: 15px;
+  }
+}
 @media (max-width: 680px) {
   .ticktick-workspace-topbar {
     padding: 0 var(--tb-space-3);
-  }
-  .ticktick-workspace-tabs-bar {
-    padding: 3px var(--tb-space-3);
   }
 }
 @media (max-width: 520px) {
@@ -835,6 +871,21 @@
     padding: 0 10px;
     font-size: 11px;
   }
+}
+.ticktick-project-columns,
+.ticktick-planner-days,
+.ticktick-planner-month,
+.ticktick-planner-days-scroll,
+.ticktick-planner-month-scroll,
+.overview-calendar,
+.ticktick-backlog-cards,
+.ticktick-timeblock-actions,
+.ticktick-timeblock-grid,
+.ticktick-activity-heatmap-scroll,
+.ticktick-review-horizontal-scroll {
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior-x: contain !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 /* src/styles/task-card.css */
@@ -1580,8 +1631,10 @@
   min-height: 25rem;
   align-items: flex-start;
   direction: rtl !important;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior-x: contain !important;
 }
 .ticktick-project-column {
   flex: 0 0 min(19rem, calc(100% - 1.5rem));
@@ -2482,6 +2535,9 @@
   display: block;
   overflow-x: auto;
   direction: rtl;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior-x: contain !important;
 }
 .ticktick-planner-days-shell {
   min-width: 56rem;
@@ -2872,6 +2928,9 @@
   gap: 0.75rem;
   overflow-x: auto;
   direction: rtl;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior-x: contain !important;
 }
 .ticktick-planner-month-weekdays-bar {
   min-width: 56rem;
@@ -9055,68 +9114,90 @@
 .menu.ticktick-bridge-panel-menu {
   direction: rtl !important;
   text-align: right !important;
-  background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary)) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
+  background: color-mix(in srgb, var(--background-secondary) 88%, var(--background-primary)) !important;
+  backdrop-filter: blur(22px) !important;
+  -webkit-backdrop-filter: blur(22px) !important;
   border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent) !important;
-  border-radius: var(--tb-radius-l, 14px) !important;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25), 0 3px 10px rgba(0, 0, 0, 0.1) !important;
-  padding: 6px !important;
-  min-width: 260px !important;
+  border-radius: var(--tb-radius-l, 16px) !important;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28), 0 3px 12px rgba(0, 0, 0, 0.1) !important;
+  padding: 8px !important;
+  min-width: 270px !important;
+  max-height: 85vh !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch !important;
   box-sizing: border-box !important;
+  scrollbar-width: thin;
+}
+.menu.ticktick-bridge-panel-menu::-webkit-scrollbar {
+  width: 4px;
+}
+.menu.ticktick-bridge-panel-menu::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+  border-radius: 9999px;
 }
 .menu.ticktick-bridge-panel-menu .menu-item {
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  gap: 10px !important;
-  padding: 7px 12px !important;
-  border-radius: var(--tb-radius-s, 8px) !important;
-  font-size: 13px !important;
+  gap: 12px !important;
+  min-height: 40px !important;
+  padding: 9px 14px !important;
+  margin: 2px 0 !important;
+  border-radius: var(--tb-radius-s, 10px) !important;
+  font-size: 13.5px !important;
   font-weight: 500 !important;
   color: var(--text-normal) !important;
   cursor: pointer !important;
   transition: all var(--tb-motion-smooth, 150ms ease) !important;
   user-select: none !important;
+  box-sizing: border-box !important;
 }
-.menu.ticktick-bridge-panel-menu .menu-item:hover {
+.menu.ticktick-bridge-panel-menu .menu-item:hover,
+.menu.ticktick-bridge-panel-menu .menu-item:focus-visible {
   background: color-mix(in srgb, var(--background-modifier-hover) 85%, transparent) !important;
   color: var(--text-normal) !important;
   transform: translateX(-2px) !important;
+}
+.menu.ticktick-bridge-panel-menu .menu-item:active {
+  transform: scale(0.98) !important;
+  background: color-mix(in srgb, var(--background-modifier-hover) 95%, transparent) !important;
 }
 .menu.ticktick-bridge-panel-menu .menu-item-icon {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  width: 18px !important;
-  height: 18px !important;
+  width: 20px !important;
+  height: 20px !important;
   color: var(--text-muted) !important;
   flex-shrink: 0 !important;
   margin: 0 !important;
 }
 .menu.ticktick-bridge-panel-menu .menu-item-icon svg {
-  width: 16px !important;
-  height: 16px !important;
+  width: 17px !important;
+  height: 17px !important;
   display: block !important;
 }
-.menu.ticktick-bridge-panel-menu .menu-item:hover .menu-item-icon {
+.menu.ticktick-bridge-panel-menu .menu-item:hover .menu-item-icon,
+.menu.ticktick-bridge-panel-menu .menu-item:focus-visible .menu-item-icon {
   color: var(--interactive-accent) !important;
 }
 .menu.ticktick-bridge-panel-menu .menu-item-title {
   flex: 1 1 auto !important;
   text-align: right !important;
-  line-height: 1.4 !important;
+  line-height: 1.45 !important;
   font-family: inherit !important;
 }
 .menu.ticktick-bridge-panel-menu .menu-item.ticktick-menu-item-cta {
-  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)) !important;
-  border: 1px solid color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
+  background: color-mix(in srgb, var(--interactive-accent) 16%, var(--background-secondary)) !important;
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 42%, transparent) !important;
   color: var(--interactive-accent) !important;
   font-weight: 700 !important;
-  margin-bottom: 4px !important;
+  min-height: 42px !important;
+  padding: 10px 16px !important;
+  margin-bottom: 6px !important;
   border-radius: var(--tb-radius-pill, 9999px) !important;
-  padding: 8px 14px !important;
 }
 .menu.ticktick-bridge-panel-menu .menu-item.ticktick-menu-item-cta .menu-item-icon {
   color: var(--interactive-accent) !important;
@@ -9132,8 +9213,43 @@
   color: var(--text-on-accent) !important;
 }
 .menu.ticktick-bridge-panel-menu .menu-separator {
-  margin: 5px 6px !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent) !important;
+  margin: 6px 6px !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 50%, transparent) !important;
+}
+@media (max-width: 768px), (pointer: coarse) {
+  .menu.ticktick-bridge-panel-menu {
+    min-width: min(320px, 92vw) !important;
+    width: min(340px, 94vw) !important;
+    max-height: 82vh !important;
+    padding: 10px !important;
+    border-radius: 20px !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 0 1px color-mix(in srgb, var(--background-modifier-border) 70%, transparent) !important;
+  }
+  .menu.ticktick-bridge-panel-menu .menu-item {
+    min-height: 48px !important;
+    padding: 12px 18px !important;
+    margin: 3px 0 !important;
+    gap: 14px !important;
+    font-size: 14.5px !important;
+    border-radius: 12px !important;
+  }
+  .menu.ticktick-bridge-panel-menu .menu-item-icon {
+    width: 22px !important;
+    height: 22px !important;
+  }
+  .menu.ticktick-bridge-panel-menu .menu-item-icon svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  .menu.ticktick-bridge-panel-menu .menu-item.ticktick-menu-item-cta {
+    min-height: 48px !important;
+    padding: 12px 20px !important;
+    font-size: 15px !important;
+    margin-bottom: 10px !important;
+  }
+  .menu.ticktick-bridge-panel-menu .menu-separator {
+    margin: 8px 8px !important;
+  }
 }
 
 /* src/styles/main.css */
