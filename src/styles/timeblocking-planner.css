@@ -60,9 +60,11 @@
 .ticktick-timeblock-nav-btn {
   background: var(--background-secondary);
   border: 1px solid var(--tb-border-subtle);
-  border-radius: var(--tb-radius-button, 10px);
-  padding: 5px 10px;
+  border-radius: var(--tb-radius-pill, 9999px);
+  height: 32px;
+  padding: 0 12px;
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   display: inline-flex;
   align-items: center;

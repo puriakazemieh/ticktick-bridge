@@ -14,7 +14,8 @@
   color: var(--text-normal);
   font-family: var(--font-interface);
   background: var(--background-primary);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
 }
 
@@ -22,7 +23,8 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 0 !important;
 }
 
@@ -102,15 +104,16 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 12px;
+  height: 32px;
+  padding: 0 14px;
   font-size: 12px;
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: var(--tb-radius-pill, 9999px);
   border: 1px solid var(--background-modifier-border);
-  background: var(--background-primary);
+  background: var(--background-secondary);
   color: var(--text-normal);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--tb-motion-smooth);
 }
 
 .ticktick-matrix-btn:hover {
@@ -136,7 +139,8 @@
   gap: 12px;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 @media (max-width: 800px) {
@@ -156,7 +160,8 @@
   border: 1.5px solid var(--tb-border-subtle);
   background: var(--tb-surface-inset);
   box-shadow: var(--tb-shadow-card);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   transition: border-color var(--tb-duration-normal) ease, box-shadow var(--tb-duration-normal) ease, transform 0.15s ease;
   position: relative;
 }

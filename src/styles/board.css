@@ -169,17 +169,17 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  height: 2.1rem;
-  padding: 0 0.85rem;
-  border-radius: 0.55rem;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--tb-radius-pill, 9999px);
   background: transparent !important;
   border: 1px dashed color-mix(in srgb, var(--background-modifier-border) 70%, transparent) !important;
   box-shadow: none !important;
   color: var(--text-muted);
-  font-size: 0.76rem;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 140ms ease;
+  transition: all var(--tb-motion-smooth);
   margin-top: 0.6rem;
 }
 

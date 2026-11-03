@@ -306,10 +306,15 @@
 }
 
 .tb-segment-item.is-active {
-  background: var(--background-primary);
-  color: var(--interactive-accent);
-  box-shadow: var(--tb-shadow-s);
+  background: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 45%, transparent) !important;
   font-weight: 700;
+}
+
+.tb-segment-item.is-active svg {
+  opacity: 1;
+  color: var(--text-on-accent) !important;
 }
 
 .tb-segment-item svg {

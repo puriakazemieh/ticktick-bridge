@@ -540,80 +540,93 @@
 
 .ticktick-timeline-zoom-group {
   display: inline-flex;
-  background: var(--background-modifier-form-field);
-  border-radius: 0.5rem;
-  padding: 2px;
-  border: 1px solid var(--background-modifier-border);
+  align-items: center;
+  background: color-mix(in srgb, var(--background-secondary) 80%, var(--background-primary));
+  border-radius: var(--tb-radius-pill, 9999px);
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  height: 34px;
+  box-sizing: border-box;
+  gap: 3px;
 }
 
 .ticktick-timeline-zoom-btn {
   background: transparent;
-  border: none;
-  border-radius: 0.35rem;
-  padding: 0.25rem 0.65rem;
-  font-size: 0.8rem;
+  border: none !important;
+  border-radius: var(--tb-radius-pill, 9999px);
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 140ms ease;
+  white-space: nowrap;
+  transition: all var(--tb-motion-smooth);
 }
 
 .ticktick-timeline-zoom-btn:hover {
   color: var(--text-normal);
+  background: color-mix(in srgb, var(--background-modifier-hover) 60%, transparent);
 }
 
 .ticktick-timeline-zoom-btn.is-active {
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-secondary)) !important;
+  color: var(--interactive-accent) !important;
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 35%, transparent) !important;
+  font-weight: 700;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--interactive-accent) 15%, transparent);
 }
 
 .ticktick-timeline-nav-group {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 6px;
 }
 
 .ticktick-timeline-nav-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.3rem 0.65rem;
+  height: 32px;
+  padding: 0 14px;
   background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 0.4rem;
-  font-size: 0.82rem;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 65%, transparent);
+  border-radius: var(--tb-radius-pill, 9999px);
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-normal);
   cursor: pointer;
-  transition: all 150ms ease;
+  transition: all var(--tb-motion-smooth);
 }
 
 .ticktick-timeline-nav-btn:hover {
   background: var(--background-modifier-hover);
   border-color: var(--interactive-accent);
+  color: var(--interactive-accent);
 }
 
 .ticktick-timeline-title-span {
-  font-size: 0.95rem;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-normal);
   letter-spacing: -0.01em;
+  padding: 0 6px;
 }
 
 .ticktick-timeline-tool-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.75rem;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
   background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 0.45rem;
-  font-size: 0.82rem;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 65%, transparent);
+  border-radius: var(--tb-radius-pill, 9999px);
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-normal);
   cursor: pointer;
-  transition: all 150ms ease;
+  transition: all var(--tb-motion-smooth);
 }
 
 .ticktick-timeline-tool-btn:hover {
@@ -624,7 +637,8 @@
 .ticktick-timeline-tool-btn.is-active {
   background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary));
   border-color: var(--interactive-accent);
-  color: var(--text-accent);
+  color: var(--interactive-accent);
+  font-weight: 600;
 }
 
 .ticktick-timeline-tool-btn.is-loading svg {
