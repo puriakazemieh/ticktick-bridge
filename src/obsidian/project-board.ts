@@ -14,6 +14,7 @@ import { bulkSelectionStore } from "./selection-store";
 import { BulkActionBar } from "./bulk-action-bar";
 import { matchesTaskFilter } from "../core/task-filter.js";
 import { formatTaskEstimate } from "../core/task-hierarchy.js";
+import { renderTaskCard } from "./components/task-card-element";
 import type { TickTickTask, TickTickProject, TickTickHabit, CachedHabitCheckin, ProjectBoardData, HabitHistoryEntry, SavedView, TaskFilterState } from "./types";
 
 const HABIT_BOARD_VIEW_ID = "ticktick:view:habits";
@@ -739,200 +740,64 @@ for (const habit of habits) {
 
   private card(parent: HTMLElement, task: TickTickTask, projectColor?: string, movable = true) {
     const bound = this.host.binding(task);
-    const priority = taskPriority(task.priority);
-    const isNote = String(task.kind ?? task.type ?? task.taskType ?? "").toUpperCase() === "NOTE";
-    const isPinned = Boolean(task.pinned ?? task.isPinned ?? task.pin ?? task.pinnedTime ?? task.pinnedAt ?? task.pinTime);
-    const isCompleted = Number(task.status ?? 0) !== 0;
+    const hideCompleted = !this.host.showCompleted();
 
-    const tone = projectColor || (
-      Number(task.priority) === 5 ? "var(--color-red, #e74c3c)" :
-      Number(task.priority) === 3 ? "var(--color-orange, #e67e22)" :
-      Number(task.priority) === 1 ? "var(--color-blue, #3498db)" :
-      "var(--interactive-accent)"
-    );
-
-    const card = parent.createDiv({
-      cls: `ticktick-project-card priority-${priority.value} ${isCompleted ? "is-completed" : ""} ${isNote ? "is-note" : ""}`,
-      attr: {
-        role: "button",
-        tabindex: "0",
-        "aria-label": `جزئیات ${task.title}`,
-        title: "برای دیدن جزئیات کلیک کنید"
-      }
-    });
-    card.dataset.taskId = String(task.id);
-    card.draggable = movable;
-    card.style.setProperty("--ticktick-task-tone", tone);
-
-    card.addEventListener("dragstart", event => {
-      if (!movable) return;
-      card.addClass("is-dragging");
-      event.dataTransfer!.effectAllowed = "move";
-      event.dataTransfer?.setData("text/ticktick-board-task", String(task.id));
-    });
-    card.addEventListener("dragend", () => card.removeClass("is-dragging"));
-
-    // Top Row: Checkbox, Title, Priority Chip
-    const top = card.createDiv({ cls: "ticktick-project-card-top" });
-    const check = isNote ? null : top.createEl("input", {
-      type: "checkbox", cls: "ticktick-project-check", attr: { "aria-label": `تکمیل ${task.title}` }
-    });
-    if (check) {
-      check.checked = isCompleted;
-      check.disabled = isCompleted;
-      check.setAttribute("draggable", "false");
-    }
-    if (isNote) {
-      const noteIcon = top.createSpan({ cls: "ticktick-project-note-icon", attr: { title: "یادداشت TickTick" } });
-      setIcon(noteIcon, "file-text");
-    }
-
-    const titleEl = top.createDiv({
-      cls: "ticktick-project-card-title",
-      text: String(task.title ?? "بدون عنوان")
-    });
-    titleEl.addEventListener("click", event => {
-      event.stopPropagation();
-      details();
-    });
-
-    if (priority.value > 0) {
-      top.createSpan({
-        cls: `ticktick-project-priority ${priority.className}`,
-        text: priority.label,
-        attr: { title: `اولویت: ${priority.label}` }
-      });
-    }
-    if (isPinned) {
-      const pin = top.createSpan({ cls: "ticktick-project-pin", attr: { title: "پین‌شده" } });
-      setIcon(pin, "pin");
-    }
-
-    // Description
-    const description = taskDescription(task);
-    if (description) {
-      card.createEl("small", { cls: "ticktick-project-card-desc", text: description.slice(0, 110) });
-    }
-
-    // Meta Row: Date, Repeat, Tags, Markdown Sync
-    const hasDueDate = Boolean(task.dueDate);
-    const hasRepeat = Boolean(task.repeatFlag);
-    const tags = task.tags ?? [];
-    const estText = formatTaskEstimate(task);
-    const hasBlocked = Array.isArray(task.blockedBy) && task.blockedBy.length > 0;
-    if (hasDueDate || hasRepeat || tags.length > 0 || bound || task.parentId || estText || hasBlocked) {
-      const meta = card.createDiv({ cls: "ticktick-project-card-meta" });
-      if (task.parentId) {
-        const subChip = meta.createSpan({ cls: "ticktick-meta-chip" });
-        subChip.createSpan({ text: "↳ زیرتسک" });
-      }
-      if (estText) {
-        const estChip = meta.createSpan({ cls: "ticktick-meta-chip" });
-        estChip.createSpan({ text: estText });
-      }
-      if (hasBlocked) {
-        const depChip = meta.createSpan({ cls: "ticktick-meta-chip" });
-        depChip.createSpan({ text: "⛔ وابسته" });
-      }
-      if (hasDueDate) {
-        const dueChip = meta.createSpan({ cls: "ticktick-meta-chip" });
-        const dueIcon = dueChip.createSpan({ cls: "ticktick-meta-icon" });
-        setIcon(dueIcon, "calendar");
-        dueChip.createSpan({ text: formatPersianDate(task.dueDate, task.timeZone) });
-      }
-      if (hasRepeat) {
-        const repChip = meta.createSpan({ cls: "ticktick-meta-chip" });
-        const repIcon = repChip.createSpan({ cls: "ticktick-meta-icon" });
-        setIcon(repIcon, "repeat");
-        repChip.createSpan({ text: "تکرار" });
-      }
-      for (const tag of tags) {
-        const tagChip = meta.createSpan({ cls: "ticktick-meta-chip ticktick-tag-chip" });
-        tagChip.createSpan({ text: `#${tag}` });
-      }
-      if (bound) {
-        const mdChip = meta.createSpan({ cls: "ticktick-meta-chip ticktick-bound-chip" });
-        const mdIcon = mdChip.createSpan({ cls: "ticktick-meta-icon" });
-        setIcon(mdIcon, "file-text");
-        mdChip.createSpan({ text: "Markdown" });
-      }
-    }
-
-    const details = () => new TaskDetailsModal(this.host.app, task, {
-      complete: async () => {
-        await this.host.complete(task);
-        await this.render();
-      },
-      load: item => this.host.load(item),
-      edit: item => this.host.edit(item),
-      changed: async () => {
-        await this.host.refresh();
-        await this.render();
-      },
-      allTasks: () => this.host.tasks(),
-    }).open();
-
-    if (bulkSelectionStore.isSelected(String(task.id))) {
-      card.addClass("is-bulk-selected");
-    }
-
-    card.addEventListener("click", (event) => {
-      if (event.shiftKey || event.ctrlKey || event.metaKey) {
-        event.preventDefault();
-        event.stopPropagation();
-        const sel = bulkSelectionStore.toggle(String(task.id));
-        card.toggleClass("is-bulk-selected", sel);
-        return;
-      }
-      details();
-    });
-
-    card.addEventListener("keydown", event => {
-      if (event.key === "x" || ((event.key === "Enter" || event.key === " ") && (event.shiftKey || event.ctrlKey))) {
-        event.preventDefault();
-        event.stopPropagation();
-        const sel = bulkSelectionStore.toggle(String(task.id));
-        card.toggleClass("is-bulk-selected", sel);
-        return;
-      }
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        details();
-      }
-    });
-
-    check?.addEventListener("mousedown", event => event.stopPropagation());
-    check?.addEventListener("click", event => event.stopPropagation());
-    check?.addEventListener("change", async () => {
-      check.disabled = true;
-      card.addClass("is-completed");
-      const hideCompleted = !this.host.showCompleted();
-      if (hideCompleted) {
-        card.addClass("is-leaving");
-      }
-      try {
-        await this.host.complete(task);
-        task.status = 2;
-        new Notice(bound ? "تسک در فایل مارک‌داون و TickTick تکمیل شد." : "تسک در TickTick تکمیل شد.");
+    const card = renderTaskCard(parent, {
+      task,
+      timeZone: this.host.timeZone,
+      projectColor,
+      movable,
+      dragType: "text/ticktick-board-task",
+      isBound: Boolean(bound),
+      variant: "board",
+      onComplete: async (t) => {
+        card.addClass("is-completed");
         if (hideCompleted) {
-          setTimeout(() => {
-            const col = card.closest(".ticktick-project-column");
-            const badge = col?.querySelector(".ticktick-column-count");
-            card.remove();
-            if (badge) {
-              const current = parseInt(badge.textContent || "0", 10);
-              if (current > 0) badge.textContent = String(current - 1);
-            }
-          }, 220);
+          card.addClass("is-leaving");
         }
-      } catch (error) {
-        card.removeClass("is-completed");
-        card.removeClass("is-leaving");
-        check.checked = false;
-        check.disabled = false;
-        new Notice(error instanceof Error ? error.message : "تکمیل ناموفق بود.");
+        try {
+          await this.host.complete(t);
+          t.status = 2;
+          new Notice(bound ? "تسک در فایل مارک‌داون و TickTick تکمیل شد." : "تسک در TickTick تکمیل شد.");
+          if (hideCompleted) {
+            setTimeout(() => {
+              const col = card.closest(".ticktick-project-column");
+              const badge = col?.querySelector(".ticktick-column-count");
+              card.remove();
+              if (badge) {
+                const current = parseInt(badge.textContent || "0", 10);
+                if (current > 0) badge.textContent = String(current - 1);
+              }
+            }, 220);
+          }
+        } catch (error) {
+          card.removeClass("is-completed");
+          card.removeClass("is-leaving");
+          new Notice(error instanceof Error ? error.message : "خطا در تکمیل تسک.");
+        }
+      },
+      onOpenDetails: (t) => {
+        new TaskDetailsModal(this.host.app, t, {
+          complete: async () => {
+            await this.host.complete(t);
+            await this.render();
+          },
+          load: item => this.host.load(item),
+          edit: item => this.host.edit(item),
+          changed: async () => {
+            await this.host.refresh();
+            await this.render();
+          },
+          allTasks: () => this.host.tasks(),
+        }).open();
+      },
+      onToggleBulkSelect: (id) => {
+        const sel = bulkSelectionStore.toggle(id);
+        card.toggleClass("is-bulk-selected", sel);
       }
     });
+
+    return card;
   }
 
   private async moveTask(

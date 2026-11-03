@@ -14,6 +14,7 @@ import { BulkActionBar } from "./bulk-action-bar";
 import { TaskDetailsModal } from "./task-details-modal";
 import { formatTaskEstimate } from "../core/task-hierarchy.js";
 import { cleanTaskTitle } from "./helpers";
+import { renderTaskCard } from "./components/task-card-element";
 import type { TickTickTask, TickTickProject } from "./types";
 
 export interface EisenhowerMatrixHost {
@@ -263,117 +264,44 @@ export class EisenhowerMatrix {
     qid: string,
     today: string
   ) {
-    const card = list.createDiv({ cls: "ticktick-matrix-card" });
-    card.dataset.taskId = String(task.id);
-    card.dataset.quadrant = qid;
-    card.setAttribute("draggable", "true");
-
-    // Drag events
-    card.addEventListener("dragstart", e => {
-      if (e.dataTransfer) {
-        e.dataTransfer.setData("application/x-ticktick-task-id", String(task.id));
-        e.dataTransfer.setData("text/plain", String(task.id));
-        e.dataTransfer.effectAllowed = "move";
-      }
-      card.addClass("is-dragging");
-    });
-
-    card.addEventListener("dragend", () => {
-      card.removeClass("is-dragging");
-    });
-
-    // Bulk selection button
-    const selectBtn = card.createEl("button", {
-      cls: "ticktick-matrix-select-btn",
-      attr: { "aria-label": "انتخاب تسک", title: "انتخاب چندتایی" }
-    });
-    selectBtn.addEventListener("click", e => {
-      e.stopPropagation();
-      bulkSelectionStore.toggle(String(task.id));
-    });
-
-    // Checkbox for completion
-    const checkbox = card.createEl("input", {
-      type: "checkbox",
-      cls: "ticktick-matrix-checkbox",
-      attr: { "aria-label": "تکمیل تسک" }
-    });
-    checkbox.checked = Number(task.status ?? 0) !== 0;
-    checkbox.addEventListener("click", async e => {
-      e.stopPropagation();
-      checkbox.disabled = true;
-      try {
-        await this.host.complete(task);
-        new Notice(`تسک «${cleanTaskTitle(task.title)}» تکمیل شد.`);
-        await this.render();
-      } catch (err) {
-        new Notice(err instanceof Error ? err.message : "تکمیل تسک ناموفق بود.");
-        checkbox.disabled = false;
-      }
-    });
-
-    // Priority dot
-    const prio = taskPriority(task.priority);
-    const prioDot = card.createSpan({ cls: `ticktick-matrix-priority-dot ${prio.className}` });
-    prioDot.setAttribute("title", `اولویت: ${prio.label}`);
-
-    // Card Body
-    const body = card.createDiv({ cls: "ticktick-matrix-card-body" });
-    const titleEl = body.createDiv({ cls: "ticktick-matrix-card-title" });
-    titleEl.setText(cleanTaskTitle(task.title));
-
-    // Metadata pills
-    const meta = body.createDiv({ cls: "ticktick-matrix-card-meta" });
-
-    // Due date
-    const dueDay = toDateKey(task.dueDate || task.startDate, task.timeZone || this.host.timeZone);
-    if (dueDay) {
-      const isOverdue = dueDay < today;
-      const datePill = meta.createSpan({
-        cls: `ticktick-matrix-meta-pill ${isOverdue ? "is-overdue" : ""}`
-      });
-      const calIcon = datePill.createSpan();
-      setIcon(calIcon, "calendar");
-      datePill.createSpan({ text: formatPersianDate(dueDay) });
-      if (isOverdue) datePill.setAttribute("title", "معوقه");
-    }
-
-    // Project Name
-    if (task.projectName) {
-      const projPill = meta.createSpan({ cls: "ticktick-matrix-meta-pill is-project" });
-      projPill.setText(task.projectName);
-    }
-
-    // First tag
-    if (Array.isArray(task.tags) && task.tags.length > 0) {
-      const tagPill = meta.createSpan({ cls: "ticktick-matrix-meta-pill is-tag" });
-      tagPill.setText(`#${task.tags[0]}`);
-    }
-
-    // Estimate
-    const est = task.timeEstimate ? formatTaskEstimate(task.timeEstimate) : null;
-    if (est) {
-      const estPill = meta.createSpan({ cls: "ticktick-matrix-meta-pill is-estimate" });
-      estPill.setText(est);
-    }
-
-    // Click to open details
-    card.addEventListener("click", e => {
-      if (e.shiftKey || e.ctrlKey || e.metaKey) {
-        bulkSelectionStore.toggle(String(task.id));
-        return;
-      }
-      new TaskDetailsModal(this.host.app, task, {
-        edit: this.host.edit,
-        load: this.host.load,
-        complete: async () => {
-          await this.host.complete(task);
+    const card = renderTaskCard(list, {
+      task,
+      timeZone: this.host.timeZone,
+      movable: true,
+      dragType: "application/x-ticktick-task-id",
+      variant: "matrix",
+      onComplete: async (t) => {
+        try {
+          await this.host.complete(t);
+          new Notice(`تسک «${cleanTaskTitle(t.title)}» تکمیل شد.`);
           await this.render();
-        },
-        changed: async () => {
-          await this.render();
+        } catch (err) {
+          new Notice(err instanceof Error ? err.message : "تکمیل تسک ناموفق بود.");
         }
-      }).open();
+      },
+      onOpenDetails: (t) => {
+        new TaskDetailsModal(this.host.app, t, {
+          edit: this.host.edit,
+          load: this.host.load,
+          complete: async () => {
+            await this.host.complete(t);
+            await this.render();
+          },
+          changed: async () => {
+            await this.render();
+          }
+        }).open();
+      },
+      onToggleBulkSelect: (id) => {
+        bulkSelectionStore.toggle(id);
+      }
+    });
+
+    card.addClass("ticktick-matrix-card");
+    card.dataset.quadrant = qid;
+    card.addEventListener("dragstart", e => {
+      e.dataTransfer?.setData("text/plain", String(task.id));
+      e.dataTransfer?.setData("application/x-ticktick-task-id", String(task.id));
     });
   }
 

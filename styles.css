@@ -579,6 +579,176 @@
   }
 }
 
+/* src/styles/task-card.css */
+.tb-task-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tb-space-1);
+  padding: 10px 12px;
+  border-radius: var(--tb-radius-card);
+  border: 1px solid var(--tb-border-subtle);
+  background: var(--tb-surface-card);
+  box-shadow: var(--tb-shadow-card);
+  transition:
+    transform var(--tb-duration-fast) var(--tb-ease-smooth),
+    box-shadow var(--tb-duration-fast) var(--tb-ease-smooth),
+    border-color var(--tb-duration-fast) ease;
+  direction: rtl;
+  text-align: right;
+  box-sizing: border-box;
+  cursor: pointer;
+  user-select: none;
+  min-width: 0;
+  width: 100%;
+}
+.tb-task-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--tb-shadow-hover);
+}
+.tb-task-card[draggable=true] {
+  cursor: grab;
+}
+.tb-task-card.is-dragging {
+  opacity: 0.42;
+  cursor: grabbing;
+}
+.tb-task-card.is-completed {
+  opacity: 0.65;
+}
+.tb-task-card.is-completed .tb-card-title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.tb-task-card.is-bulk-selected {
+  outline: 2px solid var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--tb-surface-card)) !important;
+}
+.tb-card-header-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--tb-space-2);
+  min-width: 0;
+  width: 100%;
+}
+.tb-card-note-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--tb-palette-orchid);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.tb-card-note-icon svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+.tb-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-normal);
+  line-height: var(--tb-line-height-normal);
+  word-break: break-word;
+  transition: color var(--tb-duration-fast) ease;
+  padding-left: 50px;
+}
+.tb-task-card:hover .tb-card-title {
+  color: var(--interactive-accent);
+}
+.tb-card-priority-badge {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.tb-card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-right: 26px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.tb-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tb-space-1);
+  margin-top: 4px;
+  margin-right: 26px;
+}
+.tb-chip-icon {
+  display: inline-flex;
+  align-items: center;
+}
+.tb-chip-icon svg {
+  width: 11px;
+  height: 11px;
+  display: block;
+}
+.tb-project-dot {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.tb-card-hover-actions {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border-radius: var(--tb-radius-pill);
+  background: var(--tb-surface-glass);
+  backdrop-filter: var(--tb-backdrop-blur-subtle);
+  -webkit-backdrop-filter: var(--tb-backdrop-blur-subtle);
+  border: 1px solid var(--tb-surface-glass-border);
+  box-shadow: var(--tb-shadow-s);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-2px);
+  transition: opacity var(--tb-duration-fast) ease, transform var(--tb-duration-fast) var(--tb-ease-smooth);
+  z-index: 5;
+}
+.tb-task-card:hover .tb-card-hover-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.tb-card-action-btn {
+  padding: 4px;
+  border-radius: var(--tb-radius-s);
+  color: var(--text-muted);
+}
+.tb-card-action-btn:hover {
+  color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+}
+.tb-card-action-btn svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+.tb-task-card.mod-compact {
+  padding: 6px 10px;
+  gap: 2px;
+}
+.tb-task-card.mod-compact .tb-card-title {
+  font-size: 12.5px;
+}
+.tb-task-card.mod-compact .tb-card-chips {
+  margin-top: 2px;
+}
+
 /* src/styles/base.css */
 .ticktick-bridge-sync-ribbon.is-syncing svg {
   animation: ticktick-bridge-sync-spin 0.85s linear infinite;
