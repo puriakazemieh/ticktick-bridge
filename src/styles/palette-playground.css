@@ -263,6 +263,28 @@
   display: block;
 }
 
+/* ── Mobile & Touch Device Tap Zones (Plan 012 / Dribbble 27856359) ── */
+@media (hover: none) and (pointer: coarse), (max-width: 768px) {
+  .tb-btn-icon,
+  .tb-checkbox,
+  .tb-segment-item,
+  .tb-card-action-btn {
+    position: relative;
+  }
+  .tb-btn-icon::after,
+  .tb-checkbox::after,
+  .tb-card-action-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 44px;
+    min-height: 44px;
+    pointer-events: auto;
+  }
+}
+
 /* ── 5. Glassmorphic Panels & Segmented Controls (Dribbble 26171921) ── */
 .tb-glass {
   background: var(--tb-surface-glass);

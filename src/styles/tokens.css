@@ -198,4 +198,33 @@
   --tb-line-height-tight: 1.25;
   --tb-line-height-normal: 1.5;
   --tb-line-height-relaxed: 1.7;
+
+  /* ── 9. Multi-Device Responsive Breakpoints & Touch Targets (Plan 012) ── */
+  --tb-breakpoint-mobile: 480px;
+  --tb-breakpoint-tablet: 768px;
+  --tb-breakpoint-laptop: 1024px;
+  --tb-touch-target-min: 44px;
+}
+
+/* ── Light Mode Symmetrical Refinements (Dribbble 21325062) ── */
+.theme-light {
+  --tb-surface-base: var(--background-primary);
+  --tb-surface-secondary: #f8fafc;
+  --tb-surface-card: #ffffff;
+  --tb-surface-card-hover: #f1f5f9;
+  --tb-surface-inset: #f1f5f9;
+  --tb-surface-glass: rgba(255, 255, 255, 0.82);
+  --tb-surface-glass-border: rgba(0, 0, 0, 0.07);
+
+  --tb-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --tb-shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  --tb-shadow-floating: 0 10px 28px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Dark Mode Symmetrical Refinements (Dribbble 21325062) ── */
+.theme-dark {
+  --tb-surface-card: color-mix(in srgb, var(--background-secondary) 92%, var(--background-primary));
+  --tb-surface-inset: color-mix(in srgb, var(--background-secondary) 60%, var(--background-primary));
+  --tb-surface-glass: color-mix(in srgb, var(--background-secondary) 85%, transparent);
+  --tb-surface-glass-border: color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
 }

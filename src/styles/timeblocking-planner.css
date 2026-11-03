@@ -300,8 +300,28 @@
 }
 
 @media (max-width: 768px) {
+  .ticktick-timeblock-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .ticktick-timeblock-date-group {
+    justify-content: space-between;
+  }
+  .ticktick-timeblock-actions {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .ticktick-timeblock-grid {
+    grid-template-columns: 46px 1fr;
+  }
   .ticktick-timeblock-drawer {
-    display: none;
+    width: 100%;
+    max-height: 140px;
+    border-right: none;
+    border-top: 1px solid var(--tb-border-subtle);
   }
 }
 

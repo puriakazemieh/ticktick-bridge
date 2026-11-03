@@ -42,6 +42,20 @@
   flex-shrink: 0;
 }
 
+@media (max-width: 640px) {
+  .ticktick-matrix-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .ticktick-matrix-toolbar-controls {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+}
+
 .ticktick-matrix-toolbar-title-group {
   display: flex;
   align-items: center;

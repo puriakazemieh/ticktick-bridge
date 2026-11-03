@@ -532,6 +532,19 @@
   z-index: 20;
 }
 
+@media (max-width: 640px) {
+  .ticktick-timeline-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .ticktick-timeline-tool-group {
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
 .ticktick-timeline-tool-group {
   display: flex;
   align-items: center;

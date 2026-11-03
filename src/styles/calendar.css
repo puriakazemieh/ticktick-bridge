@@ -1571,3 +1571,59 @@
   direction: rtl;
   text-align: right;
 }
+
+/* ── Multi-Device & Mobile Responsive Adjustments (Plan 012 / Dribbble 27856359) ── */
+@media (max-width: 680px) {
+  .ticktick-planner-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .ticktick-planner-modes {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ticktick-planner-mode-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 0 8px;
+  }
+
+  .ticktick-planner-nav {
+    width: 100%;
+    justify-content: space-between;
+    margin-inline-start: 0;
+  }
+
+  .ticktick-planner-actions {
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .ticktick-planner-days-headers,
+  .ticktick-planner-day-columns {
+    grid-template-columns: repeat(7, minmax(13rem, 1fr));
+  }
+
+  .ticktick-planner-days {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ticktick-planner-day {
+    scroll-snap-align: start;
+  }
+
+  .ticktick-planner-filters {
+    padding: 6px 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+  }
+}

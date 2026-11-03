@@ -31,6 +31,21 @@
   -webkit-backdrop-filter: var(--tb-backdrop-blur-subtle);
 }
 
+@media (max-width: 680px) {
+  .ticktick-review-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+  .ticktick-review-nav-group {
+    justify-content: space-between;
+  }
+  .ticktick-review-sync-group {
+    justify-content: space-between;
+  }
+}
+
 .ticktick-review-title-group {
   display: flex;
   align-items: center;

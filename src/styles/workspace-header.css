@@ -233,7 +233,7 @@
   to { transform: rotate(360deg); }
 }
 
-/* ── Responsive adjustments for workspace header ── */
+/* ── Responsive adjustments for workspace header (Plan 012 / Mobile & Tablet) ── */
 @media (max-width: 860px) {
   .ticktick-workspace-brand-title {
     display: none;
@@ -242,19 +242,73 @@
     display: none;
   }
   .ticktick-workspace-quick-add {
-    padding: 0 8px;
+    padding: 0;
     width: 32px;
+    height: 32px;
     justify-content: center;
+    border-radius: 50% !important;
   }
 }
 
-@media (max-width: 600px) {
+/* Mobile & Narrow split panes (< 640px) */
+@media (max-width: 640px) {
   .ticktick-workspace-header {
-    padding: 0 var(--tb-space-2);
-    gap: 8px;
+    padding: 0 8px;
+    gap: 6px;
+    height: 44px;
+    min-height: 44px;
   }
-  .ticktick-workspace-nav-wrapper .tb-segment-item {
-    padding: 5px 8px;
+
+  .ticktick-workspace-brand-logo {
+    width: 26px;
+    height: 26px;
+  }
+  .ticktick-workspace-brand-logo svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .ticktick-workspace-nav-wrapper .tb-segmented-control {
+    padding: 2px;
+    gap: 2px;
+  }
+
+  /* Compact tabs: Inactive tabs show icon-only, active tab shows icon + text */
+  .ticktick-workspace-nav-wrapper .tb-segment-item:not(.is-active) .tb-segment-label {
+    display: none;
+  }
+
+  .ticktick-workspace-nav-wrapper .tb-segment-item:not(.is-active) {
+    padding: 0;
+    width: 28px;
+    height: 28px;
+    justify-content: center;
+  }
+
+  .ticktick-workspace-nav-wrapper .tb-segment-item.is-active {
+    padding: 4px 10px;
+    height: 28px;
     font-size: 11px;
+  }
+
+  .ticktick-workspace-nav-wrapper .tb-segment-item svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .ticktick-workspace-actions {
+    gap: 4px;
+  }
+
+  .ticktick-workspace-actions .tb-btn-icon,
+  .ticktick-workspace-quick-add {
+    width: 28px;
+    height: 28px;
+  }
+
+  .ticktick-workspace-actions .tb-btn-icon svg,
+  .ticktick-workspace-quick-add svg {
+    width: 13px;
+    height: 13px;
   }
 }

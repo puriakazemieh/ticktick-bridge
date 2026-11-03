@@ -362,6 +362,8 @@
   min-height: 25rem;
   align-items: flex-start;
   direction: rtl !important;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ticktick-project-column {
@@ -378,6 +380,7 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   transition: border-color var(--tb-motion-smooth), background var(--tb-motion-smooth), box-shadow var(--tb-motion-smooth);
+  scroll-snap-align: start;
 }
 
 .ticktick-project-column.is-drag-over {
@@ -648,6 +651,10 @@
 }
 
 @container ticktick-board (max-width: 580px) {
+  .ticktick-project-column {
+    flex: 0 0 calc(100% - 1.25rem) !important;
+    min-width: calc(100% - 1.25rem) !important;
+  }
   .ticktick-project-header {
     flex-direction: column;
     align-items: stretch;
@@ -694,6 +701,10 @@
 }
 
 @media (max-width: 580px) {
+  .ticktick-project-column {
+    flex: 0 0 calc(100% - 1.25rem) !important;
+    min-width: calc(100% - 1.25rem) !important;
+  }
   .ticktick-project-header {
     flex-direction: column;
     align-items: stretch;

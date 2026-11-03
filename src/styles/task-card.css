@@ -168,6 +168,15 @@
   transform: translateY(0);
 }
 
+/* On touch-first mobile/tablet devices, ensure action buttons are reachable */
+@media (hover: none) and (pointer: coarse) {
+  .tb-card-hover-actions {
+    opacity: 0.75;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+}
+
 .tb-card-action-btn {
   padding: 4px;
   border-radius: var(--tb-radius-s);
