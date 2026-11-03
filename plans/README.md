@@ -19,6 +19,7 @@ Generated on 2026-10-14 against commit `b86e322`. Execute in this order. Each ex
 | 011 | Unified design system, palette playground, and modern UI refresh | P1 | L | 001–010, CSS token system, views | DONE (all 6 milestones complete on `main`) |
 | 012 | Multi-device responsive system, macOS/Todoist polish & modern dashboard | P1 | L | 001–011, responsive breakpoints, mobile views | DONE (all 6 milestones complete on `main`) |
 | 013 | Unified task modal priority selector, universal add-task button system & workspace hotkeys | P1 | M | 001–012, task modal, button design tokens | DONE (reviewed & verified on `main`) |
+| 014 | Modern Dribbble productivity design system (TaskFlow, WorkPulse, TimeSwift, Habitly & Kanban) | P1 | L | 001–013, tokens, views, mobile responsive | IN PROGRESS |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED` (include a reason) | `REJECTED` (include a reason).
 
