@@ -217,6 +217,8 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-markdown-sync-conflicts", name: "Open Markdown sync conflicts", callback: () => this.openMarkdownSyncConflicts() });
     this.addCommand({ id: "repair-markdown-bindings", name: "Repair legacy Markdown bindings", callback: () => this.repairMarkdownBindings() });
     this.addCommand({ id: "import-ticktick-checkboxes", name: "Preview #ticktick checkboxes", callback: () => this.previewMarkdownSync() });
+    this.addCommand({ id: "migrate-legacy-root-backups", name: "انتقال فایل‌های بکاپ قدیمی به پوشه مدیریت‌شده (.ticktick/backups/)", callback: () => void this.migrateLegacyRootBackups() });
+    this.addCommand({ id: "open-managed-reports", name: "مشاهده گزارش پشتیبان‌گیری و ذخیره‌سازی TickTick", callback: () => this.openControlPage("reports") });
     this.registerEvent(this.app.vault.on("modify", file => {
       if (file instanceof TFile && file.extension === "md") this.queueTaggedCheckboxImport(file);
     }));

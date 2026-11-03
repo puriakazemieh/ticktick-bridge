@@ -12574,6 +12574,8 @@ var TickTickBridgePlugin = class extends import_obsidian44.Plugin {
     this.addCommand({ id: "open-markdown-sync-conflicts", name: "Open Markdown sync conflicts", callback: () => this.openMarkdownSyncConflicts() });
     this.addCommand({ id: "repair-markdown-bindings", name: "Repair legacy Markdown bindings", callback: () => this.repairMarkdownBindings() });
     this.addCommand({ id: "import-ticktick-checkboxes", name: "Preview #ticktick checkboxes", callback: () => this.previewMarkdownSync() });
+    this.addCommand({ id: "migrate-legacy-root-backups", name: "\u0627\u0646\u062A\u0642\u0627\u0644 \u0641\u0627\u06CC\u0644\u200C\u0647\u0627\u06CC \u0628\u06A9\u0627\u067E \u0642\u062F\u06CC\u0645\u06CC \u0628\u0647 \u067E\u0648\u0634\u0647 \u0645\u062F\u06CC\u0631\u06CC\u062A\u200C\u0634\u062F\u0647 (.ticktick/backups/)", callback: () => void this.migrateLegacyRootBackups() });
+    this.addCommand({ id: "open-managed-reports", name: "\u0645\u0634\u0627\u0647\u062F\u0647 \u06AF\u0632\u0627\u0631\u0634 \u067E\u0634\u062A\u06CC\u0628\u0627\u0646\u200C\u06AF\u06CC\u0631\u06CC \u0648 \u0630\u062E\u06CC\u0631\u0647\u200C\u0633\u0627\u0632\u06CC TickTick", callback: () => this.openControlPage("reports") });
     this.registerEvent(this.app.vault.on("modify", (file) => {
       if (file instanceof import_obsidian44.TFile && file.extension === "md") this.queueTaggedCheckboxImport(file);
     }));
