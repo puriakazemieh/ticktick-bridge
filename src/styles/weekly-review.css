@@ -23,11 +23,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 18px;
-  background: var(--background-secondary-alt, var(--background-secondary));
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 12px;
-  backdrop-filter: blur(8px);
+  padding: 10px 18px;
+  background: var(--tb-surface-glass);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-container, 18px);
+  backdrop-filter: var(--tb-backdrop-blur-subtle);
+  -webkit-backdrop-filter: var(--tb-backdrop-blur-subtle);
 }
 
 .ticktick-review-title-group {
@@ -145,12 +146,19 @@
   flex-direction: column;
   justify-content: space-between;
   padding: 14px 16px;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 12px;
+  background: var(--tb-surface-card);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-card, 14px);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--tb-shadow-card);
+  transition: transform var(--tb-duration-fast) var(--tb-ease-smooth),
+              box-shadow var(--tb-duration-fast) var(--tb-ease-smooth);
+}
+
+.ticktick-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--tb-shadow-hover);
 }
 
 .ticktick-metric-card::before {
@@ -162,10 +170,10 @@
   width: 4px;
 }
 
-.ticktick-metric-card.mod-completed::before { background: var(--text-success, #2e7d32); }
-.ticktick-metric-card.mod-overdue::before { background: var(--text-error, #d32f2f); }
-.ticktick-metric-card.mod-scheduled::before { background: var(--interactive-accent, #1976d2); }
-.ticktick-metric-card.mod-unscheduled::before { background: #9c27b0; }
+.ticktick-metric-card.mod-completed::before { background: var(--tb-palette-mint); }
+.ticktick-metric-card.mod-overdue::before { background: var(--tb-palette-coral); }
+.ticktick-metric-card.mod-scheduled::before { background: var(--tb-palette-cobalt); }
+.ticktick-metric-card.mod-unscheduled::before { background: var(--tb-palette-amber); }
 
 .ticktick-metric-header {
   display: flex;

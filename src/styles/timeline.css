@@ -723,10 +723,22 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--interactive-accent);
-  box-shadow: 0 0 8px var(--interactive-accent);
+  background: var(--tb-palette-coral, #ff6b6b);
+  box-shadow: 0 0 10px var(--tb-palette-coral, #ff6b6b);
   pointer-events: none;
   z-index: 5;
+}
+
+.ticktick-timeline-today-line::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tb-palette-coral, #ff6b6b);
+  box-shadow: 0 0 8px var(--tb-palette-coral, #ff6b6b);
 }
 
 .ticktick-timeline-project-row {
@@ -734,7 +746,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.55rem 0.85rem;
-  background: color-mix(in srgb, var(--background-secondary) 60%, transparent);
+  background: color-mix(in srgb, var(--background-secondary) 80%, transparent);
   border-bottom: 1px solid var(--background-modifier-border);
   font-size: 0.85rem;
   font-weight: 700;
@@ -742,6 +754,8 @@
   position: sticky;
   right: 0;
   z-index: 6;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .ticktick-project-dot {
@@ -752,9 +766,12 @@
 }
 
 .ticktick-project-count {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  font-weight: 400;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.08rem 0.45rem;
+  border-radius: var(--tb-radius-pill, 9999px);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-secondary));
+  color: var(--interactive-accent);
 }
 
 .ticktick-timeline-lane-row {
@@ -772,22 +789,22 @@
   justify-content: space-between;
   height: 1.85rem;
   margin: 0 2px;
-  border-radius: 0.45rem;
+  border-radius: var(--tb-radius-pill, 9999px);
   background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 22%, var(--background-primary));
-  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 65%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 55%, transparent);
   color: var(--text-normal);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   cursor: grab;
-  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  transition: transform var(--tb-motion-bounce), box-shadow var(--tb-motion-smooth), border-color var(--tb-motion-smooth);
   overflow: visible;
   z-index: 7;
 }
 
 .ticktick-timeline-bar:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 25%, transparent);
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 30%, transparent);
   border-color: var(--ticktick-task-tone, var(--interactive-accent));
   z-index: 9;
 }
@@ -796,7 +813,7 @@
   cursor: grabbing;
   opacity: 0.85;
   transform: scale(1.02);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
   z-index: 100;
 }
 
@@ -809,7 +826,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 8px;
+  width: 10px;
   cursor: ew-resize;
   z-index: 10;
   display: flex;
@@ -822,7 +839,7 @@
 .ticktick-timeline-handle::after {
   content: "";
   width: 2px;
-  height: 50%;
+  height: 45%;
   background: var(--text-normal);
   border-radius: 1px;
 }
@@ -838,14 +855,14 @@
 
 .ticktick-timeline-handle.handle-start {
   right: 0;
-  border-top-right-radius: 0.45rem;
-  border-bottom-right-radius: 0.45rem;
+  border-top-right-radius: var(--tb-radius-pill, 9999px);
+  border-bottom-right-radius: var(--tb-radius-pill, 9999px);
 }
 
 .ticktick-timeline-handle.handle-due {
   left: 0;
-  border-top-left-radius: 0.45rem;
-  border-bottom-left-radius: 0.45rem;
+  border-top-left-radius: var(--tb-radius-pill, 9999px);
+  border-bottom-left-radius: var(--tb-radius-pill, 9999px);
 }
 
 .ticktick-timeline-bar-content {
@@ -901,12 +918,14 @@
 
 .ticktick-timeline-backlog-drawer {
   position: relative;
-  background: var(--background-secondary);
-  border-top: 2px solid var(--background-modifier-border);
+  background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary));
+  border-top: 1px solid var(--background-modifier-border);
   padding: 0.75rem 1rem;
   max-height: 12rem;
   overflow-y: auto;
   z-index: 15;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .ticktick-backlog-header {
@@ -943,14 +962,20 @@
 .ticktick-backlog-card {
   flex: 0 0 auto;
   width: 14rem;
-  padding: 0.5rem 0.7rem;
+  padding: 0.6rem 0.75rem;
   background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  border-radius: var(--tb-radius-m, 10px);
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  gap: 0.35rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: transform var(--tb-motion-bounce), box-shadow var(--tb-motion-smooth);
+}
+
+.ticktick-backlog-card:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .ticktick-card-title {

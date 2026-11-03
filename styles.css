@@ -988,12 +988,14 @@
   flex-direction: column;
   gap: 0.35rem;
   padding: 0.85rem 0.65rem;
-  border-radius: 0.85rem;
-  background: color-mix(in srgb, var(--background-secondary) 55%, var(--background-primary));
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--background-primary) 30%, transparent);
+  border-radius: var(--tb-radius-card, 14px);
+  background: color-mix(in srgb, var(--background-secondary) 60%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 50%, transparent);
+  box-shadow: var(--tb-shadow-card, 0 2px 8px rgba(0, 0, 0, 0.04));
   max-height: calc(100vh - 12rem);
   overflow-y: auto;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .ticktick-project-rail.is-collapsed {
   min-width: 3.2rem;
@@ -1171,9 +1173,9 @@
 }
 .ticktick-board-empty {
   text-align: center;
-  padding: 4rem 1.5rem;
-  border-radius: 0.85rem;
-  background: color-mix(in srgb, var(--background-secondary) 50%, var(--background-primary));
+  padding: 3.5rem 1.5rem;
+  border-radius: var(--tb-radius-card, 14px);
+  background: color-mix(in srgb, var(--background-secondary) 45%, var(--background-primary));
   border: 1px dashed color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
 }
 .ticktick-empty-icon svg {
@@ -1307,60 +1309,71 @@
 }
 .ticktick-project-columns {
   display: flex;
-  gap: 0.85rem;
+  gap: 1rem;
   overflow-x: auto;
-  padding-bottom: 0.85rem;
+  padding-bottom: 1rem;
   min-height: 25rem;
   align-items: flex-start;
   direction: rtl !important;
 }
 .ticktick-project-column {
-  flex: 0 0 min(18.5rem, calc(100% - 1.5rem));
+  flex: 0 0 min(19rem, calc(100% - 1.5rem));
   min-height: 16rem;
-  padding: 0.75rem;
-  border-radius: 0.85rem;
-  background: color-mix(in srgb, var(--background-secondary) 55%, var(--background-primary));
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--background-primary) 30%, transparent);
+  padding: 0.85rem;
+  border-radius: var(--tb-radius-l, 14px);
+  background: color-mix(in srgb, var(--background-secondary) 60%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 50%, transparent);
+  box-shadow: var(--tb-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.04));
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.75rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   transition:
-    border-color 150ms ease,
-    background 150ms ease,
-    box-shadow 150ms ease;
+    border-color var(--tb-motion-smooth),
+    background var(--tb-motion-smooth),
+    box-shadow var(--tb-motion-smooth);
 }
 .ticktick-project-column.is-drag-over {
   border-color: var(--interactive-accent);
   background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-secondary));
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 35%, transparent), var(--tb-shadow-card);
 }
 .ticktick-column-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 0.45rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
 }
 .ticktick-column-add {
   margin-inline-start: auto;
-  padding: .2rem !important;
-  min-width: 1.55rem;
-  min-height: 1.55rem;
+  padding: 0.25rem !important;
+  min-width: 1.65rem;
+  min-height: 1.65rem;
+  border-radius: var(--tb-radius-s, 6px);
+  transition: all var(--tb-motion-smooth);
+}
+.ticktick-column-add:hover {
+  background: var(--background-modifier-hover) !important;
+  color: var(--interactive-accent);
 }
 .ticktick-column-name {
-  font-size: 0.86rem;
-  font-weight: 800;
+  font-size: 0.88rem;
+  font-weight: 700;
   color: var(--text-normal);
+  letter-spacing: -0.01em;
 }
 .ticktick-column-count {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  padding: 0.08rem 0.45rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--background-primary) 70%, var(--background-secondary));
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
-  color: var(--text-muted);
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--tb-radius-pill, 9999px);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-secondary));
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 22%, transparent);
+  color: var(--interactive-accent);
+  min-width: 1.4rem;
+  text-align: center;
 }
 .ticktick-column-hint {
   display: block;
@@ -1852,9 +1865,9 @@
   gap: 0.85rem;
   padding: clamp(0.85rem, 1.8vw, 1.35rem);
   background: var(--background-primary);
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 65%, transparent);
-  border-radius: 1rem;
-  box-shadow: 0 4px 20px color-mix(in srgb, var(--background-primary) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  border-radius: var(--tb-radius-xl, 18px);
+  box-shadow: var(--tb-shadow-card, 0 4px 20px rgba(0, 0, 0, 0.05));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   container-type: inline-size;
@@ -2507,19 +2520,23 @@
   min-width: 0;
   min-height: 1.95rem;
   padding: 0.2rem 0.65rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone) 45%, transparent);
-  border-inline-start: 4px solid var(--ticktick-task-tone) !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  transition: all 160ms ease;
+  border-radius: var(--tb-radius-pill, 9999px);
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 35%, transparent);
+  border-inline-start: 4px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 10%, var(--background-secondary)) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  transition:
+    transform var(--tb-motion-bounce),
+    background var(--tb-motion-smooth),
+    box-shadow var(--tb-motion-smooth),
+    border-color var(--tb-motion-smooth);
   cursor: pointer;
 }
 .ticktick-planner-range-task:hover {
-  transform: translateY(-1px);
-  background: color-mix(in srgb, var(--ticktick-task-tone) 10%, transparent) !important;
-  border-color: var(--ticktick-task-tone) !important;
-  box-shadow: 0 3px 8px color-mix(in srgb, var(--ticktick-task-tone) 20%, transparent) !important;
+  transform: translateY(-1.5px);
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 16%, var(--background-secondary)) !important;
+  border-color: var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 25%, transparent) !important;
 }
 .ticktick-range-check {
   width: 0.95rem;
@@ -2632,41 +2649,45 @@
   flex-direction: column;
   gap: 0.35rem;
   background: color-mix(in srgb, var(--background-primary) 92%, var(--background-secondary));
-  transition: background 150ms ease;
+  transition: background var(--tb-motion-smooth);
 }
 .ticktick-planner-month-cells .ticktick-planner-month-cell:not(:last-child) {
   border-inline-end: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
 }
 .ticktick-planner-month-cell.is-outside {
-  opacity: 0.55;
-  background: color-mix(in srgb, var(--background-secondary) 65%, var(--background-primary));
+  opacity: 0.5;
+  background: color-mix(in srgb, var(--background-secondary) 60%, var(--background-primary));
 }
 .ticktick-planner-month-cell.is-today {
-  background: color-mix(in srgb, var(--interactive-accent) 4%, var(--background-primary));
+  background: color-mix(in srgb, var(--interactive-accent) 6%, var(--background-primary));
 }
 .ticktick-planner-month-cell.is-drag-over {
   background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)) !important;
-  outline: 2px dashed var(--interactive-accent);
-  outline-offset: -3px;
+  box-shadow: inset 0 0 0 2px var(--interactive-accent);
 }
 .ticktick-planner-month-task {
   display: flex;
   align-items: flex-start;
   gap: 0.35rem;
-  padding: 0.25rem 0.45rem;
-  border-radius: 0.4rem;
-  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone) 35%, transparent);
-  border-inline-start: 3.5px solid var(--ticktick-task-tone) !important;
-  background: transparent !important;
+  padding: 0.28rem 0.5rem;
+  border-radius: var(--tb-radius-s, 6px);
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 30%, transparent);
+  border-inline-start: 3.5px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  background: color-mix(in srgb, var(--background-secondary) 70%, var(--background-primary)) !important;
   font-size: 0.74rem;
   cursor: pointer;
-  transition: all 140ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition:
+    transform var(--tb-motion-bounce),
+    background var(--tb-motion-smooth),
+    border-color var(--tb-motion-smooth),
+    box-shadow var(--tb-motion-smooth);
 }
 .ticktick-planner-month-task:hover {
-  background: color-mix(in srgb, var(--ticktick-task-tone) 8%, transparent) !important;
-  border-color: var(--ticktick-task-tone) !important;
-  transform: translateY(-0.5px);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--ticktick-task-tone) 15%, transparent);
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 12%, var(--background-secondary)) !important;
+  border-color: var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 20%, transparent);
 }
 .ticktick-month-check {
   width: 0.85rem;
@@ -6149,17 +6170,28 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--interactive-accent);
-  box-shadow: 0 0 8px var(--interactive-accent);
+  background: var(--tb-palette-coral, #ff6b6b);
+  box-shadow: 0 0 10px var(--tb-palette-coral, #ff6b6b);
   pointer-events: none;
   z-index: 5;
+}
+.ticktick-timeline-today-line::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tb-palette-coral, #ff6b6b);
+  box-shadow: 0 0 8px var(--tb-palette-coral, #ff6b6b);
 }
 .ticktick-timeline-project-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.55rem 0.85rem;
-  background: color-mix(in srgb, var(--background-secondary) 60%, transparent);
+  background: color-mix(in srgb, var(--background-secondary) 80%, transparent);
   border-bottom: 1px solid var(--background-modifier-border);
   font-size: 0.85rem;
   font-weight: 700;
@@ -6167,6 +6199,8 @@
   position: sticky;
   right: 0;
   z-index: 6;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .ticktick-project-dot {
   width: 9px;
@@ -6175,9 +6209,12 @@
   flex-shrink: 0;
 }
 .ticktick-project-count {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  font-weight: 400;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.08rem 0.45rem;
+  border-radius: var(--tb-radius-pill, 9999px);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-secondary));
+  color: var(--interactive-accent);
 }
 .ticktick-timeline-lane-row {
   position: relative;
@@ -6193,24 +6230,24 @@
   justify-content: space-between;
   height: 1.85rem;
   margin: 0 2px;
-  border-radius: 0.45rem;
+  border-radius: var(--tb-radius-pill, 9999px);
   background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 22%, var(--background-primary));
-  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 65%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 55%, transparent);
   color: var(--text-normal);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   cursor: grab;
   transition:
-    transform 140ms ease,
-    box-shadow 140ms ease,
-    border-color 140ms ease;
+    transform var(--tb-motion-bounce),
+    box-shadow var(--tb-motion-smooth),
+    border-color var(--tb-motion-smooth);
   overflow: visible;
   z-index: 7;
 }
 .ticktick-timeline-bar:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 25%, transparent);
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 30%, transparent);
   border-color: var(--ticktick-task-tone, var(--interactive-accent));
   z-index: 9;
 }
@@ -6218,7 +6255,7 @@
   cursor: grabbing;
   opacity: 0.85;
   transform: scale(1.02);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
   z-index: 100;
 }
 .ticktick-timeline-bar.is-completed {
@@ -6229,7 +6266,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 8px;
+  width: 10px;
   cursor: ew-resize;
   z-index: 10;
   display: flex;
@@ -6241,7 +6278,7 @@
 .ticktick-timeline-handle::after {
   content: "";
   width: 2px;
-  height: 50%;
+  height: 45%;
   background: var(--text-normal);
   border-radius: 1px;
 }
@@ -6254,13 +6291,13 @@
 }
 .ticktick-timeline-handle.handle-start {
   right: 0;
-  border-top-right-radius: 0.45rem;
-  border-bottom-right-radius: 0.45rem;
+  border-top-right-radius: var(--tb-radius-pill, 9999px);
+  border-bottom-right-radius: var(--tb-radius-pill, 9999px);
 }
 .ticktick-timeline-handle.handle-due {
   left: 0;
-  border-top-left-radius: 0.45rem;
-  border-bottom-left-radius: 0.45rem;
+  border-top-left-radius: var(--tb-radius-pill, 9999px);
+  border-bottom-left-radius: var(--tb-radius-pill, 9999px);
 }
 .ticktick-timeline-bar-content {
   display: flex;
@@ -6310,12 +6347,14 @@
 }
 .ticktick-timeline-backlog-drawer {
   position: relative;
-  background: var(--background-secondary);
-  border-top: 2px solid var(--background-modifier-border);
+  background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary));
+  border-top: 1px solid var(--background-modifier-border);
   padding: 0.75rem 1rem;
   max-height: 12rem;
   overflow-y: auto;
   z-index: 15;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 .ticktick-backlog-header {
   display: flex;
@@ -6346,14 +6385,19 @@
 .ticktick-backlog-card {
   flex: 0 0 auto;
   width: 14rem;
-  padding: 0.5rem 0.7rem;
+  padding: 0.6rem 0.75rem;
   background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  border-radius: var(--tb-radius-m, 10px);
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  gap: 0.35rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: transform var(--tb-motion-bounce), box-shadow var(--tb-motion-smooth);
+}
+.ticktick-backlog-card:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 .ticktick-card-title {
   font-size: 0.8rem;
@@ -6405,11 +6449,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 18px;
-  background: var(--background-secondary-alt, var(--background-secondary));
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 12px;
-  backdrop-filter: blur(8px);
+  padding: 10px 18px;
+  background: var(--tb-surface-glass);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-container, 18px);
+  backdrop-filter: var(--tb-backdrop-blur-subtle);
+  -webkit-backdrop-filter: var(--tb-backdrop-blur-subtle);
 }
 .ticktick-review-title-group {
   display: flex;
@@ -6513,12 +6558,17 @@
   flex-direction: column;
   justify-content: space-between;
   padding: 14px 16px;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 12px;
+  background: var(--tb-surface-card);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-card, 14px);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--tb-shadow-card);
+  transition: transform var(--tb-duration-fast) var(--tb-ease-smooth), box-shadow var(--tb-duration-fast) var(--tb-ease-smooth);
+}
+.ticktick-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--tb-shadow-hover);
 }
 .ticktick-metric-card::before {
   content: "";
@@ -6529,16 +6579,16 @@
   width: 4px;
 }
 .ticktick-metric-card.mod-completed::before {
-  background: var(--text-success, #2e7d32);
+  background: var(--tb-palette-mint);
 }
 .ticktick-metric-card.mod-overdue::before {
-  background: var(--text-error, #d32f2f);
+  background: var(--tb-palette-coral);
 }
 .ticktick-metric-card.mod-scheduled::before {
-  background: var(--interactive-accent, #1976d2);
+  background: var(--tb-palette-cobalt);
 }
 .ticktick-metric-card.mod-unscheduled::before {
-  background: #9c27b0;
+  background: var(--tb-palette-amber);
 }
 .ticktick-metric-header {
   display: flex;
@@ -6913,60 +6963,63 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-radius: 12px;
-  border: 1.5px solid var(--background-modifier-border);
-  background: var(--background-primary-alt);
+  border-radius: var(--tb-radius-container, 18px);
+  border: 1.5px solid var(--tb-border-subtle);
+  background: var(--tb-surface-inset);
+  box-shadow: var(--tb-shadow-card);
   overflow: hidden;
   transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
+    border-color var(--tb-duration-normal) ease,
+    box-shadow var(--tb-duration-normal) ease,
     transform 0.15s ease;
   position: relative;
 }
 .ticktick-matrix-quadrant.is-drag-over {
   border-color: var(--interactive-accent) !important;
-  box-shadow: 0 0 0 2px var(--interactive-accent), 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 0 0 2px var(--interactive-accent), var(--tb-shadow-hover);
   transform: scale(1.008);
 }
 .ticktick-matrix-quadrant.is-q1 {
-  border-color: rgba(220, 38, 38, 0.35);
+  border-color: var(--tb-palette-coral-border);
   background:
     linear-gradient(
       180deg,
-      rgba(220, 38, 38, 0.05) 0%,
-      var(--background-primary-alt) 70px);
+      var(--tb-palette-coral-tint) 0%,
+      var(--tb-surface-inset) 90px);
 }
 .ticktick-matrix-quadrant.is-q2 {
-  border-color: rgba(37, 99, 235, 0.35);
+  border-color: var(--tb-palette-amber-border);
   background:
     linear-gradient(
       180deg,
-      rgba(37, 99, 235, 0.05) 0%,
-      var(--background-primary-alt) 70px);
+      var(--tb-palette-amber-tint) 0%,
+      var(--tb-surface-inset) 90px);
 }
 .ticktick-matrix-quadrant.is-q3 {
-  border-color: rgba(217, 119, 6, 0.35);
+  border-color: var(--tb-palette-cobalt-border);
   background:
     linear-gradient(
       180deg,
-      rgba(217, 119, 6, 0.05) 0%,
-      var(--background-primary-alt) 70px);
+      var(--tb-palette-cobalt-tint) 0%,
+      var(--tb-surface-inset) 90px);
 }
 .ticktick-matrix-quadrant.is-q4 {
-  border-color: rgba(107, 114, 128, 0.35);
+  border-color: var(--tb-palette-slate-border);
   background:
     linear-gradient(
       180deg,
-      rgba(107, 114, 128, 0.05) 0%,
-      var(--background-primary-alt) 70px);
+      var(--tb-palette-slate-tint) 0%,
+      var(--tb-surface-inset) 90px);
 }
 .ticktick-matrix-quadrant-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--background-modifier-border);
-  background: var(--background-secondary);
+  border-bottom: 1px solid var(--tb-border-subtle);
+  background: var(--tb-surface-glass);
+  backdrop-filter: var(--tb-backdrop-blur-subtle);
+  -webkit-backdrop-filter: var(--tb-backdrop-blur-subtle);
   flex-shrink: 0;
 }
 .ticktick-matrix-quadrant-title-group {
@@ -6977,22 +7030,22 @@
 .ticktick-matrix-quadrant-badge {
   font-size: 11px;
   font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: #fff;
+  padding: 2px 7px;
+  border-radius: var(--tb-radius-pill);
+  color: var(--text-on-accent);
   letter-spacing: 0.5px;
 }
 .is-q1 .ticktick-matrix-quadrant-badge {
-  background: #dc2626;
+  background: var(--tb-palette-coral);
 }
 .is-q2 .ticktick-matrix-quadrant-badge {
-  background: #2563eb;
+  background: var(--tb-palette-amber);
 }
 .is-q3 .ticktick-matrix-quadrant-badge {
-  background: #d97706;
+  background: var(--tb-palette-cobalt);
 }
 .is-q4 .ticktick-matrix-quadrant-badge {
-  background: #6b7280;
+  background: var(--tb-palette-slate);
 }
 .ticktick-matrix-quadrant-name {
   font-size: 13.5px;
@@ -7210,10 +7263,12 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 8px 12px;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 10px;
+  padding: 8px 14px;
+  background: var(--tb-surface-glass);
+  backdrop-filter: var(--tb-backdrop-blur-subtle);
+  -webkit-backdrop-filter: var(--tb-backdrop-blur-subtle);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-container, 18px);
   flex-shrink: 0;
 }
 .ticktick-timeblock-date-group {
@@ -7230,29 +7285,31 @@
   color: var(--text-normal);
 }
 .ticktick-timeblock-nav-btn {
-  background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
-  padding: 4px 8px;
+  background: var(--background-secondary);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-button, 10px);
+  padding: 5px 10px;
   font-size: 12px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--text-normal);
-  transition: all 0.15s ease;
+  transition: var(--tb-transition-fast);
 }
 .ticktick-timeblock-nav-btn:hover {
   background: var(--background-modifier-hover);
   border-color: var(--interactive-accent);
+  color: var(--interactive-accent);
 }
 .ticktick-timeblock-stat-pill {
   font-size: 11px;
   font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 10px;
-  background: var(--background-modifier-accent-subtle, rgba(var(--interactive-accent-rgb), 0.1));
-  color: var(--interactive-accent);
+  padding: 2px 8px;
+  border-radius: var(--tb-radius-pill);
+  background: var(--tb-palette-cobalt-tint);
+  color: var(--tb-palette-cobalt);
+  border: 1px solid var(--tb-palette-cobalt-border);
 }
 .ticktick-timeblock-actions {
   display: flex;
@@ -7263,7 +7320,7 @@
   display: flex;
   flex: 1;
   min-height: 0;
-  gap: 10px;
+  gap: 12px;
   overflow: hidden;
 }
 .ticktick-timeblock-grid-container {
@@ -7271,9 +7328,10 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: var(--background-primary-alt);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 10px;
+  background: var(--tb-surface-inset);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-container, 18px);
+  box-shadow: var(--tb-shadow-card);
   overflow-y: auto;
   position: relative;
 }
@@ -7287,7 +7345,7 @@
 .ticktick-timeblock-time-col {
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--background-modifier-border);
+  border-left: 1px solid var(--tb-border-subtle);
   user-select: none;
 }
 .ticktick-timeblock-time-label {
@@ -7304,7 +7362,7 @@
 .ticktick-timeblock-time-label.is-hour {
   font-weight: 600;
   color: var(--text-normal);
-  border-top: 1px solid var(--background-modifier-border);
+  border-top: 1px solid var(--tb-border-subtle);
 }
 .ticktick-timeblock-slots-col {
   position: relative;
@@ -7318,10 +7376,10 @@
   transition: background 0.12s ease;
 }
 .ticktick-timeblock-slot-row.is-hour {
-  border-bottom: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--tb-border-subtle);
 }
 .ticktick-timeblock-slot-row.is-drag-over {
-  background: rgba(var(--interactive-accent-rgb), 0.15) !important;
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent) !important;
   border-top: 2px solid var(--interactive-accent);
 }
 .ticktick-timeblock-now-line {
@@ -7329,10 +7387,10 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: #ef4444;
+  background: var(--tb-palette-coral);
   z-index: 10;
   pointer-events: none;
-  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+  box-shadow: 0 0 8px var(--tb-palette-coral-glow);
 }
 .ticktick-timeblock-now-line::after {
   content: "";
@@ -7342,17 +7400,28 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #ef4444;
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+  background: var(--tb-palette-coral);
+  box-shadow: 0 0 10px var(--tb-palette-coral);
+  animation: tb-pulse-dot 2s infinite ease-in-out;
+}
+@keyframes tb-pulse-dot {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.8;
+  }
 }
 .ticktick-timeblock-card {
   position: absolute;
-  border-radius: 6px;
-  padding: 5px 8px;
-  background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--tb-radius-m, 10px);
+  padding: 6px 10px;
+  background: var(--tb-surface-card);
+  border: 1px solid var(--tb-border-subtle);
   border-right: 4px solid var(--interactive-accent);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--tb-shadow-card);
   cursor: grab;
   user-select: none;
   z-index: 5;
@@ -7362,13 +7431,14 @@
   justify-content: space-between;
   overflow: hidden;
   transition:
-    box-shadow 0.12s ease,
-    border-color 0.12s ease,
-    transform 0.1s ease;
+    box-shadow var(--tb-duration-fast) var(--tb-ease-smooth),
+    border-color var(--tb-duration-fast) ease,
+    transform var(--tb-duration-fast) var(--tb-ease-smooth);
 }
 .ticktick-timeblock-card:hover {
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--tb-shadow-hover);
   border-color: var(--interactive-accent);
+  transform: translateY(-1px);
   z-index: 8;
 }
 .ticktick-timeblock-card.is-dragging {
@@ -7848,9 +7918,11 @@
   flex-wrap: wrap;
   gap: 10px;
   padding: 10px 14px;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 10px;
+  background: var(--tb-surface-glass);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-container, 18px);
+  backdrop-filter: var(--tb-backdrop-blur-subtle);
+  -webkit-backdrop-filter: var(--tb-backdrop-blur-subtle);
 }
 .ticktick-heatmap-title-group {
   display: flex;
@@ -7877,11 +7949,17 @@
   align-items: center;
   justify-content: center;
   padding: 10px 14px;
-  border-radius: 8px;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--tb-radius-card, 14px);
+  background: var(--tb-surface-card);
+  border: 1px solid var(--tb-border-subtle);
+  box-shadow: var(--tb-shadow-card);
   text-align: center;
   gap: 3px;
+  transition: transform var(--tb-duration-fast) var(--tb-ease-smooth), box-shadow var(--tb-duration-fast) var(--tb-ease-smooth);
+}
+.ticktick-heatmap-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--tb-shadow-hover);
 }
 .ticktick-heatmap-kpi-val {
   font-size: 20px;
@@ -7898,9 +7976,10 @@
   display: flex;
   flex-direction: column;
   padding: 14px 16px;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 12px;
+  background: var(--tb-surface-card);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-container, 18px);
+  box-shadow: var(--tb-shadow-card);
   overflow-x: auto;
   gap: 10px;
 }
@@ -8040,86 +8119,116 @@
 
 /* src/styles/query-block.css */
 .ticktick-query-container {
-  margin: 1rem 0;
-  padding: 1rem;
-  background: var(--background-secondary-alt);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
+  margin: 1.25rem 0;
+  padding: 1.15rem 1.25rem;
+  background: color-mix(in srgb, var(--background-secondary) 75%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  border-radius: var(--tb-radius-card, 14px);
+  box-shadow: var(--tb-shadow-card, 0 2px 10px rgba(0, 0, 0, 0.04));
   direction: rtl;
   font-family: inherit;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: border-color var(--tb-motion-smooth), box-shadow var(--tb-motion-smooth);
+}
+.ticktick-query-container:hover {
+  border-color: color-mix(in srgb, var(--interactive-accent) 25%, var(--background-modifier-border));
+  box-shadow: var(--tb-shadow-card-hover, 0 6px 18px rgba(0, 0, 0, 0.07));
 }
 .ticktick-query-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 50%, transparent);
 }
 .ticktick-query-title {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1.05rem;
   color: var(--text-normal);
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 .ticktick-query-count-badge {
-  font-size: 0.8rem;
-  padding: 2px 8px;
-  border-radius: 12px;
-  background: var(--background-modifier-accent-opacity);
-  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.12rem 0.55rem;
+  border-radius: var(--tb-radius-pill, 9999px);
+  background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-secondary));
+  color: var(--interactive-accent);
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 25%, transparent);
 }
 .ticktick-query-empty {
-  padding: 1rem;
+  padding: 1.75rem 1rem;
   text-align: center;
   color: var(--text-muted);
-  font-style: italic;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  background: color-mix(in srgb, var(--background-primary) 60%, transparent);
+  border-radius: var(--tb-radius-m, 10px);
+  border: 1px dashed color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
 }
 .ticktick-query-list {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 .ticktick-query-item {
   display: flex;
   align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.5rem 0.75rem;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
   background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 65%, transparent);
+  border-radius: var(--tb-radius-m, 10px);
+  transition:
+    transform var(--tb-motion-bounce),
+    background var(--tb-motion-smooth),
+    border-color var(--tb-motion-smooth),
+    box-shadow var(--tb-motion-smooth);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 .ticktick-query-item:hover {
-  background: var(--background-modifier-hover);
+  background: color-mix(in srgb, var(--background-modifier-hover) 80%, var(--background-primary));
+  border-color: color-mix(in srgb, var(--interactive-accent) 30%, var(--background-modifier-border));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+.ticktick-query-item.is-completed {
+  opacity: 0.58;
 }
 .ticktick-query-item.is-completed .ticktick-query-item-title {
   text-decoration: line-through;
   color: var(--text-muted);
 }
 .ticktick-query-item.priority-high {
-  border-right: 3px solid #ef4444;
+  border-right: 3.5px solid var(--tb-palette-coral, #ff6b6b);
 }
 .ticktick-query-item.priority-med {
-  border-right: 3px solid #f59e0b;
+  border-right: 3.5px solid var(--tb-palette-amber, #f59f00);
 }
 .ticktick-query-item.priority-low {
-  border-right: 3px solid #3b82f6;
+  border-right: 3.5px solid var(--tb-palette-cobalt, #3b82f6);
 }
 .ticktick-query-item-content {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.3rem;
   flex: 1;
+  min-width: 0;
 }
 .ticktick-query-item-title {
   cursor: pointer;
   color: var(--text-normal);
-  font-size: 0.95rem;
-  line-height: 1.35;
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.45;
+  transition: color var(--tb-motion-smooth);
 }
 .ticktick-query-item-title:hover {
-  color: var(--text-accent);
+  color: var(--interactive-accent);
 }
 .ticktick-query-item-meta {
   display: flex;
@@ -8128,28 +8237,36 @@
   align-items: center;
 }
 .ticktick-query-chip {
-  font-size: 0.75rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--background-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--tb-radius-pill, 9999px);
+  background: color-mix(in srgb, var(--background-secondary) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
   color: var(--text-muted);
-  line-height: 1.2;
+  line-height: 1.3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 .ticktick-query-chip.chip-priority {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: var(--tb-palette-coral-bg, rgba(255, 107, 107, 0.12));
+  color: var(--tb-palette-coral, #ff6b6b);
+  border-color: var(--tb-palette-coral-border, rgba(255, 107, 107, 0.3));
 }
 .ticktick-query-chip.chip-due.is-overdue {
-  background: rgba(239, 68, 68, 0.15);
-  color: #dc2626;
-  font-weight: 500;
+  background: var(--tb-palette-coral-bg, rgba(255, 107, 107, 0.12));
+  color: var(--tb-palette-coral, #ff6b6b);
+  border-color: var(--tb-palette-coral-border, rgba(255, 107, 107, 0.3));
+  font-weight: 600;
 }
 .ticktick-query-chip.chip-tag {
-  background: var(--interactive-accent-opacity);
-  color: var(--text-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  color: var(--interactive-accent);
+  border-color: color-mix(in srgb, var(--interactive-accent) 25%, transparent);
 }
 .ticktick-query-compact .ticktick-query-item {
-  padding: 0.3rem 0.5rem;
+  padding: 0.4rem 0.65rem;
   align-items: center;
 }
 .ticktick-query-compact .ticktick-query-item-content {
@@ -8159,12 +8276,14 @@
 }
 .ticktick-query-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.75rem;
 }
 .ticktick-query-cards .ticktick-query-item {
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--tb-radius-l, 14px);
 }
 
 /* src/styles/morning-briefing.css */

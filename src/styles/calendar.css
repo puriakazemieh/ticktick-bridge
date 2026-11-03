@@ -78,9 +78,9 @@
   gap: 0.85rem;
   padding: clamp(0.85rem, 1.8vw, 1.35rem);
   background: var(--background-primary);
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 65%, transparent);
-  border-radius: 1rem;
-  box-shadow: 0 4px 20px color-mix(in srgb, var(--background-primary) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  border-radius: var(--tb-radius-xl, 18px);
+  box-shadow: var(--tb-shadow-card, 0 4px 20px rgba(0, 0, 0, 0.05));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   container-type: inline-size;
@@ -832,20 +832,20 @@
   min-width: 0;
   min-height: 1.95rem;
   padding: 0.2rem 0.65rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone) 45%, transparent);
-  border-inline-start: 4px solid var(--ticktick-task-tone) !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  transition: all 160ms ease;
+  border-radius: var(--tb-radius-pill, 9999px);
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 35%, transparent);
+  border-inline-start: 4px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 10%, var(--background-secondary)) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  transition: transform var(--tb-motion-bounce), background var(--tb-motion-smooth), box-shadow var(--tb-motion-smooth), border-color var(--tb-motion-smooth);
   cursor: pointer;
 }
 
 .ticktick-planner-range-task:hover {
-  transform: translateY(-1px);
-  background: color-mix(in srgb, var(--ticktick-task-tone) 10%, transparent) !important;
-  border-color: var(--ticktick-task-tone) !important;
-  box-shadow: 0 3px 8px color-mix(in srgb, var(--ticktick-task-tone) 20%, transparent) !important;
+  transform: translateY(-1.5px);
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 16%, var(--background-secondary)) !important;
+  border-color: var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 25%, transparent) !important;
 }
 
 .ticktick-range-check {
@@ -977,7 +977,7 @@
   flex-direction: column;
   gap: 0.35rem;
   background: color-mix(in srgb, var(--background-primary) 92%, var(--background-secondary));
-  transition: background 150ms ease;
+  transition: background var(--tb-motion-smooth);
 }
 
 .ticktick-planner-month-cells .ticktick-planner-month-cell:not(:last-child) {
@@ -985,39 +985,39 @@
 }
 
 .ticktick-planner-month-cell.is-outside {
-  opacity: 0.55;
-  background: color-mix(in srgb, var(--background-secondary) 65%, var(--background-primary));
+  opacity: 0.5;
+  background: color-mix(in srgb, var(--background-secondary) 60%, var(--background-primary));
 }
 
 .ticktick-planner-month-cell.is-today {
-  background: color-mix(in srgb, var(--interactive-accent) 4%, var(--background-primary));
+  background: color-mix(in srgb, var(--interactive-accent) 6%, var(--background-primary));
 }
 
 .ticktick-planner-month-cell.is-drag-over {
   background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)) !important;
-  outline: 2px dashed var(--interactive-accent);
-  outline-offset: -3px;
+  box-shadow: inset 0 0 0 2px var(--interactive-accent);
 }
 
 .ticktick-planner-month-task {
   display: flex;
   align-items: flex-start;
   gap: 0.35rem;
-  padding: 0.25rem 0.45rem;
-  border-radius: 0.4rem;
-  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone) 35%, transparent);
-  border-inline-start: 3.5px solid var(--ticktick-task-tone) !important;
-  background: transparent !important;
+  padding: 0.28rem 0.5rem;
+  border-radius: var(--tb-radius-s, 6px);
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 30%, transparent);
+  border-inline-start: 3.5px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  background: color-mix(in srgb, var(--background-secondary) 70%, var(--background-primary)) !important;
   font-size: 0.74rem;
   cursor: pointer;
-  transition: all 140ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: transform var(--tb-motion-bounce), background var(--tb-motion-smooth), border-color var(--tb-motion-smooth), box-shadow var(--tb-motion-smooth);
 }
 
 .ticktick-planner-month-task:hover {
-  background: color-mix(in srgb, var(--ticktick-task-tone) 8%, transparent) !important;
-  border-color: var(--ticktick-task-tone) !important;
-  transform: translateY(-0.5px);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--ticktick-task-tone) 15%, transparent);
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 12%, var(--background-secondary)) !important;
+  border-color: var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 20%, transparent);
 }
 
 .ticktick-month-check {
