@@ -1,5 +1,8 @@
 /* ══════════════════════════════════════════════════════════
    TickTick Bridge — Unified Workspace Header & Layout System
+   Two-Tier Modern Architecture:
+   - Tier 1: App Header (Brand Logo/Title + Global Actions)
+   - Tier 2: Dedicated Navigation Tab Rail (Smooth Mouse Wheel Scroll)
    ══════════════════════════════════════════════════════════ */
 
 .ticktick-workspace-view-root {
@@ -14,18 +17,20 @@
   direction: rtl !important;
   background: var(--background-primary) !important;
   position: relative !important;
+  container-type: inline-size;
+  container-name: workspace;
 }
 
-/* ── 1. Sticky Workspace Header Slot ── */
+/* ── 1. Sticky Workspace Header Slot (Holds Tier 1 & Tier 2) ── */
 .ticktick-workspace-header-slot {
   flex: 0 0 auto !important;
   width: 100% !important;
   z-index: 50 !important;
-  background: color-mix(in srgb, var(--background-secondary) 88%, var(--background-primary)) !important;
+  background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary)) !important;
   border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent) !important;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
 }
 
 /* ── 2. Scrollable Workspace Body Slot ── */
@@ -45,27 +50,32 @@
   scrollbar-gutter: stable;
 }
 
-/* ── 3. Workspace Header Bar (Single Sleek Row) ── */
+/* ── 3. Workspace Header Structure (Two Tiers) ── */
 .ticktick-workspace-header {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  direction: rtl;
+  box-sizing: border-box;
+}
+
+/* ── 3.1 Tier 1: Top Bar (Brand & Global Actions) ── */
+.ticktick-workspace-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: nowrap;
-  gap: var(--tb-space-3);
-  padding: 0 var(--tb-space-3);
-  height: 48px;
-  min-height: 48px;
-  max-height: 48px;
-  direction: rtl;
+  height: 42px;
+  min-height: 42px;
+  padding: 0 var(--tb-space-4);
+  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
   box-sizing: border-box;
   width: 100%;
 }
 
-/* ── 3.1 Brand Logo & Title ── */
 .ticktick-workspace-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   user-select: none;
   flex-shrink: 0;
 }
@@ -74,8 +84,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: var(--tb-radius-s, 6px);
   background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
   color: var(--interactive-accent);
@@ -84,8 +94,8 @@
 }
 
 .ticktick-workspace-brand-logo svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   display: block;
 }
 
@@ -97,84 +107,18 @@
   white-space: nowrap;
 }
 
-/* ── 3.2 Main Workspace Navigation (Top Tabs) ── */
-.ticktick-workspace-nav-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 2px 4px;
-}
-
-.ticktick-workspace-nav-wrapper::-webkit-scrollbar {
-  display: none;
-}
-
-.ticktick-workspace-nav-wrapper .tb-segmented-control {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px;
-  background: color-mix(in srgb, var(--background-primary) 75%, var(--background-secondary));
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
-  border-radius: var(--tb-radius-pill, 9999px);
-  gap: 3px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
-  flex-shrink: 0;
-}
-
-.ticktick-workspace-nav-wrapper .tb-segment-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  height: 28px;
-  border-radius: var(--tb-radius-pill, 9999px);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: transparent;
-  border: none !important;
-  box-shadow: none !important;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all var(--tb-motion-smooth);
-}
-
-.ticktick-workspace-nav-wrapper .tb-segment-item:hover {
-  color: var(--text-normal);
-  background: color-mix(in srgb, var(--background-modifier-hover) 60%, transparent);
-}
-
-.ticktick-workspace-nav-wrapper .tb-segment-item.is-active {
-  background: var(--interactive-accent) !important;
-  color: var(--text-on-accent) !important;
-  font-weight: 700 !important;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 45%, transparent) !important;
-  transform: translateY(-0.5px);
-}
-
-.ticktick-workspace-nav-wrapper .tb-segment-item svg {
-  width: 14px;
-  height: 14px;
-  display: block;
-}
-
-/* ── 3.3 Workspace Global Actions ── */
 .ticktick-workspace-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 .ticktick-workspace-quick-add {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 32px;
+  gap: 6px;
+  height: 30px;
   padding: 0 14px;
   border-radius: var(--tb-radius-pill, 9999px);
   background: var(--interactive-accent) !important;
@@ -189,22 +133,23 @@
 }
 
 .ticktick-workspace-quick-add:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
+  filter: brightness(1.12);
+  transform: translateY(-0.5px);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--interactive-accent) 55%, transparent) !important;
 }
 
 .ticktick-workspace-quick-add svg {
   width: 14px;
   height: 14px;
+  display: block;
 }
 
 .ticktick-workspace-actions .tb-btn-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--tb-radius-pill, 9999px);
   background: var(--background-secondary);
   border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
@@ -223,6 +168,7 @@
 .ticktick-workspace-actions .tb-btn-icon svg {
   width: 15px;
   height: 15px;
+  display: block;
 }
 
 .ticktick-workspace-sync-btn.is-syncing svg {
@@ -233,82 +179,164 @@
   to { transform: rotate(360deg); }
 }
 
-/* ── Responsive adjustments for workspace header (Plan 012 / Mobile & Tablet) ── */
-@media (max-width: 860px) {
-  .ticktick-workspace-brand-title {
-    display: none;
+/* ── 3.2 Tier 2: Dedicated Navigation Tab Rail ── */
+.ticktick-workspace-tabs-bar {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 38px;
+  min-height: 38px;
+  padding: 3px var(--tb-space-4);
+  background: color-mix(in srgb, var(--background-primary) 35%, transparent);
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+}
+
+.ticktick-workspace-nav-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--interactive-accent) 35%, transparent) transparent;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Sleek Windows scrollbar styling */
+.ticktick-workspace-nav-wrapper::-webkit-scrollbar {
+  height: 3px;
+}
+
+.ticktick-workspace-nav-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ticktick-workspace-nav-wrapper::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+  border-radius: 9999px;
+}
+
+.ticktick-workspace-nav-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--interactive-accent);
+}
+
+.ticktick-workspace-nav-wrapper .tb-segmented-control {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 3px;
+  background: color-mix(in srgb, var(--background-primary) 75%, var(--background-secondary));
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  border-radius: var(--tb-radius-pill, 9999px);
+  gap: 3px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.ticktick-workspace-nav-wrapper .tb-segment-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  height: 26px;
+  border-radius: var(--tb-radius-pill, 9999px);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--tb-motion-smooth);
+  user-select: none;
+}
+
+.ticktick-workspace-nav-wrapper .tb-segment-item:hover {
+  color: var(--text-normal);
+  background: color-mix(in srgb, var(--background-modifier-hover) 65%, transparent);
+}
+
+.ticktick-workspace-nav-wrapper .tb-segment-item.is-active {
+  background: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 45%, transparent) !important;
+  transform: translateY(-0.5px);
+}
+
+.ticktick-workspace-nav-wrapper .tb-segment-item svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+/* ── 4. Responsive & Container Queries (Mobile, Tablet, Split Panes) ── */
+@container workspace (max-width: 680px) {
+  .ticktick-workspace-topbar {
+    padding: 0 var(--tb-space-3);
   }
+  .ticktick-workspace-tabs-bar {
+    padding: 3px var(--tb-space-3);
+  }
+}
+
+@container workspace (max-width: 520px) {
   .ticktick-workspace-quick-add span:not(:has(svg)) {
     display: none;
   }
   .ticktick-workspace-quick-add {
     padding: 0;
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     justify-content: center;
-    border-radius: 50% !important;
   }
 }
 
-/* Mobile & Narrow split panes (< 640px) */
-@media (max-width: 640px) {
-  .ticktick-workspace-header {
-    padding: 0 8px;
-    gap: 6px;
-    height: 44px;
-    min-height: 44px;
-  }
-
-  .ticktick-workspace-brand-logo {
-    width: 26px;
-    height: 26px;
-  }
-  .ticktick-workspace-brand-logo svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  .ticktick-workspace-nav-wrapper .tb-segmented-control {
-    padding: 2px;
-    gap: 2px;
-  }
-
-  /* Compact tabs: Inactive tabs show icon-only, active tab shows icon + text */
-  .ticktick-workspace-nav-wrapper .tb-segment-item:not(.is-active) .tb-segment-label {
+@container workspace (max-width: 380px) {
+  .ticktick-workspace-brand-title {
     display: none;
   }
-
-  .ticktick-workspace-nav-wrapper .tb-segment-item:not(.is-active) {
-    padding: 0;
-    width: 28px;
-    height: 28px;
-    justify-content: center;
-  }
-
-  .ticktick-workspace-nav-wrapper .tb-segment-item.is-active {
-    padding: 4px 10px;
-    height: 28px;
+  .ticktick-workspace-nav-wrapper .tb-segment-item {
+    padding: 0 10px;
     font-size: 11px;
   }
+}
 
-  .ticktick-workspace-nav-wrapper .tb-segment-item svg {
-    width: 13px;
-    height: 13px;
+/* Fallback Media Queries for standard window resizing */
+@media (max-width: 680px) {
+  .ticktick-workspace-topbar {
+    padding: 0 var(--tb-space-3);
   }
-
-  .ticktick-workspace-actions {
-    gap: 4px;
+  .ticktick-workspace-tabs-bar {
+    padding: 3px var(--tb-space-3);
   }
+}
 
-  .ticktick-workspace-actions .tb-btn-icon,
+@media (max-width: 520px) {
+  .ticktick-workspace-quick-add span:not(:has(svg)) {
+    display: none;
+  }
   .ticktick-workspace-quick-add {
-    width: 28px;
-    height: 28px;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    justify-content: center;
   }
+}
 
-  .ticktick-workspace-actions .tb-btn-icon svg,
-  .ticktick-workspace-quick-add svg {
-    width: 13px;
-    height: 13px;
+@media (max-width: 380px) {
+  .ticktick-workspace-brand-title {
+    display: none;
+  }
+  .ticktick-workspace-nav-wrapper .tb-segment-item {
+    padding: 0 10px;
+    font-size: 11px;
   }
 }

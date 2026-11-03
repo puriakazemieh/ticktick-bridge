@@ -43,48 +43,20 @@ export class WorkspaceHeader {
 
   render(): HTMLElement {
     this.container.empty();
-    const header = this.container.createDiv({ cls: "ticktick-workspace-header tb-glass" });
+    const header = this.container.createDiv({ cls: "ticktick-workspace-header" });
 
-    // ── 1. Brand Logo & Title ──
-    const brand = header.createDiv({ cls: "ticktick-workspace-brand" });
+    // ── Tier 1: Top Bar (Brand & Global Actions) ──
+    const topBar = header.createDiv({ cls: "ticktick-workspace-topbar" });
+
+    // Brand
+    const brand = topBar.createDiv({ cls: "ticktick-workspace-brand" });
     const logoEl = brand.createSpan({ cls: "ticktick-workspace-brand-logo" });
     setIcon(logoEl, "check-circle-2");
     const brandTitle = brand.createSpan({ cls: "ticktick-workspace-brand-title", text: "فضای کار تیک‌تیک" });
     brandTitle.setAttribute("title", "سیستم یکپارچه مدیریت کار و تمرکز TickTick Bridge");
 
-    // ── 2. Segmented Navigation Control ──
-    const navWrapper = header.createDiv({ cls: "ticktick-workspace-nav-wrapper" });
-    const segmentedControl = navWrapper.createDiv({ cls: "tb-segmented-control" });
-
-    for (const tab of WORKSPACE_NAV_TABS) {
-      const isActive = tab.viewType === this.options.activeViewType;
-      const tabBtn = segmentedControl.createEl("button", {
-        cls: `tb-segment-item ${isActive ? "is-active" : ""}`,
-        attr: {
-          type: "button",
-          "aria-label": `نمای ${tab.label}`,
-          "aria-current": isActive ? "page" : "false"
-        }
-      });
-
-      const iconSpan = tabBtn.createSpan({ cls: "tb-segment-icon" });
-      setIcon(iconSpan, tab.icon);
-      tabBtn.createSpan({ cls: "tb-segment-label", text: tab.label });
-
-      if (!isActive) {
-        tabBtn.addEventListener("click", async (e) => {
-          e.preventDefault();
-          try {
-            await this.options.leaf.setViewState({ type: tab.viewType, active: true });
-          } catch (err) {
-            new Notice(`خطا در باز کردن نمای ${tab.label}: ${String(err)}`);
-          }
-        });
-      }
-    }
-
-    // ── 3. Global Actions (Quick Add, Morning Briefing, Sync) ──
-    const actions = header.createDiv({ cls: "ticktick-workspace-actions" });
+    // Global Actions
+    const actions = topBar.createDiv({ cls: "ticktick-workspace-actions" });
 
     // Quick Add Button
     const addBtn = actions.createEl("button", {
@@ -140,6 +112,75 @@ export class WorkspaceHeader {
         }
       }
     });
+
+    // ── Tier 2: Dedicated Navigation Tab Bar ──
+    const tabsBar = header.createDiv({ cls: "ticktick-workspace-tabs-bar" });
+    const navWrapper = tabsBar.createDiv({ cls: "ticktick-workspace-nav-wrapper" });
+    const segmentedControl = navWrapper.createDiv({ cls: "tb-segmented-control" });
+
+    // Enable horizontal mouse wheel scrolling in Windows!
+    tabsBar.addEventListener(
+      "wheel",
+      (e: WheelEvent) => {
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && e.deltaY !== 0) {
+          e.preventDefault();
+          const isRtl = window.getComputedStyle(navWrapper).direction === "rtl";
+          const scrollAmount = isRtl ? -e.deltaY : e.deltaY;
+          navWrapper.scrollBy({ left: scrollAmount, behavior: "auto" });
+        }
+      },
+      { passive: false }
+    );
+
+    let activeTabEl: HTMLElement | null = null;
+
+    for (const tab of WORKSPACE_NAV_TABS) {
+      const isActive = tab.viewType === this.options.activeViewType;
+      const tabBtn = segmentedControl.createEl("button", {
+        cls: `tb-segment-item ${isActive ? "is-active" : ""}`,
+        attr: {
+          type: "button",
+          "aria-label": `نمای ${tab.label}`,
+          "aria-current": isActive ? "page" : "false"
+        }
+      });
+
+      const iconSpan = tabBtn.createSpan({ cls: "tb-segment-icon" });
+      setIcon(iconSpan, tab.icon);
+      tabBtn.createSpan({ cls: "tb-segment-label", text: tab.label });
+
+      if (isActive) {
+        activeTabEl = tabBtn;
+      } else {
+        tabBtn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          try {
+            await this.options.leaf.setViewState({ type: tab.viewType, active: true });
+          } catch (err) {
+            new Notice(`خطا در باز کردن نمای ${tab.label}: ${String(err)}`);
+          }
+        });
+      }
+    }
+
+    // Ensure active tab is visible in view without jumping the main window
+    if (activeTabEl) {
+      window.requestAnimationFrame(() => {
+        try {
+          const navRect = navWrapper.getBoundingClientRect();
+          const tabRect = activeTabEl?.getBoundingClientRect();
+          if (tabRect && navRect) {
+            if (tabRect.left < navRect.left) {
+              navWrapper.scrollBy({ left: tabRect.left - navRect.left - 16, behavior: "smooth" });
+            } else if (tabRect.right > navRect.right) {
+              navWrapper.scrollBy({ left: tabRect.right - navRect.right + 16, behavior: "smooth" });
+            }
+          }
+        } catch {
+          activeTabEl?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+        }
+      });
+    }
 
     return header;
   }

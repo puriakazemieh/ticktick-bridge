@@ -7973,39 +7973,14 @@ var WorkspaceHeader = class {
   syncBtn;
   render() {
     this.container.empty();
-    const header = this.container.createDiv({ cls: "ticktick-workspace-header tb-glass" });
-    const brand = header.createDiv({ cls: "ticktick-workspace-brand" });
+    const header = this.container.createDiv({ cls: "ticktick-workspace-header" });
+    const topBar = header.createDiv({ cls: "ticktick-workspace-topbar" });
+    const brand = topBar.createDiv({ cls: "ticktick-workspace-brand" });
     const logoEl = brand.createSpan({ cls: "ticktick-workspace-brand-logo" });
     (0, import_obsidian21.setIcon)(logoEl, "check-circle-2");
     const brandTitle = brand.createSpan({ cls: "ticktick-workspace-brand-title", text: "\u0641\u0636\u0627\u06CC \u06A9\u0627\u0631 \u062A\u06CC\u06A9\u200C\u062A\u06CC\u06A9" });
     brandTitle.setAttribute("title", "\u0633\u06CC\u0633\u062A\u0645 \u06CC\u06A9\u067E\u0627\u0631\u0686\u0647 \u0645\u062F\u06CC\u0631\u06CC\u062A \u06A9\u0627\u0631 \u0648 \u062A\u0645\u0631\u06A9\u0632 TickTick Bridge");
-    const navWrapper = header.createDiv({ cls: "ticktick-workspace-nav-wrapper" });
-    const segmentedControl = navWrapper.createDiv({ cls: "tb-segmented-control" });
-    for (const tab of WORKSPACE_NAV_TABS) {
-      const isActive = tab.viewType === this.options.activeViewType;
-      const tabBtn = segmentedControl.createEl("button", {
-        cls: `tb-segment-item ${isActive ? "is-active" : ""}`,
-        attr: {
-          type: "button",
-          "aria-label": `\u0646\u0645\u0627\u06CC ${tab.label}`,
-          "aria-current": isActive ? "page" : "false"
-        }
-      });
-      const iconSpan = tabBtn.createSpan({ cls: "tb-segment-icon" });
-      (0, import_obsidian21.setIcon)(iconSpan, tab.icon);
-      tabBtn.createSpan({ cls: "tb-segment-label", text: tab.label });
-      if (!isActive) {
-        tabBtn.addEventListener("click", async (e) => {
-          e.preventDefault();
-          try {
-            await this.options.leaf.setViewState({ type: tab.viewType, active: true });
-          } catch (err) {
-            new import_obsidian21.Notice(`\u062E\u0637\u0627 \u062F\u0631 \u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u0646\u0645\u0627\u06CC ${tab.label}: ${String(err)}`);
-          }
-        });
-      }
-    }
-    const actions = header.createDiv({ cls: "ticktick-workspace-actions" });
+    const actions = topBar.createDiv({ cls: "ticktick-workspace-actions" });
     const addBtn = actions.createEl("button", {
       cls: "tb-btn tb-btn-primary ticktick-workspace-quick-add",
       attr: { type: "button", "aria-label": "\u062B\u0628\u062A \u0633\u0631\u06CC\u0639 \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F (\u0632\u0628\u0627\u0646 \u0637\u0628\u06CC\u0639\u06CC)" }
@@ -8055,6 +8030,65 @@ var WorkspaceHeader = class {
         }
       }
     });
+    const tabsBar = header.createDiv({ cls: "ticktick-workspace-tabs-bar" });
+    const navWrapper = tabsBar.createDiv({ cls: "ticktick-workspace-nav-wrapper" });
+    const segmentedControl = navWrapper.createDiv({ cls: "tb-segmented-control" });
+    tabsBar.addEventListener(
+      "wheel",
+      (e) => {
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && e.deltaY !== 0) {
+          e.preventDefault();
+          const isRtl = window.getComputedStyle(navWrapper).direction === "rtl";
+          const scrollAmount = isRtl ? -e.deltaY : e.deltaY;
+          navWrapper.scrollBy({ left: scrollAmount, behavior: "auto" });
+        }
+      },
+      { passive: false }
+    );
+    let activeTabEl = null;
+    for (const tab of WORKSPACE_NAV_TABS) {
+      const isActive = tab.viewType === this.options.activeViewType;
+      const tabBtn = segmentedControl.createEl("button", {
+        cls: `tb-segment-item ${isActive ? "is-active" : ""}`,
+        attr: {
+          type: "button",
+          "aria-label": `\u0646\u0645\u0627\u06CC ${tab.label}`,
+          "aria-current": isActive ? "page" : "false"
+        }
+      });
+      const iconSpan = tabBtn.createSpan({ cls: "tb-segment-icon" });
+      (0, import_obsidian21.setIcon)(iconSpan, tab.icon);
+      tabBtn.createSpan({ cls: "tb-segment-label", text: tab.label });
+      if (isActive) {
+        activeTabEl = tabBtn;
+      } else {
+        tabBtn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          try {
+            await this.options.leaf.setViewState({ type: tab.viewType, active: true });
+          } catch (err) {
+            new import_obsidian21.Notice(`\u062E\u0637\u0627 \u062F\u0631 \u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u0646\u0645\u0627\u06CC ${tab.label}: ${String(err)}`);
+          }
+        });
+      }
+    }
+    if (activeTabEl) {
+      window.requestAnimationFrame(() => {
+        try {
+          const navRect = navWrapper.getBoundingClientRect();
+          const tabRect = activeTabEl?.getBoundingClientRect();
+          if (tabRect && navRect) {
+            if (tabRect.left < navRect.left) {
+              navWrapper.scrollBy({ left: tabRect.left - navRect.left - 16, behavior: "smooth" });
+            } else if (tabRect.right > navRect.right) {
+              navWrapper.scrollBy({ left: tabRect.right - navRect.right + 16, behavior: "smooth" });
+            }
+          }
+        } catch {
+          activeTabEl?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+        }
+      });
+    }
     return header;
   }
 };
