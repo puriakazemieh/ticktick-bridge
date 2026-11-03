@@ -167,6 +167,68 @@
   --tb-breakpoint-tablet: 768px;
   --tb-breakpoint-laptop: 1024px;
   --tb-touch-target-min: 44px;
+  --tb-gradient-accent:
+    linear-gradient(
+      135deg,
+      var(--interactive-accent) 0%,
+      color-mix(in srgb, var(--interactive-accent) 80%, #3b82f6) 100%);
+  --tb-gradient-flame:
+    linear-gradient(
+      135deg,
+      #f97316 0%,
+      #ef4444 100%);
+  --tb-gradient-focus:
+    linear-gradient(
+      135deg,
+      #8b5cf6 0%,
+      #6366f1 100%);
+  --tb-gradient-mint:
+    linear-gradient(
+      135deg,
+      #10b981 0%,
+      #059669 100%);
+  --tb-gradient-card-top:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      transparent 100%);
+  --tb-glow-high: 0 0 12px rgba(244, 63, 94, 0.35);
+  --tb-glow-medium: 0 0 12px rgba(245, 158, 11, 0.35);
+  --tb-glow-low: 0 0 12px rgba(59, 130, 246, 0.35);
+  --tb-glow-focus: 0 0 16px rgba(139, 92, 246, 0.45);
+}
+@keyframes tb-pulse-ring {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--interactive-accent) 60%, transparent);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px transparent;
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+@keyframes tb-flame-bounce {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.08);
+  }
+}
+@keyframes tb-check-bounce {
+  0% {
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 .theme-light {
   --tb-surface-base: var(--background-primary);
@@ -972,6 +1034,69 @@
 .tb-card-priority-badge {
   flex-shrink: 0;
   margin-top: 1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--tb-radius-pill);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.tb-card-priority-badge.is-high {
+  background: var(--tb-palette-coral-tint);
+  color: var(--tb-palette-coral);
+  border: 1px solid var(--tb-palette-coral-border);
+  box-shadow: 0 1px 4px var(--tb-palette-coral-glow);
+}
+.tb-card-priority-badge.is-medium {
+  background: var(--tb-palette-amber-tint);
+  color: var(--tb-palette-amber);
+  border: 1px solid var(--tb-palette-amber-border);
+  box-shadow: 0 1px 4px var(--tb-palette-amber-glow);
+}
+.tb-card-priority-badge.is-low {
+  background: var(--tb-palette-cobalt-tint);
+  color: var(--tb-palette-cobalt);
+  border: 1px solid var(--tb-palette-cobalt-border);
+  box-shadow: 0 1px 4px var(--tb-palette-cobalt-glow);
+}
+.tb-card-priority-badge.is-none {
+  background: var(--tb-palette-slate-tint);
+  color: var(--tb-palette-slate-text);
+  border: 1px solid var(--tb-palette-slate-border);
+}
+.tb-card-checkbox {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border-radius: 6px;
+  border: 1.5px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--tb-duration-fast) var(--tb-ease-smooth);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.tb-card-checkbox:hover {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
+  transform: scale(1.05);
+}
+.tb-card-checkbox.is-checked {
+  background: var(--tb-gradient-mint);
+  border-color: var(--tb-palette-mint);
+  color: #fff;
+  animation: tb-check-bounce 260ms var(--tb-ease-spring);
+}
+.tb-card-checkbox svg {
+  width: 12px;
+  height: 12px;
+  display: block;
 }
 .tb-card-desc {
   font-size: 12px;
@@ -991,6 +1116,63 @@
   gap: var(--tb-space-1);
   margin-top: 4px;
   margin-right: 26px;
+}
+.tb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--tb-radius-pill);
+  background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: all var(--tb-duration-fast) ease;
+  line-height: 1.2;
+}
+.tb-chip:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.tb-chip.mod-due {
+  font-variant-numeric: tabular-nums;
+}
+.tb-chip.mod-due.is-overdue {
+  background: var(--tb-palette-coral-tint);
+  color: var(--tb-palette-coral);
+  border-color: var(--tb-palette-coral-border);
+  font-weight: 600;
+}
+.tb-chip.mod-due.is-today {
+  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-secondary));
+  color: var(--interactive-accent);
+  border-color: color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+  font-weight: 600;
+}
+.tb-chip.mod-checklist {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.tb-chip.mod-checklist.is-all-done {
+  color: var(--tb-palette-mint);
+  background: var(--tb-palette-mint-tint);
+  border-color: var(--tb-palette-mint-border);
+}
+.tb-chip.mod-time {
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--tb-palette-cyan) 8%, var(--background-secondary));
+  color: var(--tb-palette-cyan);
+  border-color: color-mix(in srgb, var(--tb-palette-cyan) 25%, transparent);
+}
+.tb-chip.mod-project {
+  font-weight: 600;
+  color: var(--text-normal);
+}
+.tb-chip.mod-tag {
+  color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-secondary));
+  border-color: color-mix(in srgb, var(--interactive-accent) 20%, transparent);
 }
 .tb-chip-icon {
   display: inline-flex;
@@ -1637,18 +1819,18 @@
   overscroll-behavior-x: contain !important;
 }
 .ticktick-project-column {
-  flex: 0 0 min(19rem, calc(100% - 1.5rem));
-  min-height: 16rem;
-  padding: 0.85rem;
-  border-radius: var(--tb-radius-l, 14px);
-  background: color-mix(in srgb, var(--background-secondary) 60%, var(--background-primary));
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 50%, transparent);
-  box-shadow: var(--tb-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.04));
+  flex: 0 0 min(19.5rem, calc(100% - 1.5rem));
+  min-height: 18rem;
+  padding: 0.95rem;
+  border-radius: var(--tb-radius-xl, 16px);
+  background: color-mix(in srgb, var(--background-secondary) 65%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   transition:
     border-color var(--tb-motion-smooth),
     background var(--tb-motion-smooth),
@@ -1656,28 +1838,38 @@
   scroll-snap-align: start;
 }
 .ticktick-project-column.is-drag-over {
-  border-color: var(--interactive-accent);
-  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-secondary));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 35%, transparent), var(--tb-shadow-card);
+  border-color: var(--interactive-accent) !important;
+  background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-secondary)) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 35%, transparent), 0 8px 24px color-mix(in srgb, var(--interactive-accent) 15%, transparent) !important;
 }
 .ticktick-column-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 0.55rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
 }
 .ticktick-column-add {
   margin-inline-start: auto;
   padding: 0.25rem !important;
-  min-width: 1.65rem;
-  min-height: 1.65rem;
-  border-radius: var(--tb-radius-s, 6px);
+  width: 1.85rem;
+  height: 1.85rem;
+  min-width: 1.85rem;
+  min-height: 1.85rem;
+  border-radius: var(--tb-radius-pill, 9999px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: var(--text-muted);
   transition: all var(--tb-motion-smooth);
 }
 .ticktick-column-add:hover {
-  background: var(--background-modifier-hover) !important;
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent) !important;
+  border-color: color-mix(in srgb, var(--interactive-accent) 30%, transparent) !important;
   color: var(--interactive-accent);
+  transform: scale(1.08);
 }
 .ticktick-column-name {
   font-size: 0.88rem;
@@ -1688,13 +1880,14 @@
 .ticktick-column-count {
   font-size: 0.7rem;
   font-weight: 700;
-  padding: 0.1rem 0.5rem;
+  padding: 0.12rem 0.55rem;
   border-radius: var(--tb-radius-pill, 9999px);
   background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-secondary));
-  border: 1px solid color-mix(in srgb, var(--interactive-accent) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 25%, transparent);
   color: var(--interactive-accent);
-  min-width: 1.4rem;
+  min-width: 1.5rem;
   text-align: center;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--interactive-accent) 15%, transparent);
 }
 .ticktick-column-hint {
   display: block;
@@ -2591,10 +2784,11 @@
 .ticktick-today-pill {
   font-size: 0.65rem;
   font-weight: 700;
-  padding: 0.08rem 0.45rem;
-  border-radius: 999px;
-  background: var(--interactive-accent);
+  padding: 0.12rem 0.55rem;
+  border-radius: var(--tb-radius-pill, 9999px);
+  background: var(--tb-gradient-accent, var(--interactive-accent));
   color: var(--text-on-accent);
+  box-shadow: 0 1px 6px color-mix(in srgb, var(--interactive-accent) 35%, transparent);
 }
 .ticktick-planner-day-date-wrap {
   display: flex;
@@ -2705,12 +2899,12 @@
   display: flex;
   align-items: flex-start;
   gap: 0.45rem;
-  padding: 0.55rem 0.65rem;
-  border-radius: var(--tb-radius-m, 0.55rem);
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--tb-radius-l, 12px);
   border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 22%, var(--background-modifier-border)) !important;
-  border-inline-start: 3.5px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  border-inline-start: 4px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
   background: var(--background-secondary) !important;
-  box-shadow: var(--tb-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08)) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
   transition:
     transform 160ms cubic-bezier(.22, 1, .36, 1),
     box-shadow 160ms cubic-bezier(.22, 1, .36, 1),
@@ -2722,7 +2916,7 @@
   transform: translateY(-2px);
   background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 8%, var(--background-secondary)) !important;
   border-color: var(--ticktick-task-tone, var(--interactive-accent)) !important;
-  box-shadow: var(--tb-shadow-hover, 0 4px 14px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 16%, transparent)) !important;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 16%, transparent) !important;
 }
 .ticktick-planner-task.is-bound {
   cursor: grab;
@@ -3701,33 +3895,48 @@
 .ticktick-habit-streak-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.2rem;
-  padding: 0.1rem 0.45rem;
+  gap: 0.3rem;
+  padding: 0.15rem 0.6rem;
   border-radius: var(--tb-radius-full, 9999px);
-  background: color-mix(in srgb, #f59e0b 15%, var(--background-primary));
-  color: #f59e0b;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(249, 115, 22, 0.14) 0%,
+      rgba(239, 68, 68, 0.14) 100%);
+  border: 1px solid rgba(249, 115, 22, 0.28);
+  color: #f97316;
   font-weight: 700;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 4px rgba(249, 115, 22, 0.15);
+}
+.ticktick-habit-streak-pill svg,
+.ticktick-habit-streak-pill span {
+  display: inline-block;
+  animation: tb-flame-bounce 2.4s infinite ease-in-out;
 }
 .ticktick-habit-history-dots {
   display: flex;
-  gap: 0.22rem;
-  margin-top: 0.25rem;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
   align-items: center;
 }
 .ticktick-habit-dot {
-  width: 0.4rem;
-  height: 0.4rem;
+  width: 0.55rem;
+  height: 0.55rem;
   border-radius: 50%;
-  background: var(--background-modifier-border);
-  transition: transform 140ms ease;
+  background: color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  transition: all 160ms var(--tb-ease-spring);
+}
+.ticktick-habit-dot:hover {
+  transform: scale(1.35);
 }
 .ticktick-habit-dot.is-complete {
-  background: var(--tb-color-green, #10b981);
+  background: var(--tb-palette-mint, #10b981);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--tb-palette-mint, #10b981) 50%, transparent);
 }
 .ticktick-habit-dot.is-missed {
-  background: color-mix(in srgb, var(--tb-color-red, #ef4444) 65%, var(--background-modifier-border));
+  background: color-mix(in srgb, var(--tb-color-red, #ef4444) 40%, var(--background-modifier-border));
 }
 .ticktick-habit-card.is-planner-row {
   display: grid;
@@ -5913,6 +6122,62 @@
   opacity: 0.65;
   text-decoration: line-through;
 }
+@media (max-width: 768px), (pointer: coarse) {
+  .modal.ticktick-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92vh !important;
+    border-radius: 24px 24px 0 0 !important;
+    margin: auto 0 0 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    border-bottom: none !important;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4) !important;
+  }
+  .ticktick-editor-header::before,
+  .ticktick-quick-capture-header::before,
+  .ticktick-pomodoro-modal::before {
+    content: "";
+    display: block;
+    width: 42px;
+    height: 4.5px;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--background-modifier-border) 90%, transparent);
+    margin: 0 auto 12px;
+  }
+  .ticktick-task-editor-modal .setting-item {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 12px 0 !important;
+  }
+  .ticktick-task-editor-modal .setting-item-info {
+    min-width: 100% !important;
+  }
+  .ticktick-task-editor-modal .setting-item-control {
+    width: 100% !important;
+  }
+  .ticktick-task-editor-modal input[type=text],
+  .ticktick-task-editor-modal select,
+  .ticktick-task-editor-modal textarea {
+    min-height: 44px !important;
+    font-size: 14px !important;
+  }
+  .ticktick-priority-chip {
+    min-height: 42px !important;
+    padding: 0 14px !important;
+    font-size: 13px !important;
+  }
+  .ticktick-editor-footer {
+    padding: 12px 16px !important;
+  }
+  .ticktick-editor-footer button {
+    min-height: 44px !important;
+    font-size: 14px !important;
+  }
+}
 
 /* src/styles/timeline.css */
 .ticktick-project-dashboard .season-grid,
@@ -7970,13 +8235,16 @@
   opacity: 0.35;
 }
 .ticktick-timeblock-card.is-high {
-  border-right-color: #dc2626;
+  border-right-color: var(--tb-palette-coral);
+  background: color-mix(in srgb, var(--tb-palette-coral) 5%, var(--tb-surface-card));
 }
 .ticktick-timeblock-card.is-medium {
-  border-right-color: #d97706;
+  border-right-color: var(--tb-palette-amber);
+  background: color-mix(in srgb, var(--tb-palette-amber) 5%, var(--tb-surface-card));
 }
 .ticktick-timeblock-card.is-low {
-  border-right-color: #2563eb;
+  border-right-color: var(--tb-palette-cobalt);
+  background: color-mix(in srgb, var(--tb-palette-cobalt) 5%, var(--tb-surface-card));
 }
 .ticktick-timeblock-card-header {
   display: flex;
@@ -8111,28 +8379,43 @@
 .ticktick-pomodoro-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 14px;
-  border-radius: 20px;
+  gap: 8px;
+  padding: 5px 16px;
+  border-radius: var(--tb-radius-pill, 9999px);
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
   transition: all 0.2s ease;
+  position: relative;
+}
+.ticktick-pomodoro-badge::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
 }
 .ticktick-pomodoro-badge.is-focus {
   background: rgba(220, 38, 38, 0.12);
-  color: #dc2626;
-  border: 1px solid rgba(220, 38, 38, 0.25);
+  color: #ef4444;
+  border: 1px solid rgba(220, 38, 38, 0.28);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.2);
+}
+.ticktick-pomodoro-badge.is-focus::before {
+  animation: tb-pulse-ring 1.8s infinite ease-out;
 }
 .ticktick-pomodoro-badge.is-shortBreak {
   background: rgba(37, 99, 235, 0.12);
-  color: #2563eb;
-  border: 1px solid rgba(37, 99, 235, 0.25);
+  color: #3b82f6;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
 }
 .ticktick-pomodoro-badge.is-longBreak {
   background: rgba(16, 185, 129, 0.12);
   color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
 }
 .ticktick-pomodoro-badge.is-idle {
   background: var(--background-secondary);
@@ -8140,14 +8423,15 @@
   border: 1px solid var(--background-modifier-border);
 }
 .ticktick-pomodoro-timer-display {
-  font-size: 60px;
+  font-size: 64px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--text-normal);
-  letter-spacing: 3px;
+  letter-spacing: 4px;
   line-height: 1;
   user-select: none;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  text-shadow: 0 4px 18px color-mix(in srgb, var(--interactive-accent) 25%, transparent);
+  margin: 6px 0;
 }
 .ticktick-pomodoro-task-card {
   width: 100%;

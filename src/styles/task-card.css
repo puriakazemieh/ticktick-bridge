@@ -96,6 +96,78 @@
 .tb-card-priority-badge {
   flex-shrink: 0;
   margin-top: 1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--tb-radius-pill);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.tb-card-priority-badge.is-high {
+  background: var(--tb-palette-coral-tint);
+  color: var(--tb-palette-coral);
+  border: 1px solid var(--tb-palette-coral-border);
+  box-shadow: 0 1px 4px var(--tb-palette-coral-glow);
+}
+
+.tb-card-priority-badge.is-medium {
+  background: var(--tb-palette-amber-tint);
+  color: var(--tb-palette-amber);
+  border: 1px solid var(--tb-palette-amber-border);
+  box-shadow: 0 1px 4px var(--tb-palette-amber-glow);
+}
+
+.tb-card-priority-badge.is-low {
+  background: var(--tb-palette-cobalt-tint);
+  color: var(--tb-palette-cobalt);
+  border: 1px solid var(--tb-palette-cobalt-border);
+  box-shadow: 0 1px 4px var(--tb-palette-cobalt-glow);
+}
+
+.tb-card-priority-badge.is-none {
+  background: var(--tb-palette-slate-tint);
+  color: var(--tb-palette-slate-text);
+  border: 1px solid var(--tb-palette-slate-border);
+}
+
+/* ── Checkbox (Modern Round-Rect with Spring Bounce) ── */
+.tb-card-checkbox {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border-radius: 6px;
+  border: 1.5px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--tb-duration-fast) var(--tb-ease-smooth);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.tb-card-checkbox:hover {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
+  transform: scale(1.05);
+}
+
+.tb-card-checkbox.is-checked {
+  background: var(--tb-gradient-mint);
+  border-color: var(--tb-palette-mint);
+  color: #fff;
+  animation: tb-check-bounce 260ms var(--tb-ease-spring);
+}
+
+.tb-card-checkbox svg {
+  width: 12px;
+  height: 12px;
+  display: block;
 }
 
 /* ── Description / Snippet ── */
@@ -119,6 +191,73 @@
   gap: var(--tb-space-1);
   margin-top: 4px;
   margin-right: 26px; /* Align with title */
+}
+
+.tb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--tb-radius-pill);
+  background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: all var(--tb-duration-fast) ease;
+  line-height: 1.2;
+}
+
+.tb-chip:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.tb-chip.mod-due {
+  font-variant-numeric: tabular-nums;
+}
+
+.tb-chip.mod-due.is-overdue {
+  background: var(--tb-palette-coral-tint);
+  color: var(--tb-palette-coral);
+  border-color: var(--tb-palette-coral-border);
+  font-weight: 600;
+}
+
+.tb-chip.mod-due.is-today {
+  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-secondary));
+  color: var(--interactive-accent);
+  border-color: color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+  font-weight: 600;
+}
+
+.tb-chip.mod-checklist {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.tb-chip.mod-checklist.is-all-done {
+  color: var(--tb-palette-mint);
+  background: var(--tb-palette-mint-tint);
+  border-color: var(--tb-palette-mint-border);
+}
+
+.tb-chip.mod-time {
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--tb-palette-cyan) 8%, var(--background-secondary));
+  color: var(--tb-palette-cyan);
+  border-color: color-mix(in srgb, var(--tb-palette-cyan) 25%, transparent);
+}
+
+.tb-chip.mod-project {
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.tb-chip.mod-tag {
+  color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-secondary));
+  border-color: color-mix(in srgb, var(--interactive-accent) 20%, transparent);
 }
 
 .tb-chip-icon {

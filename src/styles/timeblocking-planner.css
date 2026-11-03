@@ -237,9 +237,18 @@
   opacity: 0.35;
 }
 
-.ticktick-timeblock-card.is-high { border-right-color: #dc2626; }
-.ticktick-timeblock-card.is-medium { border-right-color: #d97706; }
-.ticktick-timeblock-card.is-low { border-right-color: #2563eb; }
+.ticktick-timeblock-card.is-high {
+  border-right-color: var(--tb-palette-coral);
+  background: color-mix(in srgb, var(--tb-palette-coral) 5%, var(--tb-surface-card));
+}
+.ticktick-timeblock-card.is-medium {
+  border-right-color: var(--tb-palette-amber);
+  background: color-mix(in srgb, var(--tb-palette-amber) 5%, var(--tb-surface-card));
+}
+.ticktick-timeblock-card.is-low {
+  border-right-color: var(--tb-palette-cobalt);
+  background: color-mix(in srgb, var(--tb-palette-cobalt) 5%, var(--tb-surface-card));
+}
 
 .ticktick-timeblock-card-header {
   display: flex;

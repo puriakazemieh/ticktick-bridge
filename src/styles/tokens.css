@@ -204,6 +204,36 @@
   --tb-breakpoint-tablet: 768px;
   --tb-breakpoint-laptop: 1024px;
   --tb-touch-target-min: 44px;
+
+  /* ── 10. Modern Dribbble Gradients & Visual Glows ── */
+  --tb-gradient-accent: linear-gradient(135deg, var(--interactive-accent) 0%, color-mix(in srgb, var(--interactive-accent) 80%, #3b82f6) 100%);
+  --tb-gradient-flame: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+  --tb-gradient-focus: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  --tb-gradient-mint: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --tb-gradient-card-top: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%);
+
+  --tb-glow-high: 0 0 12px rgba(244, 63, 94, 0.35);
+  --tb-glow-medium: 0 0 12px rgba(245, 158, 11, 0.35);
+  --tb-glow-low: 0 0 12px rgba(59, 130, 246, 0.35);
+  --tb-glow-focus: 0 0 16px rgba(139, 92, 246, 0.45);
+}
+
+/* Keyframe animations for micro-interactions */
+@keyframes tb-pulse-ring {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 color-mix(in srgb, var(--interactive-accent) 60%, transparent); }
+  70% { transform: scale(1); box-shadow: 0 0 0 8px transparent; }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes tb-flame-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(1.08); }
+}
+
+@keyframes tb-check-bounce {
+  0% { transform: scale(0.8); }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
 }
 
 /* ── Light Mode Symmetrical Refinements (Dribbble 21325062) ── */

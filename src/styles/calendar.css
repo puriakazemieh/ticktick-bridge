@@ -536,10 +536,11 @@
 .ticktick-today-pill {
   font-size: 0.65rem;
   font-weight: 700;
-  padding: 0.08rem 0.45rem;
-  border-radius: 999px;
-  background: var(--interactive-accent);
+  padding: 0.12rem 0.55rem;
+  border-radius: var(--tb-radius-pill, 9999px);
+  background: var(--tb-gradient-accent, var(--interactive-accent));
   color: var(--text-on-accent);
+  box-shadow: 0 1px 6px color-mix(in srgb, var(--interactive-accent) 35%, transparent);
 }
 
 .ticktick-planner-day-date-wrap {
@@ -668,12 +669,12 @@
   display: flex;
   align-items: flex-start;
   gap: 0.45rem;
-  padding: 0.55rem 0.65rem;
-  border-radius: var(--tb-radius-m, 0.55rem);
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--tb-radius-l, 12px);
   border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 22%, var(--background-modifier-border)) !important;
-  border-inline-start: 3.5px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  border-inline-start: 4px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
   background: var(--background-secondary) !important;
-  box-shadow: var(--tb-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08)) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
   transition:
     transform 160ms cubic-bezier(.22,1,.36,1),
     box-shadow 160ms cubic-bezier(.22,1,.36,1),
@@ -686,7 +687,7 @@
   transform: translateY(-2px);
   background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 8%, var(--background-secondary)) !important;
   border-color: var(--ticktick-task-tone, var(--interactive-accent)) !important;
-  box-shadow: var(--tb-shadow-hover, 0 4px 14px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 16%, transparent)) !important;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 16%, transparent) !important;
 }
 
 .ticktick-planner-task.is-bound {
