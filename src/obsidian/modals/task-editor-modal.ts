@@ -2,6 +2,7 @@ import { App, Component, MarkdownRenderer, Menu, Modal, Notice, Setting, setIcon
 import { taskDescription } from "../../core/task-description.js";
 import { toDateKey } from "../../core/date.js";
 import { reminderTimeFromTask } from "../helpers";
+import { JalaliDatePicker } from "../components/jalali-date-picker";
 import type { TaskDraft } from "../types";
 
 export class TaskEditorModal extends Modal {
@@ -65,11 +66,10 @@ export class TaskEditorModal extends Modal {
       });
     });
 
-    new Setting(fields).setName("📅 تاریخ").setDesc("با انتخاب تاریخ، تقویم سیستم باز می‌شود.").addText(input => {
-      input.inputEl.type = "date";
-      input.setValue(dueDate).onChange(value => dueDate = value);
-      input.inputEl.dir = "ltr";
-    });
+    const dateSetting = new Setting(fields)
+      .setName("📅 تاریخ سررسید (شمسی)")
+      .setDesc("انتخاب تاریخ از تقویم شمسی یا تایپ دستی.");
+    new JalaliDatePicker(dateSetting.controlEl, "", dueDate, value => dueDate = value);
     new Setting(fields).setName("⏰ یادآوری").setDesc("اختیاری؛ در ساعت انتخاب‌شده در همان روز یادآوری می‌شود.").addText(input => {
       input.inputEl.type = "time";
       input.setValue(reminderTime).onChange(value => reminderTime = value);

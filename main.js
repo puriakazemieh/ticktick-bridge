@@ -18,7 +18,7 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toCommonJS = (mod2) => __copyProps(__defProp({}, "__esModule", { value: true }), mod2);
 
 // src/core/date.js
 function toDateKey(value, timeZone = "Asia/Tehran") {
@@ -2590,6 +2590,415 @@ var BulkConfirmModal = class extends import_obsidian6.Modal {
 
 // src/obsidian/modals/bulk-input-modal.ts
 var import_obsidian7 = require("obsidian");
+
+// node_modules/jalaali-js/dist/index.js
+var BREAKS = [
+  -61,
+  9,
+  38,
+  199,
+  426,
+  686,
+  756,
+  818,
+  1111,
+  1181,
+  1210,
+  1635,
+  2060,
+  2097,
+  2192,
+  2262,
+  2324,
+  2394,
+  2456,
+  3178
+];
+var MIN_JALAALI_YEAR = BREAKS[0];
+var MAX_JALAALI_YEAR = BREAKS[BREAKS.length - 1] - 1;
+function toJalaali(gyOrDate, gm, gd) {
+  if (gyOrDate instanceof Date) return d2j(g2d(gyOrDate.getFullYear(), gyOrDate.getMonth() + 1, gyOrDate.getDate()));
+  return d2j(g2d(gyOrDate, gm, gd));
+}
+function toGregorian(jy, jm, jd) {
+  return d2g(j2d(jy, jm, jd));
+}
+function isLeapJalaaliYear(jy) {
+  return jalCalLeap(jy) === 0;
+}
+function jalaaliMonthLength(jy, jm) {
+  if (jm <= 6) return 31;
+  if (jm <= 11) return 30;
+  return isLeapJalaaliYear(jy) ? 30 : 29;
+}
+function jalCal(jy) {
+  const { gy, march, jump, n } = jalCalCore(jy);
+  return {
+    leap: leapFromCycle(jump, n),
+    gy,
+    march
+  };
+}
+function jalCalShort(jy) {
+  const { gy, march } = jalCalCore(jy);
+  return {
+    gy,
+    march
+  };
+}
+function j2d(jy, jm, jd) {
+  const r = jalCalShort(jy);
+  return g2d(r.gy, 3, r.march) + (jm - 1) * 31 - div(jm, 7) * (jm - 7) + jd - 1;
+}
+var FIRST_JALAALI_JDN = j2d(MIN_JALAALI_YEAR, 1, 1);
+var LAST_JALAALI_JDN = j2d(MAX_JALAALI_YEAR, 12, jalaaliMonthLength(MAX_JALAALI_YEAR, 12));
+function d2j(jdn) {
+  if (jdn < FIRST_JALAALI_JDN || jdn > LAST_JALAALI_JDN) throw new RangeError(`Invalid Julian Day number ${jdn}: outside the supported Jalaali range [${MIN_JALAALI_YEAR}, ${MAX_JALAALI_YEAR}]`);
+  const gy = d2g(jdn).gy;
+  let jy = Math.min(gy - 621, MAX_JALAALI_YEAR);
+  const r = jalCal(jy);
+  let k = jdn - g2d(r.gy, 3, r.march);
+  if (k >= 0) {
+    if (k <= 185) return {
+      jy,
+      jm: 1 + div(k, 31),
+      jd: mod(k, 31) + 1
+    };
+    k -= 186;
+  } else {
+    jy -= 1;
+    k += 179;
+    if (r.leap === 1) k += 1;
+  }
+  return {
+    jy,
+    jm: 7 + div(k, 30),
+    jd: mod(k, 30) + 1
+  };
+}
+function g2d(gy, gm, gd) {
+  let d = div((gy + div(gm - 8, 6) + 100100) * 1461, 4) + div(153 * mod(gm + 9, 12) + 2, 5) + gd - 34840408;
+  d = d - div(div(gy + 100100 + div(gm - 8, 6), 100) * 3, 4) + 752;
+  return d;
+}
+function d2g(jdn) {
+  let j = 4 * jdn + 139361631;
+  j = j + div(div(4 * jdn + 183187720, 146097) * 3, 4) * 4 - 3908;
+  const i = div(mod(j, 1461), 4) * 5 + 308;
+  const gd = div(mod(i, 153), 5) + 1;
+  const gm = mod(div(i, 153), 12) + 1;
+  return {
+    gy: div(j, 1461) - 100100 + div(8 - gm, 6),
+    gm,
+    gd
+  };
+}
+function jalCalCore(jy) {
+  if (!Number.isFinite(jy) || jy < MIN_JALAALI_YEAR || jy > MAX_JALAALI_YEAR) throw new RangeError(`Invalid Jalaali year ${jy}: must be a finite number between ${MIN_JALAALI_YEAR} and ${MAX_JALAALI_YEAR} (inclusive)`);
+  const gy = jy + 621;
+  let leapJ = -14;
+  let jp = BREAKS[0];
+  let jm = 0;
+  let jump = 0;
+  for (let i = 1; i < BREAKS.length; i += 1) {
+    jm = BREAKS[i];
+    jump = jm - jp;
+    if (jy < jm) break;
+    leapJ = leapJ + div(jump, 33) * 8 + div(mod(jump, 33), 4);
+    jp = jm;
+  }
+  const n = jy - jp;
+  leapJ = leapJ + div(n, 33) * 8 + div(mod(n, 33) + 3, 4);
+  if (mod(jump, 33) === 4 && jump - n === 4) leapJ += 1;
+  const leapG = div(gy, 4) - div((div(gy, 100) + 1) * 3, 4) - 150;
+  return {
+    gy,
+    march: 20 + leapJ - leapG,
+    jump,
+    n
+  };
+}
+function leapFromCycle(jump, n) {
+  let adjusted = n;
+  if (jump - n < 6) adjusted = n - jump + div(jump + 4, 33) * 33;
+  let leap = mod(mod(adjusted + 1, 33) - 1, 4);
+  if (leap === -1) leap = 4;
+  return leap;
+}
+function jalCalLeap(jy) {
+  if (!Number.isFinite(jy) || jy < MIN_JALAALI_YEAR || jy > MAX_JALAALI_YEAR) throw new RangeError(`Invalid Jalaali year ${jy}: must be a finite number between ${MIN_JALAALI_YEAR} and ${MAX_JALAALI_YEAR} (inclusive)`);
+  let jp = BREAKS[0];
+  let jm = 0;
+  let jump = 0;
+  for (let i = 1; i < BREAKS.length; i += 1) {
+    jm = BREAKS[i];
+    jump = jm - jp;
+    if (jy < jm) break;
+    jp = jm;
+  }
+  return leapFromCycle(jump, jy - jp);
+}
+function div(a, b) {
+  return ~~(a / b);
+}
+function mod(a, b) {
+  return a - ~~(a / b) * b;
+}
+
+// src/obsidian/components/jalali-date-picker.ts
+var JALALI_MONTHS = ["\u0641\u0631\u0648\u0631\u062F\u06CC\u0646", "\u0627\u0631\u062F\u06CC\u0628\u0647\u0634\u062A", "\u062E\u0631\u062F\u0627\u062F", "\u062A\u06CC\u0631", "\u0645\u0631\u062F\u0627\u062F", "\u0634\u0647\u0631\u06CC\u0648\u0631", "\u0645\u0647\u0631", "\u0622\u0628\u0627\u0646", "\u0622\u0630\u0631", "\u062F\u06CC", "\u0628\u0647\u0645\u0646", "\u0627\u0633\u0641\u0646\u062F"];
+var JALALI_WEEKDAYS = ["\u0634", "\u06CC", "\u062F", "\u0633", "\u0686", "\u067E", "\u062C"];
+var toEnDigits = (s) => s.replace(/[۰-۹]/g, (d) => String("\u06F0\u06F1\u06F2\u06F3\u06F4\u06F5\u06F6\u06F7\u06F8\u06F9".indexOf(d))).replace(/[٠-٩]/g, (d) => String("\u0660\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669".indexOf(d)));
+var pad2 = (n) => String(n).padStart(2, "0");
+var isIsoDate = (x) => /^\d{4}-\d{2}-\d{2}$/.test(x);
+var toIso = (g) => `${g.gy}-${pad2(g.gm)}-${pad2(g.gd)}`;
+var parseJalali = (str) => {
+  if (!str) return null;
+  const clean = toEnDigits(str).trim();
+  const m = clean.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (!m) return null;
+  const jy = parseInt(m[1], 10), jm = parseInt(m[2], 10), jd = parseInt(m[3], 10);
+  if (jy < 1300 || jy > 1500) return null;
+  if (jm < 1 || jm > 12) return null;
+  const maxDays = jalaaliMonthLength(jy, jm);
+  if (jd < 1 || jd > maxDays) return null;
+  const g = toGregorian(jy, jm, jd);
+  return { jy, jm, jd, iso: toIso(g) };
+};
+var isoToJalali = (iso) => {
+  if (!isIsoDate(iso)) return null;
+  const [gy, gm, gd] = iso.split("-").map(Number);
+  const j = toJalaali(gy, gm, gd);
+  return {
+    jy: j.jy,
+    jm: j.jm,
+    jd: j.jd,
+    str: `${j.jy}/${pad2(j.jm)}/${pad2(j.jd)}`,
+    full: `${j.jd} ${JALALI_MONTHS[j.jm - 1]} ${j.jy}`
+  };
+};
+var getTodayJalali = () => {
+  const now = /* @__PURE__ */ new Date();
+  return toJalaali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+};
+var JalaliDatePicker = class {
+  constructor(parent, labelText, initialIso, onChange, options) {
+    this.onChange = onChange;
+    this.container = parent.createDiv({ cls: "ticktick-jalali-date-wrap" });
+    if (labelText) {
+      this.container.createEl("label", { text: labelText, cls: "ticktick-form-label" });
+    }
+    const row = this.container.createDiv({ cls: "ticktick-jalali-input-row" });
+    this.inputEl = row.createEl("input", {
+      type: "text",
+      cls: "ticktick-input ticktick-jalali-input",
+      placeholder: "\u0645\u062B\u0627\u0644: \u06F1\u06F4\u06F0\u06F5/\u06F0\u06F1/\u06F0\u06F1"
+    });
+    this.calBtn = row.createEl("button", {
+      type: "button",
+      cls: "ticktick-jalali-cal-btn",
+      text: "\u{1F4C5}"
+    });
+    this.calBtn.setAttribute("title", "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u062A\u0642\u0648\u06CC\u0645 \u0634\u0645\u0633\u06CC");
+    this.helperEl = this.container.createDiv({ cls: "ticktick-jalali-helper-text" });
+    this.cardEl = this.container.createDiv({ cls: "ticktick-jalali-calendar-card is-hidden" });
+    const todayJ = getTodayJalali();
+    this.viewYear = options?.defaultYear || todayJ.jy;
+    this.viewMonth = todayJ.jm;
+    this.setValue(initialIso);
+    this.inputEl.addEventListener("input", () => this.handleInput());
+    this.inputEl.addEventListener("blur", () => this.handleBlur());
+    this.calBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggleCalendar();
+    });
+    document.addEventListener("pointerdown", (e) => {
+      if (this.isOpen && !this.container.contains(e.target)) {
+        this.closeCalendar();
+      }
+    });
+  }
+  container;
+  inputEl;
+  calBtn;
+  helperEl;
+  cardEl;
+  currentIso = "";
+  viewYear;
+  viewMonth;
+  isOpen = false;
+  setValue(iso) {
+    this.currentIso = iso ? iso.slice(0, 10) : "";
+    const j = isoToJalali(this.currentIso);
+    if (j) {
+      this.inputEl.value = j.str;
+      this.helperEl.setText(`${j.full} (\u0645\u0639\u0627\u062F\u0644 \u0645\u06CC\u0644\u0627\u062F\u06CC: ${this.currentIso})`);
+      this.viewYear = j.jy;
+      this.viewMonth = j.jm;
+    } else {
+      this.inputEl.value = "";
+      this.helperEl.setText("\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E \u0633\u0631\u0631\u0633\u06CC\u062F");
+    }
+    if (this.isOpen) this.renderCalendar();
+  }
+  handleInput() {
+    const val = this.inputEl.value.trim();
+    if (!val) {
+      this.currentIso = "";
+      this.helperEl.setText("\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E \u0633\u0631\u0631\u0633\u06CC\u062F");
+      this.onChange("");
+      return;
+    }
+    const parsed = parseJalali(val);
+    if (parsed) {
+      this.currentIso = parsed.iso;
+      this.viewYear = parsed.jy;
+      this.viewMonth = parsed.jm;
+      this.helperEl.setText(`${parsed.jd} ${JALALI_MONTHS[parsed.jm - 1]} ${parsed.jy} (\u0645\u0639\u0627\u062F\u0644 \u0645\u06CC\u0644\u0627\u062F\u06CC: ${parsed.iso})`);
+      this.onChange(parsed.iso);
+      if (this.isOpen) this.renderCalendar();
+    } else {
+      this.helperEl.setText("\u0641\u0631\u0645\u062A \u062A\u0627\u0631\u06CC\u062E \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A (\u0645\u062B\u0627\u0644: \u06F1\u06F4\u06F0\u06F5/\u06F0\u06F7/\u06F2\u06F7)");
+    }
+  }
+  handleBlur() {
+    const j = isoToJalali(this.currentIso);
+    if (j) {
+      this.inputEl.value = j.str;
+    }
+  }
+  toggleCalendar() {
+    if (this.isOpen) {
+      this.closeCalendar();
+    } else {
+      document.querySelectorAll(".ticktick-jalali-calendar-card").forEach((el) => {
+        if (el !== this.cardEl) el.addClass("is-hidden");
+      });
+      this.openCalendar();
+    }
+  }
+  openCalendar() {
+    this.isOpen = true;
+    this.cardEl.removeClass("is-hidden");
+    this.renderCalendar();
+  }
+  closeCalendar() {
+    this.isOpen = false;
+    this.cardEl.addClass("is-hidden");
+  }
+  renderCalendar() {
+    this.cardEl.empty();
+    const header = this.cardEl.createDiv({ cls: "ticktick-jalali-cal-header" });
+    const prevBtn = header.createEl("button", { type: "button", text: "\u2039", cls: "ticktick-jalali-nav-btn", title: "\u0645\u0627\u0647 \u0642\u0628\u0644" });
+    prevBtn.onclick = (e) => {
+      e.preventDefault();
+      if (this.viewMonth === 1) {
+        this.viewMonth = 12;
+        this.viewYear--;
+      } else {
+        this.viewMonth--;
+      }
+      this.renderCalendar();
+    };
+    const controls = header.createDiv({ cls: "ticktick-jalali-header-selects" });
+    const monthSelect = controls.createEl("select", { cls: "ticktick-select ticktick-jalali-select" });
+    JALALI_MONTHS.forEach((m, idx) => {
+      const opt = monthSelect.createEl("option", { text: m, value: String(idx + 1) });
+      if (idx + 1 === this.viewMonth) opt.selected = true;
+    });
+    monthSelect.onchange = () => {
+      this.viewMonth = parseInt(monthSelect.value, 10);
+      this.renderCalendar();
+    };
+    const yearSelect = controls.createEl("select", { cls: "ticktick-select ticktick-jalali-select" });
+    for (let y = this.viewYear - 5; y <= this.viewYear + 5; y++) {
+      const opt = yearSelect.createEl("option", { text: String(y), value: String(y) });
+      if (y === this.viewYear) opt.selected = true;
+    }
+    yearSelect.onchange = () => {
+      this.viewYear = parseInt(yearSelect.value, 10);
+      this.renderCalendar();
+    };
+    const nextBtn = header.createEl("button", { type: "button", text: "\u203A", cls: "ticktick-jalali-nav-btn", title: "\u0645\u0627\u0647 \u0628\u0639\u062F" });
+    nextBtn.onclick = (e) => {
+      e.preventDefault();
+      if (this.viewMonth === 12) {
+        this.viewMonth = 1;
+        this.viewYear++;
+      } else {
+        this.viewMonth++;
+      }
+      this.renderCalendar();
+    };
+    const weekdaysRow = this.cardEl.createDiv({ cls: "ticktick-jalali-weekdays" });
+    JALALI_WEEKDAYS.forEach((w) => weekdaysRow.createSpan({ text: w }));
+    const grid = this.cardEl.createDiv({ cls: "ticktick-jalali-days-grid" });
+    const { gy, gm, gd } = toGregorian(this.viewYear, this.viewMonth, 1);
+    const gDate = new Date(Date.UTC(gy, gm - 1, gd, 12, 0, 0));
+    const startWeekday = (gDate.getUTCDay() + 1) % 7;
+    for (let i = 0; i < startWeekday; i++) {
+      grid.createDiv({ cls: "ticktick-jalali-day-cell is-empty" });
+    }
+    const monthLength = jalaaliMonthLength(this.viewYear, this.viewMonth);
+    const selectedJ = isoToJalali(this.currentIso);
+    const todayJ = getTodayJalali();
+    for (let d = 1; d <= monthLength; d++) {
+      const isSelected = selectedJ && selectedJ.jy === this.viewYear && selectedJ.jm === this.viewMonth && selectedJ.jd === d;
+      const isToday = todayJ.jy === this.viewYear && todayJ.jm === this.viewMonth && todayJ.jd === d;
+      const cell = grid.createEl("button", {
+        type: "button",
+        text: String(d),
+        cls: `ticktick-jalali-day-cell${isSelected ? " is-selected" : ""}${isToday ? " is-today" : ""}`
+      });
+      cell.onclick = (e) => {
+        e.preventDefault();
+        const g = toGregorian(this.viewYear, this.viewMonth, d);
+        const iso = toIso(g);
+        this.setValue(iso);
+        this.onChange(iso);
+        this.closeCalendar();
+      };
+    }
+    const footer = this.cardEl.createDiv({ cls: "ticktick-jalali-cal-footer" });
+    const todayBtn = footer.createEl("button", { type: "button", text: "\u0627\u0645\u0631\u0648\u0632", cls: "ticktick-jalali-btn-sm" });
+    todayBtn.onclick = (e) => {
+      e.preventDefault();
+      const t = getTodayJalali();
+      const g = toGregorian(t.jy, t.jm, t.jd);
+      const iso = toIso(g);
+      this.setValue(iso);
+      this.onChange(iso);
+      this.closeCalendar();
+    };
+    const tomorrowBtn = footer.createEl("button", { type: "button", text: "\u0641\u0631\u062F\u0627", cls: "ticktick-jalali-btn-sm" });
+    tomorrowBtn.onclick = (e) => {
+      e.preventDefault();
+      const now = /* @__PURE__ */ new Date();
+      now.setDate(now.getDate() + 1);
+      const tj = toJalaali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+      const g = toGregorian(tj.jy, tj.jm, tj.jd);
+      const iso = toIso(g);
+      this.setValue(iso);
+      this.onChange(iso);
+      this.closeCalendar();
+    };
+    const clearBtn = footer.createEl("button", { type: "button", text: "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", cls: "ticktick-jalali-btn-sm" });
+    clearBtn.onclick = (e) => {
+      e.preventDefault();
+      this.setValue("");
+      this.onChange("");
+      this.closeCalendar();
+    };
+    const closeBtn = footer.createEl("button", { type: "button", text: "\u0628\u0633\u062A\u0646", cls: "ticktick-jalali-btn-sm mod-muted" });
+    closeBtn.onclick = (e) => {
+      e.preventDefault();
+      this.closeCalendar();
+    };
+  }
+};
+
+// src/obsidian/modals/bulk-input-modal.ts
 var BulkTagModal = class extends import_obsidian7.Modal {
   constructor(app, count) {
     super(app);
@@ -2674,12 +3083,9 @@ var BulkDateModal = class extends import_obsidian7.Modal {
     this.modalEl.addClass("ticktick-bulk-input-modal");
     this.modalEl.style.direction = "rtl";
     this.titleEl.setText(`\u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC ${this.count} \u062A\u0633\u06A9`);
+    let targetDay = this.defaultDay;
     const dateWrapper = this.contentEl.createDiv({ cls: "ticktick-bulk-input-wrapper" });
-    dateWrapper.createEl("label", { text: "\u062A\u0627\u0631\u06CC\u062E \u0633\u0631\u0631\u0633\u06CC\u062F (YYYY-MM-DD):" });
-    const dateInput = dateWrapper.createEl("input", {
-      type: "date",
-      value: this.defaultDay
-    });
+    new JalaliDatePicker(dateWrapper, "\u062A\u0627\u0631\u06CC\u062E \u0633\u0631\u0631\u0633\u06CC\u062F (\u0634\u0645\u0633\u06CC):", this.defaultDay, (val) => targetDay = val);
     const timeWrapper = this.contentEl.createDiv({ cls: "ticktick-bulk-input-wrapper" });
     timeWrapper.createEl("label", { text: "\u0633\u0627\u0639\u062A (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC):" });
     const timeInput = timeWrapper.createEl("input", {
@@ -2693,11 +3099,9 @@ var BulkDateModal = class extends import_obsidian7.Modal {
       cls: "mod-cta"
     });
     applyBtn.addEventListener("click", () => {
-      const targetDay = dateInput.value.trim();
       if (!targetDay) return;
       this.finish({ targetDay, time: timeInput.value.trim() || void 0 });
     });
-    setTimeout(() => dateInput.focus(), 50);
   }
   onClose() {
     this.contentEl.empty();
@@ -7302,11 +7706,8 @@ var TaskEditorModal = class extends import_obsidian17.Modal {
         menu.showAtMouseEvent(event);
       });
     });
-    new import_obsidian17.Setting(fields2).setName("\u{1F4C5} \u062A\u0627\u0631\u06CC\u062E").setDesc("\u0628\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u062A\u0627\u0631\u06CC\u062E\u060C \u062A\u0642\u0648\u06CC\u0645 \u0633\u06CC\u0633\u062A\u0645 \u0628\u0627\u0632 \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((input) => {
-      input.inputEl.type = "date";
-      input.setValue(dueDate).onChange((value) => dueDate = value);
-      input.inputEl.dir = "ltr";
-    });
+    const dateSetting = new import_obsidian17.Setting(fields2).setName("\u{1F4C5} \u062A\u0627\u0631\u06CC\u062E \u0633\u0631\u0631\u0633\u06CC\u062F (\u0634\u0645\u0633\u06CC)").setDesc("\u0627\u0646\u062A\u062E\u0627\u0628 \u062A\u0627\u0631\u06CC\u062E \u0627\u0632 \u062A\u0642\u0648\u06CC\u0645 \u0634\u0645\u0633\u06CC \u06CC\u0627 \u062A\u0627\u06CC\u067E \u062F\u0633\u062A\u06CC.");
+    new JalaliDatePicker(dateSetting.controlEl, "", dueDate, (value) => dueDate = value);
     new import_obsidian17.Setting(fields2).setName("\u23F0 \u06CC\u0627\u062F\u0622\u0648\u0631\u06CC").setDesc("\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC\u061B \u062F\u0631 \u0633\u0627\u0639\u062A \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u062F\u0631 \u0647\u0645\u0627\u0646 \u0631\u0648\u0632 \u06CC\u0627\u062F\u0622\u0648\u0631\u06CC \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((input) => {
       input.inputEl.type = "time";
       input.setValue(reminderTime).onChange((value) => reminderTime = value);

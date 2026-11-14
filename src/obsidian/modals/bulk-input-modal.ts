@@ -1,4 +1,5 @@
 import { App, Modal } from "obsidian";
+import { JalaliDatePicker } from "../components/jalali-date-picker";
 
 export class BulkTagModal extends Modal {
   private resolveResult!: (value: { tag: string; action: "add" | "remove" } | null) => void;
@@ -99,12 +100,9 @@ export class BulkDateModal extends Modal {
 
     this.titleEl.setText(`زمان‌بندی ${this.count} تسک`);
 
+    let targetDay = this.defaultDay;
     const dateWrapper = this.contentEl.createDiv({ cls: "ticktick-bulk-input-wrapper" });
-    dateWrapper.createEl("label", { text: "تاریخ سررسید (YYYY-MM-DD):" });
-    const dateInput = dateWrapper.createEl("input", {
-      type: "date",
-      value: this.defaultDay
-    });
+    new JalaliDatePicker(dateWrapper, "تاریخ سررسید (شمسی):", this.defaultDay, val => targetDay = val);
 
     const timeWrapper = this.contentEl.createDiv({ cls: "ticktick-bulk-input-wrapper" });
     timeWrapper.createEl("label", { text: "ساعت (اختیاری):" });
@@ -122,12 +120,9 @@ export class BulkDateModal extends Modal {
       cls: "mod-cta"
     });
     applyBtn.addEventListener("click", () => {
-      const targetDay = dateInput.value.trim();
       if (!targetDay) return;
       this.finish({ targetDay, time: timeInput.value.trim() || undefined });
     });
-
-    setTimeout(() => dateInput.focus(), 50);
   }
 
   onClose() {

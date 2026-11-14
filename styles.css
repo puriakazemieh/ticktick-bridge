@@ -9651,4 +9651,201 @@
   }
 }
 
+/* src/styles/jalali-date-picker.css */
+.ticktick-jalali-date-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+.ticktick-form-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-normal);
+  margin-bottom: 0.25rem;
+}
+.ticktick-jalali-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+}
+.ticktick-jalali-input {
+  direction: ltr !important;
+  text-align: right !important;
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  background: var(--background-modifier-form-field);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m, 8px);
+  padding: 0.4rem 0.65rem;
+  color: var(--text-normal);
+  min-height: 2.3rem;
+}
+.ticktick-jalali-input:focus {
+  border-color: var(--interactive-accent);
+  outline: none;
+}
+.ticktick-jalali-cal-btn {
+  background: var(--background-modifier-form-field);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m, 8px);
+  padding: 0.35rem 0.65rem;
+  font-size: 1.05rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  min-height: 2.3rem;
+}
+.ticktick-jalali-cal-btn:hover {
+  background: var(--background-modifier-hover);
+  border-color: var(--interactive-accent);
+}
+.ticktick-jalali-helper-text {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  min-height: 1.1rem;
+  line-height: 1.2;
+  padding-right: 0.25rem;
+}
+.ticktick-jalali-calendar-card {
+  background: color-mix(in srgb, var(--background-secondary) 90%, var(--background-primary));
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m, 8px);
+  padding: 0.75rem;
+  direction: rtl;
+  user-select: none;
+  animation: ticktickFadeIn 0.2s ease-out;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  margin-top: 0.35rem;
+}
+.ticktick-jalali-calendar-card.is-hidden {
+  display: none !important;
+}
+.ticktick-jalali-cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+.ticktick-jalali-nav-btn {
+  background: var(--background-primary) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  border-radius: 6px !important;
+  padding: 0.2rem 0.55rem !important;
+  cursor: pointer;
+  font-size: 1rem !important;
+  line-height: 1 !important;
+  font-weight: bold;
+}
+.ticktick-jalali-nav-btn:hover {
+  background: var(--background-modifier-hover) !important;
+  border-color: var(--interactive-accent) !important;
+}
+.ticktick-jalali-header-selects {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.ticktick-jalali-select {
+  background: var(--background-primary) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  border-radius: 6px !important;
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.8rem !important;
+  color: var(--text-normal) !important;
+  cursor: pointer;
+}
+.ticktick-jalali-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 50%, transparent);
+}
+.ticktick-jalali-weekdays span {
+  padding: 0.15rem 0;
+}
+.ticktick-jalali-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.ticktick-jalali-day-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-normal);
+  transition: all 0.15s ease;
+  padding: 0;
+  margin: 0;
+  min-height: 28px;
+}
+.ticktick-jalali-day-cell:hover:not(.is-empty) {
+  background: var(--background-modifier-hover);
+  color: var(--text-accent);
+}
+.ticktick-jalali-day-cell.is-selected {
+  background: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  font-weight: bold;
+}
+.ticktick-jalali-day-cell.is-today {
+  border: 1px solid var(--interactive-accent);
+  font-weight: 700;
+}
+.ticktick-jalali-day-cell.is-empty {
+  cursor: default;
+  background: transparent !important;
+}
+.ticktick-jalali-cal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  margin-top: 0.65rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+}
+.ticktick-jalali-btn-sm {
+  font-size: 0.74rem !important;
+  padding: 0.2rem 0.5rem !important;
+  border-radius: 5px !important;
+  background: var(--background-primary) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  color: var(--text-muted) !important;
+  cursor: pointer;
+}
+.ticktick-jalali-btn-sm:hover {
+  background: var(--background-modifier-hover) !important;
+  color: var(--text-normal) !important;
+  border-color: var(--interactive-accent) !important;
+}
+.ticktick-jalali-btn-sm.mod-muted {
+  opacity: 0.75;
+}
+@keyframes ticktickFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* src/styles/main.css */

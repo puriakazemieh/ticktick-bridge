@@ -1,6 +1,6 @@
 {
   "name": "@puria/ticktick-bridge",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "type": "module",
   "main": "main.js",
@@ -14,9 +14,13 @@
     "preview:projects": "node scripts/preview-project-sync.mjs"
   },
   "devDependencies": {
+    "@types/jalaali-js": "^1.2.0",
     "@types/node": "^24.0.0",
     "esbuild": "^0.25.0",
     "obsidian": "latest",
     "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "jalaali-js": "^2.0.1"
   }
 }
