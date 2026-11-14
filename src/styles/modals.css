@@ -199,6 +199,293 @@
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-red, #ef4444) 40%, transparent) !important;
 }
 
+/* ─── Tags Selector & Creator (Task Editor) ─── */
+.ticktick-editor-tags-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.ticktick-selected-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.8rem;
+  padding: 0.2rem 0;
+}
+
+.ticktick-no-tags-hint {
+  color: var(--text-faint);
+  font-size: 0.75rem;
+  font-style: italic;
+  padding: 0.15rem 0.25rem;
+}
+
+.ticktick-selected-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: var(--tb-radius-pill, 9999px);
+  background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-secondary));
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 45%, transparent);
+  color: var(--interactive-accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.3;
+  transition: all 120ms ease;
+  user-select: none;
+}
+
+.ticktick-selected-tag-chip:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 26%, var(--background-secondary));
+  border-color: var(--interactive-accent);
+}
+
+.ticktick-tag-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+  color: color-mix(in srgb, var(--interactive-accent) 70%, var(--text-normal));
+  cursor: pointer;
+  transition: all 120ms ease;
+  margin-inline-start: 2px;
+}
+
+.ticktick-tag-remove-btn:hover {
+  background: color-mix(in srgb, var(--text-error) 20%, transparent);
+  color: var(--text-error);
+  transform: scale(1.15);
+}
+
+.ticktick-add-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.ticktick-tag-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 32px;
+  font-size: 0.8rem !important;
+  padding: 0 0.65rem !important;
+  border-radius: var(--tb-radius-m, 8px) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  background: var(--background-primary) !important;
+  color: var(--text-normal) !important;
+  transition: border-color 140ms ease, box-shadow 140ms ease !important;
+}
+
+.ticktick-tag-input:focus {
+  border-color: var(--interactive-accent) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 25%, transparent) !important;
+}
+
+.ticktick-tag-add-btn {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 0.85rem !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  border-radius: var(--tb-radius-m, 8px) !important;
+  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)) !important;
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 35%, transparent) !important;
+  color: var(--interactive-accent) !important;
+  cursor: pointer;
+  transition: all 140ms ease !important;
+}
+
+.ticktick-tag-add-btn:hover {
+  background: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  border-color: var(--interactive-accent) !important;
+  transform: translateY(-0.5px);
+}
+
+.ticktick-available-tags-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-top: 0.2rem;
+}
+
+.ticktick-available-tags-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  letter-spacing: 0.02em;
+}
+
+.ticktick-available-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-height: 5.5rem;
+  overflow-y: auto;
+  padding: 0.15rem 0.1rem;
+}
+
+.ticktick-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem !important;
+  padding: 0.2rem 0.55rem !important;
+  border-radius: var(--tb-radius-pill, 9999px) !important;
+  background: var(--background-secondary) !important;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent) !important;
+  color: var(--text-muted) !important;
+  cursor: pointer;
+  transition: all 130ms ease !important;
+  user-select: none;
+}
+
+.ticktick-tag-pill:hover {
+  background: var(--background-modifier-hover) !important;
+  color: var(--text-normal) !important;
+  border-color: color-mix(in srgb, var(--interactive-accent) 35%, transparent) !important;
+  transform: translateY(-0.5px);
+}
+
+.ticktick-tag-pill.is-selected {
+  background: color-mix(in srgb, var(--interactive-accent) 22%, var(--background-secondary)) !important;
+  border-color: var(--interactive-accent) !important;
+  color: var(--interactive-accent) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--interactive-accent) 20%, transparent) !important;
+}
+
+/* ─── Parent Task Selector & Subtask Section ─── */
+.ticktick-parent-task-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ticktick-parent-task-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-secondary));
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 35%, transparent);
+  color: var(--text-normal);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.ticktick-parent-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem !important;
+  padding: 0.35rem 0.65rem !important;
+  border-radius: 0.4rem !important;
+  background: var(--background-secondary) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.ticktick-parent-action-btn:hover {
+  background: var(--background-modifier-hover) !important;
+  border-color: color-mix(in srgb, var(--interactive-accent) 40%, var(--background-modifier-border)) !important;
+}
+
+.ticktick-parent-action-btn.mod-warning {
+  color: var(--text-error) !important;
+  border-color: color-mix(in srgb, var(--text-error) 40%, transparent) !important;
+}
+
+.ticktick-parent-action-btn.mod-warning:hover {
+  background: color-mix(in srgb, var(--text-error) 15%, transparent) !important;
+}
+
+.ticktick-editor-subtasks-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+}
+
+.ticktick-editor-subtasks-header {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.ticktick-editor-subtasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 0.2rem 0;
+}
+
+.ticktick-editor-subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: var(--text-normal);
+  padding: 0.25rem 0.4rem;
+  background: color-mix(in srgb, var(--background-secondary) 60%, transparent);
+  border-radius: 0.35rem;
+}
+
+.ticktick-subtask-check-icon {
+  color: var(--text-muted);
+}
+
+.ticktick-add-subtask-row {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.ticktick-subtask-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.82rem !important;
+  padding: 0.35rem 0.6rem !important;
+  border-radius: 0.4rem !important;
+}
+
+.ticktick-subtask-add-btn {
+  font-size: 0.8rem !important;
+  padding: 0.35rem 0.65rem !important;
+  border-radius: 0.4rem !important;
+  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)) !important;
+  color: var(--interactive-accent) !important;
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 35%, transparent) !important;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ticktick-subtask-add-btn:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 25%, var(--background-secondary)) !important;
+}
+
+.ticktick-tag-pill .ticktick-pill-icon svg {
+  width: 10px;
+  height: 10px;
+  display: block;
+}
+
 /* Dedicated Description Section (Full-width, Markdown Preview & Edit) */
 .ticktick-desc-section {
   display: flex;

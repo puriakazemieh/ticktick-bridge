@@ -119,6 +119,7 @@
   gap: 0.35rem;
   overflow-y: auto;
   flex: 1 1 auto;
+  min-height: 0;
 }
 
 .ticktick-toolbar-btn.is-active {
@@ -312,6 +313,95 @@
   min-width: 0;
 }
 
+.ticktick-project-header-lead {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.ticktick-header-separator {
+  width: 1px;
+  height: 1.35rem;
+  background: color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  margin: 0 0.15rem;
+  flex-shrink: 0;
+}
+
+.ticktick-lists-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 2.15rem;
+  padding: 0 0.75rem 0 0.65rem;
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--background-primary) 70%, var(--background-secondary)) !important;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 80%, transparent) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  color: var(--text-normal);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.ticktick-lists-toggle-btn:hover {
+  background: var(--background-modifier-hover) !important;
+  border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--background-modifier-border)) !important;
+  color: var(--text-normal);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+}
+
+.ticktick-lists-toggle-btn:active {
+  transform: translateY(0);
+}
+
+.ticktick-lists-toggle-btn.is-active {
+  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)) !important;
+  color: var(--text-accent);
+  border-color: color-mix(in srgb, var(--interactive-accent) 50%, transparent) !important;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--interactive-accent) 18%, transparent) !important;
+}
+
+.ticktick-lists-toggle-btn .ticktick-btn-icon svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--text-muted);
+  display: block;
+  transition: color 150ms ease;
+}
+
+.ticktick-lists-toggle-btn.is-active .ticktick-btn-icon svg {
+  color: var(--interactive-accent);
+}
+
+.ticktick-lists-btn-label {
+  letter-spacing: -0.01em;
+}
+
+.ticktick-lists-toggle-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.06rem 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-primary));
+  color: var(--interactive-accent);
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+  line-height: 1.25;
+  transition: all 150ms ease;
+}
+
+.ticktick-lists-toggle-btn.is-active .ticktick-lists-toggle-badge {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
 .ticktick-project-header-info {
   display: flex;
   align-items: center;
@@ -436,7 +526,11 @@
 }
 
 .ticktick-project-column {
-  flex: 0 0 min(19.5rem, calc(100% - 1.5rem));
+  width: 20rem;
+  min-width: 20rem;
+  max-width: 20rem;
+  flex: 0 0 20rem;
+  box-sizing: border-box;
   min-height: 18rem;
   padding: 0.95rem;
   border-radius: var(--tb-radius-xl, 16px);
@@ -520,6 +614,10 @@
   flex-direction: column;
   gap: 0.5rem;
   min-height: 4rem;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .ticktick-column-empty-card {
@@ -572,6 +670,12 @@
   border-inline-start: 4px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
   box-shadow: var(--tb-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08)) !important;
   cursor: pointer;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   transition:
     transform 160ms cubic-bezier(.22,1,.36,1),
     background 160ms ease,
@@ -732,6 +836,8 @@
   .ticktick-project-column {
     flex: 0 0 calc(100% - 1.25rem) !important;
     min-width: calc(100% - 1.25rem) !important;
+    max-width: calc(100% - 1.25rem) !important;
+    width: calc(100% - 1.25rem) !important;
   }
   .ticktick-project-header {
     flex-direction: column;
@@ -775,6 +881,8 @@
   .ticktick-project-column {
     flex: 0 0 calc(100% - 1.25rem) !important;
     min-width: calc(100% - 1.25rem) !important;
+    max-width: calc(100% - 1.25rem) !important;
+    width: calc(100% - 1.25rem) !important;
   }
   .ticktick-project-header {
     flex-direction: column;

@@ -268,12 +268,14 @@ export function toTaskPayload(draft: TaskDraft, timeZone: string) {
     desc: String(task.desc || task.content || "").trim(),
     content: "",
     projectId: task.projectId,
+    parentId: draft.parentId !== undefined ? (draft.parentId || null) : (task.parentId ?? null),
     dueDate: day ? `${day}T00:00:00+0330` : null,
     startDate: task.startDate ?? null,
     timeZone,
     isAllDay: true,
     reminders: reminderTime ? [reminderTrigger(reminderTime)] : [],
     repeatFlag: String(task.repeatFlag ?? "").trim() || null,
+    tags: Array.isArray(task.tags) ? task.tags : (task.tags ? [String(task.tags)] : undefined)
   };
 }
 

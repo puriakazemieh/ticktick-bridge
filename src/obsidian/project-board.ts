@@ -14,6 +14,7 @@ import { bulkSelectionStore } from "./selection-store";
 import { BulkActionBar } from "./bulk-action-bar";
 import { matchesTaskFilter } from "../core/task-filter.js";
 import { formatTaskEstimate } from "../core/task-hierarchy.js";
+import { cleanTaskTitle } from "./helpers";
 import { renderTaskCard } from "./components/task-card-element";
 import type { TickTickTask, TickTickProject, TickTickHabit, CachedHabitCheckin, ProjectBoardData, HabitHistoryEntry, SavedView, TaskFilterState } from "./types";
 
@@ -37,6 +38,7 @@ export type ProjectBoardHost = {
   updateProject: (project: Partial<TickTickProject>) => Promise<unknown>;
   deleteProject: (projectId: string) => Promise<unknown>;
   createTask: (initial: Partial<TickTickTask>) => Promise<unknown>;
+  updateTask?: (mutation: Partial<TickTickTask>) => Promise<unknown>;
   tasks: () => TickTickTask[];
   habits: () => TickTickHabit[];
   checkInHabit: (habit: TickTickHabit, day: string) => Promise<unknown>;
@@ -70,6 +72,7 @@ export class ProjectBoard {
   private savedColumnsScrollLeft = 0;
   private savedBodyScrollTop = 0;
   private savedColumnScrolls = new Map<string, number>();
+  private savedRailScrollTop = 0;
   private filterState: TaskFilterState = {
     projects: [],
     tags: [],
@@ -129,6 +132,11 @@ export class ProjectBoard {
       }
     });
 
+    const existingRailContent = this.element.querySelector<HTMLElement>(".ticktick-rail-content");
+    if (existingRailContent) {
+      this.savedRailScrollTop = existingRailContent.scrollTop;
+    }
+
     this.element.empty();
     this.element.addClass("ticktick-project-board");
     const root = this.element.createDiv({ cls: "ticktick-project-board-root" });
@@ -170,7 +178,32 @@ export class ProjectBoard {
 
       // Project Header Bar
       const projectHeader = main.createDiv({ cls: "ticktick-project-header" });
-      const headerInfo = projectHeader.createDiv({ cls: "ticktick-project-header-info" });
+
+      // Leading Section: Navigation & Current Project Context
+      const headerLead = projectHeader.createDiv({ cls: "ticktick-project-header-lead" });
+
+      // Toggle Lists Sidebar Button (UI/UX Pro Max navigation anchor)
+      const listsBtn = headerLead.createEl("button", {
+        cls: `ticktick-lists-toggle-btn ${!this.sidebarCollapsed ? "is-active" : ""}`,
+        attr: {
+          type: "button",
+          "aria-expanded": String(!this.sidebarCollapsed),
+          "aria-label": !this.sidebarCollapsed ? "بستن منوی کناری لیست‌ها" : "مشاهده و باز کردن منوی کناری لیست‌ها",
+          title: !this.sidebarCollapsed ? "بستن منوی کناری لیست‌ها" : "مشاهده و انتخاب لیست‌ها"
+        }
+      });
+      const lIcon = listsBtn.createSpan({ cls: "ticktick-btn-icon" });
+      setIcon(lIcon, "folders");
+      listsBtn.createSpan({ cls: "ticktick-lists-btn-label", text: "لیست‌ها" });
+      listsBtn.createSpan({ cls: "ticktick-lists-toggle-badge", text: String(projects.length) });
+      listsBtn.addEventListener("click", () => {
+        this.sidebarCollapsed = !this.sidebarCollapsed;
+        void this.persistAndRender();
+      });
+
+      headerLead.createDiv({ cls: "ticktick-header-separator" });
+
+      const headerInfo = headerLead.createDiv({ cls: "ticktick-project-header-info" });
       if (displayProject.color) {
         const pDot = headerInfo.createSpan({ cls: "ticktick-header-dot" });
         pDot.style.setProperty("--project-color", displayProject.color);
@@ -185,21 +218,8 @@ export class ProjectBoard {
         text: countLabel
       });
 
-      // Toolbar Controls
+      // Trailing Section: Project Action Controls
       const toolbar = projectHeader.createDiv({ cls: "ticktick-project-toolbar" });
-
-      // Toggle Lists Sidebar Button (aligned with Calendar backlog toggle)
-      const listsBtn = toolbar.createEl("button", {
-        cls: `ticktick-toolbar-btn ${!this.sidebarCollapsed ? "is-active" : ""}`,
-        attr: { type: "button", "aria-label": "تغییر وضعیت نمایش لیست‌ها", title: "نمایش یا مخفی‌سازی منوی کناری لیست‌ها" }
-      });
-      const lIcon = listsBtn.createSpan({ cls: "ticktick-btn-icon" });
-      setIcon(lIcon, "folders");
-      listsBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: `لیست‌ها (${projects.length})` });
-      listsBtn.addEventListener("click", () => {
-        this.sidebarCollapsed = !this.sidebarCollapsed;
-        void this.persistAndRender();
-      });
 
       // Grouping Menu Dropdown Pill (for smart views and virtual boards)
       if (displayProject.virtual) {
@@ -250,27 +270,6 @@ export class ProjectBoard {
         });
       }
 
-      // Refresh / Sync Button
-      const refreshBtn = toolbar.createEl("button", {
-        cls: "ticktick-toolbar-btn",
-        attr: { type: "button", "aria-label": "همگام‌سازی و به‌روزرسانی" }
-      });
-      const refreshIcon = refreshBtn.createSpan({ cls: "ticktick-btn-icon" });
-      setIcon(refreshIcon, "refresh-cw");
-      refreshBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "به‌روزرسانی" });
-      refreshBtn.addEventListener("click", async () => {
-        refreshBtn.disabled = true;
-        refreshIcon.addClass("is-syncing");
-        try {
-          await this.host.refresh();
-          await this.render();
-        } catch (error) {
-          new Notice(error instanceof Error ? error.message : "همگام‌سازی ناموفق بود.");
-        } finally {
-          refreshBtn.disabled = false;
-          refreshIcon.removeClass("is-syncing");
-        }
-      });
 
       // Edit Project Button
       if (project) {
@@ -434,6 +433,25 @@ export class ProjectBoard {
       this.headerBadgeEl.setText(isFiltered ? `${countLabel} (فیلتر شده)` : countLabel);
     }
 
+    const allKnownTasks = this.host.tasks();
+    const taskMap = new Map<string, TickTickTask>();
+    for (const t of allKnownTasks) {
+      if (t?.id) taskMap.set(String(t.id), t);
+    }
+    for (const t of data.tasks) {
+      if (t?.id) taskMap.set(String(t.id), t);
+    }
+
+    // Map parentId -> child subtasks
+    const childrenMap = new Map<string, TickTickTask[]>();
+    for (const t of data.tasks) {
+      if (t?.parentId) {
+        const pId = String(t.parentId);
+        if (!childrenMap.has(pId)) childrenMap.set(pId, []);
+        childrenMap.get(pId)!.push(t);
+      }
+    }
+
     for (const column of boardColumns(data, this.host.showCompleted())) {
       const shell = columns.createDiv({ cls: "ticktick-project-column" });
       shell.dataset.columnId = String(column.id);
@@ -491,8 +509,17 @@ export class ProjectBoard {
           return;
         }
         const id = event.dataTransfer?.getData("text/ticktick-board-task");
-        const task = data.tasks.find((item: TickTickTask) => String(item.id) === id);
-        if (!task || String(task.columnId ?? "") === String(column.id)) return;
+        const allTasks = this.currentRawData?.tasks ?? data.tasks;
+        const task = allTasks.find((item: TickTickTask) => String(item.id) === id);
+        if (!task) return;
+
+        // If the dragged task was a subtask, dropping it on a column unnests it into a top-level task
+        if (task.parentId) {
+          void this.unparentTask(task, String(column.id));
+          return;
+        }
+
+        if (String(task.columnId ?? "") === String(column.id)) return;
         const cardEl = this.element.querySelector<HTMLElement>(`[data-task-id="${task.id}"]`);
         const sourceCol = cardEl?.closest(".ticktick-project-column");
         const oldColumnId = task.columnId;
@@ -519,8 +546,13 @@ export class ProjectBoard {
           listWrap.createEl("h4", { cls: "ticktick-group-heading", text: group.name });
         }
         for (const task of sortPlanningTasks(group.tasks, this.sortMode)) {
+          // If this task is a subtask whose parent exists in the board, render it nested inside parent's card
+          if (task.parentId && taskMap.has(String(task.parentId))) {
+            continue;
+          }
           colTaskCount++;
-          this.card(listWrap, task, task.projectColor || displayProject?.color, Boolean(project));
+          const subtasks = childrenMap.get(String(task.id)) ?? [];
+          this.card(listWrap, task, task.projectColor || displayProject?.color, Boolean(project), subtasks);
         }
       }
 
@@ -587,39 +619,32 @@ export class ProjectBoard {
   private renderHabitBoard(main: HTMLElement, projects: TickTickProject[]) {
     const habits = this.host.habits();
     const header = main.createDiv({ cls: "ticktick-project-header" });
-    const info = header.createDiv({ cls: "ticktick-project-header-info" });
-    info.createEl("h2", { cls: "ticktick-project-title", text: "عادت‌ها" });
-    info.createSpan({ cls: "ticktick-project-badge", text: `${habits.length} عادت` });
 
-    const toolbar = header.createDiv({ cls: "ticktick-project-toolbar" });
-    const listsBtn = toolbar.createEl("button", {
-      cls: `ticktick-toolbar-btn ${!this.sidebarCollapsed ? "is-active" : ""}`,
-      attr: { type: "button", "aria-label": "تغییر وضعیت نمایش لیست‌ها", title: "نمایش یا مخفی‌سازی منوی کناری لیست‌ها" }
+    // Leading Section: Navigation & Habit Board Title
+    const headerLead = header.createDiv({ cls: "ticktick-project-header-lead" });
+    const listsBtn = headerLead.createEl("button", {
+      cls: `ticktick-lists-toggle-btn ${!this.sidebarCollapsed ? "is-active" : ""}`,
+      attr: {
+        type: "button",
+        "aria-expanded": String(!this.sidebarCollapsed),
+        "aria-label": !this.sidebarCollapsed ? "بستن منوی کناری لیست‌ها" : "مشاهده و باز کردن منوی کناری لیست‌ها",
+        title: !this.sidebarCollapsed ? "بستن منوی کناری لیست‌ها" : "مشاهده و انتخاب لیست‌ها"
+      }
     });
     const lIcon = listsBtn.createSpan({ cls: "ticktick-btn-icon" });
     setIcon(lIcon, "folders");
-    listsBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: `لیست‌ها (${projects.length})` });
+    listsBtn.createSpan({ cls: "ticktick-lists-btn-label", text: "لیست‌ها" });
+    listsBtn.createSpan({ cls: "ticktick-lists-toggle-badge", text: String(projects.length) });
     listsBtn.addEventListener("click", () => {
       this.sidebarCollapsed = !this.sidebarCollapsed;
       void this.persistAndRender();
     });
 
-    const refreshBtn = toolbar.createEl("button", {
-      cls: "ticktick-toolbar-btn",
-      attr: { type: "button", "aria-label": "به‌روزرسانی" }
-    });
-    const rIcon = refreshBtn.createSpan({ cls: "ticktick-btn-icon" });
-    setIcon(rIcon, "refresh-cw");
-    refreshBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "به‌روزرسانی" });
-    refreshBtn.addEventListener("click", async () => {
-      refreshBtn.disabled = true;
-      try {
-        await this.host.refresh();
-        await this.render();
-      } finally {
-        refreshBtn.disabled = false;
-      }
-    });
+    headerLead.createDiv({ cls: "ticktick-header-separator" });
+
+    const info = headerLead.createDiv({ cls: "ticktick-project-header-info" });
+    info.createEl("h2", { cls: "ticktick-project-title", text: "عادت‌ها" });
+    info.createSpan({ cls: "ticktick-project-badge", text: `${habits.length} عادت` });
 
     const cards = main.createDiv({ cls: "ticktick-habit-board-cards" });
     if (!habits.length) { cards.createDiv({ cls: "ticktick-board-empty", text: "عادتی در کش محلی نیست؛ یک بار همگام‌سازی کنید." }); return; }
@@ -706,6 +731,9 @@ export class ProjectBoard {
     });
 
     const railBody = rail.createDiv({ cls: "ticktick-rail-content" });
+    railBody.addEventListener("scroll", () => {
+      this.savedRailScrollTop = railBody.scrollTop;
+    }, { passive: true });
 
     const virtual = virtualBoardEntries(this.host.tasks(), { timeZone: this.host.timeZone });
     const habits = railBody.createEl("button", {
@@ -856,9 +884,21 @@ export class ProjectBoard {
         newProjectBtn.disabled = false;
       }
     });
+
+    if (this.savedRailScrollTop > 0) {
+      railBody.scrollTop = this.savedRailScrollTop;
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(() => {
+          railBody.scrollTop = this.savedRailScrollTop;
+        });
+      }
+      setTimeout(() => {
+        railBody.scrollTop = this.savedRailScrollTop;
+      }, 40);
+    }
   }
 
-  private card(parent: HTMLElement, task: TickTickTask, projectColor?: string, movable = true) {
+  private card(parent: HTMLElement, task: TickTickTask, projectColor?: string, movable = true, subtasks: TickTickTask[] = []) {
     const bound = this.host.binding(task);
     const hideCompleted = !this.host.showCompleted();
 
@@ -870,6 +910,34 @@ export class ProjectBoard {
       dragType: "text/ticktick-board-task",
       isBound: Boolean(bound),
       variant: "board",
+      subtasks,
+      onCompleteSubtask: async (child) => {
+        try {
+          await this.host.complete(child);
+          child.status = 2;
+          new Notice("زیرتسک در TickTick تکمیل شد.");
+          if (hideCompleted) {
+            await this.render();
+          }
+        } catch (error) {
+          new Notice(error instanceof Error ? error.message : "خطا در تکمیل زیرتسک.");
+        }
+      },
+      onOpenSubtaskDetails: (child) => {
+        new TaskDetailsModal(this.host.app, child, {
+          complete: async () => {
+            await this.host.complete(child);
+            await this.render();
+          },
+          load: item => this.host.load(item),
+          edit: item => this.host.edit(item),
+          changed: async () => {
+            await this.host.refresh();
+            await this.render();
+          },
+          allTasks: () => this.host.tasks(),
+        }).open();
+      },
       onComplete: async (t) => {
         card.addClass("is-completed");
         if (hideCompleted) {
@@ -911,13 +979,107 @@ export class ProjectBoard {
           allTasks: () => this.host.tasks(),
         }).open();
       },
+      onAddSubtask: async (parentTask) => {
+        try {
+          await this.host.createTask({
+            projectId: parentTask.projectId,
+            parentId: String(parentTask.id),
+            columnId: parentTask.columnId
+          });
+          await this.render();
+        } catch (error) {
+          new Notice(error instanceof Error ? error.message : "ایجاد زیرتسک ناموفق بود.");
+        }
+      },
       onToggleBulkSelect: (id) => {
         const sel = bulkSelectionStore.toggle(id);
         card.toggleClass("is-bulk-selected", sel);
       }
     });
 
+    if (movable) {
+      card.addEventListener("dragover", (e) => {
+        const types = e.dataTransfer?.types ?? [];
+        if (!types.includes("text/ticktick-board-task")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        card.addClass("is-subtask-drop-target");
+      });
+      card.addEventListener("dragleave", (e) => {
+        if (!card.contains(e.relatedTarget as Node | null)) {
+          card.removeClass("is-subtask-drop-target");
+        }
+      });
+      card.addEventListener("drop", async (e) => {
+        const draggedId = e.dataTransfer?.getData("text/ticktick-board-task");
+        if (!draggedId || draggedId === String(task.id)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        card.removeClass("is-subtask-drop-target");
+
+        const allTasks = this.currentRawData?.tasks ?? this.host.tasks();
+        const draggedTask = allTasks.find(t => String(t.id) === draggedId);
+        if (!draggedTask) return;
+
+        await this.reparentTask(draggedTask, task);
+      });
+    }
+
     return card;
+  }
+
+  private isDescendant(potentialParentId: string, potentialChildId: string): boolean {
+    const allTasks = this.currentRawData?.tasks ?? this.host.tasks();
+    const children = allTasks.filter(t => String(t.parentId) === potentialParentId);
+    for (const c of children) {
+      if (String(c.id) === potentialChildId) return true;
+      if (this.isDescendant(String(c.id), potentialChildId)) return true;
+    }
+    return false;
+  }
+
+  private async reparentTask(child: TickTickTask, parentTask: TickTickTask) {
+    if (String(child.id) === String(parentTask.id)) return;
+    if (this.isDescendant(String(child.id), String(parentTask.id))) {
+      new Notice("نمی‌توان یک تسک را زیرتسکِ فرزند خود قرار داد.");
+      return;
+    }
+
+    try {
+      if (this.host.updateTask) {
+        await this.host.updateTask({
+          id: child.id,
+          parentId: String(parentTask.id),
+          projectId: parentTask.projectId,
+          columnId: parentTask.columnId
+        });
+      }
+      child.parentId = String(parentTask.id);
+      child.projectId = parentTask.projectId;
+      child.columnId = parentTask.columnId;
+      new Notice(`تسک «${cleanTaskTitle(child.title)}» به عنوان زیرتسک «${cleanTaskTitle(parentTask.title)}» تنظیم شد.`);
+      await this.render();
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : "تنظیم زیرتسک ناموفق بود.");
+    }
+  }
+
+  private async unparentTask(task: TickTickTask, targetColumnId: string) {
+    try {
+      if (this.host.updateTask) {
+        await this.host.updateTask({
+          id: task.id,
+          parentId: null,
+          columnId: targetColumnId
+        });
+      }
+      task.parentId = null;
+      task.columnId = targetColumnId;
+      new Notice(`تسک «${cleanTaskTitle(task.title)}» از حالت زیرتسک خارج شد و به تسک مستقل تبدیل گردید.`);
+      await this.render();
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : "خارج کردن تسک از حالت زیرتسک ناموفق بود.");
+    }
   }
 
   private async moveTask(

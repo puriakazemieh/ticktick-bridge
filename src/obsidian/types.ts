@@ -86,7 +86,12 @@ export type TaskDraft = {
   repeatFlag?: string | null;
   timeZone?: string;
   reminders?: string[];
+  tags?: string[];
+  tagNames?: string[];
+  priority?: number;
   projectName?: string;
   reminderTime?: string;
+  columnId?: string | null;
+  parentId?: string | null;
   [key: string]: unknown;
 };

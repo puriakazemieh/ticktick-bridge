@@ -1165,9 +1165,31 @@ export default class TickTickBridgePlugin extends Plugin {
   async completeTask(task: TickTickTask | { id: string; [key: string]: unknown }, originElement?: HTMLElement) { return this.runMutation("complete", task, originElement); }
   async deleteTask(task: TickTickTask | { id: string; [key: string]: unknown }, originElement?: HTMLElement) { return this.runMutation("delete", task, originElement); }
   async checkInHabit(habitId: string, day: string, checkin: Partial<CachedHabitCheckin> | Record<string, unknown>) { return this.runMutation("habit", { habitId, day, checkin }); }
+  availableTags(): string[] {
+    const taskTags = (this.cache?.tasks ?? []).flatMap(t => t.tags ?? []);
+    const boardTags = Object.values(this.cache?.projectBoards ?? {}).flatMap(b => (b.tasks ?? []).flatMap(t => t.tags ?? []));
+    return [...new Set([...taskTags, ...boardTags].filter(Boolean).map(String).map(t => t.replace(/^[#＃]/, "").trim()))]
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, "fa"));
+  }
+
   async createTaskFromSurface(initial: TaskDraft = {}) {
     const projects = this.cache.projects.length ? this.cache.projects : await this.client().listProjects();
-    const draft = await openTaskEditor(this.app, projects, initial);
+    const draft = await openTaskEditor(
+      this.app,
+      projects,
+      initial,
+      this.availableTags(),
+      this.cache.tasks,
+      async (parentId, title) => {
+        const pTask = this.cache.tasks.find(t => String(t.id) === parentId);
+        return this.createTask({
+          title,
+          parentId,
+          projectId: pTask?.projectId ?? projects[0]?.id
+        });
+      }
+    );
     if (!draft) return null;
     return this.createTask(toTaskPayload(draft, this.settings.timeZone));
   }
@@ -1191,7 +1213,21 @@ export default class TickTickBridgePlugin extends Plugin {
   async editTaskFromSurface(task: TickTickTask) {
     const current = (await this.loadTaskDetails(task)) ?? task;
     const projects = await this.client().listProjects();
-    const draft = await openTaskEditor(this.app, projects, current);
+    const draft = await openTaskEditor(
+      this.app,
+      projects,
+      current,
+      this.availableTags(),
+      this.cache.tasks,
+      async (parentId, title) => {
+        const pTask = this.cache.tasks.find(t => String(t.id) === parentId);
+        return this.createTask({
+          title,
+          parentId,
+          projectId: pTask?.projectId ?? current.projectId ?? projects[0]?.id
+        });
+      }
+    );
     if (!draft) return null;
     const payload = toTaskPayload({ ...current, ...draft }, this.settings.timeZone);
     await this.updateTask(payload);
@@ -1839,7 +1875,7 @@ export default class TickTickBridgePlugin extends Plugin {
         addButton.disabled = true;
         try {
           const projects = await client.listProjects();
-          const draft = await openTaskEditor(this.app, projects, { dueDate: day });
+          const draft = await openTaskEditor(this.app, projects, { dueDate: day }, this.availableTags(), this.cache.tasks);
           if (!draft) return;
           await this.createTask(toTaskPayload(draft, this.settings.timeZone));
           new Notice("تسک به TickTick اضافه شد.");
@@ -1907,7 +1943,7 @@ export default class TickTickBridgePlugin extends Plugin {
         edit.addEventListener("click", async () => {
           try {
             const projects = await client.listProjects();
-            const draft = await openTaskEditor(this.app, projects, task);
+            const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks);
             if (!draft) return;
             await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
             new Notice("تسک در TickTick ویرایش شد.");
@@ -2119,7 +2155,7 @@ export default class TickTickBridgePlugin extends Plugin {
             card.disabled = true;
             try {
               const projects = await this.client().listProjects();
-              const draft = await openTaskEditor(this.app, projects, task);
+              const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks);
               if (!draft) return;
               await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
               new Notice("تسک تکرارشونده در TickTick ویرایش شد.");

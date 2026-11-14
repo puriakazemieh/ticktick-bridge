@@ -1705,12 +1705,14 @@ function toTaskPayload(draft, timeZone) {
     desc: String(task.desc || task.content || "").trim(),
     content: "",
     projectId: task.projectId,
+    parentId: draft.parentId !== void 0 ? draft.parentId || null : task.parentId ?? null,
     dueDate: day ? `${day}T00:00:00+0330` : null,
     startDate: task.startDate ?? null,
     timeZone,
     isAllDay: true,
     reminders: reminderTime ? [reminderTrigger(reminderTime)] : [],
-    repeatFlag: String(task.repeatFlag ?? "").trim() || null
+    repeatFlag: String(task.repeatFlag ?? "").trim() || null,
+    tags: Array.isArray(task.tags) ? task.tags : task.tags ? [String(task.tags)] : void 0
   };
 }
 function publicCacheMetadata(cache) {
@@ -5223,6 +5225,48 @@ var FilterBar = class {
 // src/obsidian/components/task-card-element.ts
 var import_obsidian12 = require("obsidian");
 init_date();
+function formatTaskTime2(task, timeZone) {
+  if (task.isAllDay) return null;
+  const raw = task.startDate ?? task.dueDate;
+  if (!raw || !String(raw).includes("T")) return null;
+  try {
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return null;
+    return new Intl.DateTimeFormat("fa-IR", { timeZone, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+  } catch {
+    const m = String(raw).match(/T(\d{2}:\d{2})/);
+    return m ? m[1] : null;
+  }
+}
+function renderDueDateChip(container, task, timeZone, isCompleted) {
+  const today = todayInZone(timeZone);
+  const dueDay = toDateKey(task.dueDate || task.startDate, task.timeZone || timeZone);
+  if (!dueDay) return null;
+  const isOverdue = dueDay < today && !isCompleted;
+  const isToday = dueDay === today;
+  const isTomorrow = dueDay === toDateKey(new Date(Date.now() + 864e5), timeZone);
+  let dueBadgeClass = "tb-badge-slate";
+  let dueText = formatPersianDate(dueDay);
+  if (isOverdue) {
+    dueBadgeClass = "tb-badge-coral";
+    dueText = `\u0645\u0639\u0648\u0642\u0647: ${dueText}`;
+  } else if (isToday) {
+    dueBadgeClass = "tb-badge-mint";
+    dueText = "\u0627\u0645\u0631\u0648\u0632";
+  } else if (isTomorrow) {
+    dueBadgeClass = "tb-badge-cobalt";
+    dueText = "\u0641\u0631\u062F\u0627";
+  }
+  const timeStr = formatTaskTime2(task, timeZone);
+  if (timeStr) {
+    dueText = `${dueText} ${timeStr}`;
+  }
+  const dueChip = container.createSpan({ cls: `tb-badge ${dueBadgeClass}` });
+  const calIcon = dueChip.createSpan({ cls: "tb-chip-icon" });
+  (0, import_obsidian12.setIcon)(calIcon, timeStr ? "clock" : "calendar");
+  dueChip.createSpan({ text: dueText });
+  return dueChip;
+}
 function renderTaskCard(parent, options) {
   const {
     task,
@@ -5240,7 +5284,11 @@ function renderTaskCard(parent, options) {
     onToggleBulkSelect,
     showProjectPill = true,
     variant = "board",
-    isBound = false
+    isBound = false,
+    subtasks = [],
+    onCompleteSubtask,
+    onOpenSubtaskDetails,
+    onAddSubtask
   } = options;
   const isCompleted = Number(task.status ?? 0) !== 0;
   const isNote = String(task.kind ?? task.type ?? task.taskType ?? "").toUpperCase() === "NOTE";
@@ -5284,6 +5332,33 @@ function renderTaskCard(parent, options) {
     });
   }
   const headerRow = card.createDiv({ cls: "tb-card-header-row" });
+  const hasSubtasks = Boolean(subtasks && subtasks.length > 0);
+  let subtasksContainer = null;
+  let isSubtasksExpanded = true;
+  let chevIcon = null;
+  if (hasSubtasks) {
+    const expandBtn = headerRow.createEl("button", {
+      cls: "tb-card-expand-btn",
+      attr: {
+        type: "button",
+        "aria-label": "\u062A\u063A\u06CC\u06CC\u0631 \u0648\u0636\u0639\u06CC\u062A \u0646\u0645\u0627\u06CC\u0634 \u0632\u06CC\u0631\u062A\u0633\u06A9\u200C\u0647\u0627",
+        title: "\u0646\u0645\u0627\u06CC\u0634 \u06CC\u0627 \u0628\u0633\u062A\u0646 \u0632\u06CC\u0631\u062A\u0633\u06A9\u200C\u0647\u0627"
+      }
+    });
+    chevIcon = expandBtn.createSpan({ cls: "tb-expand-icon" });
+    (0, import_obsidian12.setIcon)(chevIcon, "chevron-down");
+    expandBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      isSubtasksExpanded = !isSubtasksExpanded;
+      if (chevIcon) {
+        (0, import_obsidian12.setIcon)(chevIcon, isSubtasksExpanded ? "chevron-down" : "chevron-left");
+      }
+      if (subtasksContainer) {
+        subtasksContainer.style.display = isSubtasksExpanded ? "flex" : "none";
+      }
+      card.toggleClass("is-subtasks-collapsed", !isSubtasksExpanded);
+    });
+  }
   if (isNote) {
     const noteIcon = headerRow.createSpan({ cls: "tb-card-note-icon", attr: { title: "\u06CC\u0627\u062F\u062F\u0627\u0634\u062A TickTick" } });
     (0, import_obsidian12.setIcon)(noteIcon, "file-text");
@@ -5351,6 +5426,151 @@ function renderTaskCard(parent, options) {
       attr: { title: `\u0627\u0648\u0644\u0648\u06CC\u062A: ${priority.label}` }
     });
   }
+  if (hasSubtasks) {
+    subtasksContainer = card.createDiv({ cls: "tb-card-subtasks-container" });
+    for (const child of subtasks) {
+      const childDone = Number(child.status ?? 0) !== 0;
+      const childPrio = taskPriority(child.priority);
+      const childPrioNum = Number(child.priority ?? 0);
+      const subRow = subtasksContainer.createDiv({
+        cls: `tb-card-subtask-row ${childDone ? "is-completed" : ""}`,
+        attr: {
+          "data-task-id": String(child.id),
+          role: "button",
+          tabindex: "0",
+          title: "\u0645\u0634\u0627\u0647\u062F\u0647 \u0648 \u0648\u06CC\u0631\u0627\u06CC\u0634 \u062C\u0632\u0626\u06CC\u0627\u062A \u0632\u06CC\u0631\u062A\u0633\u06A9 (\u06CC\u0627 \u062F\u0631\u06AF \u0628\u0631\u0627\u06CC \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC)"
+        }
+      });
+      if (movable) {
+        subRow.setAttribute("draggable", "true");
+        subRow.addEventListener("dragstart", (e) => {
+          subRow.addClass("is-dragging");
+          e.dataTransfer?.setData(dragType, String(child.id));
+          e.dataTransfer?.setData("text/ticktick-board-task", String(child.id));
+          e.dataTransfer?.setData("text/ticktick-task", String(child.id));
+          e.dataTransfer?.setData("text/task-parent-id", String(task.id));
+          e.dataTransfer.effectAllowed = "move";
+        });
+        subRow.addEventListener("dragend", () => {
+          subRow.removeClass("is-dragging");
+        });
+      }
+      const subTop = subRow.createDiv({ cls: "tb-card-subtask-top" });
+      const subCheck = subTop.createDiv({
+        cls: `tb-checkbox tb-card-checkbox tb-card-subtask-check ${childDone ? "is-checked" : ""}`,
+        attr: {
+          role: "checkbox",
+          "aria-checked": childDone ? "true" : "false",
+          "aria-label": `\u062A\u06A9\u0645\u06CC\u0644 ${cleanTaskTitle(child.title)}`,
+          tabindex: "0"
+        }
+      });
+      const svg = subCheck.createSvg("svg", {
+        attr: { viewBox: "0 0 16 16", fill: "none", stroke: "currentColor" }
+      });
+      svg.createSvg("path", {
+        attr: {
+          d: "M3.5 8.5L6.5 11.5L12.5 4.5",
+          "stroke-linecap": "round",
+          "stroke-linejoin": "round"
+        }
+      });
+      subCheck.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (subCheck.hasClass("is-busy")) return;
+        subCheck.addClass("is-busy");
+        const nextDone = !subCheck.hasClass("is-checked");
+        subCheck.toggleClass("is-checked", nextDone);
+        subRow.toggleClass("is-completed", nextDone);
+        try {
+          if (onCompleteSubtask) {
+            await onCompleteSubtask(child);
+          }
+        } catch {
+          subCheck.toggleClass("is-checked", !nextDone);
+          subRow.toggleClass("is-completed", !nextDone);
+        } finally {
+          subCheck.removeClass("is-busy");
+        }
+      });
+      subCheck.addEventListener("keydown", (e) => {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          subCheck.click();
+        }
+      });
+      const subHeaderContent = subTop.createDiv({ cls: "tb-card-subtask-header-content" });
+      subHeaderContent.createSpan({
+        cls: "tb-card-subtask-title",
+        text: cleanTaskTitle(child.title) || "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646"
+      });
+      if (childPrioNum > 0) {
+        let childPrioClass = "tb-badge-slate";
+        if (childPrioNum === 5) childPrioClass = "tb-badge-coral";
+        else if (childPrioNum === 3) childPrioClass = "tb-badge-amber";
+        else if (childPrioNum === 1) childPrioClass = "tb-badge-cobalt";
+        subHeaderContent.createSpan({
+          cls: `tb-badge ${childPrioClass} tb-card-priority-badge is-${childPrio.value}`,
+          text: childPrio.label,
+          attr: { title: `\u0627\u0648\u0644\u0648\u06CC\u062A: ${childPrio.label}` }
+        });
+      }
+      const childDesc = taskDescription(child);
+      if (childDesc) {
+        subRow.createDiv({
+          cls: "tb-card-subtask-desc",
+          text: childDesc.slice(0, 90)
+        });
+      }
+      const childChipsRow = subRow.createDiv({ cls: "tb-card-subtask-chips" });
+      renderDueDateChip(childChipsRow, child, timeZone, childDone);
+      const childTags = child.tags ?? [];
+      for (const tag of childTags) {
+        childChipsRow.createSpan({
+          cls: "tb-badge tb-badge-slate is-tag",
+          text: `#${tag}`
+        });
+      }
+      const childChecklist = child.items;
+      if (Array.isArray(childChecklist) && childChecklist.length > 0) {
+        const totalItems = childChecklist.length;
+        const completedItems = childChecklist.filter((i) => Number(i.status ?? 0) !== 0).length;
+        const isAllDone = completedItems === totalItems;
+        const chkChip = childChipsRow.createSpan({
+          cls: `tb-badge tb-chip mod-checklist ${isAllDone ? "tb-badge-mint is-all-done" : "tb-badge-slate"}`,
+          attr: { title: `\u0686\u06A9\u200C\u0644\u06CC\u0633\u062A: ${completedItems} \u0627\u0632 ${totalItems} \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647` }
+        });
+        const chkIcon = chkChip.createSpan({ cls: "tb-chip-icon" });
+        (0, import_obsidian12.setIcon)(chkIcon, isAllDone ? "check-check" : "list-checks");
+        chkChip.createSpan({ text: `${completedItems}/${totalItems}` });
+      }
+      const childEst = formatTaskEstimate(child);
+      if (childEst) {
+        const estChip = childChipsRow.createSpan({ cls: "tb-badge tb-badge-cyan" });
+        estChip.createSpan({ text: childEst });
+      }
+      if (child.repeatFlag) {
+        const repChip = childChipsRow.createSpan({ cls: "tb-badge tb-badge-slate" });
+        const repIcon = repChip.createSpan({ cls: "tb-chip-icon" });
+        (0, import_obsidian12.setIcon)(repIcon, "repeat");
+        repChip.createSpan({ text: "\u062A\u06A9\u0631\u0627\u0631" });
+      }
+      if (!childChipsRow.children.length) {
+        childChipsRow.remove();
+      }
+      subRow.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (onOpenSubtaskDetails) onOpenSubtaskDetails(child);
+      });
+      subRow.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          if (e.target.closest(".tb-card-subtask-check")) return;
+          e.preventDefault();
+          if (onOpenSubtaskDetails) onOpenSubtaskDetails(child);
+        }
+      });
+    }
+  }
   const description = taskDescription(task);
   if (description) {
     card.createDiv({
@@ -5359,29 +5579,7 @@ function renderTaskCard(parent, options) {
     });
   }
   const chipsRow = card.createDiv({ cls: "tb-card-chips" });
-  const today = todayInZone(timeZone);
-  const dueDay = toDateKey(task.dueDate || task.startDate, task.timeZone || timeZone);
-  if (dueDay) {
-    const isOverdue = dueDay < today && !isCompleted;
-    const isToday = dueDay === today;
-    const isTomorrow = dueDay === toDateKey(new Date(Date.now() + 864e5), timeZone);
-    let dueBadgeClass = "tb-badge-slate";
-    let dueText = formatPersianDate(dueDay);
-    if (isOverdue) {
-      dueBadgeClass = "tb-badge-coral";
-      dueText = `\u0645\u0639\u0648\u0642\u0647: ${dueText}`;
-    } else if (isToday) {
-      dueBadgeClass = "tb-badge-mint";
-      dueText = "\u0627\u0645\u0631\u0648\u0632";
-    } else if (isTomorrow) {
-      dueBadgeClass = "tb-badge-cobalt";
-      dueText = "\u0641\u0631\u062F\u0627";
-    }
-    const dueChip = chipsRow.createSpan({ cls: `tb-badge ${dueBadgeClass}` });
-    const calIcon = dueChip.createSpan({ cls: "tb-chip-icon" });
-    (0, import_obsidian12.setIcon)(calIcon, "calendar");
-    dueChip.createSpan({ text: dueText });
-  }
+  renderDueDateChip(chipsRow, task, timeZone, isCompleted);
   const projDisplay = projectName || task.projectName;
   if (showProjectPill && projDisplay) {
     const projChip = chipsRow.createSpan({ cls: "tb-badge tb-badge-slate is-project" });
@@ -5394,6 +5592,17 @@ function renderTaskCard(parent, options) {
   if (task.parentId) {
     const subChip = chipsRow.createSpan({ cls: "tb-badge tb-badge-slate" });
     subChip.createSpan({ text: "\u21B3 \u0632\u06CC\u0631\u062A\u0633\u06A9" });
+  }
+  if (hasSubtasks) {
+    const totalSubs = subtasks.length;
+    const completedSubs = subtasks.filter((s) => Number(s.status ?? 0) !== 0).length;
+    const subChip = chipsRow.createSpan({
+      cls: `tb-badge tb-chip mod-checklist ${completedSubs === totalSubs ? "tb-badge-mint is-all-done" : "tb-badge-slate"}`,
+      attr: { title: `\u0632\u06CC\u0631\u062A\u0633\u06A9\u200C\u0647\u0627: ${completedSubs} \u0627\u0632 ${totalSubs} \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F\u0647` }
+    });
+    const sIcon = subChip.createSpan({ cls: "tb-chip-icon" });
+    (0, import_obsidian12.setIcon)(sIcon, completedSubs === totalSubs ? "check-check" : "list-tree");
+    subChip.createSpan({ text: `${completedSubs}/${totalSubs} \u0632\u06CC\u0631\u062A\u0633\u06A9` });
   }
   const checklistItems = task.items;
   if (Array.isArray(checklistItems) && checklistItems.length > 0) {
@@ -5470,6 +5679,17 @@ function renderTaskCard(parent, options) {
       onOpenDetails(task);
     });
   }
+  if (onAddSubtask && !isCompleted) {
+    const addSubBtn = hoverActions.createEl("button", {
+      cls: "tb-btn-icon tb-card-action-btn",
+      attr: { type: "button", "aria-label": "\u0627\u0641\u0632\u0648\u062F\u0646 \u0632\u06CC\u0631\u062A\u0633\u06A9", title: "\u0627\u0641\u0632\u0648\u062F\u0646 \u0632\u06CC\u0631\u062A\u0633\u06A9 \u0628\u0647 \u0627\u06CC\u0646 \u062A\u0633\u06A9" }
+    });
+    (0, import_obsidian12.setIcon)(addSubBtn, "list-plus");
+    addSubBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onAddSubtask(task);
+    });
+  }
   if (onContextMenu) {
     const moreBtn = hoverActions.createEl("button", {
       cls: "tb-btn-icon tb-card-action-btn",
@@ -5523,6 +5743,7 @@ var ProjectBoard = class {
   savedColumnsScrollLeft = 0;
   savedBodyScrollTop = 0;
   savedColumnScrolls = /* @__PURE__ */ new Map();
+  savedRailScrollTop = 0;
   filterState = {
     projects: [],
     tags: [],
@@ -5577,6 +5798,10 @@ var ProjectBoard = class {
         if (top > 0) this.savedColumnScrolls.set(colId, top);
       }
     });
+    const existingRailContent = this.element.querySelector(".ticktick-rail-content");
+    if (existingRailContent) {
+      this.savedRailScrollTop = existingRailContent.scrollTop;
+    }
     this.element.empty();
     this.element.addClass("ticktick-project-board");
     const root = this.element.createDiv({ cls: "ticktick-project-board-root" });
@@ -5607,7 +5832,26 @@ var ProjectBoard = class {
         return;
       }
       const projectHeader = main.createDiv({ cls: "ticktick-project-header" });
-      const headerInfo = projectHeader.createDiv({ cls: "ticktick-project-header-info" });
+      const headerLead = projectHeader.createDiv({ cls: "ticktick-project-header-lead" });
+      const listsBtn = headerLead.createEl("button", {
+        cls: `ticktick-lists-toggle-btn ${!this.sidebarCollapsed ? "is-active" : ""}`,
+        attr: {
+          type: "button",
+          "aria-expanded": String(!this.sidebarCollapsed),
+          "aria-label": !this.sidebarCollapsed ? "\u0628\u0633\u062A\u0646 \u0645\u0646\u0648\u06CC \u06A9\u0646\u0627\u0631\u06CC \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" : "\u0645\u0634\u0627\u0647\u062F\u0647 \u0648 \u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u0645\u0646\u0648\u06CC \u06A9\u0646\u0627\u0631\u06CC \u0644\u06CC\u0633\u062A\u200C\u0647\u0627",
+          title: !this.sidebarCollapsed ? "\u0628\u0633\u062A\u0646 \u0645\u0646\u0648\u06CC \u06A9\u0646\u0627\u0631\u06CC \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" : "\u0645\u0634\u0627\u0647\u062F\u0647 \u0648 \u0627\u0646\u062A\u062E\u0627\u0628 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627"
+        }
+      });
+      const lIcon = listsBtn.createSpan({ cls: "ticktick-btn-icon" });
+      (0, import_obsidian13.setIcon)(lIcon, "folders");
+      listsBtn.createSpan({ cls: "ticktick-lists-btn-label", text: "\u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
+      listsBtn.createSpan({ cls: "ticktick-lists-toggle-badge", text: String(projects.length) });
+      listsBtn.addEventListener("click", () => {
+        this.sidebarCollapsed = !this.sidebarCollapsed;
+        void this.persistAndRender();
+      });
+      headerLead.createDiv({ cls: "ticktick-header-separator" });
+      const headerInfo = headerLead.createDiv({ cls: "ticktick-project-header-info" });
       if (displayProject.color) {
         const pDot = headerInfo.createSpan({ cls: "ticktick-header-dot" });
         pDot.style.setProperty("--project-color", displayProject.color);
@@ -5620,17 +5864,6 @@ var ProjectBoard = class {
         text: countLabel
       });
       const toolbar = projectHeader.createDiv({ cls: "ticktick-project-toolbar" });
-      const listsBtn = toolbar.createEl("button", {
-        cls: `ticktick-toolbar-btn ${!this.sidebarCollapsed ? "is-active" : ""}`,
-        attr: { type: "button", "aria-label": "\u062A\u063A\u06CC\u06CC\u0631 \u0648\u0636\u0639\u06CC\u062A \u0646\u0645\u0627\u06CC\u0634 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627", title: "\u0646\u0645\u0627\u06CC\u0634 \u06CC\u0627 \u0645\u062E\u0641\u06CC\u200C\u0633\u0627\u0632\u06CC \u0645\u0646\u0648\u06CC \u06A9\u0646\u0627\u0631\u06CC \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" }
-      });
-      const lIcon = listsBtn.createSpan({ cls: "ticktick-btn-icon" });
-      (0, import_obsidian13.setIcon)(lIcon, "folders");
-      listsBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: `\u0644\u06CC\u0633\u062A\u200C\u0647\u0627 (${projects.length})` });
-      listsBtn.addEventListener("click", () => {
-        this.sidebarCollapsed = !this.sidebarCollapsed;
-        void this.persistAndRender();
-      });
       if (displayProject.virtual) {
         const groupLabels = {
           project: "\u067E\u0631\u0648\u0698\u0647",
@@ -5675,26 +5908,6 @@ var ProjectBoard = class {
           }
         });
       }
-      const refreshBtn = toolbar.createEl("button", {
-        cls: "ticktick-toolbar-btn",
-        attr: { type: "button", "aria-label": "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0648 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC" }
-      });
-      const refreshIcon = refreshBtn.createSpan({ cls: "ticktick-btn-icon" });
-      (0, import_obsidian13.setIcon)(refreshIcon, "refresh-cw");
-      refreshBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC" });
-      refreshBtn.addEventListener("click", async () => {
-        refreshBtn.disabled = true;
-        refreshIcon.addClass("is-syncing");
-        try {
-          await this.host.refresh();
-          await this.render();
-        } catch (error) {
-          new import_obsidian13.Notice(error instanceof Error ? error.message : "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
-        } finally {
-          refreshBtn.disabled = false;
-          refreshIcon.removeClass("is-syncing");
-        }
-      });
       if (project) {
         const editBtn = toolbar.createEl("button", {
           cls: "ticktick-toolbar-btn",
@@ -5833,6 +6046,22 @@ var ProjectBoard = class {
       );
       this.headerBadgeEl.setText(isFiltered ? `${countLabel} (\u0641\u06CC\u0644\u062A\u0631 \u0634\u062F\u0647)` : countLabel);
     }
+    const allKnownTasks = this.host.tasks();
+    const taskMap = /* @__PURE__ */ new Map();
+    for (const t of allKnownTasks) {
+      if (t?.id) taskMap.set(String(t.id), t);
+    }
+    for (const t of data.tasks) {
+      if (t?.id) taskMap.set(String(t.id), t);
+    }
+    const childrenMap = /* @__PURE__ */ new Map();
+    for (const t of data.tasks) {
+      if (t?.parentId) {
+        const pId = String(t.parentId);
+        if (!childrenMap.has(pId)) childrenMap.set(pId, []);
+        childrenMap.get(pId).push(t);
+      }
+    }
     for (const column of boardColumns(data, this.host.showCompleted())) {
       const shell = columns.createDiv({ cls: "ticktick-project-column" });
       shell.dataset.columnId = String(column.id);
@@ -5886,8 +6115,14 @@ var ProjectBoard = class {
           return;
         }
         const id = event.dataTransfer?.getData("text/ticktick-board-task");
-        const task = data.tasks.find((item) => String(item.id) === id);
-        if (!task || String(task.columnId ?? "") === String(column.id)) return;
+        const allTasks = this.currentRawData?.tasks ?? data.tasks;
+        const task = allTasks.find((item) => String(item.id) === id);
+        if (!task) return;
+        if (task.parentId) {
+          void this.unparentTask(task, String(column.id));
+          return;
+        }
+        if (String(task.columnId ?? "") === String(column.id)) return;
         const cardEl = this.element.querySelector(`[data-task-id="${task.id}"]`);
         const sourceCol = cardEl?.closest(".ticktick-project-column");
         const oldColumnId = task.columnId;
@@ -5913,8 +6148,12 @@ var ProjectBoard = class {
           listWrap.createEl("h4", { cls: "ticktick-group-heading", text: group.name });
         }
         for (const task of sortPlanningTasks(group.tasks, this.sortMode)) {
+          if (task.parentId && taskMap.has(String(task.parentId))) {
+            continue;
+          }
           colTaskCount++;
-          this.card(listWrap, task, task.projectColor || displayProject?.color, Boolean(project));
+          const subtasks = childrenMap.get(String(task.id)) ?? [];
+          this.card(listWrap, task, task.projectColor || displayProject?.color, Boolean(project), subtasks);
         }
       }
       if (colTaskCount === 0 && movableColumn) {
@@ -5975,37 +6214,28 @@ var ProjectBoard = class {
   renderHabitBoard(main, projects) {
     const habits = this.host.habits();
     const header = main.createDiv({ cls: "ticktick-project-header" });
-    const info = header.createDiv({ cls: "ticktick-project-header-info" });
-    info.createEl("h2", { cls: "ticktick-project-title", text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627" });
-    info.createSpan({ cls: "ticktick-project-badge", text: `${habits.length} \u0639\u0627\u062F\u062A` });
-    const toolbar = header.createDiv({ cls: "ticktick-project-toolbar" });
-    const listsBtn = toolbar.createEl("button", {
-      cls: `ticktick-toolbar-btn ${!this.sidebarCollapsed ? "is-active" : ""}`,
-      attr: { type: "button", "aria-label": "\u062A\u063A\u06CC\u06CC\u0631 \u0648\u0636\u0639\u06CC\u062A \u0646\u0645\u0627\u06CC\u0634 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627", title: "\u0646\u0645\u0627\u06CC\u0634 \u06CC\u0627 \u0645\u062E\u0641\u06CC\u200C\u0633\u0627\u0632\u06CC \u0645\u0646\u0648\u06CC \u06A9\u0646\u0627\u0631\u06CC \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" }
+    const headerLead = header.createDiv({ cls: "ticktick-project-header-lead" });
+    const listsBtn = headerLead.createEl("button", {
+      cls: `ticktick-lists-toggle-btn ${!this.sidebarCollapsed ? "is-active" : ""}`,
+      attr: {
+        type: "button",
+        "aria-expanded": String(!this.sidebarCollapsed),
+        "aria-label": !this.sidebarCollapsed ? "\u0628\u0633\u062A\u0646 \u0645\u0646\u0648\u06CC \u06A9\u0646\u0627\u0631\u06CC \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" : "\u0645\u0634\u0627\u0647\u062F\u0647 \u0648 \u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u0645\u0646\u0648\u06CC \u06A9\u0646\u0627\u0631\u06CC \u0644\u06CC\u0633\u062A\u200C\u0647\u0627",
+        title: !this.sidebarCollapsed ? "\u0628\u0633\u062A\u0646 \u0645\u0646\u0648\u06CC \u06A9\u0646\u0627\u0631\u06CC \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" : "\u0645\u0634\u0627\u0647\u062F\u0647 \u0648 \u0627\u0646\u062A\u062E\u0627\u0628 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627"
+      }
     });
     const lIcon = listsBtn.createSpan({ cls: "ticktick-btn-icon" });
     (0, import_obsidian13.setIcon)(lIcon, "folders");
-    listsBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: `\u0644\u06CC\u0633\u062A\u200C\u0647\u0627 (${projects.length})` });
+    listsBtn.createSpan({ cls: "ticktick-lists-btn-label", text: "\u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
+    listsBtn.createSpan({ cls: "ticktick-lists-toggle-badge", text: String(projects.length) });
     listsBtn.addEventListener("click", () => {
       this.sidebarCollapsed = !this.sidebarCollapsed;
       void this.persistAndRender();
     });
-    const refreshBtn = toolbar.createEl("button", {
-      cls: "ticktick-toolbar-btn",
-      attr: { type: "button", "aria-label": "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC" }
-    });
-    const rIcon = refreshBtn.createSpan({ cls: "ticktick-btn-icon" });
-    (0, import_obsidian13.setIcon)(rIcon, "refresh-cw");
-    refreshBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC" });
-    refreshBtn.addEventListener("click", async () => {
-      refreshBtn.disabled = true;
-      try {
-        await this.host.refresh();
-        await this.render();
-      } finally {
-        refreshBtn.disabled = false;
-      }
-    });
+    headerLead.createDiv({ cls: "ticktick-header-separator" });
+    const info = headerLead.createDiv({ cls: "ticktick-project-header-info" });
+    info.createEl("h2", { cls: "ticktick-project-title", text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627" });
+    info.createSpan({ cls: "ticktick-project-badge", text: `${habits.length} \u0639\u0627\u062F\u062A` });
     const cards = main.createDiv({ cls: "ticktick-habit-board-cards" });
     if (!habits.length) {
       cards.createDiv({ cls: "ticktick-board-empty", text: "\u0639\u0627\u062F\u062A\u06CC \u062F\u0631 \u06A9\u0634 \u0645\u062D\u0644\u06CC \u0646\u06CC\u0633\u062A\u061B \u06CC\u06A9 \u0628\u0627\u0631 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0646\u06CC\u062F." });
@@ -6088,6 +6318,9 @@ var ProjectBoard = class {
       void this.persistAndRender();
     });
     const railBody = rail.createDiv({ cls: "ticktick-rail-content" });
+    railBody.addEventListener("scroll", () => {
+      this.savedRailScrollTop = railBody.scrollTop;
+    }, { passive: true });
     const virtual = virtualBoardEntries(this.host.tasks(), { timeZone: this.host.timeZone });
     const habits = railBody.createEl("button", {
       cls: `ticktick-project-row ${this.selected === HABIT_BOARD_VIEW_ID ? "is-selected" : ""}`,
@@ -6229,8 +6462,19 @@ var ProjectBoard = class {
         newProjectBtn.disabled = false;
       }
     });
+    if (this.savedRailScrollTop > 0) {
+      railBody.scrollTop = this.savedRailScrollTop;
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(() => {
+          railBody.scrollTop = this.savedRailScrollTop;
+        });
+      }
+      setTimeout(() => {
+        railBody.scrollTop = this.savedRailScrollTop;
+      }, 40);
+    }
   }
-  card(parent, task, projectColor, movable = true) {
+  card(parent, task, projectColor, movable = true, subtasks = []) {
     const bound = this.host.binding(task);
     const hideCompleted = !this.host.showCompleted();
     const card = renderTaskCard(parent, {
@@ -6241,6 +6485,34 @@ var ProjectBoard = class {
       dragType: "text/ticktick-board-task",
       isBound: Boolean(bound),
       variant: "board",
+      subtasks,
+      onCompleteSubtask: async (child) => {
+        try {
+          await this.host.complete(child);
+          child.status = 2;
+          new import_obsidian13.Notice("\u0632\u06CC\u0631\u062A\u0633\u06A9 \u062F\u0631 TickTick \u062A\u06A9\u0645\u06CC\u0644 \u0634\u062F.");
+          if (hideCompleted) {
+            await this.render();
+          }
+        } catch (error) {
+          new import_obsidian13.Notice(error instanceof Error ? error.message : "\u062E\u0637\u0627 \u062F\u0631 \u062A\u06A9\u0645\u06CC\u0644 \u0632\u06CC\u0631\u062A\u0633\u06A9.");
+        }
+      },
+      onOpenSubtaskDetails: (child) => {
+        new TaskDetailsModal(this.host.app, child, {
+          complete: async () => {
+            await this.host.complete(child);
+            await this.render();
+          },
+          load: (item) => this.host.load(item),
+          edit: (item) => this.host.edit(item),
+          changed: async () => {
+            await this.host.refresh();
+            await this.render();
+          },
+          allTasks: () => this.host.tasks()
+        }).open();
+      },
       onComplete: async (t) => {
         card.addClass("is-completed");
         if (hideCompleted) {
@@ -6282,12 +6554,99 @@ var ProjectBoard = class {
           allTasks: () => this.host.tasks()
         }).open();
       },
+      onAddSubtask: async (parentTask) => {
+        try {
+          await this.host.createTask({
+            projectId: parentTask.projectId,
+            parentId: String(parentTask.id),
+            columnId: parentTask.columnId
+          });
+          await this.render();
+        } catch (error) {
+          new import_obsidian13.Notice(error instanceof Error ? error.message : "\u0627\u06CC\u062C\u0627\u062F \u0632\u06CC\u0631\u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+        }
+      },
       onToggleBulkSelect: (id) => {
         const sel = bulkSelectionStore.toggle(id);
         card.toggleClass("is-bulk-selected", sel);
       }
     });
+    if (movable) {
+      card.addEventListener("dragover", (e) => {
+        const types = e.dataTransfer?.types ?? [];
+        if (!types.includes("text/ticktick-board-task")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        card.addClass("is-subtask-drop-target");
+      });
+      card.addEventListener("dragleave", (e) => {
+        if (!card.contains(e.relatedTarget)) {
+          card.removeClass("is-subtask-drop-target");
+        }
+      });
+      card.addEventListener("drop", async (e) => {
+        const draggedId = e.dataTransfer?.getData("text/ticktick-board-task");
+        if (!draggedId || draggedId === String(task.id)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        card.removeClass("is-subtask-drop-target");
+        const allTasks = this.currentRawData?.tasks ?? this.host.tasks();
+        const draggedTask = allTasks.find((t) => String(t.id) === draggedId);
+        if (!draggedTask) return;
+        await this.reparentTask(draggedTask, task);
+      });
+    }
     return card;
+  }
+  isDescendant(potentialParentId, potentialChildId) {
+    const allTasks = this.currentRawData?.tasks ?? this.host.tasks();
+    const children = allTasks.filter((t) => String(t.parentId) === potentialParentId);
+    for (const c of children) {
+      if (String(c.id) === potentialChildId) return true;
+      if (this.isDescendant(String(c.id), potentialChildId)) return true;
+    }
+    return false;
+  }
+  async reparentTask(child, parentTask) {
+    if (String(child.id) === String(parentTask.id)) return;
+    if (this.isDescendant(String(child.id), String(parentTask.id))) {
+      new import_obsidian13.Notice("\u0646\u0645\u06CC\u200C\u062A\u0648\u0627\u0646 \u06CC\u06A9 \u062A\u0633\u06A9 \u0631\u0627 \u0632\u06CC\u0631\u062A\u0633\u06A9\u0650 \u0641\u0631\u0632\u0646\u062F \u062E\u0648\u062F \u0642\u0631\u0627\u0631 \u062F\u0627\u062F.");
+      return;
+    }
+    try {
+      if (this.host.updateTask) {
+        await this.host.updateTask({
+          id: child.id,
+          parentId: String(parentTask.id),
+          projectId: parentTask.projectId,
+          columnId: parentTask.columnId
+        });
+      }
+      child.parentId = String(parentTask.id);
+      child.projectId = parentTask.projectId;
+      child.columnId = parentTask.columnId;
+      new import_obsidian13.Notice(`\u062A\u0633\u06A9 \xAB${cleanTaskTitle(child.title)}\xBB \u0628\u0647 \u0639\u0646\u0648\u0627\u0646 \u0632\u06CC\u0631\u062A\u0633\u06A9 \xAB${cleanTaskTitle(parentTask.title)}\xBB \u062A\u0646\u0638\u06CC\u0645 \u0634\u062F.`);
+      await this.render();
+    } catch (error) {
+      new import_obsidian13.Notice(error instanceof Error ? error.message : "\u062A\u0646\u0638\u06CC\u0645 \u0632\u06CC\u0631\u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+    }
+  }
+  async unparentTask(task, targetColumnId) {
+    try {
+      if (this.host.updateTask) {
+        await this.host.updateTask({
+          id: task.id,
+          parentId: null,
+          columnId: targetColumnId
+        });
+      }
+      task.parentId = null;
+      task.columnId = targetColumnId;
+      new import_obsidian13.Notice(`\u062A\u0633\u06A9 \xAB${cleanTaskTitle(task.title)}\xBB \u0627\u0632 \u062D\u0627\u0644\u062A \u0632\u06CC\u0631\u062A\u0633\u06A9 \u062E\u0627\u0631\u062C \u0634\u062F \u0648 \u0628\u0647 \u062A\u0633\u06A9 \u0645\u0633\u062A\u0642\u0644 \u062A\u0628\u062F\u06CC\u0644 \u06AF\u0631\u062F\u06CC\u062F.`);
+      await this.render();
+    } catch (error) {
+      new import_obsidian13.Notice(error instanceof Error ? error.message : "\u062E\u0627\u0631\u062C \u06A9\u0631\u062F\u0646 \u062A\u0633\u06A9 \u0627\u0632 \u062D\u0627\u0644\u062A \u0632\u06CC\u0631\u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+    }
   }
   async moveTask(task, columnId, optimisticCard, sourceCol, oldColumnId) {
     try {
@@ -7778,10 +8137,13 @@ var DEFAULT_SETTINGS = {
 var import_obsidian17 = require("obsidian");
 init_date();
 var TaskEditorModal = class extends import_obsidian17.Modal {
-  constructor(app, projects, initial) {
+  constructor(app, projects, initial, existingTags = [], availableTasks = [], onCreateSubtask) {
     super(app);
     this.projects = projects;
     this.initial = initial;
+    this.existingTags = existingTags;
+    this.availableTasks = availableTasks;
+    this.onCreateSubtask = onCreateSubtask;
   }
   resolveResult;
   result = new Promise((resolve) => this.resolveResult = resolve);
@@ -7806,13 +8168,23 @@ var TaskEditorModal = class extends import_obsidian17.Modal {
     let title = String(this.initial.title ?? "");
     let description = taskDescription(this.initial);
     let projectId = String(this.initial.projectId ?? this.projects[0]?.id ?? "");
+    let parentId = this.initial.parentId ? String(this.initial.parentId) : null;
     let dueDate = toDateKey(String(this.initial.dueDate ?? ""), String(this.initial.timeZone ?? "Asia/Tehran")) ?? "";
     let reminderTime = reminderTimeFromTask(this.initial);
     let priority = typeof this.initial.priority === "number" ? this.initial.priority : 0;
+    let titleInputEl = null;
     new import_obsidian17.Setting(fields2).setName("\u{1F4DD} \u0639\u0646\u0648\u0627\u0646").addText((input) => {
       input.setValue(title).onChange((value) => title = value);
       input.inputEl.dir = "rtl";
       input.inputEl.addClass("ticktick-input-full-width");
+      input.inputEl.placeholder = "\u0639\u0646\u0648\u0627\u0646 \u062A\u0633\u06A9 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F...";
+      titleInputEl = input.inputEl;
+      input.inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          onSave();
+        }
+      });
     });
     const selectedProjectName = () => this.projects.find((project) => project.id === projectId)?.name ?? "\u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0648\u0698\u0647";
     new import_obsidian17.Setting(fields2).setName("\u{1F4C2} \u067E\u0631\u0648\u0698\u0647").setDesc("\u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0648\u0698\u0647 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646.").addButton((button) => {
@@ -7827,6 +8199,68 @@ var TaskEditorModal = class extends import_obsidian17.Modal {
         menu.showAtMouseEvent(event);
       });
     });
+    const parentSetting = new import_obsidian17.Setting(fields2).setName("\u21B3 \u062A\u0633\u06A9 \u0648\u0627\u0644\u062F (\u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628)").setDesc("\u0627\u0646\u062A\u062E\u0627\u0628 \u0648\u0627\u0644\u062F \u0628\u0631\u0627\u06CC \u062A\u0628\u062F\u06CC\u0644 \u0628\u0647 \u0632\u06CC\u0631\u062A\u0633\u06A9 \u06CC\u0627 \u062E\u0631\u0648\u062C \u0627\u0632 \u0632\u06CC\u0631\u062A\u0633\u06A9.");
+    const parentControl = parentSetting.controlEl.createDiv({ cls: "ticktick-parent-task-control" });
+    const renderParentTaskUI = () => {
+      parentControl.empty();
+      if (parentId) {
+        const parentTask = this.availableTasks.find((t) => String(t.id) === parentId);
+        const parentChip = parentControl.createSpan({ cls: "ticktick-parent-task-chip" });
+        const iconSpan = parentChip.createSpan({ cls: "ticktick-pill-icon" });
+        (0, import_obsidian17.setIcon)(iconSpan, "corner-down-left");
+        parentChip.createSpan({
+          cls: "ticktick-parent-name",
+          text: parentTask?.title ? `\u0648\u0627\u0644\u062F: ${cleanTaskTitle(parentTask.title)}` : `\u0648\u0627\u0644\u062F #${parentId}`
+        });
+        const unnestBtn = parentControl.createEl("button", {
+          cls: "ticktick-parent-action-btn mod-warning",
+          text: "\u2715 \u062E\u0631\u0648\u062C \u0627\u0632 \u0632\u06CC\u0631\u062A\u0633\u06A9",
+          attr: { type: "button", title: "\u062A\u0628\u062F\u06CC\u0644 \u0628\u0647 \u062A\u0633\u06A9 \u0627\u0635\u0644\u06CC \u0645\u0633\u062A\u0642\u0644" }
+        });
+        unnestBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          parentId = null;
+          renderParentTaskUI();
+        });
+      } else {
+        const pickParentBtn = parentControl.createEl("button", {
+          cls: "ticktick-parent-action-btn",
+          text: "+ \u062A\u0628\u062F\u06CC\u0644 \u0628\u0647 \u0632\u06CC\u0631\u062A\u0633\u06A9 (\u0627\u0646\u062A\u062E\u0627\u0628 \u0648\u0627\u0644\u062F)",
+          attr: { type: "button" }
+        });
+        const pIcon = pickParentBtn.createSpan({ cls: "ticktick-btn-icon" });
+        (0, import_obsidian17.setIcon)(pIcon, "list-tree");
+        pickParentBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          const menu = new import_obsidian17.Menu();
+          const candidates = this.availableTasks.filter(
+            (t) => String(t.id) !== String(this.initial.id ?? "") && (!this.initial.id || String(t.parentId ?? "") !== String(this.initial.id))
+          );
+          if (candidates.length === 0) {
+            menu.addItem((item) => item.setTitle("\u062A\u0633\u06A9\u06CC \u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u0628\u0647 \u0639\u0646\u0648\u0627\u0646 \u0648\u0627\u0644\u062F \u06CC\u0627\u0641\u062A \u0646\u0634\u062F").setDisabled(true));
+          } else {
+            const projectCandidates = candidates.filter((t) => !projectId || String(t.projectId) === projectId);
+            const listToShow = projectCandidates.length > 0 ? projectCandidates : candidates;
+            for (const cand of listToShow.slice(0, 30)) {
+              menu.addItem((item) => {
+                const titleStr = cleanTaskTitle(cand.title) || `\u062A\u0633\u06A9 #${cand.id}`;
+                item.setTitle(titleStr).setChecked(String(cand.id) === parentId).onClick(() => {
+                  parentId = String(cand.id);
+                  if (cand.projectId) {
+                    projectId = String(cand.projectId);
+                    const projBtn = fields2.querySelector(".ticktick-project-picker");
+                    if (projBtn) projBtn.textContent = selectedProjectName();
+                  }
+                  renderParentTaskUI();
+                });
+              });
+            }
+          }
+          menu.showAtMouseEvent(e);
+        });
+      }
+    };
+    renderParentTaskUI();
     const dateSetting = new import_obsidian17.Setting(fields2).setName("\u{1F4C5} \u062A\u0627\u0631\u06CC\u062E \u0633\u0631\u0631\u0633\u06CC\u062F (\u0634\u0645\u0633\u06CC)").setDesc("\u0627\u0646\u062A\u062E\u0627\u0628 \u062A\u0627\u0631\u06CC\u062E \u0627\u0632 \u062A\u0642\u0648\u06CC\u0645 \u0634\u0645\u0633\u06CC \u06CC\u0627 \u062A\u0627\u06CC\u067E \u062F\u0633\u062A\u06CC.");
     new JalaliDatePicker(dateSetting.controlEl, "", dueDate, (value) => dueDate = value);
     new import_obsidian17.Setting(fields2).setName("\u23F0 \u06CC\u0627\u062F\u0622\u0648\u0631\u06CC").setDesc("\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC\u061B \u062F\u0631 \u0633\u0627\u0639\u062A \u0627\u0646\u062A\u062E\u0627\u0628\u200C\u0634\u062F\u0647 \u062F\u0631 \u0647\u0645\u0627\u0646 \u0631\u0648\u0632 \u06CC\u0627\u062F\u0622\u0648\u0631\u06CC \u0645\u06CC\u200C\u0634\u0648\u062F.").addText((input) => {
@@ -7859,6 +8293,99 @@ var TaskEditorModal = class extends import_obsidian17.Modal {
       });
       priorityButtons.push(btn);
     }
+    const rawInitialTags = Array.isArray(this.initial.tags) ? this.initial.tags : Array.isArray(this.initial.tagNames) ? this.initial.tagNames : [];
+    let selectedTags = [...new Set(rawInitialTags.map((t) => String(t).replace(/^[#＃]/, "").trim()).filter(Boolean))];
+    const allAvailableTags = [.../* @__PURE__ */ new Set([
+      ...this.existingTags.map((t) => String(t).replace(/^[#＃]/, "").trim()).filter(Boolean),
+      ...selectedTags
+    ])].sort((a, b) => a.localeCompare(b, "fa"));
+    const tagsSetting = new import_obsidian17.Setting(fields2).setName("\u{1F3F7}\uFE0F \u0628\u0631\u0686\u0633\u0628\u200C\u0647\u0627").setDesc("\u0627\u0646\u062A\u062E\u0627\u0628 \u0627\u0632 \u0628\u0631\u0686\u0633\u0628\u200C\u0647\u0627\u06CC \u0645\u0648\u062C\u0648\u062F \u06CC\u0627 \u0627\u0641\u0632\u0648\u062F\u0646 \u0628\u0631\u0686\u0633\u0628 \u062C\u062F\u06CC\u062F.");
+    const tagsContainer = tagsSetting.controlEl.createDiv({ cls: "ticktick-editor-tags-container" });
+    const selectedTagsList = tagsContainer.createDiv({ cls: "ticktick-selected-tags-list" });
+    const addTagRow = tagsContainer.createDiv({ cls: "ticktick-add-tag-row" });
+    const tagInput = addTagRow.createEl("input", {
+      type: "text",
+      cls: "ticktick-tag-input",
+      placeholder: "\u0628\u0631\u0686\u0633\u0628 \u062C\u062F\u06CC\u062F... (Enter \u0628\u0631\u0627\u06CC \u0627\u0641\u0632\u0648\u062F\u0646)"
+    });
+    tagInput.dir = "rtl";
+    const addTagBtn = addTagRow.createEl("button", {
+      type: "button",
+      cls: "ticktick-tag-add-btn",
+      text: "+ \u0627\u0641\u0632\u0648\u062F\u0646"
+    });
+    const availableWrap = tagsContainer.createDiv({ cls: "ticktick-available-tags-wrap" });
+    const renderTagsUI = () => {
+      selectedTagsList.empty();
+      if (selectedTags.length === 0) {
+        selectedTagsList.createSpan({ cls: "ticktick-no-tags-hint", text: "\u0628\u062F\u0648\u0646 \u0628\u0631\u0686\u0633\u0628" });
+      } else {
+        for (const tag of selectedTags) {
+          const chip = selectedTagsList.createSpan({ cls: "ticktick-selected-tag-chip" });
+          chip.createSpan({ cls: "ticktick-tag-text", text: `#${tag}` });
+          const removeBtn = chip.createSpan({
+            cls: "ticktick-tag-remove-btn",
+            attr: { role: "button", "aria-label": `\u062D\u0630\u0641 \u0628\u0631\u0686\u0633\u0628 ${tag}`, title: "\u062D\u0630\u0641" }
+          });
+          removeBtn.setText("\xD7");
+          removeBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            selectedTags = selectedTags.filter((t) => t !== tag);
+            renderTagsUI();
+          });
+        }
+      }
+      availableWrap.empty();
+      if (allAvailableTags.length > 0) {
+        availableWrap.createSpan({ cls: "ticktick-available-tags-title", text: "\u0628\u0631\u0686\u0633\u0628\u200C\u0647\u0627\u06CC \u0645\u0648\u062C\u0648\u062F:" });
+        const availableList = availableWrap.createDiv({ cls: "ticktick-available-tags-list" });
+        for (const tag of allAvailableTags) {
+          const isSelected = selectedTags.includes(tag);
+          const pill = availableList.createEl("button", {
+            type: "button",
+            cls: `ticktick-tag-pill ${isSelected ? "is-selected" : ""}`,
+            attr: { "aria-pressed": isSelected ? "true" : "false" }
+          });
+          const iconSpan = pill.createSpan({ cls: "ticktick-pill-icon" });
+          (0, import_obsidian17.setIcon)(iconSpan, isSelected ? "check" : "tag");
+          pill.createSpan({ text: `#${tag}` });
+          pill.addEventListener("click", (e) => {
+            e.preventDefault();
+            if (selectedTags.includes(tag)) {
+              selectedTags = selectedTags.filter((t) => t !== tag);
+            } else {
+              selectedTags.push(tag);
+            }
+            renderTagsUI();
+          });
+        }
+      }
+    };
+    const handleAddNewTag = () => {
+      const raw = tagInput.value.trim().replace(/^[#＃]/, "").trim();
+      if (!raw) return;
+      if (!selectedTags.includes(raw)) {
+        selectedTags.push(raw);
+      }
+      if (!allAvailableTags.includes(raw)) {
+        allAvailableTags.push(raw);
+        allAvailableTags.sort((a, b) => a.localeCompare(b, "fa"));
+      }
+      tagInput.value = "";
+      renderTagsUI();
+    };
+    addTagBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      handleAddNewTag();
+    });
+    tagInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        handleAddNewTag();
+      }
+    });
+    renderTagsUI();
     const descSection = fields2.createDiv({ cls: "ticktick-desc-section" });
     const descHeader = descSection.createDiv({ cls: "ticktick-desc-header" });
     const descHeaderInfo = descHeader.createDiv({ cls: "ticktick-desc-header-info" });
@@ -7887,7 +8414,7 @@ var TaskEditorModal = class extends import_obsidian17.Modal {
       const content = description.trim() || "*\u0647\u0646\u0648\u0632 \u062A\u0648\u0636\u06CC\u062D\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0633\u06A9 \u062B\u0628\u062A \u0646\u0634\u062F\u0647 \u0627\u0633\u062A. \u0628\u0631\u0627\u06CC \u0646\u0648\u0634\u062A\u0646\u060C \u0631\u0648\u06CC \u062F\u06A9\u0645\u0647 \xAB\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0645\u062A\u0646\xBB \u062F\u0631 \u0628\u0627\u0644\u0627 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646\u06CC\u062F.*";
       await import_obsidian17.MarkdownRenderer.render(this.app, content, previewEl, "", this.comp);
     };
-    const setTab = (tab) => {
+    const setTab = (tab, autoFocus = false) => {
       if (tab === "preview") {
         previewTabBtn.addClass("is-active");
         editTabBtn.removeClass("is-active");
@@ -7900,7 +8427,9 @@ var TaskEditorModal = class extends import_obsidian17.Modal {
         previewTabBtn.removeClass("is-active");
         previewEl.addClass("is-hidden");
         descTextarea.removeClass("is-hidden");
-        descTextarea.focus();
+        if (autoFocus) {
+          descTextarea.focus();
+        }
       }
     };
     previewTabBtn.onclick = (e) => {
@@ -7909,18 +8438,106 @@ var TaskEditorModal = class extends import_obsidian17.Modal {
     };
     editTabBtn.onclick = (e) => {
       e.preventDefault();
-      setTab("edit");
+      setTab("edit", true);
     };
     const initialTab = description.trim() ? "preview" : "edit";
-    setTab(initialTab);
-    const actions = contentEl.createDiv({ cls: "ticktick-editor-actions" });
-    actions.createEl("button", { text: "\u274C \u0627\u0646\u0635\u0631\u0627\u0641" }).addEventListener("click", () => this.finish(null));
-    actions.createEl("button", { text: "\u{1F4BE} \u0630\u062E\u06CC\u0631\u0647", cls: "mod-cta" }).addEventListener("click", () => {
+    setTab(initialTab, false);
+    if (this.initial.id) {
+      const currentTaskId = String(this.initial.id);
+      const existingSubtasks = this.availableTasks.filter((t) => String(t.parentId) === currentTaskId);
+      const subtasksSection = fields2.createDiv({ cls: "ticktick-editor-subtasks-section" });
+      const subHeader = subtasksSection.createDiv({ cls: "ticktick-editor-subtasks-header" });
+      subHeader.createSpan({ text: `\u{1F4D1} \u0632\u06CC\u0631\u062A\u0633\u06A9\u200C\u0647\u0627 (${existingSubtasks.length})`, cls: "ticktick-subtasks-title" });
+      const subtasksList = subtasksSection.createDiv({ cls: "ticktick-editor-subtasks-list" });
+      if (existingSubtasks.length === 0) {
+        subtasksList.createSpan({ cls: "ticktick-no-tags-hint", text: "\u0628\u062F\u0648\u0646 \u0632\u06CC\u0631\u062A\u0633\u06A9" });
+      } else {
+        for (const st of existingSubtasks) {
+          const itemRow = subtasksList.createDiv({ cls: "ticktick-editor-subtask-item" });
+          itemRow.createSpan({ text: Number(st.status ?? 0) !== 0 ? "\u2611" : "\u2610", cls: "ticktick-subtask-check-icon" });
+          itemRow.createSpan({ text: cleanTaskTitle(st.title) || "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646", cls: "ticktick-subtask-title-text" });
+        }
+      }
+      const addSubRow = subtasksSection.createDiv({ cls: "ticktick-add-subtask-row" });
+      const subInput = addSubRow.createEl("input", {
+        type: "text",
+        cls: "ticktick-subtask-input",
+        placeholder: "\u0639\u0646\u0648\u0627\u0646 \u0632\u06CC\u0631\u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F... (Enter \u0628\u0631\u0627\u06CC \u0627\u0641\u0632\u0648\u062F\u0646)"
+      });
+      subInput.dir = "rtl";
+      const addSubBtn = addSubRow.createEl("button", {
+        type: "button",
+        cls: "ticktick-subtask-add-btn",
+        text: "+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0632\u06CC\u0631\u062A\u0633\u06A9"
+      });
+      const handleCreateSub = async () => {
+        const subTitle = subInput.value.trim();
+        if (!subTitle) return;
+        addSubBtn.disabled = true;
+        try {
+          if (this.onCreateSubtask) {
+            await this.onCreateSubtask(currentTaskId, subTitle);
+            new import_obsidian17.Notice(`\u0632\u06CC\u0631\u062A\u0633\u06A9 \xAB${subTitle}\xBB \u0627\u06CC\u062C\u0627\u062F \u0634\u062F.`);
+            const hint = subtasksList.querySelector(".ticktick-no-tags-hint");
+            if (hint) hint.remove();
+            const newSubRow = subtasksList.createDiv({ cls: "ticktick-editor-subtask-item" });
+            newSubRow.createSpan({ text: "\u2610", cls: "ticktick-subtask-check-icon" });
+            newSubRow.createSpan({ text: subTitle, cls: "ticktick-subtask-title-text" });
+            subInput.value = "";
+          }
+        } catch (err) {
+          new import_obsidian17.Notice(err instanceof Error ? err.message : "\u0627\u06CC\u062C\u0627\u062F \u0632\u06CC\u0631\u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+        } finally {
+          addSubBtn.disabled = false;
+        }
+      };
+      addSubBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        void handleCreateSub();
+      });
+      subInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.stopPropagation();
+          void handleCreateSub();
+        }
+      });
+    }
+    const onSave = () => {
       description = descTextarea.value;
       if (!title.trim() || !projectId) return new import_obsidian17.Notice("\u0639\u0646\u0648\u0627\u0646 \u0648 \u067E\u0631\u0648\u0698\u0647 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646.");
       if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return new import_obsidian17.Notice("\u062A\u0627\u0631\u06CC\u062E \u0628\u0627\u06CC\u062F \u0628\u0647 \u0634\u06A9\u0644 YYYY-MM-DD \u0628\u0627\u0634\u062F.");
-      this.finish({ ...this.initial, title: title.trim(), desc: description.trim(), projectId, dueDate, reminderTime, priority });
-    });
+      this.finish({
+        ...this.initial,
+        title: title.trim(),
+        desc: description.trim(),
+        projectId,
+        parentId: parentId || null,
+        dueDate,
+        reminderTime,
+        priority,
+        tags: selectedTags,
+        tagNames: selectedTags
+      });
+    };
+    const actions = contentEl.createDiv({ cls: "ticktick-editor-actions" });
+    actions.createEl("button", { text: "\u274C \u0627\u0646\u0635\u0631\u0627\u0641" }).addEventListener("click", () => this.finish(null));
+    actions.createEl("button", { text: "\u{1F4BE} \u0630\u062E\u06CC\u0631\u0647", cls: "mod-cta" }).addEventListener("click", () => onSave());
+    const resetScrollToTop = () => {
+      fields2.scrollTop = 0;
+      contentEl.scrollTop = 0;
+      this.modalEl.scrollTop = 0;
+    };
+    resetScrollToTop();
+    window.setTimeout(() => {
+      resetScrollToTop();
+      if (titleInputEl) {
+        titleInputEl.focus({ preventScroll: true });
+        if (title.length > 0) {
+          titleInputEl.select();
+        }
+      }
+    }, 25);
   }
   onClose() {
     this.comp.unload();
@@ -7969,9 +8586,9 @@ var DeleteConfirmationModal = class extends import_obsidian17.Modal {
     return this.result;
   }
 };
-function openTaskEditor(app, projects, initial) {
+function openTaskEditor(app, projects, initial, existingTags = [], availableTasks = [], onCreateSubtask) {
   const allProjects = [{ id: "inbox", name: "\u0635\u0646\u062F\u0648\u0642 \u0648\u0631\u0648\u062F\u06CC" }, ...projects.filter((p) => p.id !== "inbox")];
-  return new TaskEditorModal(app, allProjects, initial).openAndWait();
+  return new TaskEditorModal(app, allProjects, initial, existingTags, availableTasks, onCreateSubtask).openAndWait();
 }
 function confirmDelete(app, title) {
   return new DeleteConfirmationModal(app, title).openAndWait();
@@ -14004,9 +14621,28 @@ var TickTickBridgePlugin = class extends import_obsidian44.Plugin {
   async checkInHabit(habitId, day, checkin) {
     return this.runMutation("habit", { habitId, day, checkin });
   }
+  availableTags() {
+    const taskTags = (this.cache?.tasks ?? []).flatMap((t) => t.tags ?? []);
+    const boardTags = Object.values(this.cache?.projectBoards ?? {}).flatMap((b) => (b.tasks ?? []).flatMap((t) => t.tags ?? []));
+    return [...new Set([...taskTags, ...boardTags].filter(Boolean).map(String).map((t) => t.replace(/^[#＃]/, "").trim()))].filter(Boolean).sort((a, b) => a.localeCompare(b, "fa"));
+  }
   async createTaskFromSurface(initial = {}) {
     const projects = this.cache.projects.length ? this.cache.projects : await this.client().listProjects();
-    const draft = await openTaskEditor(this.app, projects, initial);
+    const draft = await openTaskEditor(
+      this.app,
+      projects,
+      initial,
+      this.availableTags(),
+      this.cache.tasks,
+      async (parentId, title) => {
+        const pTask = this.cache.tasks.find((t) => String(t.id) === parentId);
+        return this.createTask({
+          title,
+          parentId,
+          projectId: pTask?.projectId ?? projects[0]?.id
+        });
+      }
+    );
     if (!draft) return null;
     return this.createTask(toTaskPayload(draft, this.settings.timeZone));
   }
@@ -14033,7 +14669,21 @@ var TickTickBridgePlugin = class extends import_obsidian44.Plugin {
   async editTaskFromSurface(task) {
     const current = await this.loadTaskDetails(task) ?? task;
     const projects = await this.client().listProjects();
-    const draft = await openTaskEditor(this.app, projects, current);
+    const draft = await openTaskEditor(
+      this.app,
+      projects,
+      current,
+      this.availableTags(),
+      this.cache.tasks,
+      async (parentId, title) => {
+        const pTask = this.cache.tasks.find((t) => String(t.id) === parentId);
+        return this.createTask({
+          title,
+          parentId,
+          projectId: pTask?.projectId ?? current.projectId ?? projects[0]?.id
+        });
+      }
+    );
     if (!draft) return null;
     const payload = toTaskPayload({ ...current, ...draft }, this.settings.timeZone);
     await this.updateTask(payload);
@@ -14614,7 +15264,7 @@ var TickTickBridgePlugin = class extends import_obsidian44.Plugin {
         addButton.disabled = true;
         try {
           const projects = await client.listProjects();
-          const draft = await openTaskEditor(this.app, projects, { dueDate: day });
+          const draft = await openTaskEditor(this.app, projects, { dueDate: day }, this.availableTags(), this.cache.tasks);
           if (!draft) return;
           await this.createTask(toTaskPayload(draft, this.settings.timeZone));
           new import_obsidian44.Notice("\u062A\u0633\u06A9 \u0628\u0647 TickTick \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.");
@@ -14682,7 +15332,7 @@ var TickTickBridgePlugin = class extends import_obsidian44.Plugin {
         edit.addEventListener("click", async () => {
           try {
             const projects = await client.listProjects();
-            const draft = await openTaskEditor(this.app, projects, task);
+            const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks);
             if (!draft) return;
             await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
             new import_obsidian44.Notice("\u062A\u0633\u06A9 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
@@ -14885,7 +15535,7 @@ var TickTickBridgePlugin = class extends import_obsidian44.Plugin {
             card.disabled = true;
             try {
               const projects = await this.client().listProjects();
-              const draft = await openTaskEditor(this.app, projects, task);
+              const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks);
               if (!draft) return;
               await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
               new import_obsidian44.Notice("\u062A\u0633\u06A9 \u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
