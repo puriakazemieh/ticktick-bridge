@@ -4968,31 +4968,68 @@ var FilterBar = class {
     if (!this.chipsContainer) return;
     this.chipsContainer.empty();
     const state = this.host.filterState();
-    const projects = this.host.projects();
-    const selProjects = new Set(state.projects || []);
-    const projBtn = this.chipsContainer.createEl("button", {
-      cls: `ticktick-filter-chip ${selProjects.size ? "is-active" : ""}`,
-      attr: { type: "button" }
-    });
-    const pIcon = projBtn.createSpan({ cls: "ticktick-chip-icon" });
-    (0, import_obsidian11.setIcon)(pIcon, "folder");
-    const projLabel = selProjects.size ? `\u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627 (${selProjects.size})` : "\u0647\u0645\u0647\u0654 \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627";
-    projBtn.createSpan({ text: projLabel });
-    projBtn.addEventListener("click", () => {
-      new MultiChoiceModal(
-        this.host.app,
-        "\u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627",
-        projects.map((p) => ({ id: p.id, label: p.name })),
-        selProjects,
-        (selected) => {
-          this.notifyFilterChange({
-            ...state,
-            projects: [...selected]
+    if (this.host.sortMode && this.host.onSortChange) {
+      const currentSort = this.host.sortMode();
+      const sortLabels = {
+        ticktick: "\u062A\u0631\u062A\u06CC\u0628 TickTick",
+        time: "\u062A\u0627\u0631\u06CC\u062E/\u0633\u0627\u0639\u062A",
+        priority: "\u0627\u0648\u0644\u0648\u06CC\u062A",
+        title: "\u0639\u0646\u0648\u0627\u0646"
+      };
+      const sortBtn = this.chipsContainer.createEl("button", {
+        cls: `ticktick-filter-chip ${currentSort !== "ticktick" ? "is-active" : ""}`,
+        attr: { type: "button", "aria-label": "\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0631\u062A\u200C\u0647\u0627", title: "\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0631\u062A\u200C\u0647\u0627" }
+      });
+      const sIcon = sortBtn.createSpan({ cls: "ticktick-chip-icon" });
+      (0, import_obsidian11.setIcon)(sIcon, "arrow-up-down");
+      sortBtn.createSpan({ text: `\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC: ${sortLabels[currentSort] ?? "\u062A\u0631\u062A\u06CC\u0628 TickTick"}` });
+      const chevron2 = sortBtn.createSpan({ cls: "ticktick-chip-chevron" });
+      (0, import_obsidian11.setIcon)(chevron2, "chevron-down");
+      sortBtn.addEventListener("click", (e) => {
+        const menu = new import_obsidian11.Menu();
+        for (const [val, label] of [
+          ["ticktick", "\u062A\u0631\u062A\u06CC\u0628 TickTick"],
+          ["time", "\u062A\u0627\u0631\u06CC\u062E/\u0633\u0627\u0639\u062A"],
+          ["priority", "\u0627\u0648\u0644\u0648\u06CC\u062A"],
+          ["title", "\u0639\u0646\u0648\u0627\u0646"]
+        ]) {
+          menu.addItem((item) => {
+            item.setTitle(label).setChecked(currentSort === val).onClick(() => {
+              this.host.onSortChange?.(val);
+              this.renderChips();
+            });
           });
-          this.renderChips();
         }
-      ).open();
-    });
+        menu.showAtMouseEvent(e);
+      });
+    }
+    if (this.host.scope !== "board") {
+      const projects = this.host.projects();
+      const selProjects = new Set(state.projects || []);
+      const projBtn = this.chipsContainer.createEl("button", {
+        cls: `ticktick-filter-chip ${selProjects.size ? "is-active" : ""}`,
+        attr: { type: "button" }
+      });
+      const pIcon = projBtn.createSpan({ cls: "ticktick-chip-icon" });
+      (0, import_obsidian11.setIcon)(pIcon, "folder");
+      const projLabel = selProjects.size ? `\u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627 (${selProjects.size})` : "\u0647\u0645\u0647\u0654 \u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627";
+      projBtn.createSpan({ text: projLabel });
+      projBtn.addEventListener("click", () => {
+        new MultiChoiceModal(
+          this.host.app,
+          "\u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627",
+          projects.map((p) => ({ id: p.id, label: p.name })),
+          selProjects,
+          (selected) => {
+            this.notifyFilterChange({
+              ...state,
+              projects: [...selected]
+            });
+            this.renderChips();
+          }
+        ).open();
+      });
+    }
     const tags = this.host.tags();
     const selTags = new Set(state.tags || []);
     const tagBtn = this.chipsContainer.createEl("button", {
@@ -5484,6 +5521,8 @@ var ProjectBoard = class {
   sidebarCollapsed = false;
   lastSelectedProject = null;
   savedColumnsScrollLeft = 0;
+  savedBodyScrollTop = 0;
+  savedColumnScrolls = /* @__PURE__ */ new Map();
   filterState = {
     projects: [],
     tags: [],
@@ -5514,158 +5553,43 @@ var ProjectBoard = class {
       if (!saved.sidebarPreferenceInitialized) void this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: false, sidebarPreferenceInitialized: true, smartViewGrouping: this.smartViewGrouping });
     }
     const existingCols = this.element.querySelector(".ticktick-project-columns");
-    this.savedColumnsScrollLeft = existingCols?.scrollLeft ?? 0;
+    if (existingCols && this.lastSelectedProject === this.selected) {
+      this.savedColumnsScrollLeft = existingCols.scrollLeft;
+    }
+    const bodySlot = this.element.closest(".ticktick-workspace-body-slot") ?? this.element;
+    if (bodySlot && this.lastSelectedProject === this.selected) {
+      this.savedBodyScrollTop = bodySlot.scrollTop;
+    }
+    if (bodySlot && !bodySlot._ttbScrollTrackingAttached) {
+      bodySlot._ttbScrollTrackingAttached = true;
+      bodySlot.addEventListener("scroll", () => {
+        if (this.lastSelectedProject === this.selected) {
+          this.savedBodyScrollTop = bodySlot.scrollTop;
+        }
+      }, { passive: true });
+    }
+    const existingColEls = this.element.querySelectorAll(".ticktick-project-column");
+    existingColEls.forEach((col) => {
+      const colId = col.dataset.columnId;
+      const cards = col.querySelector(".ticktick-column-cards");
+      if (colId) {
+        const top = cards?.scrollTop || col.scrollTop || 0;
+        if (top > 0) this.savedColumnScrolls.set(colId, top);
+      }
+    });
     this.element.empty();
     this.element.addClass("ticktick-project-board");
     const root = this.element.createDiv({ cls: "ticktick-project-board-root" });
+    root.toggleClass("is-rail-collapsed", this.sidebarCollapsed);
     try {
       const projects = await this.host.projects();
       if (!this.selected || this.selected === "ticktick:view:all") this.selected = String(projects[0]?.id ?? INBOX_BOARD_VIEW_ID);
-      const rail = root.createDiv({ cls: `ticktick-project-rail ${this.sidebarCollapsed ? "is-collapsed" : ""}` });
-      root.toggleClass("is-rail-collapsed", this.sidebarCollapsed);
-      const railHeader = rail.createDiv({ cls: "ticktick-rail-header" });
-      const headerIcon = railHeader.createSpan({ cls: "ticktick-rail-icon" });
-      (0, import_obsidian13.setIcon)(headerIcon, "folders");
-      railHeader.createSpan({ text: "\u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627 \u0648 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
-      const collapseBtn = railHeader.createEl("button", { cls: "ticktick-rail-collapse", attr: { type: "button", "aria-label": this.sidebarCollapsed ? "\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u0641\u0647\u0631\u0633\u062A" : "\u062C\u0645\u0639 \u06A9\u0631\u062F\u0646 \u0641\u0647\u0631\u0633\u062A" } });
-      (0, import_obsidian13.setIcon)(collapseBtn, this.sidebarCollapsed ? "panel-right-open" : "panel-right-close");
-      collapseBtn.addEventListener("click", () => {
-        this.sidebarCollapsed = !this.sidebarCollapsed;
-        void this.persistAndRender();
-      });
-      if (this.sidebarCollapsed) {
-        rail.createEl("button", { cls: "ticktick-rail-expand-label", text: "\u0644\u06CC\u0633\u062A\u200C\u0647\u0627", attr: { type: "button" } }).addEventListener("click", () => {
-          this.sidebarCollapsed = false;
-          void this.persistAndRender();
-        });
-      } else {
-        const virtual = virtualBoardEntries(this.host.tasks(), { timeZone: this.host.timeZone });
-        const habits = rail.createEl("button", { cls: `ticktick-project-row ${this.selected === HABIT_BOARD_VIEW_ID ? "is-selected" : ""}`, attr: { type: "button", "aria-label": `\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u060C ${this.host.habits().length} \u0639\u0627\u062F\u062A` } });
-        const habitsIcon = habits.createSpan({ cls: "ticktick-project-row-icon" });
-        (0, import_obsidian13.setIcon)(habitsIcon, "activity");
-        habits.createSpan({ cls: "ticktick-project-name", text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627" });
-        habits.createSpan({ cls: "ticktick-project-count", text: String(this.host.habits().length) });
-        habits.addEventListener("click", () => {
-          this.selected = HABIT_BOARD_VIEW_ID;
-          void this.persistAndRender();
-        });
-        const isSmartCollapsed = this.collapsed.has("smart-views") || this.collapsed.has("virtual-views");
-        const smartHeading = rail.createEl("button", {
-          cls: `ticktick-project-group ${isSmartCollapsed ? "is-collapsed" : ""}`,
-          attr: { type: "button" }
-        });
-        const smartChevron = smartHeading.createSpan({ cls: "ticktick-group-chevron" });
-        (0, import_obsidian13.setIcon)(smartChevron, isSmartCollapsed ? "chevron-left" : "chevron-down");
-        smartHeading.createSpan({ cls: "ticktick-group-title", text: "\u0646\u0645\u0627\u0647\u0627\u06CC \u0647\u0648\u0634\u0645\u0646\u062F" });
-        smartHeading.addEventListener("click", () => {
-          if (isSmartCollapsed) {
-            this.collapsed.delete("smart-views");
-            this.collapsed.delete("virtual-views");
-          } else {
-            this.collapsed.add("smart-views");
-            this.collapsed.add("virtual-views");
-          }
-          void this.persistAndRender();
-        });
-        if (!isSmartCollapsed) {
-          for (const view of virtual.smartViews) {
-            const row = rail.createEl("button", {
-              cls: `ticktick-project-row ${this.selected === view.id ? "is-selected" : ""}`,
-              attr: { type: "button", "aria-label": `${view.name}\u060C ${view.count} \u062A\u0633\u06A9` }
-            });
-            const rowIcon = row.createSpan({ cls: "ticktick-project-row-icon" });
-            (0, import_obsidian13.setIcon)(rowIcon, view.icon);
-            row.createSpan({ cls: "ticktick-project-name", text: view.name });
-            row.createSpan({ cls: "ticktick-project-count", text: String(view.count) });
-            row.addEventListener("click", () => {
-              this.selected = view.id;
-              void this.persistAndRender();
-            });
-          }
-        }
-        const tagHeading = rail.createEl("button", {
-          cls: `ticktick-project-group ${this.collapsed.has("virtual-tags") ? "is-collapsed" : ""}`,
-          attr: { type: "button" }
-        });
-        const tagChevron = tagHeading.createSpan({ cls: "ticktick-group-chevron" });
-        (0, import_obsidian13.setIcon)(tagChevron, this.collapsed.has("virtual-tags") ? "chevron-left" : "chevron-down");
-        tagHeading.createSpan({ cls: "ticktick-group-title", text: "\u0628\u0631\u0686\u0633\u0628\u200C\u0647\u0627" });
-        tagHeading.addEventListener("click", () => {
-          this.collapsed.has("virtual-tags") ? this.collapsed.delete("virtual-tags") : this.collapsed.add("virtual-tags");
-          void this.persistAndRender();
-        });
-        if (!this.collapsed.has("virtual-tags")) {
-          for (const tag of virtual.tags) {
-            const row = rail.createEl("button", {
-              cls: `ticktick-project-row ticktick-tag-view-row ${this.selected === tag.id ? "is-selected" : ""}`,
-              attr: { type: "button", "aria-label": `\u0628\u0631\u0686\u0633\u0628 ${tag.name}\u060C ${tag.count} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
-            });
-            const tagIcon = row.createSpan({ cls: "ticktick-project-row-icon" });
-            (0, import_obsidian13.setIcon)(tagIcon, "tag");
-            row.createSpan({ cls: "ticktick-project-name", text: `#${tag.name}` });
-            row.createSpan({ cls: "ticktick-project-count", text: String(tag.count) });
-            row.addEventListener("click", () => {
-              this.selected = tag.id;
-              void this.persistAndRender();
-            });
-          }
-        }
-        for (const group of sidebarTree(projects, this.host.tasks())) {
-          const key = group.name || "flat";
-          const groupHeading = rail.createEl("button", {
-            cls: `ticktick-project-group ${this.collapsed.has(key) ? "is-collapsed" : ""}`,
-            attr: { type: "button" }
-          });
-          const groupChevron = groupHeading.createSpan({ cls: "ticktick-group-chevron" });
-          (0, import_obsidian13.setIcon)(groupChevron, this.collapsed.has(key) ? "chevron-left" : "chevron-down");
-          groupHeading.createSpan({ cls: "ticktick-group-title", text: group.name || "\u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
-          groupHeading.addEventListener("click", () => {
-            this.collapsed.has(key) ? this.collapsed.delete(key) : this.collapsed.add(key);
-            void this.persistAndRender();
-          });
-          if (this.collapsed.has(key)) continue;
-          for (const project2 of group.projects) {
-            const row = rail.createEl("button", {
-              cls: `ticktick-project-row ${this.selected === String(project2.id) ? "is-selected" : ""}`,
-              attr: { type: "button", "aria-label": `${project2.name}\u060C ${project2.openCount} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
-            });
-            const dot = row.createSpan({ cls: "ticktick-project-dot" });
-            dot.style.setProperty("--project-color", project2.color ?? "var(--interactive-accent)");
-            row.createSpan({ cls: "ticktick-project-name", text: project2.name });
-            row.createSpan({ cls: "ticktick-project-count", text: String(project2.openCount) });
-            row.addEventListener("click", () => {
-              this.selected = String(project2.id);
-              void this.persistAndRender();
-            });
-          }
-        }
-        const newProjectBtn = rail.createEl("button", {
-          cls: "ticktick-new-project-btn",
-          attr: { type: "button" }
-        });
-        const plusIcon = newProjectBtn.createSpan({ cls: "ticktick-btn-icon" });
-        (0, import_obsidian13.setIcon)(plusIcon, "folder-plus");
-        newProjectBtn.createSpan({ text: "+ \u0644\u06CC\u0633\u062A \u062C\u062F\u06CC\u062F\u2026" });
-        newProjectBtn.addEventListener("click", async () => {
-          const draft = await new ProjectEditorModal(this.host.app).openAndWait();
-          if (!draft) return;
-          newProjectBtn.disabled = true;
-          try {
-            const project2 = await this.host.createProject(draft);
-            this.selected = String(project2?.id ?? "");
-            await this.host.refresh();
-            await this.persistAndRender();
-            new import_obsidian13.Notice("\u0644\u06CC\u0633\u062A \u062F\u0631 TickTick \u0633\u0627\u062E\u062A\u0647 \u0634\u062F.");
-          } catch (error) {
-            new import_obsidian13.Notice(error instanceof Error ? error.message : "\u0633\u0627\u062E\u062A \u0644\u06CC\u0633\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
-          } finally {
-            newProjectBtn.disabled = false;
-          }
-        });
+      if (!this.sidebarCollapsed) {
+        this.renderSidebarRail(root, projects);
       }
       const main = root.createDiv({ cls: "ticktick-project-main" });
       if (this.selected === HABIT_BOARD_VIEW_ID) {
-        this.renderHabitBoard(main);
+        this.renderHabitBoard(main, projects);
         return;
       }
       const project = projects.find((item) => String(item.id) === this.selected);
@@ -5696,29 +5620,17 @@ var ProjectBoard = class {
         text: countLabel
       });
       const toolbar = projectHeader.createDiv({ cls: "ticktick-project-toolbar" });
-      if (project) {
-        const addTaskBtn = toolbar.createEl("button", {
-          cls: "ticktick-toolbar-btn ticktick-toolbar-btn-cta ticktick-board-add-btn tb-action-add-task",
-          attr: { type: "button", "aria-label": "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" }
-        });
-        const addIcon = addTaskBtn.createSpan({ cls: "ticktick-btn-icon" });
-        (0, import_obsidian13.setIcon)(addIcon, "plus");
-        addTaskBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "+ \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F" });
-        addTaskBtn.addEventListener("click", async () => {
-          addTaskBtn.disabled = true;
-          try {
-            const created = await this.host.createTask({ projectId: project.id });
-            if (!created) return;
-            await this.host.refresh();
-            await this.render();
-            new import_obsidian13.Notice("\u062A\u0633\u06A9 \u062F\u0631 \u0627\u06CC\u0646 \u0644\u06CC\u0633\u062A \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.");
-          } catch (error) {
-            new import_obsidian13.Notice(error instanceof Error ? error.message : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
-          } finally {
-            addTaskBtn.disabled = false;
-          }
-        });
-      }
+      const listsBtn = toolbar.createEl("button", {
+        cls: `ticktick-toolbar-btn ${!this.sidebarCollapsed ? "is-active" : ""}`,
+        attr: { type: "button", "aria-label": "\u062A\u063A\u06CC\u06CC\u0631 \u0648\u0636\u0639\u06CC\u062A \u0646\u0645\u0627\u06CC\u0634 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627", title: "\u0646\u0645\u0627\u06CC\u0634 \u06CC\u0627 \u0645\u062E\u0641\u06CC\u200C\u0633\u0627\u0632\u06CC \u0645\u0646\u0648\u06CC \u06A9\u0646\u0627\u0631\u06CC \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" }
+      });
+      const lIcon = listsBtn.createSpan({ cls: "ticktick-btn-icon" });
+      (0, import_obsidian13.setIcon)(lIcon, "folders");
+      listsBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: `\u0644\u06CC\u0633\u062A\u200C\u0647\u0627 (${projects.length})` });
+      listsBtn.addEventListener("click", () => {
+        this.sidebarCollapsed = !this.sidebarCollapsed;
+        void this.persistAndRender();
+      });
       if (displayProject.virtual) {
         const groupLabels = {
           project: "\u067E\u0631\u0648\u0698\u0647",
@@ -5763,57 +5675,6 @@ var ProjectBoard = class {
           }
         });
       }
-      const sortLabels = {
-        ticktick: "\u062A\u0631\u062A\u06CC\u0628 TickTick",
-        time: "\u062A\u0627\u0631\u06CC\u062E/\u0633\u0627\u0639\u062A",
-        priority: "\u0627\u0648\u0644\u0648\u06CC\u062A",
-        title: "\u0639\u0646\u0648\u0627\u0646"
-      };
-      const sortBtn = toolbar.createDiv({
-        cls: "ticktick-filter-select-wrapper",
-        attr: { role: "button", tabindex: "0", "aria-label": "\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC \u06A9\u0627\u0631\u062A\u200C\u0647\u0627\u06CC \u0628\u0631\u062F" }
-      });
-      const sortIcon = sortBtn.createSpan({ cls: "ticktick-select-icon" });
-      (0, import_obsidian13.setIcon)(sortIcon, "arrow-up-down");
-      sortBtn.createSpan({
-        cls: "ticktick-filter-select-label",
-        text: `\u0645\u0631\u062A\u0628\u200C\u0633\u0627\u0632\u06CC: ${sortLabels[this.sortMode] ?? "\u062A\u0631\u062A\u06CC\u0628 TickTick"}`
-      });
-      const sortChevron = sortBtn.createSpan({ cls: "ticktick-select-chevron" });
-      (0, import_obsidian13.setIcon)(sortChevron, "chevron-down");
-      const openSortMenu = (event) => {
-        const menu = new import_obsidian13.Menu();
-        for (const [value, label] of [["ticktick", "\u062A\u0631\u062A\u06CC\u0628 TickTick"], ["time", "\u062A\u0627\u0631\u06CC\u062E/\u0633\u0627\u0639\u062A"], ["priority", "\u0627\u0648\u0644\u0648\u06CC\u062A"], ["title", "\u0639\u0646\u0648\u0627\u0646"]]) {
-          menu.addItem((item) => {
-            item.setTitle(label).setChecked(this.sortMode === value).onClick(() => {
-              this.sortMode = value;
-              if (this.columnsContainer && this.currentRawData) {
-                this.renderColumnsContainer(
-                  this.columnsContainer,
-                  this.currentRawData,
-                  this.currentProject,
-                  this.currentDisplayProject
-                );
-              } else {
-                void this.render();
-              }
-            });
-          });
-        }
-        if (event instanceof MouseEvent) {
-          menu.showAtMouseEvent(event);
-        } else {
-          const rect = sortBtn.getBoundingClientRect();
-          menu.showAtPosition({ x: rect.right, y: rect.bottom });
-        }
-      };
-      sortBtn.addEventListener("click", openSortMenu);
-      sortBtn.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          openSortMenu(event);
-        }
-      });
       const refreshBtn = toolbar.createEl("button", {
         cls: "ticktick-toolbar-btn",
         attr: { type: "button", "aria-label": "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0648 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC" }
@@ -5891,6 +5752,20 @@ var ProjectBoard = class {
         filterState: () => this.filterState,
         onFilterChange: (nextState) => {
           this.applyFilter(nextState);
+        },
+        sortMode: () => this.sortMode,
+        onSortChange: (val) => {
+          this.sortMode = val;
+          if (this.columnsContainer && this.currentRawData) {
+            this.renderColumnsContainer(
+              this.columnsContainer,
+              this.currentRawData,
+              this.currentProject,
+              this.currentDisplayProject
+            );
+          } else {
+            void this.render();
+          }
         }
       };
       this.filterBarInstance = new FilterBar(main, filterBarHost);
@@ -5933,17 +5808,16 @@ var ProjectBoard = class {
     }
   }
   renderColumnsContainer(columns, rawData, project, displayProject) {
-    if (this.lastSelectedProject === this.selected && columns.scrollLeft > 0) {
+    if (this.lastSelectedProject === this.selected && columns.scrollLeft !== 0) {
       this.savedColumnsScrollLeft = columns.scrollLeft;
     }
     columns.empty();
     enhanceHorizontalScroll(columns);
-    if (this.lastSelectedProject === this.selected && this.savedColumnsScrollLeft > 0) {
-      columns.scrollLeft = this.savedColumnsScrollLeft;
-    } else {
-      scrollToStart(columns);
-    }
-    this.lastSelectedProject = this.selected;
+    columns.addEventListener("scroll", () => {
+      if (this.lastSelectedProject === this.selected) {
+        this.savedColumnsScrollLeft = columns.scrollLeft;
+      }
+    }, { passive: true });
     const filteredTasks = rawData.tasks.filter(
       (task) => matchesTaskFilter(task, this.filterState, { timeZone: this.host.timeZone })
     );
@@ -5990,6 +5864,11 @@ var ProjectBoard = class {
         shell.createEl("small", { cls: "ticktick-column-hint", text: "\u0633\u062A\u0648\u0646 \u0646\u0645\u0627\u06CC\u0634\u06CC\u061B \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062A" });
       }
       const listWrap = shell.createDiv({ cls: "ticktick-column-cards" });
+      listWrap.addEventListener("scroll", () => {
+        if (this.lastSelectedProject === this.selected && listWrap.scrollTop > 0) {
+          this.savedColumnScrolls.set(String(column.id), listWrap.scrollTop);
+        }
+      }, { passive: true });
       shell.addEventListener("dragover", (event) => {
         if (!movableColumn) return;
         event.preventDefault();
@@ -6059,17 +5938,74 @@ var ProjectBoard = class {
       emptyState2.createEl("h3", { text: `\u0647\u06CC\u0686 \u062A\u0633\u06A9\u06CC \u062F\u0631 \u0646\u0645\u0627\u06CC \xAB${displayProject?.name ?? ""}\xBB \u0646\u06CC\u0633\u062A` });
       emptyState2.createEl("p", { text: "\u0647\u0645\u0647\u0654 \u062A\u0633\u06A9\u200C\u0647\u0627 \u0627\u0646\u062C\u0627\u0645 \u0634\u062F\u0647\u200C\u0627\u0646\u062F \u06CC\u0627 \u062A\u0633\u06A9\u06CC \u0645\u0637\u0627\u0628\u0642 \u0627\u06CC\u0646 \u0646\u0645\u0627 \u06CC\u0627 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u06CC \u062F\u0631 \u06A9\u0634 \u0645\u062D\u0644\u06CC \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F." });
     }
+    const restoreScrolls = () => {
+      if (this.lastSelectedProject === this.selected) {
+        columns.scrollLeft = this.savedColumnsScrollLeft;
+        if (this.savedBodyScrollTop !== 0) {
+          const body = this.element.closest(".ticktick-workspace-body-slot") ?? this.element;
+          if (body) body.scrollTop = this.savedBodyScrollTop;
+        }
+        if (this.savedColumnScrolls.size > 0) {
+          for (const [colId, top] of this.savedColumnScrolls.entries()) {
+            const col = columns.querySelector(`[data-column-id="${colId}"]`);
+            const cards = col?.querySelector(".ticktick-column-cards");
+            if (cards && top > 0) cards.scrollTop = top;
+            else if (col && top > 0) col.scrollTop = top;
+          }
+        }
+      } else {
+        scrollToStart(columns);
+      }
+      this.lastSelectedProject = this.selected;
+    };
+    restoreScrolls();
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => {
+        restoreScrolls();
+      });
+    }
+    setTimeout(() => {
+      restoreScrolls();
+    }, 40);
   }
   async persistAndRender() {
     await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: this.sidebarCollapsed, sidebarPreferenceInitialized: true, smartViewGrouping: this.smartViewGrouping });
     await this.render();
   }
-  renderHabitBoard(main) {
+  renderHabitBoard(main, projects) {
     const habits = this.host.habits();
     const header = main.createDiv({ cls: "ticktick-project-header" });
     const info = header.createDiv({ cls: "ticktick-project-header-info" });
     info.createEl("h2", { cls: "ticktick-project-title", text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627" });
     info.createSpan({ cls: "ticktick-project-badge", text: `${habits.length} \u0639\u0627\u062F\u062A` });
+    const toolbar = header.createDiv({ cls: "ticktick-project-toolbar" });
+    const listsBtn = toolbar.createEl("button", {
+      cls: `ticktick-toolbar-btn ${!this.sidebarCollapsed ? "is-active" : ""}`,
+      attr: { type: "button", "aria-label": "\u062A\u063A\u06CC\u06CC\u0631 \u0648\u0636\u0639\u06CC\u062A \u0646\u0645\u0627\u06CC\u0634 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627", title: "\u0646\u0645\u0627\u06CC\u0634 \u06CC\u0627 \u0645\u062E\u0641\u06CC\u200C\u0633\u0627\u0632\u06CC \u0645\u0646\u0648\u06CC \u06A9\u0646\u0627\u0631\u06CC \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" }
+    });
+    const lIcon = listsBtn.createSpan({ cls: "ticktick-btn-icon" });
+    (0, import_obsidian13.setIcon)(lIcon, "folders");
+    listsBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: `\u0644\u06CC\u0633\u062A\u200C\u0647\u0627 (${projects.length})` });
+    listsBtn.addEventListener("click", () => {
+      this.sidebarCollapsed = !this.sidebarCollapsed;
+      void this.persistAndRender();
+    });
+    const refreshBtn = toolbar.createEl("button", {
+      cls: "ticktick-toolbar-btn",
+      attr: { type: "button", "aria-label": "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC" }
+    });
+    const rIcon = refreshBtn.createSpan({ cls: "ticktick-btn-icon" });
+    (0, import_obsidian13.setIcon)(rIcon, "refresh-cw");
+    refreshBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC" });
+    refreshBtn.addEventListener("click", async () => {
+      refreshBtn.disabled = true;
+      try {
+        await this.host.refresh();
+        await this.render();
+      } finally {
+        refreshBtn.disabled = false;
+      }
+    });
     const cards = main.createDiv({ cls: "ticktick-habit-board-cards" });
     if (!habits.length) {
       cards.createDiv({ cls: "ticktick-board-empty", text: "\u0639\u0627\u062F\u062A\u06CC \u062F\u0631 \u06A9\u0634 \u0645\u062D\u0644\u06CC \u0646\u06CC\u0633\u062A\u061B \u06CC\u06A9 \u0628\u0627\u0631 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0646\u06CC\u062F." });
@@ -6108,6 +6044,191 @@ var ProjectBoard = class {
         }
       });
     }
+  }
+  renderSidebarRail(parent, projects) {
+    const rail = parent.createDiv({ cls: "ticktick-project-rail" });
+    const railHeader = rail.createDiv({ cls: "ticktick-rail-header" });
+    const titleWrap = railHeader.createDiv({ cls: "ticktick-rail-title" });
+    const headerIcon = titleWrap.createSpan({ cls: "ticktick-rail-icon" });
+    (0, import_obsidian13.setIcon)(headerIcon, "folders");
+    titleWrap.createSpan({ text: "\u067E\u0631\u0648\u0698\u0647\u200C\u0647\u0627 \u0648 \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
+    titleWrap.createSpan({ cls: "ticktick-rail-counter", text: `${projects.length} \u0644\u06CC\u0633\u062A` });
+    const headerActions = railHeader.createDiv({ cls: "ticktick-rail-actions" });
+    const addProjectBtn = headerActions.createEl("button", {
+      cls: "ticktick-rail-action-btn mod-icon",
+      attr: { type: "button", "aria-label": "\u0627\u0641\u0632\u0648\u062F\u0646 \u0644\u06CC\u0633\u062A \u062C\u062F\u06CC\u062F", title: "\u0627\u0641\u0632\u0648\u062F\u0646 \u0644\u06CC\u0633\u062A \u062C\u062F\u06CC\u062F" }
+    });
+    (0, import_obsidian13.setIcon)(addProjectBtn, "plus");
+    addProjectBtn.addEventListener("click", async () => {
+      const draft = await new ProjectEditorModal(this.host.app).openAndWait();
+      if (!draft) return;
+      addProjectBtn.disabled = true;
+      try {
+        const project = await this.host.createProject(draft);
+        this.selected = String(project?.id ?? "");
+        this.savedColumnsScrollLeft = 0;
+        this.savedBodyScrollTop = 0;
+        this.savedColumnScrolls.clear();
+        await this.host.refresh();
+        await this.persistAndRender();
+        new import_obsidian13.Notice("\u0644\u06CC\u0633\u062A \u062F\u0631 TickTick \u0633\u0627\u062E\u062A\u0647 \u0634\u062F.");
+      } catch (error) {
+        new import_obsidian13.Notice(error instanceof Error ? error.message : "\u0633\u0627\u062E\u062A \u0644\u06CC\u0633\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+      } finally {
+        addProjectBtn.disabled = false;
+      }
+    });
+    const collapseBtn = headerActions.createEl("button", {
+      cls: "ticktick-rail-collapse-btn mod-icon",
+      attr: { type: "button", "aria-label": "\u0628\u0633\u062A\u0646 \u0645\u0646\u0648\u06CC \u0644\u06CC\u0633\u062A\u200C\u0647\u0627", title: "\u0628\u0633\u062A\u0646 \u0645\u0646\u0648\u06CC \u06A9\u0646\u0627\u0631\u06CC \u0644\u06CC\u0633\u062A\u200C\u0647\u0627" }
+    });
+    (0, import_obsidian13.setIcon)(collapseBtn, "panel-right-close");
+    collapseBtn.addEventListener("click", () => {
+      this.sidebarCollapsed = true;
+      void this.persistAndRender();
+    });
+    const railBody = rail.createDiv({ cls: "ticktick-rail-content" });
+    const virtual = virtualBoardEntries(this.host.tasks(), { timeZone: this.host.timeZone });
+    const habits = railBody.createEl("button", {
+      cls: `ticktick-project-row ${this.selected === HABIT_BOARD_VIEW_ID ? "is-selected" : ""}`,
+      attr: { type: "button", "aria-label": `\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u060C ${this.host.habits().length} \u0639\u0627\u062F\u062A` }
+    });
+    const habitsIcon = habits.createSpan({ cls: "ticktick-project-row-icon" });
+    (0, import_obsidian13.setIcon)(habitsIcon, "activity");
+    habits.createSpan({ cls: "ticktick-project-name", text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627" });
+    habits.createSpan({ cls: "ticktick-project-count", text: String(this.host.habits().length) });
+    habits.addEventListener("click", () => {
+      this.selected = HABIT_BOARD_VIEW_ID;
+      this.savedColumnsScrollLeft = 0;
+      this.savedBodyScrollTop = 0;
+      this.savedColumnScrolls.clear();
+      void this.persistAndRender();
+    });
+    const isSmartCollapsed = this.collapsed.has("smart-views") || this.collapsed.has("virtual-views");
+    const smartHeading = railBody.createEl("button", {
+      cls: `ticktick-project-group ${isSmartCollapsed ? "is-collapsed" : ""}`,
+      attr: { type: "button" }
+    });
+    const smartChevron = smartHeading.createSpan({ cls: "ticktick-group-chevron" });
+    (0, import_obsidian13.setIcon)(smartChevron, isSmartCollapsed ? "chevron-left" : "chevron-down");
+    smartHeading.createSpan({ cls: "ticktick-group-title", text: "\u0646\u0645\u0627\u0647\u0627\u06CC \u0647\u0648\u0634\u0645\u0646\u062F" });
+    smartHeading.addEventListener("click", () => {
+      if (isSmartCollapsed) {
+        this.collapsed.delete("smart-views");
+        this.collapsed.delete("virtual-views");
+      } else {
+        this.collapsed.add("smart-views");
+        this.collapsed.add("virtual-views");
+      }
+      void this.persistAndRender();
+    });
+    if (!isSmartCollapsed) {
+      for (const view of virtual.smartViews) {
+        const row = railBody.createEl("button", {
+          cls: `ticktick-project-row ${this.selected === view.id ? "is-selected" : ""}`,
+          attr: { type: "button", "aria-label": `${view.name}\u060C ${view.count} \u062A\u0633\u06A9` }
+        });
+        const rowIcon = row.createSpan({ cls: "ticktick-project-row-icon" });
+        (0, import_obsidian13.setIcon)(rowIcon, view.icon);
+        row.createSpan({ cls: "ticktick-project-name", text: view.name });
+        row.createSpan({ cls: "ticktick-project-count", text: String(view.count) });
+        row.addEventListener("click", () => {
+          this.selected = view.id;
+          this.savedColumnsScrollLeft = 0;
+          this.savedBodyScrollTop = 0;
+          this.savedColumnScrolls.clear();
+          void this.persistAndRender();
+        });
+      }
+    }
+    const tagHeading = railBody.createEl("button", {
+      cls: `ticktick-project-group ${this.collapsed.has("virtual-tags") ? "is-collapsed" : ""}`,
+      attr: { type: "button" }
+    });
+    const tagChevron = tagHeading.createSpan({ cls: "ticktick-group-chevron" });
+    (0, import_obsidian13.setIcon)(tagChevron, this.collapsed.has("virtual-tags") ? "chevron-left" : "chevron-down");
+    tagHeading.createSpan({ cls: "ticktick-group-title", text: "\u0628\u0631\u0686\u0633\u0628\u200C\u0647\u0627" });
+    tagHeading.addEventListener("click", () => {
+      this.collapsed.has("virtual-tags") ? this.collapsed.delete("virtual-tags") : this.collapsed.add("virtual-tags");
+      void this.persistAndRender();
+    });
+    if (!this.collapsed.has("virtual-tags")) {
+      for (const tag of virtual.tags) {
+        const row = railBody.createEl("button", {
+          cls: `ticktick-project-row ticktick-tag-view-row ${this.selected === tag.id ? "is-selected" : ""}`,
+          attr: { type: "button", "aria-label": `\u0628\u0631\u0686\u0633\u0628 ${tag.name}\u060C ${tag.count} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
+        });
+        const tagIcon = row.createSpan({ cls: "ticktick-project-row-icon" });
+        (0, import_obsidian13.setIcon)(tagIcon, "tag");
+        row.createSpan({ cls: "ticktick-project-name", text: `#${tag.name}` });
+        row.createSpan({ cls: "ticktick-project-count", text: String(tag.count) });
+        row.addEventListener("click", () => {
+          this.selected = tag.id;
+          this.savedColumnsScrollLeft = 0;
+          this.savedBodyScrollTop = 0;
+          this.savedColumnScrolls.clear();
+          void this.persistAndRender();
+        });
+      }
+    }
+    for (const group of sidebarTree(projects, this.host.tasks())) {
+      const key = group.name || "flat";
+      const groupHeading = railBody.createEl("button", {
+        cls: `ticktick-project-group ${this.collapsed.has(key) ? "is-collapsed" : ""}`,
+        attr: { type: "button" }
+      });
+      const groupChevron = groupHeading.createSpan({ cls: "ticktick-group-chevron" });
+      (0, import_obsidian13.setIcon)(groupChevron, this.collapsed.has(key) ? "chevron-left" : "chevron-down");
+      groupHeading.createSpan({ cls: "ticktick-group-title", text: group.name || "\u0644\u06CC\u0633\u062A\u200C\u0647\u0627" });
+      groupHeading.addEventListener("click", () => {
+        this.collapsed.has(key) ? this.collapsed.delete(key) : this.collapsed.add(key);
+        void this.persistAndRender();
+      });
+      if (this.collapsed.has(key)) continue;
+      for (const project of group.projects) {
+        const row = railBody.createEl("button", {
+          cls: `ticktick-project-row ${this.selected === String(project.id) ? "is-selected" : ""}`,
+          attr: { type: "button", "aria-label": `${project.name}\u060C ${project.openCount} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
+        });
+        const dot = row.createSpan({ cls: "ticktick-project-dot" });
+        dot.style.setProperty("--project-color", project.color ?? "var(--interactive-accent)");
+        row.createSpan({ cls: "ticktick-project-name", text: project.name });
+        row.createSpan({ cls: "ticktick-project-count", text: String(project.openCount) });
+        row.addEventListener("click", () => {
+          this.selected = String(project.id);
+          this.savedColumnsScrollLeft = 0;
+          this.savedBodyScrollTop = 0;
+          this.savedColumnScrolls.clear();
+          void this.persistAndRender();
+        });
+      }
+    }
+    const newProjectBtn = railBody.createEl("button", {
+      cls: "ticktick-new-project-btn",
+      attr: { type: "button" }
+    });
+    const plusIcon = newProjectBtn.createSpan({ cls: "ticktick-btn-icon" });
+    (0, import_obsidian13.setIcon)(plusIcon, "folder-plus");
+    newProjectBtn.createSpan({ text: "+ \u0644\u06CC\u0633\u062A \u062C\u062F\u06CC\u062F\u2026" });
+    newProjectBtn.addEventListener("click", async () => {
+      const draft = await new ProjectEditorModal(this.host.app).openAndWait();
+      if (!draft) return;
+      newProjectBtn.disabled = true;
+      try {
+        const project = await this.host.createProject(draft);
+        this.selected = String(project?.id ?? "");
+        this.savedColumnsScrollLeft = 0;
+        this.savedBodyScrollTop = 0;
+        this.savedColumnScrolls.clear();
+        await this.host.refresh();
+        await this.persistAndRender();
+        new import_obsidian13.Notice("\u0644\u06CC\u0633\u062A \u062F\u0631 TickTick \u0633\u0627\u062E\u062A\u0647 \u0634\u062F.");
+      } catch (error) {
+        new import_obsidian13.Notice(error instanceof Error ? error.message : "\u0633\u0627\u062E\u062A \u0644\u06CC\u0633\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+      } finally {
+        newProjectBtn.disabled = false;
+      }
+    });
   }
   card(parent, task, projectColor, movable = true) {
     const bound = this.host.binding(task);

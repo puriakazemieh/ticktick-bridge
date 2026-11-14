@@ -17,6 +17,8 @@ export interface FilterBarHost {
   saveSavedViews: (views: SavedView[]) => Promise<void>;
   filterState: () => TaskFilterState;
   onFilterChange: (state: TaskFilterState) => void;
+  sortMode?: () => string;
+  onSortChange?: (mode: string) => void;
 }
 
 export class MultiChoiceModal extends Modal {
@@ -260,34 +262,75 @@ export class FilterBar {
     this.chipsContainer.empty();
     const state = this.host.filterState();
 
-    // 2. Projects Pill
-    const projects = this.host.projects();
-    const selProjects = new Set(state.projects || []);
-    const projBtn = this.chipsContainer.createEl("button", {
-      cls: `ticktick-filter-chip ${selProjects.size ? "is-active" : ""}`,
-      attr: { type: "button" }
-    });
-    const pIcon = projBtn.createSpan({ cls: "ticktick-chip-icon" });
-    setIcon(pIcon, "folder");
-    const projLabel = selProjects.size
-      ? `پروژه‌ها (${selProjects.size})`
-      : "همهٔ پروژه‌ها";
-    projBtn.createSpan({ text: projLabel });
-    projBtn.addEventListener("click", () => {
-      new MultiChoiceModal(
-        this.host.app,
-        "پروژه‌ها",
-        projects.map(p => ({ id: p.id, label: p.name })),
-        selProjects,
-        selected => {
-          this.notifyFilterChange({
-            ...state,
-            projects: [...selected]
+    // 1. Sort Pill (if supported by host, e.g. Kanban board)
+    if (this.host.sortMode && this.host.onSortChange) {
+      const currentSort = this.host.sortMode();
+      const sortLabels: Record<string, string> = {
+        ticktick: "ترتیب TickTick",
+        time: "تاریخ/ساعت",
+        priority: "اولویت",
+        title: "عنوان"
+      };
+      const sortBtn = this.chipsContainer.createEl("button", {
+        cls: `ticktick-filter-chip ${currentSort !== "ticktick" ? "is-active" : ""}`,
+        attr: { type: "button", "aria-label": "مرتب‌سازی کارت‌ها", title: "مرتب‌سازی کارت‌ها" }
+      });
+      const sIcon = sortBtn.createSpan({ cls: "ticktick-chip-icon" });
+      setIcon(sIcon, "arrow-up-down");
+      sortBtn.createSpan({ text: `مرتب‌سازی: ${sortLabels[currentSort] ?? "ترتیب TickTick"}` });
+      const chevron = sortBtn.createSpan({ cls: "ticktick-chip-chevron" });
+      setIcon(chevron, "chevron-down");
+      sortBtn.addEventListener("click", (e: MouseEvent) => {
+        const menu = new Menu();
+        for (const [val, label] of [
+          ["ticktick", "ترتیب TickTick"],
+          ["time", "تاریخ/ساعت"],
+          ["priority", "اولویت"],
+          ["title", "عنوان"]
+        ]) {
+          menu.addItem(item => {
+            item.setTitle(label)
+              .setChecked(currentSort === val)
+              .onClick(() => {
+                this.host.onSortChange?.(val);
+                this.renderChips();
+              });
           });
-          this.renderChips();
         }
-      ).open();
-    });
+        menu.showAtMouseEvent(e);
+      });
+    }
+
+    // 2. Projects Pill (omitted in board view because a specific list is already selected)
+    if (this.host.scope !== "board") {
+      const projects = this.host.projects();
+      const selProjects = new Set(state.projects || []);
+      const projBtn = this.chipsContainer.createEl("button", {
+        cls: `ticktick-filter-chip ${selProjects.size ? "is-active" : ""}`,
+        attr: { type: "button" }
+      });
+      const pIcon = projBtn.createSpan({ cls: "ticktick-chip-icon" });
+      setIcon(pIcon, "folder");
+      const projLabel = selProjects.size
+        ? `پروژه‌ها (${selProjects.size})`
+        : "همهٔ پروژه‌ها";
+      projBtn.createSpan({ text: projLabel });
+      projBtn.addEventListener("click", () => {
+        new MultiChoiceModal(
+          this.host.app,
+          "پروژه‌ها",
+          projects.map(p => ({ id: p.id, label: p.name })),
+          selProjects,
+          selected => {
+            this.notifyFilterChange({
+              ...state,
+              projects: [...selected]
+            });
+            this.renderChips();
+          }
+        ).open();
+      });
+    }
 
     // 3. Tags Pill
     const tags = this.host.tags();
