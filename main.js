@@ -13439,6 +13439,12 @@ var TickTickBridgePlugin = class extends import_obsidian44.Plugin {
     const menuDom = menu.dom;
     menuDom?.addClass("ticktick-bridge-panel-menu");
     menuDom?.setAttribute("dir", "rtl");
+    const stopAutoScroll = (e) => {
+      e.stopImmediatePropagation();
+    };
+    menuDom?.addEventListener("mousemove", stopAutoScroll, { capture: true });
+    const preScrollEl = menu.scrollEl;
+    preScrollEl?.addEventListener("mousemove", stopAutoScroll, { capture: true });
     menu.addItem((item) => {
       item.setTitle("\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F").setIcon("plus").onClick(() => void this.createTaskFromSurface());
       item.dom?.addClass("ticktick-menu-item-cta");
@@ -13473,6 +13479,23 @@ var TickTickBridgePlugin = class extends import_obsidian44.Plugin {
     const postDom = menu.dom;
     postDom?.addClass("ticktick-bridge-panel-menu");
     postDom?.setAttribute("dir", "rtl");
+    const postScrollEl = menu.scrollEl;
+    postDom?.addEventListener("mousemove", stopAutoScroll, { capture: true });
+    postScrollEl?.addEventListener("mousemove", stopAutoScroll, { capture: true });
+    if (postScrollEl) {
+      postScrollEl.scrollTop = 0;
+    }
+    if (postDom) {
+      const vh = window.innerHeight;
+      const margin = 16;
+      const rect = postDom.getBoundingClientRect();
+      if (rect.top < margin) {
+        postDom.style.top = `${margin}px`;
+      } else if (rect.bottom > vh - margin) {
+        const targetTop = Math.max(margin, vh - margin - rect.height);
+        postDom.style.top = `${targetTop}px`;
+      }
+    }
   }
   setSyncRibbonState(syncing) {
     if (!this.syncRibbonIcon) return;

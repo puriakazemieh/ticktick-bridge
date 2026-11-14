@@ -641,6 +641,14 @@ export default class TickTickBridgePlugin extends Plugin {
     menuDom?.addClass("ticktick-bridge-panel-menu");
     menuDom?.setAttribute("dir", "rtl");
 
+    // Prevent Obsidian's internal ME(this.scrollEl) from auto-scrolling on mousemove
+    const stopAutoScroll = (e: MouseEvent) => {
+      e.stopImmediatePropagation();
+    };
+    menuDom?.addEventListener("mousemove", stopAutoScroll, { capture: true });
+    const preScrollEl = (menu as any).scrollEl as HTMLElement | undefined;
+    preScrollEl?.addEventListener("mousemove", stopAutoScroll, { capture: true });
+
     // ── 1. Quick Add & Actions ──
     menu.addItem(item => {
       item.setTitle("افزودن تسک جدید").setIcon("plus").onClick(() => void this.createTaskFromSurface());
@@ -686,6 +694,26 @@ export default class TickTickBridgePlugin extends Plugin {
     const postDom = (menu as any).dom as HTMLElement | undefined;
     postDom?.addClass("ticktick-bridge-panel-menu");
     postDom?.setAttribute("dir", "rtl");
+
+    const postScrollEl = (menu as any).scrollEl as HTMLElement | undefined;
+    postDom?.addEventListener("mousemove", stopAutoScroll, { capture: true });
+    postScrollEl?.addEventListener("mousemove", stopAutoScroll, { capture: true });
+
+    if (postScrollEl) {
+      postScrollEl.scrollTop = 0;
+    }
+
+    if (postDom) {
+      const vh = window.innerHeight;
+      const margin = 16;
+      const rect = postDom.getBoundingClientRect();
+      if (rect.top < margin) {
+        postDom.style.top = `${margin}px`;
+      } else if (rect.bottom > vh - margin) {
+        const targetTop = Math.max(margin, vh - margin - rect.height);
+        postDom.style.top = `${targetTop}px`;
+      }
+    }
   }
 
   private setSyncRibbonState(syncing: boolean) {
