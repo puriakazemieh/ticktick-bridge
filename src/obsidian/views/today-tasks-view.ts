@@ -38,12 +38,11 @@ export class TodayTasksView extends ItemView {
       addButton.addEventListener("click", async () => {
         addButton.disabled = true;
         try {
-          const projects = await client.listProjects();
-          const draft = await openTaskEditor(this.app, projects, { dueDate: day });
-          if (!draft) return;
-          await this.plugin.createTask(toTaskPayload(draft, this.plugin.settings.timeZone));
-          new Notice("تسک به TickTick اضافه شد.");
-          await this.render();
+          const res = await this.plugin.createTaskFromSurface({ dueDate: day });
+          if (res) {
+            new Notice("تسک به TickTick اضافه شد.");
+            await this.render();
+          }
         } catch (error) {
           new Notice(error instanceof Error ? error.message : "افزودن تسک ناموفق بود.");
         } finally {
@@ -79,12 +78,11 @@ export class TodayTasksView extends ItemView {
         });
         edit.addEventListener("click", async () => {
           try {
-            const projects = await client.listProjects();
-            const draft = await openTaskEditor(this.app, projects, task);
-            if (!draft) return;
-            await this.plugin.updateTask(toTaskPayload({ ...task, ...draft }, this.plugin.settings.timeZone));
-            new Notice("تسک در TickTick ویرایش شد.");
-            await this.render();
+            const res = await this.plugin.editTaskFromSurface(task);
+            if (res) {
+              new Notice("تسک در TickTick ویرایش شد.");
+              await this.render();
+            }
           } catch (error) {
             new Notice(error instanceof Error ? error.message : "ویرایش تسک ناموفق بود.");
           }

@@ -17,7 +17,8 @@ export class TaskEditorModal extends Modal {
     private initial: TaskDraft,
     private existingTags: string[] = [],
     private availableTasks: TickTickTask[] = [],
-    private onCreateSubtask?: (parentId: string, title: string) => Promise<unknown>
+    private onCreateSubtask?: (parentId: string, title: string) => Promise<unknown>,
+    private getProjectColumns?: (projectId: string) => Array<{ id: string; name: string }> | Promise<Array<{ id: string; name: string }>>
   ) {
     super(app);
   }
@@ -70,6 +71,8 @@ export class TaskEditorModal extends Modal {
     });
 
     const selectedProjectName = () => this.projects.find(project => project.id === projectId)?.name ?? "انتخاب پروژه";
+    let columnId: string | null = this.initial.columnId ? String(this.initial.columnId) : null;
+
     new Setting(fields).setName("📂 پروژه").setDesc("برای انتخاب پروژه کلیک کن.").addButton(button => {
       button.setButtonText(selectedProjectName());
       button.buttonEl.addClass("ticktick-project-picker");
@@ -78,10 +81,85 @@ export class TaskEditorModal extends Modal {
         this.projects.forEach(project => menu.addItem(item => item
           .setTitle(project.name)
           .setChecked(project.id === projectId)
-          .onClick(() => { projectId = project.id; button.setButtonText(selectedProjectName()); })));
+          .onClick(() => {
+            projectId = project.id;
+            columnId = null;
+            button.setButtonText(selectedProjectName());
+            void renderColumnUI();
+          })));
         menu.showAtMouseEvent(event);
       });
     });
+
+    // ─── Project Column (Kanban Section) Setting ───
+    const columnSetting = new Setting(fields)
+      .setName("📊 ستون کانبان")
+      .setDesc("انتخاب ستون در این پروژه (اختیاری).");
+    const columnControl = columnSetting.controlEl.createDiv({ cls: "ticktick-column-picker-control" });
+
+    const renderColumnUI = async () => {
+      columnControl.empty();
+      if (!this.getProjectColumns) {
+        columnSetting.settingEl.hide();
+        return;
+      }
+
+      const columns = await this.getProjectColumns(projectId);
+      if (!columns || columns.length === 0) {
+        columnSetting.settingEl.hide();
+        columnId = null;
+        return;
+      }
+
+      columnSetting.settingEl.show();
+      const currentCol = columns.find(c => String(c.id) === String(columnId));
+      const colLabel = currentCol ? currentCol.name : "انتخاب ستون...";
+
+      const colBtn = columnControl.createEl("button", {
+        cls: "ticktick-column-picker-btn",
+        attr: { type: "button", title: "انتخاب ستون کانبان" }
+      });
+      const iconSpan = colBtn.createSpan({ cls: "ticktick-btn-icon" });
+      setIcon(iconSpan, "columns-3");
+      colBtn.createSpan({ text: colLabel, cls: "ticktick-column-picker-label" });
+
+      colBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        const menu = new Menu();
+        menu.addItem(item => item
+          .setTitle("بدون ستون (پیش‌فرض)")
+          .setChecked(!columnId)
+          .onClick(() => {
+            columnId = null;
+            void renderColumnUI();
+          }));
+
+        for (const col of columns) {
+          menu.addItem(item => item
+            .setTitle(col.name)
+            .setChecked(String(col.id) === String(columnId))
+            .onClick(() => {
+              columnId = String(col.id);
+              void renderColumnUI();
+            }));
+        }
+        menu.showAtMouseEvent(event);
+      });
+
+      if (columnId) {
+        const clearBtn = columnControl.createEl("button", {
+          cls: "ticktick-column-clear-btn mod-icon",
+          attr: { type: "button", title: "حذف انتخاب ستون", "aria-label": "حذف انتخاب ستون" }
+        });
+        setIcon(clearBtn, "x");
+        clearBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          columnId = null;
+          void renderColumnUI();
+        });
+      }
+    };
+    void renderColumnUI();
 
     // ─── Parent Task / Subtask Setting ───
     const parentSetting = new Setting(fields)
@@ -144,8 +222,10 @@ export class TaskEditorModal extends Modal {
                     parentId = String(cand.id);
                     if (cand.projectId) {
                       projectId = String(cand.projectId);
+                      columnId = null;
                       const projBtn = fields.querySelector<HTMLButtonElement>(".ticktick-project-picker");
                       if (projBtn) projBtn.textContent = selectedProjectName();
+                      void renderColumnUI();
                     }
                     renderParentTaskUI();
                   });
@@ -449,6 +529,7 @@ export class TaskEditorModal extends Modal {
         title: title.trim(),
         desc: description.trim(),
         projectId,
+        columnId: columnId || null,
         parentId: parentId || null,
         dueDate,
         reminderTime,
@@ -528,10 +609,11 @@ export function openTaskEditor(
   initial: TaskDraft,
   existingTags: string[] = [],
   availableTasks: TickTickTask[] = [],
-  onCreateSubtask?: (parentId: string, title: string) => Promise<unknown>
+  onCreateSubtask?: (parentId: string, title: string) => Promise<unknown>,
+  getProjectColumns?: (projectId: string) => Array<{ id: string; name: string }> | Promise<Array<{ id: string; name: string }>>
 ) {
   const allProjects = [{ id: "inbox", name: "صندوق ورودی" }, ...projects.filter(p => p.id !== "inbox")];
-  return new TaskEditorModal(app, allProjects, initial, existingTags, availableTasks, onCreateSubtask).openAndWait();
+  return new TaskEditorModal(app, allProjects, initial, existingTags, availableTasks, onCreateSubtask, getProjectColumns).openAndWait();
 }
 
 export function confirmDelete(app: App, title: string) {

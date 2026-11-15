@@ -634,6 +634,65 @@
   font-size: 0.75rem;
 }
 
+/* Kanban column picker in task editor */
+.ticktick-column-picker-control {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.ticktick-task-editor-modal .ticktick-column-picker-btn {
+  flex: 1 1 auto;
+  min-height: 2.45rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  direction: rtl;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0.55rem;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+  cursor: pointer;
+}
+
+.ticktick-task-editor-modal .ticktick-column-picker-btn:hover {
+  border-color: var(--interactive-accent-hover);
+}
+
+.ticktick-task-editor-modal .ticktick-column-picker-btn::after {
+  content: "▾";
+  margin-inline-start: auto;
+  margin-inline-end: 0.2rem;
+  color: var(--text-faint);
+  font-size: 0.75rem;
+}
+
+.ticktick-column-clear-btn {
+  width: 2.1rem;
+  height: 2.1rem;
+  min-width: 2.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--background-modifier-error) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-error) 30%, transparent);
+  color: var(--text-error, #e53935);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.ticktick-column-clear-btn:hover {
+  background: var(--background-modifier-error);
+  color: var(--text-on-accent, #fff);
+}
+
 /* ─── Form inputs ─── */
 .ticktick-task-editor-modal input,
 .ticktick-task-editor-modal textarea,

@@ -1174,6 +1174,39 @@ export default class TickTickBridgePlugin extends Plugin {
       .sort((a, b) => a.localeCompare(b, "fa"));
   }
 
+  async getProjectColumns(projectId: string): Promise<Array<{ id: string; name: string }>> {
+    const cachedBoard = this.cache.projectBoards[projectId];
+    if (cachedBoard?.columns && cachedBoard.columns.length > 0) {
+      const realCols = (cachedBoard.columns as any[]).filter(c => c.id && !c.synthetic);
+      if (realCols.length > 0) {
+        return realCols.map(c => ({ id: String(c.id), name: String(c.name) }));
+      }
+    }
+    const taskColMap = new Map<string, string>();
+    for (const t of this.cache.tasks) {
+      if (String(t.projectId) === String(projectId) && t.columnId) {
+        const cName = String((t as any).columnName ?? `ستون ${taskColMap.size + 1}`);
+        taskColMap.set(String(t.columnId), cName);
+      }
+    }
+    if (taskColMap.size > 0) {
+      return [...taskColMap.entries()].map(([id, name]) => ({ id, name }));
+    }
+    if (!cachedBoard && navigator.onLine) {
+      try {
+        const data = await this.client().getProjectData(projectId);
+        const { normalizeProjectData } = await import("../core/project-board.js");
+        const board = normalizeProjectData(data, { id: projectId });
+        this.cache.projectBoards[projectId] = board;
+        const realCols = ((board.columns ?? []) as any[]).filter(c => c.id && !c.synthetic);
+        return realCols.map(c => ({ id: String(c.id), name: String(c.name) }));
+      } catch {
+        // ignore
+      }
+    }
+    return [];
+  }
+
   async createTaskFromSurface(initial: TaskDraft = {}) {
     const projects = this.cache.projects.length ? this.cache.projects : await this.client().listProjects();
     const draft = await openTaskEditor(
@@ -1189,7 +1222,8 @@ export default class TickTickBridgePlugin extends Plugin {
           parentId,
           projectId: pTask?.projectId ?? projects[0]?.id
         });
-      }
+      },
+      (projId: string) => this.getProjectColumns(projId)
     );
     if (!draft) return null;
     return this.createTask(toTaskPayload(draft, this.settings.timeZone));
@@ -1227,7 +1261,8 @@ export default class TickTickBridgePlugin extends Plugin {
           parentId,
           projectId: pTask?.projectId ?? current.projectId ?? projects[0]?.id
         });
-      }
+      },
+      (projId: string) => this.getProjectColumns(projId)
     );
     if (!draft) return null;
     const payload = toTaskPayload({ ...current, ...draft }, this.settings.timeZone);
@@ -1876,7 +1911,7 @@ export default class TickTickBridgePlugin extends Plugin {
         addButton.disabled = true;
         try {
           const projects = await client.listProjects();
-          const draft = await openTaskEditor(this.app, projects, { dueDate: day }, this.availableTags(), this.cache.tasks);
+          const draft = await openTaskEditor(this.app, projects, { dueDate: day }, this.availableTags(), this.cache.tasks, undefined, (projId) => this.getProjectColumns(projId));
           if (!draft) return;
           await this.createTask(toTaskPayload(draft, this.settings.timeZone));
           new Notice("تسک به TickTick اضافه شد.");
@@ -1944,7 +1979,7 @@ export default class TickTickBridgePlugin extends Plugin {
         edit.addEventListener("click", async () => {
           try {
             const projects = await client.listProjects();
-            const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks);
+            const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks, undefined, (projId) => this.getProjectColumns(projId));
             if (!draft) return;
             await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
             new Notice("تسک در TickTick ویرایش شد.");
@@ -2156,7 +2191,7 @@ export default class TickTickBridgePlugin extends Plugin {
             card.disabled = true;
             try {
               const projects = await this.client().listProjects();
-              const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks);
+              const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks, undefined, (projId) => this.getProjectColumns(projId));
               if (!draft) return;
               await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
               new Notice("تسک تکرارشونده در TickTick ویرایش شد.");

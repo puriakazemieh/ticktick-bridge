@@ -1832,6 +1832,7 @@ function toTaskPayload(draft, timeZone) {
     desc: String(task.desc || task.content || "").trim(),
     content: "",
     projectId: task.projectId,
+    columnId: draft.columnId !== void 0 ? draft.columnId || null : task.columnId ?? null,
     parentId: draft.parentId !== void 0 ? draft.parentId || null : task.parentId ?? null,
     dueDate: day ? `${day}T00:00:00+0330` : null,
     startDate: task.startDate ?? null,
@@ -8745,13 +8746,14 @@ var DEFAULT_SETTINGS = {
 var import_obsidian19 = require("obsidian");
 init_date();
 var TaskEditorModal = class extends import_obsidian19.Modal {
-  constructor(app, projects, initial, existingTags = [], availableTasks = [], onCreateSubtask) {
+  constructor(app, projects, initial, existingTags = [], availableTasks = [], onCreateSubtask, getProjectColumns) {
     super(app);
     this.projects = projects;
     this.initial = initial;
     this.existingTags = existingTags;
     this.availableTasks = availableTasks;
     this.onCreateSubtask = onCreateSubtask;
+    this.getProjectColumns = getProjectColumns;
   }
   resolveResult;
   result = new Promise((resolve) => this.resolveResult = resolve);
@@ -8795,6 +8797,7 @@ var TaskEditorModal = class extends import_obsidian19.Modal {
       });
     });
     const selectedProjectName = () => this.projects.find((project) => project.id === projectId)?.name ?? "\u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0648\u0698\u0647";
+    let columnId = this.initial.columnId ? String(this.initial.columnId) : null;
     new import_obsidian19.Setting(fields2).setName("\u{1F4C2} \u067E\u0631\u0648\u0698\u0647").setDesc("\u0628\u0631\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628 \u067E\u0631\u0648\u0698\u0647 \u06A9\u0644\u06CC\u06A9 \u06A9\u0646.").addButton((button) => {
       button.setButtonText(selectedProjectName());
       button.buttonEl.addClass("ticktick-project-picker");
@@ -8802,11 +8805,66 @@ var TaskEditorModal = class extends import_obsidian19.Modal {
         const menu = new import_obsidian19.Menu();
         this.projects.forEach((project) => menu.addItem((item) => item.setTitle(project.name).setChecked(project.id === projectId).onClick(() => {
           projectId = project.id;
+          columnId = null;
           button.setButtonText(selectedProjectName());
+          void renderColumnUI();
         })));
         menu.showAtMouseEvent(event);
       });
     });
+    const columnSetting = new import_obsidian19.Setting(fields2).setName("\u{1F4CA} \u0633\u062A\u0648\u0646 \u06A9\u0627\u0646\u0628\u0627\u0646").setDesc("\u0627\u0646\u062A\u062E\u0627\u0628 \u0633\u062A\u0648\u0646 \u062F\u0631 \u0627\u06CC\u0646 \u067E\u0631\u0648\u0698\u0647 (\u0627\u062E\u062A\u06CC\u0627\u0631\u06CC).");
+    const columnControl = columnSetting.controlEl.createDiv({ cls: "ticktick-column-picker-control" });
+    const renderColumnUI = async () => {
+      columnControl.empty();
+      if (!this.getProjectColumns) {
+        columnSetting.settingEl.hide();
+        return;
+      }
+      const columns = await this.getProjectColumns(projectId);
+      if (!columns || columns.length === 0) {
+        columnSetting.settingEl.hide();
+        columnId = null;
+        return;
+      }
+      columnSetting.settingEl.show();
+      const currentCol = columns.find((c) => String(c.id) === String(columnId));
+      const colLabel = currentCol ? currentCol.name : "\u0627\u0646\u062A\u062E\u0627\u0628 \u0633\u062A\u0648\u0646...";
+      const colBtn = columnControl.createEl("button", {
+        cls: "ticktick-column-picker-btn",
+        attr: { type: "button", title: "\u0627\u0646\u062A\u062E\u0627\u0628 \u0633\u062A\u0648\u0646 \u06A9\u0627\u0646\u0628\u0627\u0646" }
+      });
+      const iconSpan = colBtn.createSpan({ cls: "ticktick-btn-icon" });
+      (0, import_obsidian19.setIcon)(iconSpan, "columns-3");
+      colBtn.createSpan({ text: colLabel, cls: "ticktick-column-picker-label" });
+      colBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        const menu = new import_obsidian19.Menu();
+        menu.addItem((item) => item.setTitle("\u0628\u062F\u0648\u0646 \u0633\u062A\u0648\u0646 (\u067E\u06CC\u0634\u200C\u0641\u0631\u0636)").setChecked(!columnId).onClick(() => {
+          columnId = null;
+          void renderColumnUI();
+        }));
+        for (const col of columns) {
+          menu.addItem((item) => item.setTitle(col.name).setChecked(String(col.id) === String(columnId)).onClick(() => {
+            columnId = String(col.id);
+            void renderColumnUI();
+          }));
+        }
+        menu.showAtMouseEvent(event);
+      });
+      if (columnId) {
+        const clearBtn = columnControl.createEl("button", {
+          cls: "ticktick-column-clear-btn mod-icon",
+          attr: { type: "button", title: "\u062D\u0630\u0641 \u0627\u0646\u062A\u062E\u0627\u0628 \u0633\u062A\u0648\u0646", "aria-label": "\u062D\u0630\u0641 \u0627\u0646\u062A\u062E\u0627\u0628 \u0633\u062A\u0648\u0646" }
+        });
+        (0, import_obsidian19.setIcon)(clearBtn, "x");
+        clearBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          columnId = null;
+          void renderColumnUI();
+        });
+      }
+    };
+    void renderColumnUI();
     const parentSetting = new import_obsidian19.Setting(fields2).setName("\u21B3 \u062A\u0633\u06A9 \u0648\u0627\u0644\u062F (\u0633\u0644\u0633\u0644\u0647\u200C\u0645\u0631\u0627\u062A\u0628)").setDesc("\u0627\u0646\u062A\u062E\u0627\u0628 \u0648\u0627\u0644\u062F \u0628\u0631\u0627\u06CC \u062A\u0628\u062F\u06CC\u0644 \u0628\u0647 \u0632\u06CC\u0631\u062A\u0633\u06A9 \u06CC\u0627 \u062E\u0631\u0648\u062C \u0627\u0632 \u0632\u06CC\u0631\u062A\u0633\u06A9.");
     const parentControl = parentSetting.controlEl.createDiv({ cls: "ticktick-parent-task-control" });
     const renderParentTaskUI = () => {
@@ -8856,8 +8914,10 @@ var TaskEditorModal = class extends import_obsidian19.Modal {
                   parentId = String(cand.id);
                   if (cand.projectId) {
                     projectId = String(cand.projectId);
+                    columnId = null;
                     const projBtn = fields2.querySelector(".ticktick-project-picker");
                     if (projBtn) projBtn.textContent = selectedProjectName();
+                    void renderColumnUI();
                   }
                   renderParentTaskUI();
                 });
@@ -9120,6 +9180,7 @@ var TaskEditorModal = class extends import_obsidian19.Modal {
         title: title.trim(),
         desc: description.trim(),
         projectId,
+        columnId: columnId || null,
         parentId: parentId || null,
         dueDate,
         reminderTime,
@@ -9194,9 +9255,9 @@ var DeleteConfirmationModal = class extends import_obsidian19.Modal {
     return this.result;
   }
 };
-function openTaskEditor(app, projects, initial, existingTags = [], availableTasks = [], onCreateSubtask) {
+function openTaskEditor(app, projects, initial, existingTags = [], availableTasks = [], onCreateSubtask, getProjectColumns) {
   const allProjects = [{ id: "inbox", name: "\u0635\u0646\u062F\u0648\u0642 \u0648\u0631\u0648\u062F\u06CC" }, ...projects.filter((p) => p.id !== "inbox")];
-  return new TaskEditorModal(app, allProjects, initial, existingTags, availableTasks, onCreateSubtask).openAndWait();
+  return new TaskEditorModal(app, allProjects, initial, existingTags, availableTasks, onCreateSubtask, getProjectColumns).openAndWait();
 }
 function confirmDelete(app, title) {
   return new DeleteConfirmationModal(app, title).openAndWait();
@@ -9649,12 +9710,11 @@ var TodayTasksView = class extends import_obsidian21.ItemView {
       addButton.addEventListener("click", async () => {
         addButton.disabled = true;
         try {
-          const projects = await client.listProjects();
-          const draft = await openTaskEditor(this.app, projects, { dueDate: day });
-          if (!draft) return;
-          await this.plugin.createTask(toTaskPayload(draft, this.plugin.settings.timeZone));
-          new import_obsidian21.Notice("\u062A\u0633\u06A9 \u0628\u0647 TickTick \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.");
-          await this.render();
+          const res = await this.plugin.createTaskFromSurface({ dueDate: day });
+          if (res) {
+            new import_obsidian21.Notice("\u062A\u0633\u06A9 \u0628\u0647 TickTick \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.");
+            await this.render();
+          }
         } catch (error) {
           new import_obsidian21.Notice(error instanceof Error ? error.message : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
         } finally {
@@ -9690,12 +9750,11 @@ var TodayTasksView = class extends import_obsidian21.ItemView {
         });
         edit.addEventListener("click", async () => {
           try {
-            const projects = await client.listProjects();
-            const draft = await openTaskEditor(this.app, projects, task);
-            if (!draft) return;
-            await this.plugin.updateTask(toTaskPayload({ ...task, ...draft }, this.plugin.settings.timeZone));
-            new import_obsidian21.Notice("\u062A\u0633\u06A9 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
-            await this.render();
+            const res = await this.plugin.editTaskFromSurface(task);
+            if (res) {
+              new import_obsidian21.Notice("\u062A\u0633\u06A9 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
+              await this.render();
+            }
           } catch (error) {
             new import_obsidian21.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
           }
@@ -15241,6 +15300,37 @@ var TickTickBridgePlugin = class extends import_obsidian46.Plugin {
     const boardTags = Object.values(this.cache?.projectBoards ?? {}).flatMap((b) => (b.tasks ?? []).flatMap((t) => t.tags ?? []));
     return [...new Set([...taskTags, ...boardTags].filter(Boolean).map(String).map((t) => t.replace(/^[#＃]/, "").trim()))].filter(Boolean).sort((a, b) => a.localeCompare(b, "fa"));
   }
+  async getProjectColumns(projectId) {
+    const cachedBoard = this.cache.projectBoards[projectId];
+    if (cachedBoard?.columns && cachedBoard.columns.length > 0) {
+      const realCols = cachedBoard.columns.filter((c) => c.id && !c.synthetic);
+      if (realCols.length > 0) {
+        return realCols.map((c) => ({ id: String(c.id), name: String(c.name) }));
+      }
+    }
+    const taskColMap = /* @__PURE__ */ new Map();
+    for (const t of this.cache.tasks) {
+      if (String(t.projectId) === String(projectId) && t.columnId) {
+        const cName = String(t.columnName ?? `\u0633\u062A\u0648\u0646 ${taskColMap.size + 1}`);
+        taskColMap.set(String(t.columnId), cName);
+      }
+    }
+    if (taskColMap.size > 0) {
+      return [...taskColMap.entries()].map(([id, name]) => ({ id, name }));
+    }
+    if (!cachedBoard && navigator.onLine) {
+      try {
+        const data = await this.client().getProjectData(projectId);
+        const { normalizeProjectData: normalizeProjectData2 } = await Promise.resolve().then(() => (init_project_board(), project_board_exports));
+        const board = normalizeProjectData2(data, { id: projectId });
+        this.cache.projectBoards[projectId] = board;
+        const realCols = (board.columns ?? []).filter((c) => c.id && !c.synthetic);
+        return realCols.map((c) => ({ id: String(c.id), name: String(c.name) }));
+      } catch {
+      }
+    }
+    return [];
+  }
   async createTaskFromSurface(initial = {}) {
     const projects = this.cache.projects.length ? this.cache.projects : await this.client().listProjects();
     const draft = await openTaskEditor(
@@ -15256,7 +15346,8 @@ var TickTickBridgePlugin = class extends import_obsidian46.Plugin {
           parentId,
           projectId: pTask?.projectId ?? projects[0]?.id
         });
-      }
+      },
+      (projId) => this.getProjectColumns(projId)
     );
     if (!draft) return null;
     return this.createTask(toTaskPayload(draft, this.settings.timeZone));
@@ -15297,7 +15388,8 @@ var TickTickBridgePlugin = class extends import_obsidian46.Plugin {
           parentId,
           projectId: pTask?.projectId ?? current.projectId ?? projects[0]?.id
         });
-      }
+      },
+      (projId) => this.getProjectColumns(projId)
     );
     if (!draft) return null;
     const payload = toTaskPayload({ ...current, ...draft }, this.settings.timeZone);
@@ -15879,7 +15971,7 @@ var TickTickBridgePlugin = class extends import_obsidian46.Plugin {
         addButton.disabled = true;
         try {
           const projects = await client.listProjects();
-          const draft = await openTaskEditor(this.app, projects, { dueDate: day }, this.availableTags(), this.cache.tasks);
+          const draft = await openTaskEditor(this.app, projects, { dueDate: day }, this.availableTags(), this.cache.tasks, void 0, (projId) => this.getProjectColumns(projId));
           if (!draft) return;
           await this.createTask(toTaskPayload(draft, this.settings.timeZone));
           new import_obsidian46.Notice("\u062A\u0633\u06A9 \u0628\u0647 TickTick \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.");
@@ -15947,7 +16039,7 @@ var TickTickBridgePlugin = class extends import_obsidian46.Plugin {
         edit.addEventListener("click", async () => {
           try {
             const projects = await client.listProjects();
-            const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks);
+            const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks, void 0, (projId) => this.getProjectColumns(projId));
             if (!draft) return;
             await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
             new import_obsidian46.Notice("\u062A\u0633\u06A9 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
@@ -16150,7 +16242,7 @@ var TickTickBridgePlugin = class extends import_obsidian46.Plugin {
             card.disabled = true;
             try {
               const projects = await this.client().listProjects();
-              const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks);
+              const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks, void 0, (projId) => this.getProjectColumns(projId));
               if (!draft) return;
               await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
               new import_obsidian46.Notice("\u062A\u0633\u06A9 \u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");

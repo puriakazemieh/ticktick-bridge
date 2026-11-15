@@ -268,6 +268,7 @@ export function toTaskPayload(draft: TaskDraft, timeZone: string) {
     desc: String(task.desc || task.content || "").trim(),
     content: "",
     projectId: task.projectId,
+    columnId: draft.columnId !== undefined ? (draft.columnId || null) : (task.columnId ?? null),
     parentId: draft.parentId !== undefined ? (draft.parentId || null) : (task.parentId ?? null),
     dueDate: day ? `${day}T00:00:00+0330` : null,
     startDate: task.startDate ?? null,
