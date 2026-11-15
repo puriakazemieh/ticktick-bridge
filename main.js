@@ -1932,6 +1932,14 @@ function renderUnifiedHabitCard(parent, options) {
   });
   const body = card.createDiv({ cls: "ticktick-habit-body" });
   body.createDiv({ cls: "ticktick-habit-title", text: String(habit.name ?? "\u0639\u0627\u062F\u062A") });
+  const encouragementText = String(habit.encouragement ?? habit.notes ?? habit.desc ?? habit.description ?? habit.content ?? "").trim();
+  if (encouragementText) {
+    body.createDiv({
+      cls: "ticktick-habit-encouragement",
+      text: encouragementText,
+      attr: { title: encouragementText }
+    });
+  }
   const meta = body.createDiv({ cls: "ticktick-habit-meta" });
   if (sectionName && sectionName !== "\u0628\u062F\u0648\u0646 \u062F\u0633\u062A\u0647" && !isPlanner) {
     meta.createSpan({ cls: "ticktick-habit-tag", text: sectionName });

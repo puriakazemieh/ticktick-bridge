@@ -101,6 +101,15 @@ export function renderUnifiedHabitCard(parent: HTMLElement, options: UnifiedHabi
   const body = card.createDiv({ cls: "ticktick-habit-body" });
   body.createDiv({ cls: "ticktick-habit-title", text: String(habit.name ?? "عادت") });
 
+  const encouragementText = String(habit.encouragement ?? habit.notes ?? habit.desc ?? habit.description ?? habit.content ?? "").trim();
+  if (encouragementText) {
+    body.createDiv({
+      cls: "ticktick-habit-encouragement",
+      text: encouragementText,
+      attr: { title: encouragementText }
+    });
+  }
+
   const meta = body.createDiv({ cls: "ticktick-habit-meta" });
   if (sectionName && sectionName !== "بدون دسته" && !isPlanner) {
     meta.createSpan({ cls: "ticktick-habit-tag", text: sectionName });
