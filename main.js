@@ -9610,10 +9610,11 @@ var WorkspaceHeader = class {
       this.options.plugin.openQuickCaptureModal();
     });
     const briefingBtn = actions.createEl("button", {
-      cls: "tb-btn-icon",
-      attr: { type: "button", "aria-label": "\u0628\u0631\u06CC\u0641\u06CC\u0646\u06AF \u0635\u0628\u062D\u06AF\u0627\u0647\u06CC \u0648 \u0627\u0647\u062F\u0627\u0641 \u0631\u0648\u0632\u0627\u0646\u0647" }
+      cls: "tb-btn-icon ticktick-workspace-briefing-btn",
+      attr: { type: "button", "aria-label": "\u0628\u0631\u06CC\u0641\u06CC\u0646\u06AF \u0635\u0628\u062D\u06AF\u0627\u0647\u06CC \u0648 \u0627\u0647\u062F\u0627\u0641 \u0631\u0648\u0632\u0627\u0646\u0647", title: "\u0628\u0631\u06CC\u0641\u06CC\u0646\u06AF \u0635\u0628\u062D\u06AF\u0627\u0647\u06CC \u0648 \u0627\u0647\u062F\u0627\u0641 \u0631\u0648\u0632\u0627\u0646\u0647" }
     });
-    (0, import_obsidian23.setIcon)(briefingBtn, "sun");
+    const briefingIcon = briefingBtn.createSpan({ cls: "ticktick-btn-icon" });
+    (0, import_obsidian23.setIcon)(briefingIcon, "sun");
     briefingBtn.addEventListener("click", () => {
       if (this.options.onMorningBriefing) {
         this.options.onMorningBriefing();
@@ -9623,13 +9624,15 @@ var WorkspaceHeader = class {
     });
     this.syncBtn = actions.createEl("button", {
       cls: "tb-btn-icon ticktick-workspace-sync-btn",
-      attr: { type: "button", "aria-label": "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0633\u0631\u06CC\u0639 \u0628\u0627 \u062A\u06CC\u06A9\u200C\u062A\u06CC\u06A9" }
+      attr: { type: "button", "aria-label": "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0633\u0631\u06CC\u0639 \u0628\u0627 \u062A\u06CC\u06A9\u200C\u062A\u06CC\u06A9", title: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0633\u0631\u06CC\u0639 \u0628\u0627 \u062A\u06CC\u06A9\u200C\u062A\u06CC\u06A9" }
     });
-    (0, import_obsidian23.setIcon)(this.syncBtn, "refresh-cw");
+    const syncIcon = this.syncBtn.createSpan({ cls: "ticktick-btn-icon" });
+    (0, import_obsidian23.setIcon)(syncIcon, "refresh-cw");
     this.syncBtn.addEventListener("click", async () => {
       if (this.syncBtn) {
         this.syncBtn.addClass("is-syncing");
-        (0, import_obsidian23.setIcon)(this.syncBtn, "loader-circle");
+        const iconSpan = this.syncBtn.querySelector(".ticktick-btn-icon") || this.syncBtn;
+        (0, import_obsidian23.setIcon)(iconSpan, "loader-circle");
       }
       try {
         if (this.options.onSync) {
@@ -9640,7 +9643,8 @@ var WorkspaceHeader = class {
       } finally {
         if (this.syncBtn) {
           this.syncBtn.removeClass("is-syncing");
-          (0, import_obsidian23.setIcon)(this.syncBtn, "refresh-cw");
+          const iconSpan = this.syncBtn.querySelector(".ticktick-btn-icon") || this.syncBtn;
+          (0, import_obsidian23.setIcon)(iconSpan, "refresh-cw");
         }
       }
     });

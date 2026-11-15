@@ -80,10 +80,11 @@ export class WorkspaceHeader {
 
     // Morning Briefing Button
     const briefingBtn = actions.createEl("button", {
-      cls: "tb-btn-icon",
-      attr: { type: "button", "aria-label": "بریفینگ صبحگاهی و اهداف روزانه" }
+      cls: "tb-btn-icon ticktick-workspace-briefing-btn",
+      attr: { type: "button", "aria-label": "بریفینگ صبحگاهی و اهداف روزانه", title: "بریفینگ صبحگاهی و اهداف روزانه" }
     });
-    setIcon(briefingBtn, "sun");
+    const briefingIcon = briefingBtn.createSpan({ cls: "ticktick-btn-icon" });
+    setIcon(briefingIcon, "sun");
     briefingBtn.addEventListener("click", () => {
       if (this.options.onMorningBriefing) {
         this.options.onMorningBriefing();
@@ -95,13 +96,15 @@ export class WorkspaceHeader {
     // Sync Now Button
     this.syncBtn = actions.createEl("button", {
       cls: "tb-btn-icon ticktick-workspace-sync-btn",
-      attr: { type: "button", "aria-label": "همگام‌سازی سریع با تیک‌تیک" }
+      attr: { type: "button", "aria-label": "همگام‌سازی سریع با تیک‌تیک", title: "همگام‌سازی سریع با تیک‌تیک" }
     });
-    setIcon(this.syncBtn, "refresh-cw");
+    const syncIcon = this.syncBtn.createSpan({ cls: "ticktick-btn-icon" });
+    setIcon(syncIcon, "refresh-cw");
     this.syncBtn.addEventListener("click", async () => {
       if (this.syncBtn) {
         this.syncBtn.addClass("is-syncing");
-        setIcon(this.syncBtn, "loader-circle");
+        const iconSpan = this.syncBtn.querySelector(".ticktick-btn-icon") as HTMLElement || this.syncBtn;
+        setIcon(iconSpan, "loader-circle");
       }
       try {
         if (this.options.onSync) {
@@ -112,7 +115,8 @@ export class WorkspaceHeader {
       } finally {
         if (this.syncBtn) {
           this.syncBtn.removeClass("is-syncing");
-          setIcon(this.syncBtn, "refresh-cw");
+          const iconSpan = this.syncBtn.querySelector(".ticktick-btn-icon") as HTMLElement || this.syncBtn;
+          setIcon(iconSpan, "refresh-cw");
         }
       }
     });

@@ -756,22 +756,27 @@
   display: block !important;
 }
 .ticktick-workspace-actions .tb-btn-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--tb-radius-pill, 9999px);
-  background: var(--background-secondary);
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all var(--tb-motion-smooth);
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  border-radius: var(--tb-radius-pill, 9999px) !important;
+  background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary)) !important;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 80%, transparent) !important;
+  color: var(--text-normal) !important;
+  cursor: pointer !important;
+  transition: all var(--tb-motion-smooth) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  flex-shrink: 0 !important;
+  padding: 0 !important;
 }
 .ticktick-workspace-actions .tb-btn-icon:hover {
-  background: var(--background-modifier-hover);
-  color: var(--text-normal);
-  border-color: var(--interactive-accent);
+  background: var(--background-modifier-hover) !important;
+  color: var(--text-normal) !important;
+  border-color: var(--interactive-accent) !important;
   transform: translateY(-0.5px);
 }
 .ticktick-workspace-actions .tb-btn-icon:active {
@@ -783,13 +788,34 @@
   outline: 2px solid var(--interactive-accent) !important;
   outline-offset: 2px !important;
 }
+.ticktick-workspace-actions .tb-btn-icon .ticktick-btn-icon,
 .ticktick-workspace-actions .tb-btn-icon svg {
-  width: 15px;
-  height: 15px;
-  display: block;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.ticktick-workspace-actions .tb-btn-icon svg {
+  width: 17px !important;
+  height: 17px !important;
+  stroke: var(--text-normal) !important;
+  color: var(--text-normal) !important;
+  stroke-width: 2px !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: stroke 150ms ease, color 150ms ease;
+}
+.ticktick-workspace-briefing-btn:hover svg {
+  stroke: var(--color-yellow, #e5a93c) !important;
+  color: var(--color-yellow, #e5a93c) !important;
+}
+.ticktick-workspace-sync-btn:hover svg {
+  stroke: var(--interactive-accent) !important;
+  color: var(--interactive-accent) !important;
 }
 .ticktick-workspace-sync-btn.is-syncing svg {
   animation: ticktick-workspace-spin 0.85s linear infinite;
+  stroke: var(--interactive-accent) !important;
 }
 @keyframes ticktick-workspace-spin {
   to {
@@ -929,7 +955,23 @@
     font-size: 11px;
   }
 }
-@media (max-width: 768px), (pointer: coarse) {
+@media (max-width: 1024px), (pointer: coarse) {
+  .ticktick-workspace-actions .tb-btn-icon {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    background: color-mix(in srgb, var(--background-modifier-hover) 40%, var(--background-secondary)) !important;
+    border-color: color-mix(in srgb, var(--background-modifier-border) 95%, transparent) !important;
+    color: var(--text-normal) !important;
+  }
+  .ticktick-workspace-actions .tb-btn-icon svg {
+    width: 18px !important;
+    height: 18px !important;
+    stroke-width: 2.2px !important;
+    stroke: var(--text-normal) !important;
+    color: var(--text-normal) !important;
+  }
   .ticktick-workspace-tabs-bar {
     height: 46px;
     min-height: 46px;
