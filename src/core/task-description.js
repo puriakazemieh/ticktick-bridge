@@ -11,7 +11,23 @@ export function taskDescription(task) {
 /** Some project-task reads omit Note content or return it as an empty string.
  * Keep the richer cached record instead of treating that omission as a delete. */
 export function mergeTaskDetails(cached = {}, fresh = {}) {
+  if (!cached || typeof cached !== "object") return { ...fresh };
+  if (!fresh || typeof fresh !== "object") return { ...cached };
   const merged = { ...cached, ...fresh };
+  // Structural properties from TickTick must reflect the fresh state.
+  // TickTick omits parentId, columnId, etc. when not applicable; do not retain stale cached values.
+  if (!fresh.parentId && cached.parentId) {
+    delete merged.parentId;
+  }
+  if (!fresh.columnId && cached.columnId) {
+    delete merged.columnId;
+  }
+  if (!fresh.childIds && cached.childIds) {
+    delete merged.childIds;
+  }
+  if (Number(fresh.status ?? 0) === 0 && cached.completedTime && !fresh.completedTime) {
+    delete merged.completedTime;
+  }
   if (taskDescription(fresh) || !taskDescription(cached)) return merged;
   for (const field of textFields) {
     if ((!merged[field] || typeof merged[field] !== "string") && typeof cached[field] === "string" && cached[field].trim()) merged[field] = cached[field];

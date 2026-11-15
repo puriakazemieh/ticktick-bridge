@@ -498,9 +498,28 @@ export class ProjectBoard {
     const childrenMap = new Map<string, TickTickTask[]>();
     for (const t of data.tasks) {
       if (t?.parentId) {
+        if (!this.host.showCompleted() && Number(t.status ?? 0) !== 0) {
+          continue;
+        }
         const pId = String(t.parentId);
         if (!childrenMap.has(pId)) childrenMap.set(pId, []);
         childrenMap.get(pId)!.push(t);
+      }
+    }
+
+    // Sort subtasks by parent's childIds order (TickTick native order) or sortOrder
+    for (const [pId, subs] of childrenMap.entries()) {
+      const parentTask = taskMap.get(pId);
+      if (parentTask && Array.isArray(parentTask.childIds) && parentTask.childIds.length > 0) {
+        const orderMap = new Map(parentTask.childIds.map((id, index) => [String(id), index]));
+        subs.sort((a, b) => {
+          const orderA = orderMap.has(String(a.id)) ? orderMap.get(String(a.id))! : 999999;
+          const orderB = orderMap.has(String(b.id)) ? orderMap.get(String(b.id))! : 999999;
+          if (orderA !== orderB) return orderA - orderB;
+          return Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0);
+        });
+      } else {
+        subs.sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0));
       }
     }
 

@@ -100,6 +100,7 @@ export default class TickTickBridgePlugin extends Plugin {
   pomodoroService: PomodoroTimerService | null = null;
   private pomodoroStatusBarItem: HTMLElement | null = null;
   reminderService: ReminderService | null = null;
+  private lastFullOfficialSync = 0;
 
   async onload() {
     this.managedStorage = new ManagedStorage(this.app.vault.adapter as unknown as VaultAdapter);
@@ -846,72 +847,106 @@ export default class TickTickBridgePlugin extends Plugin {
     // Once a full mirror exists, the web batch feed is sufficient for normal
     // task refreshes. Re-reading projects, habits and sections through the
     // token API every 30 seconds is both redundant and likely to trigger a
-    // 429. The token API remains the source for first-run hydration and all
-    // mutations, while the visible cache stays usable if the web feed is
-    // unavailable for a moment.
+    // 429. The token API remains the source for first-run hydration, manual sync,
+    // and whenever the web feed is expired or unavailable.
     const webTasks = await this.webOpenTasks();
+    const shouldRefreshProjects = !cacheAvailable || refreshRemoteMetadata || (webTasks === null && (Date.now() - this.lastFullOfficialSync > 60_000));
     // A scheduled refresh intentionally uses the local project catalogue to
     // keep TickTick's request volume low. An explicit Sync, however, must
     // discover projects created, renamed, or removed in TickTick itself.
-    const projects = (!cacheAvailable || refreshRemoteMetadata) ? await client.listProjects() : this.cache.projects;
+    const projects = (!cacheAvailable || refreshRemoteMetadata || shouldRefreshProjects) ? await client.listProjects() : this.cache.projects;
     let habits = (!cacheAvailable || refreshRemoteMetadata) ? await client.listHabits() : this.cache.habits;
     const sections = cacheAvailable ? [] : await client.listHabitSections();
     const projectBoards: Record<string, ProjectBoardData> = {};
     const taskIndex = new Map<string, TickTickTask>();
-    // The web batch endpoint is the compact, current task feed. Calling
-    // `/project/:id/data` for every project in parallel trips TickTick's rate
-    // limiter, then leaves every surface waiting for a refresh that cannot
-    // finish. Keep the cached project documents as board metadata and hydrate
-    // only a genuinely missing document, one per sync.
-    for (const task of this.cache.tasks) {
-      const key = `${String(task?.projectId ?? "")}:${String(task?.id ?? "")}`;
-      if (task?.id) taskIndex.set(key, task);
-    }
-    for (const project of projects) {
-      const projectId = String(project.id);
-      const cachedBoard = this.cache.projectBoards[projectId];
-      if (!cachedBoard) continue;
-      const board = { ...cachedBoard, project: { ...cachedBoard.project, ...project } };
-      projectBoards[projectId] = board;
-      for (const task of board.tasks ?? []) {
-        const key = `${String(task?.projectId ?? projectId)}:${String(task?.id ?? "")}`;
-        if (task?.id) taskIndex.set(key, mergeTaskDetails(task, taskIndex.get(key)) as TickTickTask);
+
+    if (shouldRefreshProjects) {
+      this.lastFullOfficialSync = Date.now();
+      const cachedDetails = new Map<string, TickTickTask>(this.cache.tasks.filter(t => t?.id).map(t => [String(t.id), t]));
+      const boardResults = await Promise.all(
+        projects.map(async (project: TickTickProject) => {
+          try {
+            const data = await client.getProjectData(project.id);
+            return normalizeProjectData(data, project);
+          } catch {
+            return this.cache.projectBoards[String(project.id)] ?? null;
+          }
+        })
+      );
+      for (const board of boardResults) {
+        if (!board) continue;
+        const pid = String(board.project.id);
+        projectBoards[pid] = board;
+        for (const task of board.tasks ?? []) {
+          const key = `${String(task?.projectId ?? pid)}:${String(task?.id ?? "")}`;
+          const cachedTask = cachedDetails.get(String(task.id));
+          const merged = mergeTaskDetails(cachedTask, task) as TickTickTask;
+          if (task?.id) taskIndex.set(key, merged);
+        }
       }
-    }
-    const missingProject = projects.find((project: TickTickProject) => !projectBoards[String(project.id)]);
-    if (missingProject) {
-      const board = normalizeProjectData(await client.getProjectData(missingProject.id), missingProject);
-      projectBoards[String(board.project.id)] = board;
-      for (const task of board.tasks) {
-        const key = `${String(task?.projectId ?? missingProject.id)}:${String(task?.id ?? "")}`;
-        taskIndex.set(key, mergeTaskDetails(taskIndex.get(key), task) as TickTickTask);
-      }
-    }
-    // Inbox is not returned by the official project list, but it is a normal
-    // TickTick task container. Hydrate it once into the private mirror so the
-    // board's «ورودی» item is backed by real tasks, not an empty placeholder.
-    if (!projectBoards.inbox && !this.cache.tasks.some(task => String(task?.projectId ?? "").toLowerCase() === "inbox")) {
       try {
         const inbox = normalizeProjectData(await client.getProjectData("inbox"), { id: "inbox", name: "ورودی" });
-        // The API's Inbox tasks carry an account-specific project id (for
-        // example `inbox115…`), not the literal endpoint id `inbox`. Keep
-        // that real id for complete/update calls, but mark membership so the
-        // synthetic Inbox board can recognise and retain its cards.
         inbox.tasks = inbox.tasks.map((task: TickTickTask) => ({ ...task, isInbox: true, projectName: "ورودی" }));
         projectBoards.inbox = inbox;
-        for (const task of inbox.tasks) taskIndex.set(`${String(task.projectId ?? "inbox")}:${String(task.id ?? "")}`, task);
+        for (const task of inbox.tasks) {
+          const key = `${String(task.projectId ?? "inbox")}:${String(task.id ?? "")}`;
+          const cachedTask = cachedDetails.get(String(task.id));
+          const merged = mergeTaskDetails(cachedTask, task) as TickTickTask;
+          if (task?.id) taskIndex.set(key, merged);
+        }
       } catch {
-        // Some accounts expose Inbox only from the web batch feed. It remains
-        // safe to continue and populate it from that feed when available.
+        if (this.cache.projectBoards.inbox) {
+          projectBoards.inbox = this.cache.projectBoards.inbox;
+          for (const task of projectBoards.inbox.tasks ?? []) {
+            const key = `${String(task.projectId ?? "inbox")}:${String(task.id ?? "")}`;
+            if (task?.id) taskIndex.set(key, task);
+          }
+        }
+      }
+    } else {
+      for (const task of this.cache.tasks) {
+        const key = `${String(task?.projectId ?? "")}:${String(task?.id ?? "")}`;
+        if (task?.id) taskIndex.set(key, task);
+      }
+      for (const project of projects) {
+        const projectId = String(project.id);
+        const cachedBoard = this.cache.projectBoards[projectId];
+        if (!cachedBoard) continue;
+        const board = { ...cachedBoard, project: { ...cachedBoard.project, ...project } };
+        projectBoards[projectId] = board;
+        for (const task of board.tasks ?? []) {
+          const key = `${String(task?.projectId ?? projectId)}:${String(task?.id ?? "")}`;
+          if (task?.id) taskIndex.set(key, mergeTaskDetails(task, taskIndex.get(key)) as TickTickTask);
+        }
+      }
+      const missingProject = projects.find((project: TickTickProject) => !projectBoards[String(project.id)]);
+      if (missingProject) {
+        try {
+          const board = normalizeProjectData(await client.getProjectData(missingProject.id), missingProject);
+          projectBoards[String(board.project.id)] = board;
+          for (const task of board.tasks) {
+            const key = `${String(task?.projectId ?? missingProject.id)}:${String(task?.id ?? "")}`;
+            taskIndex.set(key, mergeTaskDetails(taskIndex.get(key), task) as TickTickTask);
+          }
+        } catch { /* ignore */ }
+      }
+      if (!projectBoards.inbox && !this.cache.tasks.some(task => String(task?.projectId ?? "").toLowerCase() === "inbox")) {
+        try {
+          const inbox = normalizeProjectData(await client.getProjectData("inbox"), { id: "inbox", name: "ورودی" });
+          inbox.tasks = inbox.tasks.map((task: TickTickTask) => ({ ...task, isInbox: true, projectName: "ورودی" }));
+          projectBoards.inbox = inbox;
+          for (const task of inbox.tasks) taskIndex.set(`${String(task.projectId ?? "inbox")}:${String(task.id ?? "")}`, task);
+        } catch { /* ignore */ }
       }
     }
-    // check/0 is a full snapshot, not a patch. Starting from cached tasks
-    // kept completed/deleted tasks alive forever when they vanished remotely.
-    // Keep cached descriptions, but let the fresh snapshot decide membership.
-    const tasks = reconcileOpenTasks([...taskIndex.values()], webTasks) as TickTickTask[];
-    // Board columns come from the cached project document, while task values
-    // come from the fresh batch feed. Recompose them before rendering so a
-    // normal sync never displays an old card after a local mutation.
+
+    let tasks: TickTickTask[];
+    if (webTasks !== null) {
+      tasks = reconcileOpenTasks([...taskIndex.values()], webTasks) as TickTickTask[];
+    } else {
+      tasks = [...taskIndex.values()].filter(task => Number(task?.status ?? 0) === 0);
+    }
+
     for (const [projectId, board] of Object.entries(projectBoards)) {
       const prior = new Map<string, TickTickTask>((board.tasks ?? []).map((task: TickTickTask) => [String(task.id), task]));
       board.tasks = tasks
@@ -923,7 +958,7 @@ export default class TickTickBridgePlugin extends Plugin {
     // The cache already holds the history. Avoid an additional token API read
     // during normal refreshes; the web endpoint below updates the recent
     // check-ins and is intentionally best-effort.
-    const officialDocuments = !cacheAvailable && activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit: { id: string }) => habit.id), fromDay, today) : [];
+    const officialDocuments = (!cacheAvailable || refreshRemoteMetadata) && activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit: { id: string }) => habit.id), fromDay, today) : [];
     const checkins: Record<string, CachedHabitCheckin[]> = { ...this.cache.habitCheckins };
     for (const document of officialDocuments ?? []) {
       const habitId = String(document?.habitId ?? "");
@@ -958,7 +993,8 @@ export default class TickTickBridgePlugin extends Plugin {
     this.rateLimitedUntil = 0;
     await this.saveSettings();
     bridgeEvents.emit("sync:complete", { timestamp: new Date().toISOString() });
-    return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable, tasksFresh: webTasks !== null };
+    const tasksFresh = webTasks !== null || shouldRefreshProjects;
+    return { remote: webTasks !== null || webCheckins !== null || shouldRefreshProjects || !cacheAvailable, tasksFresh };
   }
 
   private async runMutation(type: PendingMutation["type"], payload: PendingMutation["payload"], originElement?: HTMLElement) {

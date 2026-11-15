@@ -2038,7 +2038,21 @@ function taskDescription(task) {
   return "";
 }
 function mergeTaskDetails(cached = {}, fresh = {}) {
+  if (!cached || typeof cached !== "object") return { ...fresh };
+  if (!fresh || typeof fresh !== "object") return { ...cached };
   const merged = { ...cached, ...fresh };
+  if (!fresh.parentId && cached.parentId) {
+    delete merged.parentId;
+  }
+  if (!fresh.columnId && cached.columnId) {
+    delete merged.columnId;
+  }
+  if (!fresh.childIds && cached.childIds) {
+    delete merged.childIds;
+  }
+  if (Number(fresh.status ?? 0) === 0 && cached.completedTime && !fresh.completedTime) {
+    delete merged.completedTime;
+  }
   if (taskDescription(fresh) || !taskDescription(cached)) return merged;
   for (const field of textFields) {
     if ((!merged[field] || typeof merged[field] !== "string") && typeof cached[field] === "string" && cached[field].trim()) merged[field] = cached[field];
@@ -6460,9 +6474,26 @@ var ProjectBoard = class {
     const childrenMap = /* @__PURE__ */ new Map();
     for (const t of data.tasks) {
       if (t?.parentId) {
+        if (!this.host.showCompleted() && Number(t.status ?? 0) !== 0) {
+          continue;
+        }
         const pId = String(t.parentId);
         if (!childrenMap.has(pId)) childrenMap.set(pId, []);
         childrenMap.get(pId).push(t);
+      }
+    }
+    for (const [pId, subs] of childrenMap.entries()) {
+      const parentTask = taskMap.get(pId);
+      if (parentTask && Array.isArray(parentTask.childIds) && parentTask.childIds.length > 0) {
+        const orderMap = new Map(parentTask.childIds.map((id, index) => [String(id), index]));
+        subs.sort((a, b) => {
+          const orderA = orderMap.has(String(a.id)) ? orderMap.get(String(a.id)) : 999999;
+          const orderB = orderMap.has(String(b.id)) ? orderMap.get(String(b.id)) : 999999;
+          if (orderA !== orderB) return orderA - orderB;
+          return Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0);
+        });
+      } else {
+        subs.sort((a, b) => Number(a.sortOrder ?? 0) - Number(b.sortOrder ?? 0));
       }
     }
     const isTagView = String(this.selected).startsWith(TAG_BOARD_VIEW_PREFIX);
@@ -14621,6 +14652,7 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
   pomodoroService = null;
   pomodoroStatusBarItem = null;
   reminderService = null;
+  lastFullOfficialSync = 0;
   async onload() {
     this.managedStorage = new ManagedStorage(this.app.vault.adapter);
     const savedSettings = await this.loadData();
@@ -15353,52 +15385,106 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
     const client = this.client();
     const cacheAvailable = this.hasCache();
     const webTasks = await this.webOpenTasks();
-    const projects = !cacheAvailable || refreshRemoteMetadata ? await client.listProjects() : this.cache.projects;
+    const shouldRefreshProjects = !cacheAvailable || refreshRemoteMetadata || webTasks === null && Date.now() - this.lastFullOfficialSync > 6e4;
+    const projects = !cacheAvailable || refreshRemoteMetadata || shouldRefreshProjects ? await client.listProjects() : this.cache.projects;
     let habits = !cacheAvailable || refreshRemoteMetadata ? await client.listHabits() : this.cache.habits;
     const sections = cacheAvailable ? [] : await client.listHabitSections();
     const projectBoards = {};
     const taskIndex = /* @__PURE__ */ new Map();
-    for (const task of this.cache.tasks) {
-      const key = `${String(task?.projectId ?? "")}:${String(task?.id ?? "")}`;
-      if (task?.id) taskIndex.set(key, task);
-    }
-    for (const project of projects) {
-      const projectId = String(project.id);
-      const cachedBoard = this.cache.projectBoards[projectId];
-      if (!cachedBoard) continue;
-      const board = { ...cachedBoard, project: { ...cachedBoard.project, ...project } };
-      projectBoards[projectId] = board;
-      for (const task of board.tasks ?? []) {
-        const key = `${String(task?.projectId ?? projectId)}:${String(task?.id ?? "")}`;
-        if (task?.id) taskIndex.set(key, mergeTaskDetails(task, taskIndex.get(key)));
+    if (shouldRefreshProjects) {
+      this.lastFullOfficialSync = Date.now();
+      const cachedDetails = new Map(this.cache.tasks.filter((t) => t?.id).map((t) => [String(t.id), t]));
+      const boardResults = await Promise.all(
+        projects.map(async (project) => {
+          try {
+            const data = await client.getProjectData(project.id);
+            return normalizeProjectData(data, project);
+          } catch {
+            return this.cache.projectBoards[String(project.id)] ?? null;
+          }
+        })
+      );
+      for (const board of boardResults) {
+        if (!board) continue;
+        const pid = String(board.project.id);
+        projectBoards[pid] = board;
+        for (const task of board.tasks ?? []) {
+          const key = `${String(task?.projectId ?? pid)}:${String(task?.id ?? "")}`;
+          const cachedTask = cachedDetails.get(String(task.id));
+          const merged = mergeTaskDetails(cachedTask, task);
+          if (task?.id) taskIndex.set(key, merged);
+        }
       }
-    }
-    const missingProject = projects.find((project) => !projectBoards[String(project.id)]);
-    if (missingProject) {
-      const board = normalizeProjectData(await client.getProjectData(missingProject.id), missingProject);
-      projectBoards[String(board.project.id)] = board;
-      for (const task of board.tasks) {
-        const key = `${String(task?.projectId ?? missingProject.id)}:${String(task?.id ?? "")}`;
-        taskIndex.set(key, mergeTaskDetails(taskIndex.get(key), task));
-      }
-    }
-    if (!projectBoards.inbox && !this.cache.tasks.some((task) => String(task?.projectId ?? "").toLowerCase() === "inbox")) {
       try {
         const inbox = normalizeProjectData(await client.getProjectData("inbox"), { id: "inbox", name: "\u0648\u0631\u0648\u062F\u06CC" });
         inbox.tasks = inbox.tasks.map((task) => ({ ...task, isInbox: true, projectName: "\u0648\u0631\u0648\u062F\u06CC" }));
         projectBoards.inbox = inbox;
-        for (const task of inbox.tasks) taskIndex.set(`${String(task.projectId ?? "inbox")}:${String(task.id ?? "")}`, task);
+        for (const task of inbox.tasks) {
+          const key = `${String(task.projectId ?? "inbox")}:${String(task.id ?? "")}`;
+          const cachedTask = cachedDetails.get(String(task.id));
+          const merged = mergeTaskDetails(cachedTask, task);
+          if (task?.id) taskIndex.set(key, merged);
+        }
       } catch {
+        if (this.cache.projectBoards.inbox) {
+          projectBoards.inbox = this.cache.projectBoards.inbox;
+          for (const task of projectBoards.inbox.tasks ?? []) {
+            const key = `${String(task.projectId ?? "inbox")}:${String(task.id ?? "")}`;
+            if (task?.id) taskIndex.set(key, task);
+          }
+        }
+      }
+    } else {
+      for (const task of this.cache.tasks) {
+        const key = `${String(task?.projectId ?? "")}:${String(task?.id ?? "")}`;
+        if (task?.id) taskIndex.set(key, task);
+      }
+      for (const project of projects) {
+        const projectId = String(project.id);
+        const cachedBoard = this.cache.projectBoards[projectId];
+        if (!cachedBoard) continue;
+        const board = { ...cachedBoard, project: { ...cachedBoard.project, ...project } };
+        projectBoards[projectId] = board;
+        for (const task of board.tasks ?? []) {
+          const key = `${String(task?.projectId ?? projectId)}:${String(task?.id ?? "")}`;
+          if (task?.id) taskIndex.set(key, mergeTaskDetails(task, taskIndex.get(key)));
+        }
+      }
+      const missingProject = projects.find((project) => !projectBoards[String(project.id)]);
+      if (missingProject) {
+        try {
+          const board = normalizeProjectData(await client.getProjectData(missingProject.id), missingProject);
+          projectBoards[String(board.project.id)] = board;
+          for (const task of board.tasks) {
+            const key = `${String(task?.projectId ?? missingProject.id)}:${String(task?.id ?? "")}`;
+            taskIndex.set(key, mergeTaskDetails(taskIndex.get(key), task));
+          }
+        } catch {
+        }
+      }
+      if (!projectBoards.inbox && !this.cache.tasks.some((task) => String(task?.projectId ?? "").toLowerCase() === "inbox")) {
+        try {
+          const inbox = normalizeProjectData(await client.getProjectData("inbox"), { id: "inbox", name: "\u0648\u0631\u0648\u062F\u06CC" });
+          inbox.tasks = inbox.tasks.map((task) => ({ ...task, isInbox: true, projectName: "\u0648\u0631\u0648\u062F\u06CC" }));
+          projectBoards.inbox = inbox;
+          for (const task of inbox.tasks) taskIndex.set(`${String(task.projectId ?? "inbox")}:${String(task.id ?? "")}`, task);
+        } catch {
+        }
       }
     }
-    const tasks = reconcileOpenTasks([...taskIndex.values()], webTasks);
+    let tasks;
+    if (webTasks !== null) {
+      tasks = reconcileOpenTasks([...taskIndex.values()], webTasks);
+    } else {
+      tasks = [...taskIndex.values()].filter((task) => Number(task?.status ?? 0) === 0);
+    }
     for (const [projectId, board] of Object.entries(projectBoards)) {
       const prior = new Map((board.tasks ?? []).map((task) => [String(task.id), task]));
       board.tasks = tasks.filter((task) => projectId === "inbox" ? Boolean(task.isInbox) : String(task?.projectId ?? "") === projectId).map((task) => mergeTaskDetails(prior.get(String(task.id)), task));
     }
     const activeHabits = habits.filter((habit) => habit.status === void 0 || habit.status === 0);
     const fromDay = shiftIsoDay(today, -90);
-    const officialDocuments = !cacheAvailable && activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit) => habit.id), fromDay, today) : [];
+    const officialDocuments = (!cacheAvailable || refreshRemoteMetadata) && activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit) => habit.id), fromDay, today) : [];
     const checkins = { ...this.cache.habitCheckins };
     for (const document2 of officialDocuments ?? []) {
       const habitId = String(document2?.habitId ?? "");
@@ -15429,7 +15515,8 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
     this.rateLimitedUntil = 0;
     await this.saveSettings();
     bridgeEvents.emit("sync:complete", { timestamp: (/* @__PURE__ */ new Date()).toISOString() });
-    return { remote: webTasks !== null || webCheckins !== null || !cacheAvailable, tasksFresh: webTasks !== null };
+    const tasksFresh = webTasks !== null || shouldRefreshProjects;
+    return { remote: webTasks !== null || webCheckins !== null || shouldRefreshProjects || !cacheAvailable, tasksFresh };
   }
   async runMutation(type, payload, originElement) {
     const operation = { id: crypto.randomUUID(), type, payload, queuedAt: (/* @__PURE__ */ new Date()).toISOString() };

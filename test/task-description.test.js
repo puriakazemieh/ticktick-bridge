@@ -12,6 +12,16 @@ test("does not erase cached Note text with an empty project-task read", () => {
   assert.equal(taskDescription(task), "متن کامل");
 });
 
+test("clears stale structural hierarchy and column when fresh task omits them", () => {
+  const cached = { id: "t1", title: "Task 1", parentId: "p1", columnId: "col1", childIds: ["c1"], completedTime: "2026-01-01" };
+  const fresh = { id: "t1", title: "Task 1", status: 0 };
+  const merged = mergeTaskDetails(cached, fresh);
+  assert.equal(merged.parentId, undefined);
+  assert.equal(merged.columnId, undefined);
+  assert.equal(merged.childIds, undefined);
+  assert.equal(merged.completedTime, undefined);
+});
+
 test("full task snapshot removes completed and deleted cached tasks while retaining note details", () => {
   const cached = [
     { id: "done", status: 0, title: "Old completed task" },
