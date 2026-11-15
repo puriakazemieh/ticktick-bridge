@@ -204,6 +204,49 @@
   flex-shrink: 0;
 }
 
+.ticktick-group-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  direction: rtl;
+  padding: 0.35rem 0.45rem 0.15rem;
+}
+
+.ticktick-group-header-row .ticktick-project-group {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.ticktick-group-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: var(--tb-radius-sm, 6px);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--text-faint);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--tb-motion-fast, 120ms ease);
+}
+
+.ticktick-group-add-btn:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent) !important;
+  color: var(--interactive-accent);
+}
+
+.ticktick-group-add-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
 .ticktick-project-group {
   display: flex;
   align-items: center;

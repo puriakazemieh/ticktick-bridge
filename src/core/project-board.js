@@ -1,5 +1,6 @@
 import { toDateKey, todayInZone } from "./date.js";
 import { shiftCalendarDay } from "./calendar-range.js";
+import { matchesTaskFilter } from "./task-filter.js";
 
 export function normalizeProjectData(document = {}, fallbackProject = {}) {
   const project = { ...fallbackProject, ...(document.project ?? {}), id: document.project?.id ?? fallbackProject.id ?? document.projectId, name: document.project?.name ?? fallbackProject.name ?? "بدون نام" };
@@ -43,6 +44,7 @@ export const OVERDUE_BOARD_VIEW_ID = "ticktick:view:overdue";
 export const HIGH_PRIORITY_BOARD_VIEW_ID = "ticktick:view:high-priority";
 export const COMPLETED_BOARD_VIEW_ID = "ticktick:view:completed";
 export const TAG_BOARD_VIEW_PREFIX = "ticktick:view:tag:";
+export const SAVED_BOARD_VIEW_PREFIX = "ticktick:view:saved:";
 
 /** Virtual board entries are derived from the local TickTick cache. They never
  * represent remote projects, so selecting one must not enable project edits or
@@ -105,6 +107,16 @@ export function virtualBoardEntries(tasks = [], options = {}) {
     highPriority: { id: HIGH_PRIORITY_BOARD_VIEW_ID, name: "اولویت بالا", count: highPriorityCount },
     completed: { id: COMPLETED_BOARD_VIEW_ID, name: "تکمیل‌شده‌ها", count: completedCount },
     smartViews,
+    savedViews: (Array.isArray(options.savedViews) ? options.savedViews : []).map(view => ({
+      id: `${SAVED_BOARD_VIEW_PREFIX}${view.id}`,
+      viewId: view.id,
+      name: view.name,
+      icon: "bookmark",
+      count: (view.filter?.statuses && view.filter.statuses.length > 0)
+        ? tasks.filter(task => matchesTaskFilter(task, view.filter, options)).length
+        : open.filter(task => matchesTaskFilter(task, view.filter, options)).length,
+      rawView: view,
+    })),
     tags: [...tags.entries()]
       .sort(([left], [right]) => left.localeCompare(right, "fa"))
       .map(([name, count]) => ({ id: `${TAG_BOARD_VIEW_PREFIX}${encodeURIComponent(name)}`, name, count })),
@@ -185,6 +197,21 @@ export function selectSmartViewTasks(selection, tasks = [], options = {}) {
       tasks: open.filter(task => (task.tags ?? []).some(value => String(value) === tag))
     };
   }
+  if (String(selection ?? "").startsWith(SAVED_BOARD_VIEW_PREFIX)) {
+    const viewId = String(selection).slice(SAVED_BOARD_VIEW_PREFIX.length);
+    const savedViews = Array.isArray(options.savedViews) ? options.savedViews : [];
+    const view = savedViews.find(v => String(v.id) === viewId);
+    if (view) {
+      const matching = (view.filter?.statuses && view.filter.statuses.length > 0)
+        ? tasks.filter(task => matchesTaskFilter(task, view.filter, options))
+        : open.filter(task => matchesTaskFilter(task, view.filter, options));
+      return {
+        name: view.name,
+        tasks: matching,
+        savedView: view
+      };
+    }
+  }
   return null;
 }
 
@@ -192,8 +219,8 @@ export function virtualBoardData(selection, tasks = [], projects = [], options =
   const selected = selectSmartViewTasks(selection, tasks, options);
   if (!selected) return null;
 
-  const { name, tasks: matching } = selected;
-  const grouping = options.grouping || "project";
+  const { name, tasks: matching, savedView } = selected;
+  const grouping = options.grouping || savedView?.grouping || "project";
   const timeZone = options.timeZone || "Asia/Tehran";
   const todayKey = options.todayKey || todayInZone(timeZone);
 

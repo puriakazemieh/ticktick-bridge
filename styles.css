@@ -1890,6 +1890,44 @@
   border: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
   flex-shrink: 0;
 }
+.ticktick-group-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  direction: rtl;
+  padding: 0.35rem 0.45rem 0.15rem;
+}
+.ticktick-group-header-row .ticktick-project-group {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+}
+.ticktick-group-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: var(--tb-radius-sm, 6px);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--text-faint);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--tb-motion-fast, 120ms ease);
+}
+.ticktick-group-add-btn:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent) !important;
+  color: var(--interactive-accent);
+}
+.ticktick-group-add-btn svg {
+  width: 13px;
+  height: 13px;
+}
 .ticktick-project-group {
   display: flex;
   align-items: center;
@@ -6803,6 +6841,48 @@
     min-height: 44px !important;
     font-size: 14px !important;
   }
+}
+.ticktick-create-tag-modal,
+.ticktick-create-smart-view-modal {
+  direction: rtl;
+}
+.ticktick-modal-desc {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+.ticktick-smart-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 0.2rem 0;
+}
+.ticktick-filter-choice-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--tb-motion-fast, 120ms ease);
+  user-select: none;
+}
+.ticktick-filter-choice-chip:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary));
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
+}
+.ticktick-filter-choice-chip.is-selected {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent, #ffffff);
+  border-color: var(--interactive-accent);
+  font-weight: 700;
 }
 
 /* src/styles/timeline.css */
