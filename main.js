@@ -6667,20 +6667,29 @@ var ProjectBoard = class {
       timeZone: this.host.timeZone,
       savedViews: this.host.savedViews ? this.host.savedViews() : []
     });
-    const habits = railBody.createEl("button", {
+    const habits = railBody.createDiv({
       cls: `ticktick-project-row ${this.selected === HABIT_BOARD_VIEW_ID ? "is-selected" : ""}`,
-      attr: { type: "button", "aria-label": `\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u060C ${this.host.habits().length} \u0639\u0627\u062F\u062A` }
+      attr: { role: "button", tabindex: "0", "aria-label": `\u0639\u0627\u062F\u062A\u200C\u0647\u0627\u060C ${this.host.habits().length} \u0639\u0627\u062F\u062A` }
     });
-    const habitsIcon = habits.createSpan({ cls: "ticktick-project-row-icon" });
+    const habitsLead = habits.createDiv({ cls: "ticktick-project-row-lead" });
+    const habitsIcon = habitsLead.createSpan({ cls: "ticktick-project-row-icon" });
     (0, import_obsidian15.setIcon)(habitsIcon, "activity");
-    habits.createSpan({ cls: "ticktick-project-name", text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627" });
-    habits.createSpan({ cls: "ticktick-project-count", text: String(this.host.habits().length) });
+    habitsLead.createSpan({ cls: "ticktick-project-name", text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627" });
+    const habitsTrailing = habits.createDiv({ cls: "ticktick-project-row-trailing" });
+    habitsTrailing.createSpan({ cls: "ticktick-project-count", text: String(this.host.habits().length) });
     habits.addEventListener("click", () => {
       this.selected = HABIT_BOARD_VIEW_ID;
       this.savedColumnsScrollLeft = 0;
       this.savedBodyScrollTop = 0;
       this.savedColumnScrolls.clear();
       void this.persistAndRender();
+    });
+    habits.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        this.selected = HABIT_BOARD_VIEW_ID;
+        void this.persistAndRender();
+      }
     });
     const isSmartCollapsed = this.collapsed.has("smart-views") || this.collapsed.has("virtual-views");
     const smartGroupRow = railBody.createDiv({ cls: "ticktick-group-header-row" });
@@ -6729,14 +6738,16 @@ var ProjectBoard = class {
     });
     if (!isSmartCollapsed) {
       for (const view of virtual.smartViews) {
-        const row = railBody.createEl("button", {
+        const row = railBody.createDiv({
           cls: `ticktick-project-row ${this.selected === view.id ? "is-selected" : ""}`,
-          attr: { type: "button", "aria-label": `${view.name}\u060C ${view.count} \u062A\u0633\u06A9` }
+          attr: { role: "button", tabindex: "0", "aria-label": `${view.name}\u060C ${view.count} \u062A\u0633\u06A9` }
         });
-        const rowIcon = row.createSpan({ cls: "ticktick-project-row-icon" });
+        const lead = row.createDiv({ cls: "ticktick-project-row-lead" });
+        const rowIcon = lead.createSpan({ cls: "ticktick-project-row-icon" });
         (0, import_obsidian15.setIcon)(rowIcon, view.icon);
-        row.createSpan({ cls: "ticktick-project-name", text: view.name });
-        row.createSpan({ cls: "ticktick-project-count", text: String(view.count) });
+        lead.createSpan({ cls: "ticktick-project-name", text: view.name });
+        const trailing = row.createDiv({ cls: "ticktick-project-row-trailing" });
+        trailing.createSpan({ cls: "ticktick-project-count", text: String(view.count) });
         row.addEventListener("click", () => {
           this.selected = view.id;
           this.savedColumnsScrollLeft = 0;
@@ -6744,16 +6755,44 @@ var ProjectBoard = class {
           this.savedColumnScrolls.clear();
           void this.persistAndRender();
         });
+        row.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            this.selected = view.id;
+            void this.persistAndRender();
+          }
+        });
       }
       for (const view of virtual.savedViews ?? []) {
-        const row = railBody.createEl("button", {
+        const row = railBody.createDiv({
           cls: `ticktick-project-row ticktick-saved-view-row ${this.selected === view.id ? "is-selected" : ""}`,
-          attr: { type: "button", "aria-label": `\u0646\u0645\u0627\u06CC \u0647\u0648\u0634\u0645\u0646\u062F ${view.name}\u060C ${view.count} \u062A\u0633\u06A9` }
+          attr: { role: "button", tabindex: "0", "aria-label": `\u0646\u0645\u0627\u06CC \u0647\u0648\u0634\u0645\u0646\u062F ${view.name}\u060C ${view.count} \u062A\u0633\u06A9` }
         });
-        const rowIcon = row.createSpan({ cls: "ticktick-project-row-icon" });
+        const lead = row.createDiv({ cls: "ticktick-project-row-lead" });
+        const rowIcon = lead.createSpan({ cls: "ticktick-project-row-icon" });
         (0, import_obsidian15.setIcon)(rowIcon, "bookmark");
-        row.createSpan({ cls: "ticktick-project-name", text: view.name });
-        row.createSpan({ cls: "ticktick-project-count", text: String(view.count) });
+        lead.createSpan({ cls: "ticktick-project-name", text: view.name });
+        const trailing = row.createDiv({ cls: "ticktick-project-row-trailing" });
+        trailing.createSpan({ cls: "ticktick-project-count", text: String(view.count) });
+        const deleteSavedView = async () => {
+          const currentSavedViews = this.host.savedViews ? this.host.savedViews() : [];
+          const next = currentSavedViews.filter((v) => v.id !== view.viewId);
+          if (this.host.saveSavedViews) await this.host.saveSavedViews(next);
+          if (this.selected === view.id) {
+            this.selected = String(projects[0]?.id ?? INBOX_BOARD_VIEW_ID);
+          }
+          await this.persistAndRender();
+          new import_obsidian15.Notice(`\u0646\u0645\u0627\u06CC \xAB${view.name}\xBB \u062D\u0630\u0641 \u0634\u062F.`);
+        };
+        const menuBtn = trailing.createEl("button", {
+          cls: "ticktick-project-row-menu-btn mod-icon",
+          attr: { type: "button", "aria-label": `\u062D\u0630\u0641 \u0646\u0645\u0627\u06CC ${view.name}`, title: "\u062D\u0630\u0641 \u0646\u0645\u0627" }
+        });
+        (0, import_obsidian15.setIcon)(menuBtn, "trash-2");
+        menuBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          void deleteSavedView();
+        });
         row.addEventListener("click", () => {
           this.selected = view.id;
           this.savedColumnsScrollLeft = 0;
@@ -6765,18 +6804,16 @@ var ProjectBoard = class {
           e.preventDefault();
           const menu = new import_obsidian15.Menu();
           menu.addItem((item) => {
-            item.setTitle(`\u062D\u0630\u0641 \u0646\u0645\u0627\u06CC \xAB${view.name}\xBB`).setIcon("trash-2").onClick(async () => {
-              const currentSavedViews = this.host.savedViews ? this.host.savedViews() : [];
-              const next = currentSavedViews.filter((v) => v.id !== view.viewId);
-              if (this.host.saveSavedViews) await this.host.saveSavedViews(next);
-              if (this.selected === view.id) {
-                this.selected = String(projects[0]?.id ?? INBOX_BOARD_VIEW_ID);
-              }
-              await this.persistAndRender();
-              new import_obsidian15.Notice(`\u0646\u0645\u0627\u06CC \xAB${view.name}\xBB \u062D\u0630\u0641 \u0634\u062F.`);
-            });
+            item.setTitle(`\u062D\u0630\u0641 \u0646\u0645\u0627\u06CC \xAB${view.name}\xBB`).setIcon("trash-2").onClick(() => void deleteSavedView());
           });
           menu.showAtMouseEvent(e);
+        });
+        row.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            this.selected = view.id;
+            void this.persistAndRender();
+          }
         });
       }
     }
@@ -6826,20 +6863,29 @@ var ProjectBoard = class {
     });
     if (!this.collapsed.has("virtual-tags")) {
       for (const tag of virtual.tags) {
-        const row = railBody.createEl("button", {
+        const row = railBody.createDiv({
           cls: `ticktick-project-row ticktick-tag-view-row ${this.selected === tag.id ? "is-selected" : ""}`,
-          attr: { type: "button", "aria-label": `\u0628\u0631\u0686\u0633\u0628 ${tag.name}\u060C ${tag.count} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
+          attr: { role: "button", tabindex: "0", "aria-label": `\u0628\u0631\u0686\u0633\u0628 ${tag.name}\u060C ${tag.count} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
         });
-        const tagIcon = row.createSpan({ cls: "ticktick-project-row-icon" });
+        const lead = row.createDiv({ cls: "ticktick-project-row-lead" });
+        const tagIcon = lead.createSpan({ cls: "ticktick-project-row-icon" });
         (0, import_obsidian15.setIcon)(tagIcon, "tag");
-        row.createSpan({ cls: "ticktick-project-name", text: `#${tag.name}` });
-        row.createSpan({ cls: "ticktick-project-count", text: String(tag.count) });
+        lead.createSpan({ cls: "ticktick-project-name", text: `#${tag.name}` });
+        const trailing = row.createDiv({ cls: "ticktick-project-row-trailing" });
+        trailing.createSpan({ cls: "ticktick-project-count", text: String(tag.count) });
         row.addEventListener("click", () => {
           this.selected = tag.id;
           this.savedColumnsScrollLeft = 0;
           this.savedBodyScrollTop = 0;
           this.savedColumnScrolls.clear();
           void this.persistAndRender();
+        });
+        row.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            this.selected = tag.id;
+            void this.persistAndRender();
+          }
         });
       }
     }

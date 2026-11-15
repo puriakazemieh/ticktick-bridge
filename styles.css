@@ -1873,42 +1873,45 @@
   text-align: right;
 }
 .ticktick-project-row {
-  display: flex;
-  align-items: center;
+  display: flex !important;
+  align-items: center !important;
   justify-content: space-between;
   gap: 0.55rem;
   text-align: right;
-  padding: 0.45rem 0.65rem;
+  padding: 0.38rem 0.65rem;
   border-radius: 0.55rem;
   background: transparent !important;
   border: 1px solid transparent !important;
   box-shadow: none !important;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 140ms ease;
   width: 100%;
   direction: rtl;
   box-sizing: border-box;
+  min-height: 2.2rem;
+  position: relative;
 }
 .ticktick-project-row-lead {
-  display: flex;
-  align-items: center;
+  display: flex !important;
+  align-items: center !important;
   gap: 0.55rem;
   min-width: 0;
   flex: 1 1 auto;
 }
 .ticktick-project-row-trailing {
-  display: flex;
-  align-items: center;
+  display: flex !important;
+  align-items: center !important;
   gap: 0.35rem;
   flex-shrink: 0;
+  margin-inline-start: auto;
 }
 .ticktick-project-row-menu-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   width: 22px;
   height: 22px;
   padding: 0;
@@ -1958,6 +1961,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.35;
 }
 .ticktick-project-dot {
   width: 0.6rem;
@@ -1968,14 +1972,26 @@
   flex-shrink: 0;
 }
 .ticktick-project-count {
-  color: var(--text-muted);
-  font-size: 0.68rem;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 1.45rem;
+  height: 1.35rem;
+  padding: 0 0.42rem;
+  box-sizing: border-box;
+  font-size: 0.7rem;
   font-weight: 700;
-  padding: 0.08rem 0.42rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--background-primary) 70%, var(--background-secondary));
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+  line-height: 1 !important;
+  text-align: center;
+  border-radius: var(--tb-radius-pill, 9999px);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-secondary));
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 25%, transparent);
+  color: var(--interactive-accent);
   flex-shrink: 0;
+  margin: 0 !important;
+  align-self: center !important;
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
 }
 .ticktick-group-header-row {
   display: flex;
@@ -7784,7 +7800,7 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
-.ticktick-project-count {
+.ticktick-timeline-project-header .ticktick-project-count {
   font-size: 0.7rem;
   font-weight: 700;
   padding: 0.08rem 0.45rem;
