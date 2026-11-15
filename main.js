@@ -6670,41 +6670,6 @@ var ProjectBoard = class {
     const info = headerLead.createDiv({ cls: "ticktick-project-header-info" });
     info.createEl("h2", { cls: "ticktick-project-title", text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627" });
     info.createSpan({ cls: "ticktick-project-badge", text: `${habits.length} \u0639\u0627\u062F\u062A` });
-    const headerActions = header.createDiv({ cls: "ticktick-project-header-actions" });
-    if (this.host.openHabitEditor) {
-      const addHabitBtn = headerActions.createEl("button", {
-        cls: "mod-cta ticktick-board-add-habit-btn",
-        text: "+ \u0639\u0627\u062F\u062A \u062C\u062F\u06CC\u062F",
-        attr: {
-          type: "button",
-          "aria-label": "\u0627\u0641\u0632\u0648\u062F\u0646 \u0639\u0627\u062F\u062A \u062C\u062F\u06CC\u062F",
-          title: "\u0627\u0641\u0632\u0648\u062F\u0646 \u0639\u0627\u062F\u062A \u062C\u062F\u06CC\u062F"
-        }
-      });
-      addHabitBtn.addEventListener("click", () => {
-        void this.host.openHabitEditor?.();
-      });
-    }
-    const refreshBtn = headerActions.createEl("button", {
-      cls: "ticktick-board-refresh-btn",
-      text: "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC",
-      attr: {
-        type: "button",
-        "aria-label": "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0648 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0639\u0627\u062F\u062A\u200C\u0647\u0627",
-        title: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0648 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0639\u0627\u062F\u062A\u200C\u0647\u0627"
-      }
-    });
-    const rIcon = refreshBtn.createSpan({ cls: "ticktick-btn-icon" });
-    (0, import_obsidian15.setIcon)(rIcon, "refresh-cw");
-    refreshBtn.addEventListener("click", async () => {
-      refreshBtn.disabled = true;
-      try {
-        await this.host.refresh();
-        await this.render();
-      } finally {
-        refreshBtn.disabled = false;
-      }
-    });
     const boardBody = main.createDiv({ cls: "ticktick-habit-board-body" });
     if (this.host.renderHabitBlock) {
       await this.host.renderHabitBlock(boardBody, true);

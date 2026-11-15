@@ -740,44 +740,6 @@ export class ProjectBoard {
     info.createEl("h2", { cls: "ticktick-project-title", text: "عادت‌ها" });
     info.createSpan({ cls: "ticktick-project-badge", text: `${habits.length} عادت` });
 
-    // Trailing Section: Header Actions (Add Habit & Refresh)
-    const headerActions = header.createDiv({ cls: "ticktick-project-header-actions" });
-    if (this.host.openHabitEditor) {
-      const addHabitBtn = headerActions.createEl("button", {
-        cls: "mod-cta ticktick-board-add-habit-btn",
-        text: "+ عادت جدید",
-        attr: {
-          type: "button",
-          "aria-label": "افزودن عادت جدید",
-          title: "افزودن عادت جدید"
-        }
-      });
-      addHabitBtn.addEventListener("click", () => {
-        void this.host.openHabitEditor?.();
-      });
-    }
-
-    const refreshBtn = headerActions.createEl("button", {
-      cls: "ticktick-board-refresh-btn",
-      text: "به‌روزرسانی",
-      attr: {
-        type: "button",
-        "aria-label": "همگام‌سازی و به‌روزرسانی عادت‌ها",
-        title: "همگام‌سازی و به‌روزرسانی عادت‌ها"
-      }
-    });
-    const rIcon = refreshBtn.createSpan({ cls: "ticktick-btn-icon" });
-    setIcon(rIcon, "refresh-cw");
-    refreshBtn.addEventListener("click", async () => {
-      refreshBtn.disabled = true;
-      try {
-        await this.host.refresh();
-        await this.render();
-      } finally {
-        refreshBtn.disabled = false;
-      }
-    });
-
     const boardBody = main.createDiv({ cls: "ticktick-habit-board-body" });
     if (this.host.renderHabitBlock) {
       await this.host.renderHabitBlock(boardBody, true);
