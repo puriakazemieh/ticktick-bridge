@@ -48,6 +48,7 @@ export type ProjectBoardHost = {
   habitHistory: (habitId: string, from: string, to: string) => HabitHistoryEntry[];
   setHabitProgress: (habit: TickTickHabit, day: string, value: number, goal: number) => Promise<unknown>;
   renderHabitBlock?: (element: HTMLElement, dashboard?: boolean, dayOverride?: string) => Promise<void>;
+  openHabitEditor?: (habit?: TickTickHabit) => Promise<unknown>;
   firstWeekday: number;
   timeZone: string;
   board: (project: TickTickProject | undefined) => Promise<ProjectBoardData>;
@@ -739,8 +740,23 @@ export class ProjectBoard {
     info.createEl("h2", { cls: "ticktick-project-title", text: "عادت‌ها" });
     info.createSpan({ cls: "ticktick-project-badge", text: `${habits.length} عادت` });
 
-    // Trailing Section: Header Actions (Refresh)
+    // Trailing Section: Header Actions (Add Habit & Refresh)
     const headerActions = header.createDiv({ cls: "ticktick-project-header-actions" });
+    if (this.host.openHabitEditor) {
+      const addHabitBtn = headerActions.createEl("button", {
+        cls: "mod-cta ticktick-board-add-habit-btn",
+        text: "+ عادت جدید",
+        attr: {
+          type: "button",
+          "aria-label": "افزودن عادت جدید",
+          title: "افزودن عادت جدید"
+        }
+      });
+      addHabitBtn.addEventListener("click", () => {
+        void this.host.openHabitEditor?.();
+      });
+    }
+
     const refreshBtn = headerActions.createEl("button", {
       cls: "ticktick-board-refresh-btn",
       text: "به‌روزرسانی",
@@ -800,8 +816,10 @@ export class ProjectBoard {
             habits: day => this.host.habits().filter(item => String(item.id) === String(habit.id) || false),
             habitHistory: this.host.habitHistory,
             setHabitProgress: this.host.setHabitProgress,
+            onEditHabit: (habitItem) => void this.host.openHabitEditor?.(habitItem),
           }, d).open();
-        }
+        },
+        onEditHabit: (h) => void this.host.openHabitEditor?.(h),
       });
     }
   }

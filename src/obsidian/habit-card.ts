@@ -4,7 +4,7 @@
  * across all surfaces: Today Habits, Dashboard, Project Board, and Planning Calendar.
  */
 
-import { Notice } from "obsidian";
+import { Notice, setIcon } from "obsidian";
 import type { TickTickHabit } from "../types/ticktick";
 import { habitDashboardSection } from "./helpers";
 
@@ -18,6 +18,7 @@ export interface UnifiedHabitOptions {
   showHistoryDots?: boolean;
   onCheckIn: (habit: TickTickHabit, day: string) => Promise<unknown>;
   onOpenDetails?: (habit: TickTickHabit, day: string) => void;
+  onEditHabit?: (habit: TickTickHabit) => void;
 }
 
 /** Determines semantic category color based on habit name or section */
@@ -131,6 +132,24 @@ export function renderUnifiedHabitCard(parent: HTMLElement, options: UnifiedHabi
         attr: { title: `${entry.date}: ${entry.completed ? "انجام شد" : "انجام نشد"}` }
       });
     }
+  }
+
+  // 4. Quick edit button
+  if (options.onEditHabit) {
+    const editBtn = card.createEl("button", {
+      cls: "ticktick-habit-edit-btn",
+      attr: {
+        type: "button",
+        "aria-label": `ویرایش عادت ${habit.name ?? ""}`,
+        title: "ویرایش عادت"
+      }
+    });
+    setIcon(editBtn, "pencil");
+    editBtn.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      options.onEditHabit!(habit);
+    });
   }
 
   // Click on card opens details modal or triggers check-in

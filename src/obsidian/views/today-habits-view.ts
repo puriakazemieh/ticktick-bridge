@@ -18,7 +18,12 @@ export class TodayHabitsView extends ItemView {
     contentEl.empty();
     contentEl.addClass("ticktick-today-habits-panel");
     contentEl.createEl("h2", { text: "عادت‌های امروز" });
-    const refresh = contentEl.createEl("button", { text: "به‌روزرسانی" });
+    const toolbar = contentEl.createDiv({ cls: "ticktick-habits-view-toolbar" });
+    const addHabitBtn = toolbar.createEl("button", { text: "+ عادت جدید", cls: "mod-cta" });
+    addHabitBtn.addEventListener("click", () => {
+      void this.plugin.openHabitEditor();
+    });
+    const refresh = toolbar.createEl("button", { text: "به‌روزرسانی" });
     refresh.addEventListener("click", async () => {
       refresh.disabled = true;
       try { await this.render(); } finally { refresh.disabled = false; }

@@ -18,6 +18,7 @@ export type HabitDetailsHost = {
   habits: (day: string) => TickTickHabit[];
   habitHistory: (habitId: string, from: string, to: string) => HabitHistoryEntry[];
   setHabitProgress: (habit: TickTickHabit, day: string, value: number, goal: number) => Promise<unknown>;
+  onEditHabit?: (habit: TickTickHabit) => void;
 };
 
 export type PlannerHost = HabitDetailsHost & {
@@ -31,6 +32,7 @@ export type PlannerHost = HabitDetailsHost & {
   unschedule: (task: TickTickTask) => Promise<unknown>;
   complete: (task: TickTickTask) => Promise<unknown>;
   binding: (task: TickTickTask) => unknown;
+  openHabitEditor?: (habit?: TickTickHabit) => Promise<unknown>;
   load: (task: TickTickTask) => Promise<TickTickTask | undefined>;
   edit: (task: TickTickTask) => Promise<unknown>;
   create: (initial: Partial<TickTickTask>) => Promise<unknown>;
@@ -275,6 +277,19 @@ export class HabitDetailsModal extends Modal {
     const progress = summary.createDiv({ cls: "ticktick-habit-detail-progress" });
     progress.createEl("strong", { text: `${value}/${goal}` });
     progress.createSpan({ text: this.habit.unit || (goal > 1 ? "مرحله" : "ثبت") });
+
+    if (this.host.onEditHabit) {
+      const editBtn = summary.createEl("button", {
+        cls: "ticktick-habit-detail-edit-btn",
+        text: "ویرایش عادت",
+        attr: { type: "button", title: "ویرایش تنظیمات عادت" }
+      });
+      setIcon(editBtn, "pencil");
+      editBtn.addEventListener("click", () => {
+        this.close();
+        this.host.onEditHabit!(this.habit);
+      });
+    }
 
     const description = String(this.habit.description ?? this.habit.desc ?? this.habit.content ?? this.habit.notes ?? "").trim();
     if (description) {
@@ -1095,8 +1110,12 @@ for (const habit of habits) {
           await this.render();
         },
         onOpenDetails: (h, d) => {
-          new HabitDetailsModal(this.host.app, this.host.habitWithHistory(String(h.id), d) ?? h, this.host, d).open();
-        }
+          new HabitDetailsModal(this.host.app, this.host.habitWithHistory(String(h.id), d) ?? h, {
+            ...this.host,
+            onEditHabit: (habitItem) => void this.host.openHabitEditor?.(habitItem)
+          }, d).open();
+        },
+        onEditHabit: (h) => void this.host.openHabitEditor?.(h)
       });
     }
   }

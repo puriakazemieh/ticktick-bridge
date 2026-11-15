@@ -113,6 +113,21 @@ export class TickTickClient {
       body,
     });
   }
+  createHabit(habit) {
+    return this.request("/habit", { method: "POST", body: habit });
+  }
+  updateHabit(habitId, habit) {
+    if (!habitId) throw new Error("Habit id is required for update.");
+    return this.request(`/habit/${encodeURIComponent(habitId)}`, { method: "POST", body: habit });
+  }
+  archiveHabit(habitId, habit = {}) {
+    if (!habitId) throw new Error("Habit id is required for archive.");
+    const body = { ...habit, status: 2 };
+    return this.request(`/habit/${encodeURIComponent(habitId)}`, { method: "POST", body });
+  }
+  deleteHabit(habitId, habit = {}) {
+    return this.archiveHabit(habitId, habit);
+  }
 
   async listOpenTasks() {
     const projects = await this.listProjects();

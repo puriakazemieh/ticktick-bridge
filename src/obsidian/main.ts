@@ -43,6 +43,7 @@ import {
 } from "./helpers";
 
 import { openTaskEditor, confirmDelete } from "./modals/task-editor-modal";
+import { HabitEditorModal, type HabitDraft, type HabitSection } from "./modals/habit-editor-modal";
 import { QuickCaptureModal } from "./modals/quick-capture-modal";
 import { bridgeEvents } from "./store";
 import { TodayTasksView } from "./views/today-tasks-view";
@@ -202,6 +203,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.addCommand({ id: "open-activity-heatmap", name: "نمای نقشه فعالیت و هیت‌مپ (Open Activity Heatmap)", callback: () => this.openActivityHeatmapView() });
     this.addCommand({ id: "open-today-tasks", name: "تسک‌های امروز (Open today's tasks)", callback: () => this.openTodayView() });
     this.addCommand({ id: "open-today-habits", name: "عادت‌های امروز (Open today's habits)", callback: () => this.openHabitView() });
+    this.addCommand({ id: "open-habit-editor", name: "افزودن عادت جدید (Add new habit)", callback: () => void this.openHabitEditor() });
     this.addCommand({ id: "open-pomodoro-timer", name: "تایمر تمرکز عمیق و پومودورو (Open Pomodoro timer)", callback: () => this.openPomodoroModal() });
     this.addCommand({ id: "open-ticktick-sync-center", name: "مرکز همگام‌سازی و تعارض‌ها (Open Sync Center)", callback: () => this.openControlPage("sync") });
     this.addCommand({ id: "preview-ticktick-notes", name: "پیش‌نمایش انتقال یادداشت‌ها (Preview Notes Import)", callback: () => this.openControlPage("notes") });
@@ -379,6 +381,7 @@ export default class TickTickBridgePlugin extends Plugin {
       loadHabit: async (habit: TickTickHabit) => this.loadHabitDetails(habit),
       showHabits: () => this.settings.plannerShowHabits,
       setShowHabits: async (value: boolean) => { this.settings.plannerShowHabits = value; await this.saveSettings(); },
+      openHabitEditor: (habit?: TickTickHabit) => this.openHabitEditor(habit),
       savedViews: () => this.settings.savedViews || [],
       saveSavedViews: async (views: SavedView[]) => { this.settings.savedViews = views; await this.saveSettings(); },
       executeBulkOperation: async (taskIds: string[], op: string, params: any) => this.executeBulkOperation(taskIds, op, params),
@@ -406,6 +409,7 @@ export default class TickTickBridgePlugin extends Plugin {
       habitHistory: (habitId: string, from: string, to: string) => this.cachedHabitHistoryRange(habitId, from, to),
       setHabitProgress: async (habit: TickTickHabit, day: string, value: number, goal: number) => this.checkInHabit(String(habit.id), day, { value: Math.max(0, value), goal: Math.max(1, goal), status: value >= goal ? 2 : undefined }),
       renderHabitBlock: async (element: HTMLElement, dashboard?: boolean, dayOverride?: string) => this.renderHabitBlock(element, dashboard, dayOverride),
+      openHabitEditor: (habit?: TickTickHabit) => this.openHabitEditor(habit),
       board: async (project: TickTickProject | undefined) => (project ? this.cache.projectBoards[String(project.id)] : undefined) ?? this.client().projectBoard(project as any),
       // This host is called by an explicit toolbar action. Let the central
       // sync layer report an honest success/fallback/error notification.
@@ -1269,6 +1273,94 @@ export default class TickTickBridgePlugin extends Plugin {
     await this.updateTask(payload);
     return { ...current, ...payload };
   }
+
+  async openHabitEditor(habit?: TickTickHabit) {
+    let sections: HabitSection[] = [];
+    try {
+      const remoteSections = await this.client().listHabitSections();
+      if (Array.isArray(remoteSections)) {
+        sections = remoteSections.map((s: any) => ({ id: String(s.id), name: String(s.name) }));
+      }
+    } catch {
+      const secMap = new Map<string, string>();
+      for (const h of this.cache.habits) {
+        if (h.sectionId && h.sectionName) secMap.set(h.sectionId, h.sectionName);
+      }
+      sections = Array.from(secMap.entries()).map(([id, name]) => ({ id, name }));
+    }
+
+    new HabitEditorModal(this.app, {
+      habit,
+      sections,
+      onSave: async (draft: HabitDraft) => {
+        if (draft.id) {
+          await this.updateHabit(draft.id, draft);
+          new Notice(`عادت «${draft.name}» به‌روزرسانی شد.`);
+        } else {
+          await this.createHabit(draft);
+          new Notice(`عادت «${draft.name}» ایجاد شد.`);
+        }
+      },
+      onDelete: async (habitId: string) => {
+        await this.deleteHabit(habitId);
+        new Notice("عادت از TickTick حذف/آرشیو شد.");
+      }
+    }).open();
+  }
+
+  async createHabit(draft: HabitDraft) {
+    const payload = {
+      name: draft.name,
+      type: draft.type,
+      goal: draft.goal,
+      step: draft.step,
+      unit: draft.unit,
+      repeatRule: draft.repeatRule,
+      sectionId: draft.sectionId || undefined,
+      color: draft.color,
+      iconRes: draft.iconRes,
+      encouragement: draft.encouragement || undefined
+    };
+    const created = (await this.client().createHabit(payload)) as TickTickHabit;
+    if (created && typeof created === "object" && created.id) {
+      this.cache.habits = [created, ...this.cache.habits.filter(h => String(h.id) !== String(created.id))];
+      await this.saveSettings();
+      await this.refreshLocalSurfaces();
+    }
+    void this.syncNow({ quiet: true });
+    return created;
+  }
+
+  async updateHabit(habitId: string, draft: HabitDraft) {
+    const payload = {
+      name: draft.name,
+      type: draft.type,
+      goal: draft.goal,
+      step: draft.step,
+      unit: draft.unit,
+      repeatRule: draft.repeatRule,
+      sectionId: draft.sectionId || undefined,
+      color: draft.color,
+      iconRes: draft.iconRes,
+      encouragement: draft.encouragement || undefined
+    };
+    const updated = (await this.client().updateHabit(habitId, payload)) as TickTickHabit;
+    const resolved = (updated && typeof updated === "object" && updated.id) ? updated : { ...draft, id: habitId };
+    this.cache.habits = this.cache.habits.map(h => String(h.id) === habitId ? { ...h, ...resolved } : h);
+    await this.saveSettings();
+    await this.refreshLocalSurfaces();
+    void this.syncNow({ quiet: true });
+    return resolved;
+  }
+
+  async deleteHabit(habitId: string) {
+    const habit = this.cache.habits.find(h => String(h.id) === habitId);
+    await this.client().deleteHabit(habitId, habit);
+    this.cache.habits = this.cache.habits.filter(h => String(h.id) !== habitId);
+    await this.saveSettings();
+    await this.refreshLocalSurfaces();
+    void this.syncNow({ quiet: true });
+  }
   private async unscheduleTaskFromPlanner(task: TickTickTask) {
     const previous = { ...task };
     const payload: Partial<TickTickTask> = {
@@ -2058,6 +2150,14 @@ export default class TickTickBridgePlugin extends Plugin {
             void this.renderHabitBlock(element, true);
           });
         }
+        const addHabitBtn = controls.createEl("button", {
+          cls: "mod-cta ticktick-dashboard-add-habit-btn",
+          text: "+ افزودن عادت",
+          attr: { type: "button", title: "افزودن عادت جدید به TickTick" }
+        });
+        addHabitBtn.addEventListener("click", () => {
+          void this.openHabitEditor();
+        });
         const navigator = controls.createDiv({ cls: "ticktick-dashboard-date" });
         const previous = navigator.createEl("button", { cls: "mod-icon", attr: { type: "button", "aria-label": "روز قبل", title: "روز قبل" } });
         setIcon(previous, "chevron-left");
@@ -2134,8 +2234,14 @@ export default class TickTickBridgePlugin extends Plugin {
               setHabitProgress: async (habitItem, dayKey, val, goalVal) => {
                 await this.checkInHabit(String(habitItem.id), dayKey, { value: Math.max(0, val), goal: Math.max(1, goalVal), status: val >= goalVal ? 2 : undefined });
                 await this.renderHabitBlock(element, dashboard, dayOverride);
+              },
+              onEditHabit: (habitItem) => {
+                void this.openHabitEditor(habitItem);
               }
             }, d).open();
+          },
+          onEditHabit: (h) => {
+            void this.openHabitEditor(h);
           }
         });
       }
