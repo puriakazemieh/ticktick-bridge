@@ -166,3 +166,28 @@ test("virtual board supports dynamic grouping by project, priority, date, and ta
   const projBoard = virtualBoardData(ALL_BOARD_VIEW_ID, tasks, projects, { ...baseOptions, grouping: "project" });
   assert.deepEqual(projBoard.columns.map(c => c.name), ["کار", "شخصی"]);
 });
+
+test("tag virtual board groups by project and exposes target project ids for task creation", () => {
+  const tasks = [
+    { id: "101", title: "تسک اسپرینت فروشگاه", tags: ["اسپرینت", "راسته"], projectId: "proj_store", projectName: "فروشگاه", status: 0 },
+    { id: "102", title: "تسک اسپرینت دیگر", tags: ["اسپرینت"], projectId: "proj_store", projectName: "فروشگاه", status: 0 },
+  ];
+  const projects = [
+    { id: "proj_store", name: "فروشگاه" },
+    { id: "proj_finance", name: "مدیریت مالی" },
+  ];
+  const tagViewId = `ticktick:view:tag:${encodeURIComponent("اسپرینت")}`;
+  const tagBoard = virtualBoardData(tagViewId, tasks, projects);
+
+  assert.equal(tagBoard.project.name, "#اسپرینت");
+  assert.equal(tagBoard.project.virtual, true);
+  assert.equal(tagBoard.columns.length, 1);
+  assert.equal(tagBoard.columns[0].id, "proj_store");
+  assert.equal(tagBoard.columns[0].name, "فروشگاه");
+  assert.equal(tagBoard.columns[0].synthetic, true);
+
+  const columns = boardColumns(tagBoard);
+  assert.equal(columns.length, 1);
+  assert.equal(columns[0].id, "proj_store");
+  assert.equal(columns[0].count, 2);
+});

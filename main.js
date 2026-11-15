@@ -5063,6 +5063,7 @@ var CreateSmartViewModal = class extends import_obsidian12.Modal {
 
 // src/obsidian/project-board.ts
 init_calendar_range();
+init_date();
 
 // src/obsidian/filter-bar.ts
 var import_obsidian13 = require("obsidian");
@@ -6069,6 +6070,7 @@ var ProjectBoard = class {
   headerBadgeEl = null;
   filterBarInstance = null;
   bulkActionBar = null;
+  cachedProjects = [];
   async render() {
     if (!this.initialized) {
       const saved = this.host.preferences();
@@ -6116,6 +6118,7 @@ var ProjectBoard = class {
     root.toggleClass("is-rail-collapsed", this.sidebarCollapsed);
     try {
       const projects = await this.host.projects();
+      this.cachedProjects = projects;
       if (!this.selected || this.selected === "ticktick:view:all") this.selected = String(projects[0]?.id ?? INBOX_BOARD_VIEW_ID);
       if (!this.sidebarCollapsed) {
         this.renderSidebarRail(root, projects);
@@ -6283,6 +6286,57 @@ var ProjectBoard = class {
       void this.render();
     }
   }
+  getInitialTaskForColumn(column, project, currentTag) {
+    const payload = {};
+    if (currentTag) {
+      payload.tags = [currentTag];
+    }
+    if (project && !column.synthetic) {
+      payload.projectId = project.id;
+      payload.columnId = String(column.id);
+      return payload;
+    }
+    if (project) {
+      payload.projectId = project.id;
+      return payload;
+    }
+    if (this.smartViewGrouping === "priority") {
+      const prioMap = { "p-high": 5, "p-medium": 3, "p-low": 1, "p-none": 0 };
+      if (String(column.id) in prioMap) {
+        payload.priority = prioMap[String(column.id)];
+      }
+      if (this.cachedProjects.length > 0) {
+        payload.projectId = this.cachedProjects[0].id;
+      }
+    } else if (this.smartViewGrouping === "date") {
+      const today = todayInZone(this.host.timeZone);
+      if (column.id === "d-today") payload.dueDate = today;
+      else if (column.id === "d-tomorrow") payload.dueDate = shiftCalendarDay(today, 1);
+      else if (column.id === "d-week") payload.dueDate = shiftCalendarDay(today, 3);
+      if (this.cachedProjects.length > 0) {
+        payload.projectId = this.cachedProjects[0].id;
+      }
+    } else if (this.smartViewGrouping === "tag") {
+      const colTag = String(column.id).startsWith("t-") && column.id !== "t-none" ? decodeURIComponent(String(column.id).slice(2)) : null;
+      const combinedTags = [...new Set([currentTag, colTag].filter(Boolean))];
+      if (combinedTags.length > 0) payload.tags = combinedTags;
+      if (this.cachedProjects.length > 0) {
+        payload.projectId = this.cachedProjects[0].id;
+      }
+    } else {
+      const matchingProj = this.cachedProjects.find((p) => String(p.id) === String(column.id));
+      if (matchingProj) {
+        payload.projectId = matchingProj.id;
+      } else if (String(column.id).toLowerCase() === "inbox") {
+        payload.projectId = "inbox";
+      } else if (column.id && !String(column.id).startsWith("p-") && !String(column.id).startsWith("d-") && !String(column.id).startsWith("t-")) {
+        payload.projectId = String(column.id);
+      } else if (this.cachedProjects.length > 0) {
+        payload.projectId = this.cachedProjects[0].id;
+      }
+    }
+    return payload;
+  }
   renderColumnsContainer(columns, rawData, project, displayProject) {
     if (this.lastSelectedProject === this.selected && columns.scrollLeft !== 0) {
       this.savedColumnsScrollLeft = columns.scrollLeft;
@@ -6302,8 +6356,8 @@ var ProjectBoard = class {
       tasks: filteredTasks
     };
     if (this.headerBadgeEl) {
-      const isCompletedView = displayProject?.id === COMPLETED_BOARD_VIEW_ID;
-      const countLabel = isCompletedView ? `${data.tasks.length} \u062A\u0633\u06A9 \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647` : `${data.tasks.filter((task) => Number(task.status ?? 0) === 0).length} \u062A\u0633\u06A9 \u0628\u0627\u0632`;
+      const isCompletedView2 = displayProject?.id === COMPLETED_BOARD_VIEW_ID;
+      const countLabel = isCompletedView2 ? `${data.tasks.length} \u062A\u0633\u06A9 \u062A\u06A9\u0645\u06CC\u0644\u200C\u0634\u062F\u0647` : `${data.tasks.filter((task) => Number(task.status ?? 0) === 0).length} \u062A\u0633\u06A9 \u0628\u0627\u0632`;
       const isFiltered = Boolean(
         this.filterState.searchText || this.filterState.projects && this.filterState.projects.length || this.filterState.tags && this.filterState.tags.length || this.filterState.priorities && this.filterState.priorities.length || this.filterState.statuses && this.filterState.statuses.length
       );
@@ -6325,6 +6379,9 @@ var ProjectBoard = class {
         childrenMap.get(pId).push(t);
       }
     }
+    const isTagView = String(this.selected).startsWith(TAG_BOARD_VIEW_PREFIX);
+    const currentTag = isTagView ? decodeURIComponent(String(this.selected).slice(TAG_BOARD_VIEW_PREFIX.length)) : null;
+    const isCompletedView = displayProject?.id === COMPLETED_BOARD_VIEW_ID;
     for (const column of boardColumns(data, this.host.showCompleted())) {
       const shell = columns.createDiv({ cls: "ticktick-project-column" });
       shell.dataset.columnId = String(column.id);
@@ -6332,28 +6389,33 @@ var ProjectBoard = class {
       colHeader.createEl("strong", { cls: "ticktick-column-name", text: column.name });
       colHeader.createSpan({ cls: "ticktick-column-count", text: String(column.count) });
       const movableColumn = Boolean(project) && !column.synthetic;
-      if (movableColumn) {
+      const canAddToColumn = !isCompletedView && (movableColumn || isTagView || Boolean(displayProject?.virtual));
+      if (canAddToColumn) {
         const addToColumn = colHeader.createEl("button", {
           cls: "ticktick-column-add mod-icon",
-          attr: { type: "button", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 ${column.name}`, title: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0627\u06CC\u0646 \u0633\u062A\u0648\u0646" }
+          attr: {
+            type: "button",
+            "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 ${column.name}`,
+            title: isTagView && currentTag ? `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0627 \u0628\u0631\u0686\u0633\u0628 #${currentTag} \u0628\u0647 ${column.name}` : `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0627\u06CC\u0646 \u0633\u062A\u0648\u0646`
+          }
         });
         (0, import_obsidian15.setIcon)(addToColumn, "plus");
         addToColumn.addEventListener("click", async (event) => {
           event.stopPropagation();
           addToColumn.disabled = true;
           try {
-            await this.host.createTask({ projectId: project.id, columnId: column.id });
-            new import_obsidian15.Notice(`\u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F \u0628\u0647 \u0633\u062A\u0648\u0646 \xAB${column.name}\xBB \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.`);
-            await this.render();
+            const initial = this.getInitialTaskForColumn(column, project, currentTag);
+            const res = await this.host.createTask(initial);
+            if (res) {
+              new import_obsidian15.Notice(`\u062A\u0633\u06A9 \u062C\u062F\u06CC\u062F \u0628\u0647 \u0633\u062A\u0648\u0646 \xAB${column.name}\xBB \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.`);
+              await this.render();
+            }
           } catch (error) {
             new import_obsidian15.Notice(error instanceof Error ? error.message : "\u0633\u0627\u062E\u062A \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
           } finally {
             addToColumn.disabled = false;
           }
         });
-      }
-      if (column.synthetic) {
-        shell.createEl("small", { cls: "ticktick-column-hint", text: "\u0633\u062A\u0648\u0646 \u0646\u0645\u0627\u06CC\u0634\u06CC\u061B \u062C\u0627\u0628\u0647\u200C\u062C\u0627\u06CC\u06CC \u063A\u06CC\u0631\u0641\u0639\u0627\u0644 \u0627\u0633\u062A" });
       }
       const listWrap = shell.createDiv({ cls: "ticktick-column-cards" });
       listWrap.addEventListener("scroll", () => {
@@ -6419,17 +6481,36 @@ var ProjectBoard = class {
           this.card(listWrap, task, task.projectColor || displayProject?.color, Boolean(project), subtasks);
         }
       }
-      if (colTaskCount === 0 && movableColumn) {
+      if (colTaskCount === 0 && canAddToColumn) {
         const emptyCard = listWrap.createDiv({
           cls: "ticktick-column-empty-card",
-          attr: { role: "button", tabindex: "0", "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 ${column.name}` }
+          attr: {
+            role: "button",
+            tabindex: "0",
+            "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 ${column.name}`,
+            title: isTagView && currentTag ? `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0627 \u0628\u0631\u0686\u0633\u0628 #${currentTag} \u0628\u0647 ${column.name}` : `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 ${column.name}`
+          }
         });
         const plusIcon = emptyCard.createSpan({ cls: "ticktick-empty-plus" });
         (0, import_obsidian15.setIcon)(plusIcon, "plus");
-        emptyCard.createSpan({ text: "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0627\u06CC\u0646 \u0633\u062A\u0648\u0646" });
-        emptyCard.addEventListener("click", async () => {
-          await this.host.createTask({ projectId: project.id, columnId: column.id });
-          await this.render();
+        emptyCard.createSpan({
+          text: isTagView && currentTag ? `+ \u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0627 #${currentTag}` : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0627\u06CC\u0646 \u0633\u062A\u0648\u0646"
+        });
+        const onEmptyAdd = async () => {
+          try {
+            const initial = this.getInitialTaskForColumn(column, project, currentTag);
+            const res = await this.host.createTask(initial);
+            if (res) await this.render();
+          } catch (error) {
+            new import_obsidian15.Notice(error instanceof Error ? error.message : "\u0633\u0627\u062E\u062A \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+          }
+        };
+        emptyCard.addEventListener("click", onEmptyAdd);
+        emptyCard.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            void onEmptyAdd();
+          }
         });
       }
     }
@@ -6439,6 +6520,18 @@ var ProjectBoard = class {
       (0, import_obsidian15.setIcon)(emptyIcon, "check-circle");
       emptyState2.createEl("h3", { text: `\u0647\u06CC\u0686 \u062A\u0633\u06A9\u06CC \u062F\u0631 \u0646\u0645\u0627\u06CC \xAB${displayProject?.name ?? ""}\xBB \u0646\u06CC\u0633\u062A` });
       emptyState2.createEl("p", { text: "\u0647\u0645\u0647\u0654 \u062A\u0633\u06A9\u200C\u0647\u0627 \u0627\u0646\u062C\u0627\u0645 \u0634\u062F\u0647\u200C\u0627\u0646\u062F \u06CC\u0627 \u062A\u0633\u06A9\u06CC \u0645\u0637\u0627\u0628\u0642 \u0627\u06CC\u0646 \u0646\u0645\u0627 \u06CC\u0627 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u06CC \u062F\u0631 \u06A9\u0634 \u0645\u062D\u0644\u06CC \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F." });
+      if (isTagView && currentTag) {
+        const addBtn = emptyState2.createEl("button", {
+          cls: "mod-cta ticktick-empty-add-btn",
+          text: `+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0627\u0648\u0644\u06CC\u0646 \u062A\u0633\u06A9 \u0628\u0627 #${currentTag}`
+        });
+        addBtn.addEventListener("click", async () => {
+          const initial = { tags: [currentTag] };
+          if (this.cachedProjects.length > 0) initial.projectId = this.cachedProjects[0].id;
+          const res = await this.host.createTask(initial);
+          if (res) await this.render();
+        });
+      }
     }
     const restoreScrolls = () => {
       if (this.lastSelectedProject === this.selected) {

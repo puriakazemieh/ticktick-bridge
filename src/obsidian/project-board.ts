@@ -7,7 +7,8 @@ import { CreateTagModal } from "./modals/create-tag-modal";
 import { CreateSmartViewModal } from "./modals/create-smart-view-modal";
 import { taskDescription } from "../core/task-description.js";
 import { formatPersianDate } from "../core/persian-date.js";
-import { sortPlanningTasks } from "../core/calendar-range.js";
+import { sortPlanningTasks, shiftCalendarDay } from "../core/calendar-range.js";
+import { todayInZone } from "../core/date.js";
 import { enhanceHorizontalScroll, scrollToStart } from "./horizontal-scroll";
 import { HabitDetailsModal } from "./planning-calendar";
 import { renderUnifiedHabitCard } from "./habit-card";
@@ -18,7 +19,7 @@ import { matchesTaskFilter } from "../core/task-filter.js";
 import { formatTaskEstimate } from "../core/task-hierarchy.js";
 import { cleanTaskTitle } from "./helpers";
 import { renderTaskCard } from "./components/task-card-element";
-import type { TickTickTask, TickTickProject, TickTickHabit, CachedHabitCheckin, ProjectBoardData, HabitHistoryEntry, SavedView, TaskFilterState } from "./types";
+import type { TickTickTask, TickTickProject, TickTickHabit, CachedHabitCheckin, ProjectBoardData, HabitHistoryEntry, SavedView, TaskFilterState, TaskDraft } from "./types";
 
 const HABIT_BOARD_VIEW_ID = "ticktick:view:habits";
 
@@ -92,6 +93,7 @@ export class ProjectBoard {
   private headerBadgeEl: HTMLElement | null = null;
   private filterBarInstance: FilterBar | null = null;
   private bulkActionBar: BulkActionBar | null = null;
+  private cachedProjects: TickTickProject[] = [];
 
   constructor(private element: HTMLElement, private host: ProjectBoardHost) {}
 
@@ -146,6 +148,7 @@ export class ProjectBoard {
 
     try {
       const projects = await this.host.projects();
+      this.cachedProjects = projects;
       // The board opens focused on a real list.  "همهٔ لیست‌ها" was a
       // confusing synthetic board and is intentionally no longer shown.
       if (!this.selected || this.selected === "ticktick:view:all") this.selected = String(projects[0]?.id ?? INBOX_BOARD_VIEW_ID);
@@ -343,6 +346,71 @@ export class ProjectBoard {
     }
   }
 
+  private getInitialTaskForColumn(
+    column: { id: string | number; name: string; synthetic?: boolean },
+    project?: TickTickProject,
+    currentTag?: string | null
+  ): TaskDraft {
+    const payload: TaskDraft = {};
+
+    if (currentTag) {
+      payload.tags = [currentTag];
+    }
+
+    if (project && !column.synthetic) {
+      payload.projectId = project.id;
+      payload.columnId = String(column.id);
+      return payload;
+    }
+
+    if (project) {
+      payload.projectId = project.id;
+      return payload;
+    }
+
+    // Virtual board (Tag view, Smart view, Saved view)
+    if (this.smartViewGrouping === "priority") {
+      const prioMap: Record<string, number> = { "p-high": 5, "p-medium": 3, "p-low": 1, "p-none": 0 };
+      if (String(column.id) in prioMap) {
+        payload.priority = prioMap[String(column.id)];
+      }
+      if (this.cachedProjects.length > 0) {
+        payload.projectId = this.cachedProjects[0].id;
+      }
+    } else if (this.smartViewGrouping === "date") {
+      const today = todayInZone(this.host.timeZone);
+      if (column.id === "d-today") payload.dueDate = today;
+      else if (column.id === "d-tomorrow") payload.dueDate = shiftCalendarDay(today, 1);
+      else if (column.id === "d-week") payload.dueDate = shiftCalendarDay(today, 3);
+      if (this.cachedProjects.length > 0) {
+        payload.projectId = this.cachedProjects[0].id;
+      }
+    } else if (this.smartViewGrouping === "tag") {
+      const colTag = String(column.id).startsWith("t-") && column.id !== "t-none"
+        ? decodeURIComponent(String(column.id).slice(2))
+        : null;
+      const combinedTags = [...new Set([currentTag, colTag].filter(Boolean) as string[])];
+      if (combinedTags.length > 0) payload.tags = combinedTags;
+      if (this.cachedProjects.length > 0) {
+        payload.projectId = this.cachedProjects[0].id;
+      }
+    } else {
+      // Default grouping: "project" (each column represents a project)
+      const matchingProj = this.cachedProjects.find(p => String(p.id) === String(column.id));
+      if (matchingProj) {
+        payload.projectId = matchingProj.id;
+      } else if (String(column.id).toLowerCase() === "inbox") {
+        payload.projectId = "inbox";
+      } else if (column.id && !String(column.id).startsWith("p-") && !String(column.id).startsWith("d-") && !String(column.id).startsWith("t-")) {
+        payload.projectId = String(column.id);
+      } else if (this.cachedProjects.length > 0) {
+        payload.projectId = this.cachedProjects[0].id;
+      }
+    }
+
+    return payload;
+  }
+
   private renderColumnsContainer(
     columns: HTMLElement,
     rawData: ProjectBoardData,
@@ -402,6 +470,12 @@ export class ProjectBoard {
       }
     }
 
+    const isTagView = String(this.selected).startsWith(TAG_BOARD_VIEW_PREFIX);
+    const currentTag = isTagView
+      ? decodeURIComponent(String(this.selected).slice(TAG_BOARD_VIEW_PREFIX.length))
+      : null;
+    const isCompletedView = displayProject?.id === COMPLETED_BOARD_VIEW_ID;
+
     for (const column of boardColumns(data, this.host.showCompleted())) {
       const shell = columns.createDiv({ cls: "ticktick-project-column" });
       shell.dataset.columnId = String(column.id);
@@ -411,28 +485,33 @@ export class ProjectBoard {
       colHeader.createSpan({ cls: "ticktick-column-count", text: String(column.count) });
 
       const movableColumn = Boolean(project) && !column.synthetic;
-      if (movableColumn) {
+      const canAddToColumn = !isCompletedView && (movableColumn || isTagView || Boolean(displayProject?.virtual));
+      if (canAddToColumn) {
         const addToColumn = colHeader.createEl("button", {
           cls: "ticktick-column-add mod-icon",
-          attr: { type: "button", "aria-label": `افزودن تسک به ستون ${column.name}`, title: "افزودن تسک به این ستون" }
+          attr: {
+            type: "button",
+            "aria-label": `افزودن تسک به ستون ${column.name}`,
+            title: isTagView && currentTag ? `افزودن تسک با برچسب #${currentTag} به ${column.name}` : `افزودن تسک به این ستون`
+          }
         });
         setIcon(addToColumn, "plus");
         addToColumn.addEventListener("click", async event => {
           event.stopPropagation();
           addToColumn.disabled = true;
           try {
-            await this.host.createTask({ projectId: project!.id, columnId: column.id });
-            new Notice(`تسک جدید به ستون «${column.name}» اضافه شد.`);
-            await this.render();
+            const initial = this.getInitialTaskForColumn(column, project, currentTag);
+            const res = await this.host.createTask(initial);
+            if (res) {
+              new Notice(`تسک جدید به ستون «${column.name}» اضافه شد.`);
+              await this.render();
+            }
           } catch (error) {
             new Notice(error instanceof Error ? error.message : "ساخت تسک ناموفق بود.");
           } finally {
             addToColumn.disabled = false;
           }
         });
-      }
-      if (column.synthetic) {
-        shell.createEl("small", { cls: "ticktick-column-hint", text: "ستون نمایشی؛ جابه‌جایی غیرفعال است" });
       }
 
       const listWrap = shell.createDiv({ cls: "ticktick-column-cards" });
@@ -506,17 +585,36 @@ export class ProjectBoard {
         }
       }
 
-      if (colTaskCount === 0 && movableColumn) {
+      if (colTaskCount === 0 && canAddToColumn) {
         const emptyCard = listWrap.createDiv({
           cls: "ticktick-column-empty-card",
-          attr: { role: "button", tabindex: "0", "aria-label": `افزودن تسک به ستون ${column.name}` }
+          attr: {
+            role: "button",
+            tabindex: "0",
+            "aria-label": `افزودن تسک به ستون ${column.name}`,
+            title: isTagView && currentTag ? `افزودن تسک با برچسب #${currentTag} به ${column.name}` : `افزودن تسک به ستون ${column.name}`
+          }
         });
         const plusIcon = emptyCard.createSpan({ cls: "ticktick-empty-plus" });
         setIcon(plusIcon, "plus");
-        emptyCard.createSpan({ text: "افزودن تسک به این ستون" });
-        emptyCard.addEventListener("click", async () => {
-          await this.host.createTask({ projectId: project!.id, columnId: column.id });
-          await this.render();
+        emptyCard.createSpan({
+          text: isTagView && currentTag ? `+ افزودن تسک با #${currentTag}` : "افزودن تسک به این ستون"
+        });
+        const onEmptyAdd = async () => {
+          try {
+            const initial = this.getInitialTaskForColumn(column, project, currentTag);
+            const res = await this.host.createTask(initial);
+            if (res) await this.render();
+          } catch (error) {
+            new Notice(error instanceof Error ? error.message : "ساخت تسک ناموفق بود.");
+          }
+        };
+        emptyCard.addEventListener("click", onEmptyAdd);
+        emptyCard.addEventListener("keydown", (event: KeyboardEvent) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            void onEmptyAdd();
+          }
         });
       }
     }
@@ -527,6 +625,18 @@ export class ProjectBoard {
       setIcon(emptyIcon, "check-circle");
       emptyState.createEl("h3", { text: `هیچ تسکی در نمای «${displayProject?.name ?? ""}» نیست` });
       emptyState.createEl("p", { text: "همهٔ تسک‌ها انجام شده‌اند یا تسکی مطابق این نما یا فیلترهای انتخابی در کش محلی وجود ندارد." });
+      if (isTagView && currentTag) {
+        const addBtn = emptyState.createEl("button", {
+          cls: "mod-cta ticktick-empty-add-btn",
+          text: `+ افزودن اولین تسک با #${currentTag}`
+        });
+        addBtn.addEventListener("click", async () => {
+          const initial: TaskDraft = { tags: [currentTag] };
+          if (this.cachedProjects.length > 0) initial.projectId = this.cachedProjects[0].id;
+          const res = await this.host.createTask(initial);
+          if (res) await this.render();
+        });
+      }
     }
 
     const restoreScrolls = () => {
