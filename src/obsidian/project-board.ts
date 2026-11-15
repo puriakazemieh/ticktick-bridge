@@ -1,5 +1,5 @@
 import { App, Menu, Notice, setIcon } from "obsidian";
-import { boardColumns, COMPLETED_BOARD_VIEW_ID, INBOX_BOARD_VIEW_ID, RECURRING_BOARD_VIEW_ID, SAVED_BOARD_VIEW_PREFIX, sidebarTree, TAG_BOARD_VIEW_PREFIX, virtualBoardData, virtualBoardEntries } from "../core/project-board.js";
+import { boardColumns, COMPLETED_BOARD_VIEW_ID, HIGH_PRIORITY_BOARD_VIEW_ID, INBOX_BOARD_VIEW_ID, OVERDUE_BOARD_VIEW_ID, RECURRING_BOARD_VIEW_ID, SAVED_BOARD_VIEW_PREFIX, sidebarTree, TAG_BOARD_VIEW_PREFIX, TODAY_BOARD_VIEW_ID, UNSCHEDULED_BOARD_VIEW_ID, UPCOMING_BOARD_VIEW_ID, virtualBoardData, virtualBoardEntries } from "../core/project-board.js";
 import { TaskDetailsModal } from "./task-details-modal";
 import { taskPriority } from "./task-priority";
 import { ProjectEditorModal } from "./project-editor-modal";
@@ -353,46 +353,78 @@ export class ProjectBoard {
     currentTag?: string | null
   ): TaskDraft {
     const payload: TaskDraft = {};
+    const today = todayInZone(this.host.timeZone);
 
-    if (currentTag) {
-      payload.tags = [currentTag];
-    }
-
-    if (project && !column.synthetic) {
-      payload.projectId = project.id;
-      payload.columnId = String(column.id);
-      return payload;
-    }
-
+    // 1. If currently inside a real Project
     if (project) {
       payload.projectId = project.id;
+      if (!column.synthetic) {
+        payload.columnId = String(column.id);
+      }
       return payload;
     }
 
-    // Virtual board (Tag view, Smart view, Saved view)
+    // 2. View-level presets (Smart views, Tag views, Saved views)
+    if (this.selected === TODAY_BOARD_VIEW_ID) {
+      payload.dueDate = today;
+    } else if (this.selected === UPCOMING_BOARD_VIEW_ID) {
+      payload.dueDate = shiftCalendarDay(today, 1);
+    } else if (this.selected === OVERDUE_BOARD_VIEW_ID) {
+      payload.dueDate = shiftCalendarDay(today, -1);
+    } else if (this.selected === HIGH_PRIORITY_BOARD_VIEW_ID) {
+      payload.priority = 5;
+    } else if (this.selected === RECURRING_BOARD_VIEW_ID) {
+      payload.repeatFlag = "RRULE:FREQ=DAILY";
+    } else if (this.selected === INBOX_BOARD_VIEW_ID) {
+      payload.projectId = "inbox";
+    } else if (String(this.selected).startsWith(SAVED_BOARD_VIEW_PREFIX)) {
+      const viewId = String(this.selected).slice(SAVED_BOARD_VIEW_PREFIX.length);
+      const savedViews = this.host.savedViews ? this.host.savedViews() : [];
+      const view = savedViews.find(v => String(v.id) === viewId);
+      if (view?.filter) {
+        if (view.filter.projects && view.filter.projects.length === 1) {
+          payload.projectId = view.filter.projects[0];
+        }
+        if (view.filter.tags && view.filter.tags.length > 0) {
+          payload.tags = [...view.filter.tags];
+        }
+        if (view.filter.priorities && view.filter.priorities.length === 1) {
+          payload.priority = view.filter.priorities[0];
+        }
+      }
+    }
+
+    if (currentTag) {
+      payload.tags = [...new Set([...(payload.tags ?? []), currentTag])];
+    }
+
+    // 3. Column-level presets based on dynamic smartViewGrouping
     if (this.smartViewGrouping === "priority") {
       const prioMap: Record<string, number> = { "p-high": 5, "p-medium": 3, "p-low": 1, "p-none": 0 };
       if (String(column.id) in prioMap) {
         payload.priority = prioMap[String(column.id)];
       }
-      if (this.cachedProjects.length > 0) {
+      if (!payload.projectId && this.cachedProjects.length > 0) {
         payload.projectId = this.cachedProjects[0].id;
       }
     } else if (this.smartViewGrouping === "date") {
-      const today = todayInZone(this.host.timeZone);
       if (column.id === "d-today") payload.dueDate = today;
       else if (column.id === "d-tomorrow") payload.dueDate = shiftCalendarDay(today, 1);
       else if (column.id === "d-week") payload.dueDate = shiftCalendarDay(today, 3);
-      if (this.cachedProjects.length > 0) {
+      else if (column.id === "d-later") payload.dueDate = shiftCalendarDay(today, 8);
+      else if (column.id === "d-overdue") payload.dueDate = shiftCalendarDay(today, -1);
+      else if (column.id === "d-unscheduled") delete payload.dueDate;
+      if (!payload.projectId && this.cachedProjects.length > 0) {
         payload.projectId = this.cachedProjects[0].id;
       }
     } else if (this.smartViewGrouping === "tag") {
       const colTag = String(column.id).startsWith("t-") && column.id !== "t-none"
         ? decodeURIComponent(String(column.id).slice(2))
         : null;
-      const combinedTags = [...new Set([currentTag, colTag].filter(Boolean) as string[])];
-      if (combinedTags.length > 0) payload.tags = combinedTags;
-      if (this.cachedProjects.length > 0) {
+      if (colTag) {
+        payload.tags = [...new Set([...(payload.tags ?? []), colTag])];
+      }
+      if (!payload.projectId && this.cachedProjects.length > 0) {
         payload.projectId = this.cachedProjects[0].id;
       }
     } else {
@@ -404,7 +436,7 @@ export class ProjectBoard {
         payload.projectId = "inbox";
       } else if (column.id && !String(column.id).startsWith("p-") && !String(column.id).startsWith("d-") && !String(column.id).startsWith("t-")) {
         payload.projectId = String(column.id);
-      } else if (this.cachedProjects.length > 0) {
+      } else if (!payload.projectId && this.cachedProjects.length > 0) {
         payload.projectId = this.cachedProjects[0].id;
       }
     }
@@ -486,14 +518,14 @@ export class ProjectBoard {
       colHeader.createSpan({ cls: "ticktick-column-count", text: String(column.count) });
 
       const movableColumn = Boolean(project) && !column.synthetic;
-      const canAddToColumn = !isCompletedView && (movableColumn || isTagView || Boolean(displayProject?.virtual));
+      const canAddToColumn = !isCompletedView;
       if (canAddToColumn) {
         const addToColumn = colHeader.createEl("button", {
           cls: "ticktick-column-add mod-icon",
           attr: {
             type: "button",
             "aria-label": `افزودن تسک به ستون ${column.name}`,
-            title: isTagView && currentTag ? `افزودن تسک با برچسب #${currentTag} به ${column.name}` : `افزودن تسک به این ستون`
+            title: isTagView && currentTag ? `افزودن تسک با برچسب #${currentTag} به ${column.name}` : `افزودن تسک به ستون «${column.name}»`
           }
         });
         setIcon(addToColumn, "plus");
@@ -593,13 +625,13 @@ export class ProjectBoard {
             role: "button",
             tabindex: "0",
             "aria-label": `افزودن تسک به ستون ${column.name}`,
-            title: isTagView && currentTag ? `افزودن تسک با برچسب #${currentTag} به ${column.name}` : `افزودن تسک به ستون ${column.name}`
+            title: isTagView && currentTag ? `افزودن تسک با برچسب #${currentTag} به ${column.name}` : `افزودن تسک به ستون «${column.name}»`
           }
         });
         const plusIcon = emptyCard.createSpan({ cls: "ticktick-empty-plus" });
         setIcon(plusIcon, "plus");
         emptyCard.createSpan({
-          text: isTagView && currentTag ? `+ افزودن تسک با #${currentTag}` : "افزودن تسک به این ستون"
+          text: isTagView && currentTag ? `+ افزودن تسک با #${currentTag}` : `+ افزودن تسک به ${column.name}`
         });
         const onEmptyAdd = async () => {
           try {
@@ -626,14 +658,14 @@ export class ProjectBoard {
       setIcon(emptyIcon, "check-circle");
       emptyState.createEl("h3", { text: `هیچ تسکی در نمای «${displayProject?.name ?? ""}» نیست` });
       emptyState.createEl("p", { text: "همهٔ تسک‌ها انجام شده‌اند یا تسکی مطابق این نما یا فیلترهای انتخابی در کش محلی وجود ندارد." });
-      if (isTagView && currentTag) {
+      if (!isCompletedView) {
         const addBtn = emptyState.createEl("button", {
           cls: "mod-cta ticktick-empty-add-btn",
-          text: `+ افزودن اولین تسک با #${currentTag}`
+          text: isTagView && currentTag ? `+ افزودن اولین تسک با #${currentTag}` : `+ افزودن اولین تسک به «${displayProject?.name ?? "این نما"}»`
         });
         addBtn.addEventListener("click", async () => {
-          const initial: TaskDraft = { tags: [currentTag] };
-          if (this.cachedProjects.length > 0) initial.projectId = this.cachedProjects[0].id;
+          const firstCol = (boardColumns(data, this.host.showCompleted())[0]) ?? { id: "", name: "" };
+          const initial = this.getInitialTaskForColumn(firstCol, project, currentTag);
           const res = await this.host.createTask(initial);
           if (res) await this.render();
         });

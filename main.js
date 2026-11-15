@@ -6288,39 +6288,69 @@ var ProjectBoard = class {
   }
   getInitialTaskForColumn(column, project, currentTag) {
     const payload = {};
-    if (currentTag) {
-      payload.tags = [currentTag];
-    }
-    if (project && !column.synthetic) {
-      payload.projectId = project.id;
-      payload.columnId = String(column.id);
-      return payload;
-    }
+    const today = todayInZone(this.host.timeZone);
     if (project) {
       payload.projectId = project.id;
+      if (!column.synthetic) {
+        payload.columnId = String(column.id);
+      }
       return payload;
+    }
+    if (this.selected === TODAY_BOARD_VIEW_ID) {
+      payload.dueDate = today;
+    } else if (this.selected === UPCOMING_BOARD_VIEW_ID) {
+      payload.dueDate = shiftCalendarDay(today, 1);
+    } else if (this.selected === OVERDUE_BOARD_VIEW_ID) {
+      payload.dueDate = shiftCalendarDay(today, -1);
+    } else if (this.selected === HIGH_PRIORITY_BOARD_VIEW_ID) {
+      payload.priority = 5;
+    } else if (this.selected === RECURRING_BOARD_VIEW_ID) {
+      payload.repeatFlag = "RRULE:FREQ=DAILY";
+    } else if (this.selected === INBOX_BOARD_VIEW_ID) {
+      payload.projectId = "inbox";
+    } else if (String(this.selected).startsWith(SAVED_BOARD_VIEW_PREFIX)) {
+      const viewId = String(this.selected).slice(SAVED_BOARD_VIEW_PREFIX.length);
+      const savedViews = this.host.savedViews ? this.host.savedViews() : [];
+      const view = savedViews.find((v) => String(v.id) === viewId);
+      if (view?.filter) {
+        if (view.filter.projects && view.filter.projects.length === 1) {
+          payload.projectId = view.filter.projects[0];
+        }
+        if (view.filter.tags && view.filter.tags.length > 0) {
+          payload.tags = [...view.filter.tags];
+        }
+        if (view.filter.priorities && view.filter.priorities.length === 1) {
+          payload.priority = view.filter.priorities[0];
+        }
+      }
+    }
+    if (currentTag) {
+      payload.tags = [.../* @__PURE__ */ new Set([...payload.tags ?? [], currentTag])];
     }
     if (this.smartViewGrouping === "priority") {
       const prioMap = { "p-high": 5, "p-medium": 3, "p-low": 1, "p-none": 0 };
       if (String(column.id) in prioMap) {
         payload.priority = prioMap[String(column.id)];
       }
-      if (this.cachedProjects.length > 0) {
+      if (!payload.projectId && this.cachedProjects.length > 0) {
         payload.projectId = this.cachedProjects[0].id;
       }
     } else if (this.smartViewGrouping === "date") {
-      const today = todayInZone(this.host.timeZone);
       if (column.id === "d-today") payload.dueDate = today;
       else if (column.id === "d-tomorrow") payload.dueDate = shiftCalendarDay(today, 1);
       else if (column.id === "d-week") payload.dueDate = shiftCalendarDay(today, 3);
-      if (this.cachedProjects.length > 0) {
+      else if (column.id === "d-later") payload.dueDate = shiftCalendarDay(today, 8);
+      else if (column.id === "d-overdue") payload.dueDate = shiftCalendarDay(today, -1);
+      else if (column.id === "d-unscheduled") delete payload.dueDate;
+      if (!payload.projectId && this.cachedProjects.length > 0) {
         payload.projectId = this.cachedProjects[0].id;
       }
     } else if (this.smartViewGrouping === "tag") {
       const colTag = String(column.id).startsWith("t-") && column.id !== "t-none" ? decodeURIComponent(String(column.id).slice(2)) : null;
-      const combinedTags = [...new Set([currentTag, colTag].filter(Boolean))];
-      if (combinedTags.length > 0) payload.tags = combinedTags;
-      if (this.cachedProjects.length > 0) {
+      if (colTag) {
+        payload.tags = [.../* @__PURE__ */ new Set([...payload.tags ?? [], colTag])];
+      }
+      if (!payload.projectId && this.cachedProjects.length > 0) {
         payload.projectId = this.cachedProjects[0].id;
       }
     } else {
@@ -6331,7 +6361,7 @@ var ProjectBoard = class {
         payload.projectId = "inbox";
       } else if (column.id && !String(column.id).startsWith("p-") && !String(column.id).startsWith("d-") && !String(column.id).startsWith("t-")) {
         payload.projectId = String(column.id);
-      } else if (this.cachedProjects.length > 0) {
+      } else if (!payload.projectId && this.cachedProjects.length > 0) {
         payload.projectId = this.cachedProjects[0].id;
       }
     }
@@ -6389,14 +6419,14 @@ var ProjectBoard = class {
       colHeader.createEl("strong", { cls: "ticktick-column-name", text: column.name });
       colHeader.createSpan({ cls: "ticktick-column-count", text: String(column.count) });
       const movableColumn = Boolean(project) && !column.synthetic;
-      const canAddToColumn = !isCompletedView && (movableColumn || isTagView || Boolean(displayProject?.virtual));
+      const canAddToColumn = !isCompletedView;
       if (canAddToColumn) {
         const addToColumn = colHeader.createEl("button", {
           cls: "ticktick-column-add mod-icon",
           attr: {
             type: "button",
             "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 ${column.name}`,
-            title: isTagView && currentTag ? `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0627 \u0628\u0631\u0686\u0633\u0628 #${currentTag} \u0628\u0647 ${column.name}` : `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0627\u06CC\u0646 \u0633\u062A\u0648\u0646`
+            title: isTagView && currentTag ? `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0627 \u0628\u0631\u0686\u0633\u0628 #${currentTag} \u0628\u0647 ${column.name}` : `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 \xAB${column.name}\xBB`
           }
         });
         (0, import_obsidian15.setIcon)(addToColumn, "plus");
@@ -6488,13 +6518,13 @@ var ProjectBoard = class {
             role: "button",
             tabindex: "0",
             "aria-label": `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 ${column.name}`,
-            title: isTagView && currentTag ? `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0627 \u0628\u0631\u0686\u0633\u0628 #${currentTag} \u0628\u0647 ${column.name}` : `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 ${column.name}`
+            title: isTagView && currentTag ? `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0627 \u0628\u0631\u0686\u0633\u0628 #${currentTag} \u0628\u0647 ${column.name}` : `\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0633\u062A\u0648\u0646 \xAB${column.name}\xBB`
           }
         });
         const plusIcon = emptyCard.createSpan({ cls: "ticktick-empty-plus" });
         (0, import_obsidian15.setIcon)(plusIcon, "plus");
         emptyCard.createSpan({
-          text: isTagView && currentTag ? `+ \u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0627 #${currentTag}` : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 \u0627\u06CC\u0646 \u0633\u062A\u0648\u0646"
+          text: isTagView && currentTag ? `+ \u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0627 #${currentTag}` : `+ \u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0628\u0647 ${column.name}`
         });
         const onEmptyAdd = async () => {
           try {
@@ -6520,14 +6550,14 @@ var ProjectBoard = class {
       (0, import_obsidian15.setIcon)(emptyIcon, "check-circle");
       emptyState2.createEl("h3", { text: `\u0647\u06CC\u0686 \u062A\u0633\u06A9\u06CC \u062F\u0631 \u0646\u0645\u0627\u06CC \xAB${displayProject?.name ?? ""}\xBB \u0646\u06CC\u0633\u062A` });
       emptyState2.createEl("p", { text: "\u0647\u0645\u0647\u0654 \u062A\u0633\u06A9\u200C\u0647\u0627 \u0627\u0646\u062C\u0627\u0645 \u0634\u062F\u0647\u200C\u0627\u0646\u062F \u06CC\u0627 \u062A\u0633\u06A9\u06CC \u0645\u0637\u0627\u0628\u0642 \u0627\u06CC\u0646 \u0646\u0645\u0627 \u06CC\u0627 \u0641\u06CC\u0644\u062A\u0631\u0647\u0627\u06CC \u0627\u0646\u062A\u062E\u0627\u0628\u06CC \u062F\u0631 \u06A9\u0634 \u0645\u062D\u0644\u06CC \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F." });
-      if (isTagView && currentTag) {
+      if (!isCompletedView) {
         const addBtn = emptyState2.createEl("button", {
           cls: "mod-cta ticktick-empty-add-btn",
-          text: `+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0627\u0648\u0644\u06CC\u0646 \u062A\u0633\u06A9 \u0628\u0627 #${currentTag}`
+          text: isTagView && currentTag ? `+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0627\u0648\u0644\u06CC\u0646 \u062A\u0633\u06A9 \u0628\u0627 #${currentTag}` : `+ \u0627\u0641\u0632\u0648\u062F\u0646 \u0627\u0648\u0644\u06CC\u0646 \u062A\u0633\u06A9 \u0628\u0647 \xAB${displayProject?.name ?? "\u0627\u06CC\u0646 \u0646\u0645\u0627"}\xBB`
         });
         addBtn.addEventListener("click", async () => {
-          const initial = { tags: [currentTag] };
-          if (this.cachedProjects.length > 0) initial.projectId = this.cachedProjects[0].id;
+          const firstCol = boardColumns(data, this.host.showCompleted())[0] ?? { id: "", name: "" };
+          const initial = this.getInitialTaskForColumn(firstCol, project, currentTag);
           const res = await this.host.createTask(initial);
           if (res) await this.render();
         });

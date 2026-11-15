@@ -191,3 +191,28 @@ test("tag virtual board groups by project and exposes target project ids for tas
   assert.equal(columns[0].id, "proj_store");
   assert.equal(columns[0].count, 2);
 });
+
+test("smart view Today groups by project and exposes target columns correctly", () => {
+  const tasks = [
+    { id: "t1", title: "تسک اقدام", dueDate: "2026-11-15", projectId: "proj_action", projectName: "اقدام", status: 0 },
+    { id: "t2", title: "تسک برنامه ریزی", dueDate: "2026-11-15", projectId: "proj_plan", projectName: "برنامه ریزی", status: 0 },
+  ];
+  const projects = [
+    { id: "proj_action", name: "اقدام" },
+    { id: "proj_plan", name: "برنامه ریزی" },
+  ];
+  const board = virtualBoardData(TODAY_BOARD_VIEW_ID, tasks, projects, { todayKey: "2026-11-15", timeZone: "Asia/Tehran" });
+
+  assert.equal(board.project.name, "امروز");
+  assert.equal(board.project.virtual, true);
+  assert.equal(board.columns.length, 2);
+  assert.deepEqual(board.columns.map(c => c.name), ["اقدام", "برنامه ریزی"]);
+  assert.deepEqual(board.columns.map(c => c.id), ["proj_action", "proj_plan"]);
+
+  const columns = boardColumns(board);
+  assert.equal(columns.length, 2);
+  assert.equal(columns[0].name, "اقدام");
+  assert.equal(columns[0].count, 1);
+  assert.equal(columns[1].name, "برنامه ریزی");
+  assert.equal(columns[1].count, 1);
+});
