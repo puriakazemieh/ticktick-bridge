@@ -2235,14 +2235,14 @@ export default class TickTickBridgePlugin extends Plugin {
                 await this.checkInHabit(String(habitItem.id), dayKey, { value: Math.max(0, val), goal: Math.max(1, goalVal), status: val >= goalVal ? 2 : undefined });
                 await this.renderHabitBlock(element, dashboard, dayOverride);
               },
-              onEditHabit: (habitItem) => {
+              onEditHabit: dashboard ? (habitItem) => {
                 void this.openHabitEditor(habitItem);
-              }
+              } : undefined
             }, d).open();
           },
-          onEditHabit: (h) => {
+          onEditHabit: dashboard ? (h) => {
             void this.openHabitEditor(h);
-          }
+          } : undefined
         });
       }
     } catch (error) {

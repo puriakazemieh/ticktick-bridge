@@ -16603,14 +16603,14 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
                 await this.checkInHabit(String(habitItem.id), dayKey, { value: Math.max(0, val), goal: Math.max(1, goalVal), status: val >= goalVal ? 2 : void 0 });
                 await this.renderHabitBlock(element, dashboard, dayOverride);
               },
-              onEditHabit: (habitItem) => {
+              onEditHabit: dashboard ? (habitItem) => {
                 void this.openHabitEditor(habitItem);
-              }
+              } : void 0
             }, d).open();
           },
-          onEditHabit: (h) => {
+          onEditHabit: dashboard ? (h) => {
             void this.openHabitEditor(h);
-          }
+          } : void 0
         });
       }
     } catch (error) {
