@@ -1831,9 +1831,9 @@
   text-align: right;
 }
 .ticktick-project-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.55rem;
   text-align: right;
   padding: 0.45rem 0.65rem;
@@ -1847,6 +1847,51 @@
   cursor: pointer;
   transition: all 140ms ease;
   width: 100%;
+  direction: rtl;
+  box-sizing: border-box;
+}
+.ticktick-project-row-lead {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.ticktick-project-row-trailing {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+.ticktick-project-row-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: var(--tb-radius-sm, 6px);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--text-faint);
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: all var(--tb-motion-fast, 120ms ease);
+}
+.ticktick-project-row:hover .ticktick-project-row-menu-btn,
+.ticktick-project-row.is-selected .ticktick-project-row-menu-btn,
+.ticktick-project-row-menu-btn:focus-visible {
+  opacity: 1;
+}
+.ticktick-project-row-menu-btn:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 20%, transparent) !important;
+  color: var(--interactive-accent);
+}
+.ticktick-project-row-menu-btn svg {
+  width: 14px;
+  height: 14px;
 }
 .ticktick-project-row:hover {
   background: var(--background-modifier-hover) !important;
@@ -2017,13 +2062,24 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.65rem 0.85rem;
-  padding: 0.65rem 0.95rem;
+  gap: 0.55rem 0.85rem;
+  padding: 0.55rem 0.85rem;
   border-radius: 0.85rem;
   background: color-mix(in srgb, var(--background-secondary) 55%, var(--background-primary));
   border: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
   box-shadow: 0 1px 4px color-mix(in srgb, var(--background-primary) 30%, transparent);
   min-width: 0;
+  margin-bottom: 0.5rem;
+  direction: rtl;
+}
+.ticktick-project-header .ticktick-shared-filter-bar {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  flex: 1 1 auto;
+  justify-content: flex-end;
 }
 .ticktick-project-header-lead {
   display: flex;

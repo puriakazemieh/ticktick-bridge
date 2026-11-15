@@ -221,9 +221,6 @@ export class ProjectBoard {
         text: countLabel
       });
 
-      // Trailing Section: Project Action Controls
-      const toolbar = projectHeader.createDiv({ cls: "ticktick-project-toolbar" });
-
       // Grouping Menu Dropdown Pill (for smart views and virtual boards)
       if (displayProject.virtual) {
         const groupLabels: Record<string, string> = {
@@ -232,7 +229,7 @@ export class ProjectBoard {
           date: "تاریخ",
           tag: "برچسب",
         };
-        const groupBtn = toolbar.createDiv({
+        const groupBtn = headerLead.createDiv({
           cls: "ticktick-filter-select-wrapper",
           attr: { role: "button", tabindex: "0", "aria-label": "ستون‌بندی کارت‌های نما" }
         });
@@ -273,62 +270,12 @@ export class ProjectBoard {
         });
       }
 
-
-      // Edit Project Button
-      if (project) {
-      const editBtn = toolbar.createEl("button", {
-        cls: "ticktick-toolbar-btn",
-        attr: { type: "button", "aria-label": "ویرایش لیست" }
-      });
-      const editIcon = editBtn.createSpan({ cls: "ticktick-btn-icon" });
-      setIcon(editIcon, "pencil");
-      editBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "ویرایش" });
-      editBtn.addEventListener("click", async () => {
-        const draft = await new ProjectEditorModal(this.host.app, project).openAndWait();
-        if (!draft) return;
-        editBtn.disabled = true;
-        try {
-          await this.host.updateProject({ ...project, ...draft });
-          await this.host.refresh();
-          await this.render();
-          new Notice("لیست در TickTick ویرایش شد.");
-        } catch (error) {
-          new Notice(error instanceof Error ? error.message : "ویرایش لیست ناموفق بود.");
-        } finally {
-          editBtn.disabled = false;
-        }
-      });
-
-      // Delete Project Button
-      const deleteBtn = toolbar.createEl("button", {
-        cls: "ticktick-toolbar-btn ticktick-toolbar-btn-danger",
-        attr: { type: "button", "aria-label": "حذف لیست" }
-      });
-      const deleteIcon = deleteBtn.createSpan({ cls: "ticktick-btn-icon" });
-      setIcon(deleteIcon, "trash-2");
-      deleteBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "حذف" });
-      deleteBtn.addEventListener("click", async () => {
-        if (!window.confirm(`لیست «${project.name}» و تسک‌های آن در TickTick حذف شود؟`)) return;
-        deleteBtn.disabled = true;
-        try {
-          await this.host.deleteProject(String(project.id));
-          this.selected = "";
-          await this.host.refresh();
-          await this.persistAndRender();
-          new Notice("لیست از TickTick حذف شد.");
-        } catch (error) {
-          deleteBtn.disabled = false;
-          new Notice(error instanceof Error ? error.message : "حذف لیست ناموفق بود.");
-        }
-      });
-      }
-
-      // ── Filter Bar (Shared across views) ──
+      // ── Filter Bar (Unified inside header) ──
       const filterBarHost: FilterBarHost = {
         app: this.host.app,
         scope: "board",
         projects: () => projects.map(p => ({ id: String(p.id), name: p.name })),
-        tags: () => [...new Set(this.host.tasks().flatMap(t => t.tags ?? []).map(String))],
+        tags: () => this.availableTags(),
         savedViews: () => this.host.savedViews ? this.host.savedViews() : [],
         saveSavedViews: async (views: SavedView[]) => {
           if (this.host.saveSavedViews) await this.host.saveSavedViews(views);
@@ -352,7 +299,7 @@ export class ProjectBoard {
           }
         }
       };
-      this.filterBarInstance = new FilterBar(main, filterBarHost);
+      this.filterBarInstance = new FilterBar(projectHeader, filterBarHost);
       this.filterBarInstance.render();
 
       // ── 3. Kanban Columns ──
@@ -962,20 +909,99 @@ export class ProjectBoard {
       if (this.collapsed.has(key)) continue;
 
       for (const project of group.projects) {
-        const row = railBody.createEl("button", {
+        const row = railBody.createDiv({
           cls: `ticktick-project-row ${this.selected === String(project.id) ? "is-selected" : ""}`,
-          attr: { type: "button", "aria-label": `${project.name}، ${project.openCount} تسک باز` }
+          attr: { role: "button", tabindex: "0", "aria-label": `${project.name}، ${project.openCount} تسک باز` }
         });
-        const dot = row.createSpan({ cls: "ticktick-project-dot" });
+        const lead = row.createDiv({ cls: "ticktick-project-row-lead" });
+        const dot = lead.createSpan({ cls: "ticktick-project-dot" });
         dot.style.setProperty("--project-color", project.color ?? "var(--interactive-accent)");
-        row.createSpan({ cls: "ticktick-project-name", text: project.name });
-        row.createSpan({ cls: "ticktick-project-count", text: String(project.openCount) });
+        lead.createSpan({ cls: "ticktick-project-name", text: project.name });
+
+        const trailing = row.createDiv({ cls: "ticktick-project-row-trailing" });
+        trailing.createSpan({ cls: "ticktick-project-count", text: String(project.openCount) });
+
+        const menuBtn = trailing.createEl("button", {
+          cls: "ticktick-project-row-menu-btn mod-icon",
+          attr: { type: "button", "aria-label": `عملیات لیست ${project.name}`, title: "عملیات لیست" }
+        });
+        setIcon(menuBtn, "more-horizontal");
+
+        const handleEditProject = async () => {
+          const draft = await new ProjectEditorModal(this.host.app, project).openAndWait();
+          if (!draft) return;
+          try {
+            await this.host.updateProject({ ...project, ...draft });
+            await this.host.refresh();
+            await this.render();
+            new Notice("لیست در TickTick ویرایش شد.");
+          } catch (error) {
+            new Notice(error instanceof Error ? error.message : "ویرایش لیست ناموفق بود.");
+          }
+        };
+
+        const handleDeleteProject = async () => {
+          const isInbox = project.isInbox || project.name === "Inbox" || project.name === "ورودی";
+          if (isInbox) {
+            new Notice("لیست ورودی (Inbox) قابل حذف نیست.");
+            return;
+          }
+          if (!window.confirm(`لیست «${project.name}» و تسک‌های آن در TickTick حذف شود؟`)) return;
+          try {
+            await this.host.deleteProject(String(project.id));
+            if (this.selected === String(project.id)) {
+              this.selected = String(projects[0]?.id ?? INBOX_BOARD_VIEW_ID);
+            }
+            this.savedColumnsScrollLeft = 0;
+            this.savedBodyScrollTop = 0;
+            this.savedColumnScrolls.clear();
+            await this.host.refresh();
+            await this.persistAndRender();
+            new Notice("لیست از TickTick حذف شد.");
+          } catch (error) {
+            new Notice(error instanceof Error ? error.message : "حذف لیست ناموفق بود.");
+          }
+        };
+
+        const openMenu = (event: MouseEvent) => {
+          event.stopPropagation();
+          event.preventDefault();
+          const menu = new Menu();
+
+          menu.addItem(item => {
+            item.setTitle("ویرایش لیست")
+              .setIcon("pencil")
+              .onClick(() => void handleEditProject());
+          });
+
+          const isInbox = project.isInbox || project.name === "Inbox" || project.name === "ورودی";
+          if (!isInbox) {
+            menu.addItem(item => {
+              item.setTitle("حذف لیست")
+                .setIcon("trash-2")
+                .onClick(() => void handleDeleteProject());
+            });
+          }
+
+          menu.showAtMouseEvent(event);
+        };
+
+        menuBtn.addEventListener("click", openMenu);
+        row.addEventListener("contextmenu", openMenu);
+
         row.addEventListener("click", () => {
           this.selected = String(project.id);
           this.savedColumnsScrollLeft = 0;
           this.savedBodyScrollTop = 0;
           this.savedColumnScrolls.clear();
           void this.persistAndRender();
+        });
+        row.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            this.selected = String(project.id);
+            void this.persistAndRender();
+          }
         });
       }
     }

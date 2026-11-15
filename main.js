@@ -6172,7 +6172,6 @@ var ProjectBoard = class {
         cls: "ticktick-project-badge",
         text: countLabel
       });
-      const toolbar = projectHeader.createDiv({ cls: "ticktick-project-toolbar" });
       if (displayProject.virtual) {
         const groupLabels = {
           project: "\u067E\u0631\u0648\u0698\u0647",
@@ -6180,7 +6179,7 @@ var ProjectBoard = class {
           date: "\u062A\u0627\u0631\u06CC\u062E",
           tag: "\u0628\u0631\u0686\u0633\u0628"
         };
-        const groupBtn = toolbar.createDiv({
+        const groupBtn = headerLead.createDiv({
           cls: "ticktick-filter-select-wrapper",
           attr: { role: "button", tabindex: "0", "aria-label": "\u0633\u062A\u0648\u0646\u200C\u0628\u0646\u062F\u06CC \u06A9\u0627\u0631\u062A\u200C\u0647\u0627\u06CC \u0646\u0645\u0627" }
         });
@@ -6217,56 +6216,11 @@ var ProjectBoard = class {
           }
         });
       }
-      if (project) {
-        const editBtn = toolbar.createEl("button", {
-          cls: "ticktick-toolbar-btn",
-          attr: { type: "button", "aria-label": "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0644\u06CC\u0633\u062A" }
-        });
-        const editIcon = editBtn.createSpan({ cls: "ticktick-btn-icon" });
-        (0, import_obsidian15.setIcon)(editIcon, "pencil");
-        editBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "\u0648\u06CC\u0631\u0627\u06CC\u0634" });
-        editBtn.addEventListener("click", async () => {
-          const draft = await new ProjectEditorModal(this.host.app, project).openAndWait();
-          if (!draft) return;
-          editBtn.disabled = true;
-          try {
-            await this.host.updateProject({ ...project, ...draft });
-            await this.host.refresh();
-            await this.render();
-            new import_obsidian15.Notice("\u0644\u06CC\u0633\u062A \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
-          } catch (error) {
-            new import_obsidian15.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0644\u06CC\u0633\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
-          } finally {
-            editBtn.disabled = false;
-          }
-        });
-        const deleteBtn = toolbar.createEl("button", {
-          cls: "ticktick-toolbar-btn ticktick-toolbar-btn-danger",
-          attr: { type: "button", "aria-label": "\u062D\u0630\u0641 \u0644\u06CC\u0633\u062A" }
-        });
-        const deleteIcon = deleteBtn.createSpan({ cls: "ticktick-btn-icon" });
-        (0, import_obsidian15.setIcon)(deleteIcon, "trash-2");
-        deleteBtn.createSpan({ cls: "ticktick-toolbar-btn-text", text: "\u062D\u0630\u0641" });
-        deleteBtn.addEventListener("click", async () => {
-          if (!window.confirm(`\u0644\u06CC\u0633\u062A \xAB${project.name}\xBB \u0648 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0622\u0646 \u062F\u0631 TickTick \u062D\u0630\u0641 \u0634\u0648\u062F\u061F`)) return;
-          deleteBtn.disabled = true;
-          try {
-            await this.host.deleteProject(String(project.id));
-            this.selected = "";
-            await this.host.refresh();
-            await this.persistAndRender();
-            new import_obsidian15.Notice("\u0644\u06CC\u0633\u062A \u0627\u0632 TickTick \u062D\u0630\u0641 \u0634\u062F.");
-          } catch (error) {
-            deleteBtn.disabled = false;
-            new import_obsidian15.Notice(error instanceof Error ? error.message : "\u062D\u0630\u0641 \u0644\u06CC\u0633\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
-          }
-        });
-      }
       const filterBarHost = {
         app: this.host.app,
         scope: "board",
         projects: () => projects.map((p) => ({ id: String(p.id), name: p.name })),
-        tags: () => [...new Set(this.host.tasks().flatMap((t) => t.tags ?? []).map(String))],
+        tags: () => this.availableTags(),
         savedViews: () => this.host.savedViews ? this.host.savedViews() : [],
         saveSavedViews: async (views) => {
           if (this.host.saveSavedViews) await this.host.saveSavedViews(views);
@@ -6290,7 +6244,7 @@ var ProjectBoard = class {
           }
         }
       };
-      this.filterBarInstance = new FilterBar(main, filterBarHost);
+      this.filterBarInstance = new FilterBar(projectHeader, filterBarHost);
       this.filterBarInstance.render();
       const rawData = virtualData ?? await this.host.board(project);
       if (!rawData) return;
@@ -6838,20 +6792,85 @@ var ProjectBoard = class {
       });
       if (this.collapsed.has(key)) continue;
       for (const project of group.projects) {
-        const row = railBody.createEl("button", {
+        const row = railBody.createDiv({
           cls: `ticktick-project-row ${this.selected === String(project.id) ? "is-selected" : ""}`,
-          attr: { type: "button", "aria-label": `${project.name}\u060C ${project.openCount} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
+          attr: { role: "button", tabindex: "0", "aria-label": `${project.name}\u060C ${project.openCount} \u062A\u0633\u06A9 \u0628\u0627\u0632` }
         });
-        const dot = row.createSpan({ cls: "ticktick-project-dot" });
+        const lead = row.createDiv({ cls: "ticktick-project-row-lead" });
+        const dot = lead.createSpan({ cls: "ticktick-project-dot" });
         dot.style.setProperty("--project-color", project.color ?? "var(--interactive-accent)");
-        row.createSpan({ cls: "ticktick-project-name", text: project.name });
-        row.createSpan({ cls: "ticktick-project-count", text: String(project.openCount) });
+        lead.createSpan({ cls: "ticktick-project-name", text: project.name });
+        const trailing = row.createDiv({ cls: "ticktick-project-row-trailing" });
+        trailing.createSpan({ cls: "ticktick-project-count", text: String(project.openCount) });
+        const menuBtn = trailing.createEl("button", {
+          cls: "ticktick-project-row-menu-btn mod-icon",
+          attr: { type: "button", "aria-label": `\u0639\u0645\u0644\u06CC\u0627\u062A \u0644\u06CC\u0633\u062A ${project.name}`, title: "\u0639\u0645\u0644\u06CC\u0627\u062A \u0644\u06CC\u0633\u062A" }
+        });
+        (0, import_obsidian15.setIcon)(menuBtn, "more-horizontal");
+        const handleEditProject = async () => {
+          const draft = await new ProjectEditorModal(this.host.app, project).openAndWait();
+          if (!draft) return;
+          try {
+            await this.host.updateProject({ ...project, ...draft });
+            await this.host.refresh();
+            await this.render();
+            new import_obsidian15.Notice("\u0644\u06CC\u0633\u062A \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
+          } catch (error) {
+            new import_obsidian15.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0644\u06CC\u0633\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+          }
+        };
+        const handleDeleteProject = async () => {
+          const isInbox = project.isInbox || project.name === "Inbox" || project.name === "\u0648\u0631\u0648\u062F\u06CC";
+          if (isInbox) {
+            new import_obsidian15.Notice("\u0644\u06CC\u0633\u062A \u0648\u0631\u0648\u062F\u06CC (Inbox) \u0642\u0627\u0628\u0644 \u062D\u0630\u0641 \u0646\u06CC\u0633\u062A.");
+            return;
+          }
+          if (!window.confirm(`\u0644\u06CC\u0633\u062A \xAB${project.name}\xBB \u0648 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0622\u0646 \u062F\u0631 TickTick \u062D\u0630\u0641 \u0634\u0648\u062F\u061F`)) return;
+          try {
+            await this.host.deleteProject(String(project.id));
+            if (this.selected === String(project.id)) {
+              this.selected = String(projects[0]?.id ?? INBOX_BOARD_VIEW_ID);
+            }
+            this.savedColumnsScrollLeft = 0;
+            this.savedBodyScrollTop = 0;
+            this.savedColumnScrolls.clear();
+            await this.host.refresh();
+            await this.persistAndRender();
+            new import_obsidian15.Notice("\u0644\u06CC\u0633\u062A \u0627\u0632 TickTick \u062D\u0630\u0641 \u0634\u062F.");
+          } catch (error) {
+            new import_obsidian15.Notice(error instanceof Error ? error.message : "\u062D\u0630\u0641 \u0644\u06CC\u0633\u062A \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
+          }
+        };
+        const openMenu = (event) => {
+          event.stopPropagation();
+          event.preventDefault();
+          const menu = new import_obsidian15.Menu();
+          menu.addItem((item) => {
+            item.setTitle("\u0648\u06CC\u0631\u0627\u06CC\u0634 \u0644\u06CC\u0633\u062A").setIcon("pencil").onClick(() => void handleEditProject());
+          });
+          const isInbox = project.isInbox || project.name === "Inbox" || project.name === "\u0648\u0631\u0648\u062F\u06CC";
+          if (!isInbox) {
+            menu.addItem((item) => {
+              item.setTitle("\u062D\u0630\u0641 \u0644\u06CC\u0633\u062A").setIcon("trash-2").onClick(() => void handleDeleteProject());
+            });
+          }
+          menu.showAtMouseEvent(event);
+        };
+        menuBtn.addEventListener("click", openMenu);
+        row.addEventListener("contextmenu", openMenu);
         row.addEventListener("click", () => {
           this.selected = String(project.id);
           this.savedColumnsScrollLeft = 0;
           this.savedBodyScrollTop = 0;
           this.savedColumnScrolls.clear();
           void this.persistAndRender();
+        });
+        row.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            this.selected = String(project.id);
+            void this.persistAndRender();
+          }
         });
       }
     }
