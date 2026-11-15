@@ -582,6 +582,59 @@
   flex-shrink: 0;
 }
 
+.ticktick-project-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline-start: auto;
+}
+
+.ticktick-board-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 2.15rem;
+  padding: 0 0.85rem;
+  border-radius: var(--tb-radius-m, 0.55rem);
+  background: color-mix(in srgb, var(--background-primary) 70%, var(--background-secondary));
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.ticktick-board-refresh-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
+  transform: translateY(-1px);
+}
+
+.ticktick-board-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ticktick-board-refresh-btn .ticktick-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ticktick-board-refresh-btn .ticktick-btn-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ticktick-habit-board-body {
+  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .ticktick-project-toolbar {
   display: flex;
   align-items: center;

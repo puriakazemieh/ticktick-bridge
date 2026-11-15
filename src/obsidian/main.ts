@@ -405,6 +405,7 @@ export default class TickTickBridgePlugin extends Plugin {
       },
       habitHistory: (habitId: string, from: string, to: string) => this.cachedHabitHistoryRange(habitId, from, to),
       setHabitProgress: async (habit: TickTickHabit, day: string, value: number, goal: number) => this.checkInHabit(String(habit.id), day, { value: Math.max(0, value), goal: Math.max(1, goal), status: value >= goal ? 2 : undefined }),
+      renderHabitBlock: async (element: HTMLElement, dashboard?: boolean, dayOverride?: string) => this.renderHabitBlock(element, dashboard, dayOverride),
       board: async (project: TickTickProject | undefined) => (project ? this.cache.projectBoards[String(project.id)] : undefined) ?? this.client().projectBoard(project as any),
       // This host is called by an explicit toolbar action. Let the central
       // sync layer report an honest success/fallback/error notification.
@@ -2043,7 +2044,7 @@ export default class TickTickBridgePlugin extends Plugin {
         });
       }
       if (!habits.length) {
-        root.createDiv({ cls: "daily-habit-empty", text: "عادتی برای امروز در TickTick نیست." });
+        root.createDiv({ cls: "daily-habit-empty", text: day === today ? "عادتی برای امروز در TickTick نیست." : "عادتی برای این تاریخ در TickTick نیست." });
         return;
       }
       if (dashboard) habits.sort((left: TickTickHabit, right: TickTickHabit) => habitDashboardGroup(left).localeCompare(habitDashboardGroup(right), "fa") || habitDashboardSection(left).localeCompare(habitDashboardSection(right), "fa"));

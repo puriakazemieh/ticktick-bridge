@@ -47,6 +47,7 @@ export type ProjectBoardHost = {
   checkInHabit: (habit: TickTickHabit, day: string) => Promise<unknown>;
   habitHistory: (habitId: string, from: string, to: string) => HabitHistoryEntry[];
   setHabitProgress: (habit: TickTickHabit, day: string, value: number, goal: number) => Promise<unknown>;
+  renderHabitBlock?: (element: HTMLElement, dashboard?: boolean, dayOverride?: string) => Promise<void>;
   firstWeekday: number;
   timeZone: string;
   board: (project: TickTickProject | undefined) => Promise<ProjectBoardData>;
@@ -162,7 +163,7 @@ export class ProjectBoard {
       const main = root.createDiv({ cls: "ticktick-project-main" });
 
       if (this.selected === HABIT_BOARD_VIEW_ID) {
-        this.renderHabitBoard(main, projects);
+        await this.renderHabitBoard(main, projects);
         return;
       }
 
@@ -676,7 +677,7 @@ export class ProjectBoard {
     await this.render();
   }
 
-  private renderHabitBoard(main: HTMLElement, projects: TickTickProject[]) {
+  private async renderHabitBoard(main: HTMLElement, projects: TickTickProject[]) {
     const habits = this.host.habits();
     const header = main.createDiv({ cls: "ticktick-project-header" });
 
@@ -706,7 +707,36 @@ export class ProjectBoard {
     info.createEl("h2", { cls: "ticktick-project-title", text: "عادت‌ها" });
     info.createSpan({ cls: "ticktick-project-badge", text: `${habits.length} عادت` });
 
-    const cards = main.createDiv({ cls: "ticktick-habit-board-cards" });
+    // Trailing Section: Header Actions (Refresh)
+    const headerActions = header.createDiv({ cls: "ticktick-project-header-actions" });
+    const refreshBtn = headerActions.createEl("button", {
+      cls: "ticktick-board-refresh-btn",
+      text: "به‌روزرسانی",
+      attr: {
+        type: "button",
+        "aria-label": "همگام‌سازی و به‌روزرسانی عادت‌ها",
+        title: "همگام‌سازی و به‌روزرسانی عادت‌ها"
+      }
+    });
+    const rIcon = refreshBtn.createSpan({ cls: "ticktick-btn-icon" });
+    setIcon(rIcon, "refresh-cw");
+    refreshBtn.addEventListener("click", async () => {
+      refreshBtn.disabled = true;
+      try {
+        await this.host.refresh();
+        await this.render();
+      } finally {
+        refreshBtn.disabled = false;
+      }
+    });
+
+    const boardBody = main.createDiv({ cls: "ticktick-habit-board-body" });
+    if (this.host.renderHabitBlock) {
+      await this.host.renderHabitBlock(boardBody, true);
+      return;
+    }
+
+    const cards = boardBody.createDiv({ cls: "ticktick-habit-board-cards" });
     if (!habits.length) { cards.createDiv({ cls: "ticktick-board-empty", text: "عادتی در کش محلی نیست؛ یک بار همگام‌سازی کنید." }); return; }
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: this.host.timeZone }).format(new Date());
 

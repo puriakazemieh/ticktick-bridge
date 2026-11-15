@@ -6125,7 +6125,7 @@ var ProjectBoard = class {
       }
       const main = root.createDiv({ cls: "ticktick-project-main" });
       if (this.selected === HABIT_BOARD_VIEW_ID) {
-        this.renderHabitBoard(main, projects);
+        await this.renderHabitBoard(main, projects);
         return;
       }
       const project = projects.find((item) => String(item.id) === this.selected);
@@ -6567,7 +6567,7 @@ var ProjectBoard = class {
     await this.host.savePreferences({ selected: this.selected, collapsed: [...this.collapsed], sidebarCollapsed: this.sidebarCollapsed, sidebarPreferenceInitialized: true, smartViewGrouping: this.smartViewGrouping });
     await this.render();
   }
-  renderHabitBoard(main, projects) {
+  async renderHabitBoard(main, projects) {
     const habits = this.host.habits();
     const header = main.createDiv({ cls: "ticktick-project-header" });
     const headerLead = header.createDiv({ cls: "ticktick-project-header-lead" });
@@ -6592,7 +6592,33 @@ var ProjectBoard = class {
     const info = headerLead.createDiv({ cls: "ticktick-project-header-info" });
     info.createEl("h2", { cls: "ticktick-project-title", text: "\u0639\u0627\u062F\u062A\u200C\u0647\u0627" });
     info.createSpan({ cls: "ticktick-project-badge", text: `${habits.length} \u0639\u0627\u062F\u062A` });
-    const cards = main.createDiv({ cls: "ticktick-habit-board-cards" });
+    const headerActions = header.createDiv({ cls: "ticktick-project-header-actions" });
+    const refreshBtn = headerActions.createEl("button", {
+      cls: "ticktick-board-refresh-btn",
+      text: "\u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC",
+      attr: {
+        type: "button",
+        "aria-label": "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0648 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0639\u0627\u062F\u062A\u200C\u0647\u0627",
+        title: "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0648 \u0628\u0647\u200C\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0639\u0627\u062F\u062A\u200C\u0647\u0627"
+      }
+    });
+    const rIcon = refreshBtn.createSpan({ cls: "ticktick-btn-icon" });
+    (0, import_obsidian15.setIcon)(rIcon, "refresh-cw");
+    refreshBtn.addEventListener("click", async () => {
+      refreshBtn.disabled = true;
+      try {
+        await this.host.refresh();
+        await this.render();
+      } finally {
+        refreshBtn.disabled = false;
+      }
+    });
+    const boardBody = main.createDiv({ cls: "ticktick-habit-board-body" });
+    if (this.host.renderHabitBlock) {
+      await this.host.renderHabitBlock(boardBody, true);
+      return;
+    }
+    const cards = boardBody.createDiv({ cls: "ticktick-habit-board-cards" });
     if (!habits.length) {
       cards.createDiv({ cls: "ticktick-board-empty", text: "\u0639\u0627\u062F\u062A\u06CC \u062F\u0631 \u06A9\u0634 \u0645\u062D\u0644\u06CC \u0646\u06CC\u0633\u062A\u061B \u06CC\u06A9 \u0628\u0627\u0631 \u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u06A9\u0646\u06CC\u062F." });
       return;
@@ -14487,6 +14513,7 @@ var TickTickBridgePlugin = class extends import_obsidian46.Plugin {
       },
       habitHistory: (habitId, from, to) => this.cachedHabitHistoryRange(habitId, from, to),
       setHabitProgress: async (habit, day, value, goal) => this.checkInHabit(String(habit.id), day, { value: Math.max(0, value), goal: Math.max(1, goal), status: value >= goal ? 2 : void 0 }),
+      renderHabitBlock: async (element, dashboard, dayOverride) => this.renderHabitBlock(element, dashboard, dayOverride),
       board: async (project) => (project ? this.cache.projectBoards[String(project.id)] : void 0) ?? this.client().projectBoard(project),
       // This host is called by an explicit toolbar action. Let the central
       // sync layer report an honest success/fallback/error notification.
@@ -15985,7 +16012,7 @@ var TickTickBridgePlugin = class extends import_obsidian46.Plugin {
         });
       }
       if (!habits.length) {
-        root.createDiv({ cls: "daily-habit-empty", text: "\u0639\u0627\u062F\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u0645\u0631\u0648\u0632 \u062F\u0631 TickTick \u0646\u06CC\u0633\u062A." });
+        root.createDiv({ cls: "daily-habit-empty", text: day === today ? "\u0639\u0627\u062F\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u0645\u0631\u0648\u0632 \u062F\u0631 TickTick \u0646\u06CC\u0633\u062A." : "\u0639\u0627\u062F\u062A\u06CC \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062A\u0627\u0631\u06CC\u062E \u062F\u0631 TickTick \u0646\u06CC\u0633\u062A." });
         return;
       }
       if (dashboard) habits.sort((left, right) => habitDashboardGroup(left).localeCompare(habitDashboardGroup(right), "fa") || habitDashboardSection(left).localeCompare(habitDashboardSection(right), "fa"));
