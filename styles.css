@@ -10940,4 +10940,126 @@
   }
 }
 
+/* src/styles/settings.css */
+.ticktick-settings-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tb-space-4);
+  font-family: var(--font-interface);
+  direction: rtl;
+}
+.ticktick-settings-status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tb-space-4);
+  padding: var(--tb-space-3) var(--tb-space-4);
+  border-radius: var(--tb-radius-card);
+  border: 1px solid var(--tb-border);
+  background: var(--tb-bg-secondary);
+  margin-bottom: var(--tb-space-5);
+  transition: all 0.25s ease;
+}
+.ticktick-settings-status-banner.is-connected {
+  background: var(--tb-palette-mint-tint);
+  border-color: var(--tb-palette-mint-border);
+  box-shadow: 0 0 16px var(--tb-palette-mint-glow);
+}
+.ticktick-settings-status-banner.is-error,
+.ticktick-settings-status-banner.is-needs-auth {
+  background: var(--tb-palette-coral-tint);
+  border-color: var(--tb-palette-coral-border);
+  box-shadow: 0 0 16px var(--tb-palette-coral-glow);
+}
+.ticktick-settings-status-banner.is-unknown {
+  background: var(--tb-palette-cobalt-tint);
+  border-color: var(--tb-palette-cobalt-border);
+}
+.ticktick-settings-banner-content {
+  display: flex;
+  align-items: center;
+  gap: var(--tb-space-3);
+  flex: 1;
+}
+.ticktick-settings-banner-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ticktick-settings-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ticktick-settings-banner-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--tb-text-normal);
+}
+.ticktick-settings-status-banner.is-connected .ticktick-settings-banner-title {
+  color: var(--tb-palette-mint-text);
+}
+.ticktick-settings-status-banner.is-error .ticktick-settings-banner-title,
+.ticktick-settings-status-banner.is-needs-auth .ticktick-settings-banner-title {
+  color: var(--tb-palette-coral-text);
+}
+.ticktick-settings-banner-desc {
+  font-size: 0.85rem;
+  color: var(--tb-text-muted);
+  line-height: 1.4;
+}
+.ticktick-settings-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--tb-space-2);
+  flex-shrink: 0;
+}
+.ticktick-settings-section-card {
+  background: var(--tb-bg-secondary);
+  border: 1px solid var(--tb-border);
+  border-radius: var(--tb-radius-card);
+  padding: var(--tb-space-4);
+  margin-bottom: var(--tb-space-4);
+}
+.ticktick-settings-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--tb-space-2);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--tb-text-normal);
+  padding-bottom: var(--tb-space-2);
+  border-bottom: 1px solid var(--tb-border-subtle);
+  margin-bottom: var(--tb-space-3);
+}
+.ticktick-settings-subcard {
+  background: var(--tb-bg-primary);
+  border: 1px dashed var(--tb-border-subtle);
+  border-radius: var(--tb-radius-m);
+  padding: var(--tb-space-3) var(--tb-space-4);
+  margin-top: var(--tb-space-3);
+}
+.ticktick-settings-subcard-title {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--tb-text-muted);
+  margin-bottom: var(--tb-space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--tb-space-2);
+}
+.ticktick-settings-subcard-desc {
+  font-size: 0.8rem;
+  color: var(--tb-text-faint);
+  margin-bottom: var(--tb-space-3);
+  line-height: 1.4;
+}
+.ticktick-input-cookie {
+  font-family: var(--font-monospace);
+  direction: ltr;
+}
+
 /* src/styles/main.css */

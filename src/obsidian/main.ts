@@ -16,7 +16,7 @@ import { normalizeProjectData } from "../core/project-board.js";
 import { createBulkOperationManifest, runBoundedQueue, formatBulkOutcomeReport, computeBulkTaskMutation } from "../core/bulk-operations.js";
 import { probeTaskHierarchy } from "../core/task-hierarchy.js";
 
-import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit, ProjectBoardData, TickTickNote, SavedView } from "./types";
+import type { BridgeSettings, BridgeCache, CachedHabitCheckin, PendingMutation, DashboardMode, ControlScreen, TaskDraft, TickTickTask, TickTickProject, TickTickHabit, ProjectBoardData, TickTickNote, SavedView, AuthStatus } from "./types";
 import { VIEW_TYPE, HABIT_VIEW_TYPE, PLANNER_VIEW_TYPE, PROJECT_BOARD_VIEW_TYPE, CONTROL_VIEW_TYPE, TIMELINE_VIEW_TYPE, WEEKLY_REVIEW_VIEW_TYPE, EISENHOWER_MATRIX_VIEW_TYPE, TIMEBLOCK_PLANNER_VIEW_TYPE, HEATMAP_VIEW_TYPE, DEFAULT_SETTINGS } from "./constants";
 import {
   currentPlatformName,
@@ -101,6 +101,8 @@ export default class TickTickBridgePlugin extends Plugin {
   private pomodoroStatusBarItem: HTMLElement | null = null;
   reminderService: ReminderService | null = null;
   private lastFullOfficialSync = 0;
+  authStatus: AuthStatus = "unknown";
+  lastAuthErrorMessage?: string;
 
   async onload() {
     this.managedStorage = new ManagedStorage(this.app.vault.adapter as unknown as VaultAdapter);
@@ -124,6 +126,12 @@ export default class TickTickBridgePlugin extends Plugin {
     this.markdownSync = new MarkdownSync(this.app, this.managedStorage, () => this.client(), () => this.settings, () => this.scheduledCheckboxProjectId());
     await this.markdownSync.initialize();
     this.noteImport = new NoteImport(this.app, this.managedStorage, () => this.settings.ticktickNotesFolder);
+    if (!this.settings.apiToken?.trim()) {
+      this.authStatus = "needs_auth";
+      this.lastAuthErrorMessage = "توکن API وارد نشده است.";
+    } else {
+      this.authStatus = this.hasCache() ? "connected" : "unknown";
+    }
     if (!privateCache || "projectRoot" in legacySettings || "projectDependencies" in legacySettings || "projectTaskCatalog" in legacySettings) await this.saveSettings();
     // Remove any restored workspace leaf from the retired project-planning view.
     this.app.workspace.onLayoutReady(() => {
@@ -744,6 +752,12 @@ export default class TickTickBridgePlugin extends Plugin {
     this.syncInProgress = true;
     this.setSyncRibbonState(true);
     try {
+      if (!this.settings.apiToken?.trim()) {
+        this.authStatus = "needs_auth";
+        this.lastAuthErrorMessage = "توکن API وارد نشده است.";
+        if (!quiet) new Notice("⚠️ نیاز به اتصال مجدد: لطفاً ابتدا API Token را در تنظیمات افزونه وارد کنید.", 8000);
+        return;
+      }
       const day = todayInZone(this.settings.timeZone);
       // A queued write that is being rate-limited must not be followed by a
       // second burst of project-data reads. The optimistic cache is already
@@ -754,6 +768,8 @@ export default class TickTickBridgePlugin extends Plugin {
         return;
       }
       const refreshed = await this.refreshCacheFromTickTick(day, !scheduled);
+      this.authStatus = "connected";
+      this.lastAuthErrorMessage = undefined;
       const tasks = this.cachedTasksForDay(day);
       const habits = this.cachedHabitsForDay(day);
       await this.refreshLocalSurfaces();
@@ -770,7 +786,13 @@ export default class TickTickBridgePlugin extends Plugin {
         this.deferForRateLimit(error);
         await this.saveSettings();
       }
-      if (!quiet) new Notice(error instanceof Error ? error.message : "همگام‌سازی TickTick ناموفق بود.");
+      if (this.isAuthError(error)) {
+        this.authStatus = "needs_auth";
+        this.lastAuthErrorMessage = error instanceof Error ? error.message : "خطای احراز هویت";
+        new Notice("⚠️ خطای احراز هویت TickTick: نشست یا توکن شما منقضی یا نامعتبر است. لطفاً وارد تنظیمات افزونه شده و مجدداً لاگین کنید یا توکن جدید ثبت نمایید.", 10000);
+      } else if (!quiet) {
+        new Notice(error instanceof Error ? error.message : "همگام‌سازی TickTick ناموفق بود.");
+      }
     } finally {
       this.setSyncRibbonState(false);
       this.syncInProgress = false;
@@ -840,6 +862,8 @@ export default class TickTickBridgePlugin extends Plugin {
   }
 
   cacheConflictCount() { return this.cache.conflicts.length; }
+  cachedProjectsCount() { return this.cache?.projects?.length ?? 0; }
+  cachedTasksCount() { return this.cache?.tasks?.length ?? 0; }
 
   private async refreshCacheFromTickTick(today: string, refreshRemoteMetadata = false) {
     const client = this.client();
@@ -1186,6 +1210,39 @@ export default class TickTickBridgePlugin extends Plugin {
 
   private isRateLimitError(error: unknown) {
     return Number((error as { status?: number })?.status ?? 0) === 429;
+  }
+
+  isAuthError(error: unknown): boolean {
+    if (!this.settings.apiToken?.trim()) return true;
+    const status = Number((error as { status?: number })?.status ?? 0);
+    if (status === 401 || status === 403) return true;
+    const message = String((error as Error)?.message ?? "");
+    return message.includes("API Token") || message.includes("دسترسی TickTick رد شد") || message.includes("token is required");
+  }
+
+  async testConnection(): Promise<{ success: boolean; message: string; projectCount?: number; habitCount?: number }> {
+    if (!this.settings.apiToken?.trim()) {
+      this.authStatus = "needs_auth";
+      this.lastAuthErrorMessage = "توکن API وارد نشده است.";
+      return { success: false, message: "توکن API هنوز وارد نشده است. لطفاً توکن معتبر را در فیلد مربوطه وارد کنید." };
+    }
+    try {
+      const client = this.client();
+      const [projects, habits] = await Promise.all([client.listProjects(), client.listHabits()]);
+      this.authStatus = "connected";
+      this.lastAuthErrorMessage = undefined;
+      return {
+        success: true,
+        message: `اتصال با موفقیت برقرار شد: ${projects.length} لیست و ${habits.length} عادت با موفقیت دریافت شدند.`,
+        projectCount: projects.length,
+        habitCount: habits.length,
+      };
+    } catch (error) {
+      this.authStatus = "needs_auth";
+      const message = error instanceof Error ? error.message : "خطا در برقراری ارتباط با سرور TickTick.";
+      this.lastAuthErrorMessage = message;
+      return { success: false, message };
+    }
   }
 
   private deferForRateLimit(error: unknown) {

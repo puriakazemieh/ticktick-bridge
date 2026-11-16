@@ -11,6 +11,7 @@ import type {
 
 export type DashboardMode = "day" | "week" | "month" | "stats";
 export type ControlScreen = "sync" | "notes" | "checklists" | "reports";
+export type AuthStatus = "connected" | "needs_auth" | "unknown";
 
 export interface BridgeSettings {
   apiToken: string;
