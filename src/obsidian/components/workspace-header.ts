@@ -21,7 +21,6 @@ export const WORKSPACE_NAV_TABS: WorkspaceNavTab[] = [
   { id: "board", label: "کانبان", icon: "kanban-square", viewType: PROJECT_BOARD_VIEW_TYPE },
   { id: "planner", label: "تقویم", icon: "calendar", viewType: PLANNER_VIEW_TYPE },
   { id: "matrix", label: "آیزنهاور", icon: "grid", viewType: EISENHOWER_MATRIX_VIEW_TYPE },
-  { id: "timeblock", label: "زمان‌بندی", icon: "clock", viewType: TIMEBLOCK_PLANNER_VIEW_TYPE },
   { id: "timeline", label: "تایم‌لاین", icon: "calendar-range", viewType: TIMELINE_VIEW_TYPE },
   { id: "review", label: "مرور هفتگی", icon: "check-check", viewType: WEEKLY_REVIEW_VIEW_TYPE },
   { id: "heatmap", label: "نقشه فعالیت", icon: "flame", viewType: HEATMAP_VIEW_TYPE },

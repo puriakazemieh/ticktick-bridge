@@ -91,6 +91,8 @@ export function renderUnifiedHabitCard(parent: HTMLElement, options: UnifiedHabi
     }
   });
   progressRing.style.setProperty("--ticktick-progress", `${Math.round(progress * 360)}deg`);
+  progressRing.style.aspectRatio = "1 / 1";
+  progressRing.style.borderRadius = "50%";
 
   const glyphSpan = progressRing.createSpan({
     cls: "ticktick-habit-glyph",
@@ -115,14 +117,14 @@ export function renderUnifiedHabitCard(parent: HTMLElement, options: UnifiedHabi
     meta.createSpan({ cls: "ticktick-habit-tag", text: sectionName });
   }
 
-  const progressText = goal > 1
-    ? `${currentValue}/${goal} ${habit.unit ?? "مرحله"}`
-    : completed ? "انجام شد" : "آماده ثبت";
-
-  meta.createSpan({
-    cls: `ticktick-habit-count ${completed ? "is-done" : ""}`,
-    text: progressText
-  });
+  // Only multi-stage habits (goal > 1) display step progression (e.g. "1 از 3").
+  // Single-stage habits (goal <= 1) display no text label — the icon checkmark alone represents status.
+  if (goal > 1) {
+    meta.createSpan({
+      cls: `ticktick-habit-count ${completed ? "is-done" : ""}`,
+      text: `${currentValue} از ${goal}`
+    });
+  }
 
   if (options.streak && options.streak > 1 && !isPlanner) {
     meta.createSpan({
@@ -130,6 +132,10 @@ export function renderUnifiedHabitCard(parent: HTMLElement, options: UnifiedHabi
       text: `🔥 ${options.streak} روز`,
       attr: { title: `${options.streak} روز پیوسته انجام شده` }
     });
+  }
+
+  if (!meta.hasChildNodes()) {
+    meta.remove();
   }
 
   // 3. Optional history dots for month/week views
@@ -153,7 +159,21 @@ export function renderUnifiedHabitCard(parent: HTMLElement, options: UnifiedHabi
         title: "ویرایش عادت"
       }
     });
-    setIcon(editBtn, "pencil");
+    try {
+      setIcon(editBtn, "pencil");
+    } catch {
+      // Fallback
+    }
+    if (!editBtn.querySelector("svg")) {
+      try {
+        setIcon(editBtn, "edit");
+      } catch {
+        // Fallback
+      }
+    }
+    if (!editBtn.querySelector("svg")) {
+      editBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>`;
+    }
     editBtn.addEventListener("click", event => {
       event.preventDefault();
       event.stopPropagation();

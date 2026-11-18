@@ -192,9 +192,16 @@
   place-items: center;
   width: 2.38rem;
   height: 2.38rem;
+  min-width: 2.38rem;
+  min-height: 2.38rem;
+  max-width: 2.38rem;
+  max-height: 2.38rem;
+  aspect-ratio: 1 / 1;
   padding: 0.15rem;
   background: conic-gradient(var(--card-tone, var(--interactive-accent)) var(--ticktick-progress), color-mix(in srgb, var(--card-tone, var(--interactive-accent)) 15%, var(--background-modifier-border)) 0deg);
   border-radius: 50%;
+  box-sizing: border-box;
+  flex-shrink: 0;
   transition: background 180ms ease, transform 180ms ease;
   box-shadow: 0 0 8px color-mix(in srgb, var(--card-tone, var(--interactive-accent)) 20%, transparent);
 }
@@ -209,6 +216,7 @@
   place-items: center;
   width: 100%;
   height: 100%;
+  aspect-ratio: 1 / 1;
   background: var(--background-secondary);
   border-radius: 50%;
   font-size: 1.1rem;

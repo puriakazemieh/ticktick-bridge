@@ -1,9 +1,48 @@
-import { App, Component, MarkdownRenderer, Menu, Modal, Notice, Setting, setIcon } from "obsidian";
+import { App, Component, MarkdownRenderer, Menu, Modal, Notice, setIcon } from "obsidian";
 import { taskDescription } from "../../core/task-description.js";
 import { toDateKey } from "../../core/date.js";
-import { reminderTimeFromTask, cleanTaskTitle } from "../helpers";
+import { reminderTimeFromTask, cleanTaskTitle, toggleMarkdownCheckboxAtIndex } from "../helpers";
 import { JalaliDatePicker } from "../components/jalali-date-picker";
 import type { TaskDraft, TickTickTask } from "../types";
+
+function insertMarkdownWrap(textarea: HTMLTextAreaElement, prefix: string, suffix: string, placeholder = ""): void {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const val = textarea.value;
+  const selected = val.substring(start, end);
+
+  if (selected.length > 0) {
+    const replacement = `${prefix}${selected}${suffix}`;
+    textarea.value = val.substring(0, start) + replacement + val.substring(end);
+    textarea.focus();
+    textarea.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+  } else {
+    const replacement = `${prefix}${placeholder}${suffix}`;
+    textarea.value = val.substring(0, start) + replacement + val.substring(end);
+    textarea.focus();
+    const cursor = start + prefix.length;
+    textarea.setSelectionRange(cursor, cursor + placeholder.length);
+  }
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function insertMarkdownLinePrefix(textarea: HTMLTextAreaElement, prefix: string): void {
+  const start = textarea.selectionStart;
+  const val = textarea.value;
+  const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+
+  textarea.value = val.substring(0, lineStart) + prefix + val.substring(lineStart);
+  textarea.focus();
+  const newPos = start + prefix.length;
+  textarea.setSelectionRange(newPos, newPos);
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+export interface SubtaskActions {
+  onToggle?: (subtask: TickTickTask, completed: boolean) => Promise<void>;
+  onEdit?: (subtask: TickTickTask) => Promise<unknown>;
+  onDelete?: (subtask: TickTickTask) => Promise<void>;
+}
 
 export class TaskEditorModal extends Modal {
   private resolveResult!: (value: TaskDraft | null) => void;
@@ -18,7 +57,8 @@ export class TaskEditorModal extends Modal {
     private existingTags: string[] = [],
     private availableTasks: TickTickTask[] = [],
     private onCreateSubtask?: (parentId: string, title: string) => Promise<unknown>,
-    private getProjectColumns?: (projectId: string) => Array<{ id: string; name: string }> | Promise<Array<{ id: string; name: string }>>
+    private getProjectColumns?: (projectId: string) => Array<{ id: string; name: string }> | Promise<Array<{ id: string; name: string }>>,
+    private subtaskActions?: SubtaskActions
   ) {
     super(app);
   }
@@ -36,15 +76,19 @@ export class TaskEditorModal extends Modal {
     const { contentEl } = this;
     contentEl.addClass("ticktick-task-editor-modal");
 
-    // ─── Decorative header ───
+    // ─── Modern Refined Header ───
     const header = contentEl.createDiv({ cls: "ticktick-editor-header" });
-    header.createEl("h2", { text: this.initial.id ? "✏️ ویرایش تسک" : "✨ افزودن تسک" });
-    header.createEl("p", { cls: "ticktick-task-editor-subtitle", text: "تغییرات مستقیماً در TickTick ذخیره می‌شوند." });
+    const titleRow = header.createDiv({ cls: "ticktick-editor-header-title-row" });
+    const iconSpan = titleRow.createSpan({ cls: "ticktick-editor-header-icon" });
+    setIcon(iconSpan, this.initial.id ? "pencil" : "plus-circle");
+    titleRow.createEl("h2", { text: this.initial.id ? "ویرایش تسک" : "افزودن تسک جدید" });
 
-    // ─── Gradient divider ───
-    contentEl.createDiv({ cls: "ticktick-editor-divider" });
+    header.createSpan({
+      cls: "ticktick-editor-header-badge",
+      text: "همگام‌سازی مستقیم TickTick"
+    });
 
-    // ─── Fields container ───
+    // ─── Fields Container ───
     const fields = contentEl.createDiv({ cls: "ticktick-editor-fields" });
 
     let title = String(this.initial.title ?? "");
@@ -56,72 +100,86 @@ export class TaskEditorModal extends Modal {
     let priority = typeof this.initial.priority === "number" ? this.initial.priority : 0;
 
     let titleInputEl: HTMLInputElement | null = null;
-    new Setting(fields).setName("📝 عنوان").addText(input => {
-      input.setValue(title).onChange(value => title = value);
-      input.inputEl.dir = "rtl";
-      input.inputEl.addClass("ticktick-input-full-width");
-      input.inputEl.placeholder = "عنوان تسک را وارد کنید...";
-      titleInputEl = input.inputEl;
-      input.inputEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          onSave();
-        }
-      });
+
+    // ─── 1. Title Input (Prominent) ───
+    const titleGroup = fields.createDiv({ cls: "ticktick-form-group mod-title" });
+    const titleLabel = titleGroup.createDiv({ cls: "ticktick-field-label" });
+    const tIcon = titleLabel.createSpan({ cls: "ticktick-field-icon" });
+    setIcon(tIcon, "type");
+    titleLabel.createSpan({ text: "عنوان تسک" });
+    titleLabel.createSpan({ cls: "ticktick-field-required", text: "*" });
+
+    const titleInput = titleGroup.createEl("input", {
+      type: "text",
+      cls: "ticktick-title-input",
+      value: title,
+      placeholder: "عنوان تسک را وارد کنید..."
+    });
+    titleInput.dir = "rtl";
+    titleInputEl = titleInput;
+    titleInput.addEventListener("input", () => { title = titleInput.value; });
+    titleInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        onSave();
+      }
     });
 
-    const selectedProjectName = () => this.projects.find(project => project.id === projectId)?.name ?? "انتخاب پروژه";
+    // ─── 2. Properties Grid (2-Column Responsive) ───
+    const metaGrid = fields.createDiv({ cls: "ticktick-form-grid" });
+
+    // Project Picker
+    const selectedProjectName = () => this.projects.find(project => project.id === projectId)?.name ?? "صندوق ورودی";
+    const projectBox = metaGrid.createDiv({ cls: "ticktick-field-box" });
+    const projectLabel = projectBox.createDiv({ cls: "ticktick-field-label" });
+    const prIcon = projectLabel.createSpan({ cls: "ticktick-field-icon" });
+    setIcon(prIcon, "folder");
+    projectLabel.createSpan({ text: "پروژه" });
+
+    const projectBtn = projectBox.createEl("button", {
+      type: "button",
+      cls: "ticktick-select-trigger"
+    });
+    const prBtnText = projectBtn.createSpan({ cls: "ticktick-select-trigger-label", text: selectedProjectName() });
+    const prChevron = projectBtn.createSpan({ cls: "ticktick-select-trigger-chevron" });
+    setIcon(prChevron, "chevron-down");
+
     let columnId: string | null = this.initial.columnId ? String(this.initial.columnId) : null;
 
-    new Setting(fields).setName("📂 پروژه").setDesc("برای انتخاب پروژه کلیک کن.").addButton(button => {
-      button.setButtonText(selectedProjectName());
-      button.buttonEl.addClass("ticktick-project-picker");
-      button.buttonEl.addEventListener("click", (event) => {
-        const menu = new Menu();
-        this.projects.forEach(project => menu.addItem(item => item
-          .setTitle(project.name)
-          .setChecked(project.id === projectId)
-          .onClick(() => {
-            projectId = project.id;
-            columnId = null;
-            button.setButtonText(selectedProjectName());
-            void renderColumnUI();
-          })));
-        menu.showAtMouseEvent(event);
-      });
-    });
+    // Kanban Column Picker (Appears if project has columns)
+    const columnBox = metaGrid.createDiv({ cls: "ticktick-field-box ticktick-column-field-box" });
+    const columnLabel = columnBox.createDiv({ cls: "ticktick-field-label" });
+    const colIcon = columnLabel.createSpan({ cls: "ticktick-field-icon" });
+    setIcon(colIcon, "columns-3");
+    columnLabel.createSpan({ text: "ستون کانبان" });
 
-    // ─── Project Column (Kanban Section) Setting ───
-    const columnSetting = new Setting(fields)
-      .setName("📊 ستون کانبان")
-      .setDesc("انتخاب ستون در این پروژه (اختیاری).");
-    const columnControl = columnSetting.controlEl.createDiv({ cls: "ticktick-column-picker-control" });
+    const columnControl = columnBox.createDiv({ cls: "ticktick-column-picker-control" });
 
     const renderColumnUI = async () => {
       columnControl.empty();
       if (!this.getProjectColumns) {
-        columnSetting.settingEl.hide();
+        columnBox.addClass("is-hidden");
         return;
       }
 
       const columns = await this.getProjectColumns(projectId);
       if (!columns || columns.length === 0) {
-        columnSetting.settingEl.hide();
+        columnBox.addClass("is-hidden");
         columnId = null;
         return;
       }
 
-      columnSetting.settingEl.show();
+      columnBox.removeClass("is-hidden");
       const currentCol = columns.find(c => String(c.id) === String(columnId));
       const colLabel = currentCol ? currentCol.name : "انتخاب ستون...";
 
       const colBtn = columnControl.createEl("button", {
-        cls: "ticktick-column-picker-btn",
+        cls: "ticktick-select-trigger",
         attr: { type: "button", title: "انتخاب ستون کانبان" }
       });
-      const iconSpan = colBtn.createSpan({ cls: "ticktick-btn-icon" });
-      setIcon(iconSpan, "columns-3");
-      colBtn.createSpan({ text: colLabel, cls: "ticktick-column-picker-label" });
+      colBtn.createSpan({ text: colLabel, cls: "ticktick-select-trigger-label" });
+      const cChevron = colBtn.createSpan({ cls: "ticktick-select-trigger-chevron" });
+      setIcon(cChevron, "chevron-down");
 
       colBtn.addEventListener("click", (event) => {
         event.preventDefault();
@@ -159,22 +217,98 @@ export class TaskEditorModal extends Modal {
         });
       }
     };
+
+    projectBtn.addEventListener("click", (event) => {
+      const menu = new Menu();
+      this.projects.forEach(project => menu.addItem(item => item
+        .setTitle(project.name)
+        .setChecked(project.id === projectId)
+        .onClick(() => {
+          projectId = project.id;
+          columnId = null;
+          prBtnText.setText(selectedProjectName());
+          void renderColumnUI();
+        })));
+      menu.showAtMouseEvent(event);
+    });
+
     void renderColumnUI();
 
-    // ─── Parent Task / Subtask Setting ───
-    const parentSetting = new Setting(fields)
-      .setName("↳ تسک والد (سلسله‌مراتب)")
-      .setDesc("انتخاب والد برای تبدیل به زیرتسک یا خروج از زیرتسک.");
+    // Due Date Picker (Jalali)
+    const dateBox = metaGrid.createDiv({ cls: "ticktick-field-box" });
+    const dateLabel = dateBox.createDiv({ cls: "ticktick-field-label" });
+    const dIcon = dateLabel.createSpan({ cls: "ticktick-field-icon" });
+    setIcon(dIcon, "calendar");
+    dateLabel.createSpan({ text: "تاریخ سررسید (شمسی)" });
 
-    const parentControl = parentSetting.controlEl.createDiv({ cls: "ticktick-parent-task-control" });
+    const dateControlWrap = dateBox.createDiv({ cls: "ticktick-date-control-wrap" });
+    new JalaliDatePicker(dateControlWrap, "", dueDate, value => dueDate = value);
+
+    // Reminder Time Picker
+    const reminderBox = metaGrid.createDiv({ cls: "ticktick-field-box" });
+    const reminderLabel = reminderBox.createDiv({ cls: "ticktick-field-label" });
+    const rIcon = reminderLabel.createSpan({ cls: "ticktick-field-icon" });
+    setIcon(rIcon, "bell");
+    reminderLabel.createSpan({ text: "زمان یادآوری" });
+
+    const timeInput = reminderBox.createEl("input", {
+      type: "time",
+      cls: "ticktick-time-input",
+      value: reminderTime
+    });
+    timeInput.dir = "ltr";
+    timeInput.addEventListener("input", () => { reminderTime = timeInput.value; });
+
+    // ─── 3. Priority Selector (Segmented Pill Bar) ───
+    const priorityGroup = fields.createDiv({ cls: "ticktick-form-group" });
+    const prioLabel = priorityGroup.createDiv({ cls: "ticktick-field-label" });
+    const pIcon = prioLabel.createSpan({ cls: "ticktick-field-icon" });
+    setIcon(pIcon, "flag");
+    prioLabel.createSpan({ text: "اولویت تسک" });
+
+    const priorityControl = priorityGroup.createDiv({ cls: "ticktick-priority-selector" });
+    const priorityLevels: Array<{ value: number; label: string; icon: string; cls: string }> = [
+      { value: 0, label: "عادی", icon: "circle", cls: "prio-none" },
+      { value: 1, label: "کم", icon: "flag", cls: "prio-low" },
+      { value: 3, label: "متوسط", icon: "flag", cls: "prio-med" },
+      { value: 5, label: "بالا / فوری", icon: "flag", cls: "prio-high" },
+    ];
+
+    const priorityButtons: HTMLElement[] = [];
+    for (const lvl of priorityLevels) {
+      const btn = priorityControl.createEl("button", {
+        cls: `ticktick-priority-btn ${lvl.cls} ${priority === lvl.value ? "is-active" : ""}`,
+        attr: { type: "button", "aria-label": `اولویت: ${lvl.label}` }
+      });
+      const iconWrap = btn.createSpan({ cls: "ticktick-priority-icon" });
+      setIcon(iconWrap, lvl.icon);
+      btn.createSpan({ text: lvl.label, cls: "ticktick-priority-label" });
+
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        priority = lvl.value;
+        for (const b of priorityButtons) b.removeClass("is-active");
+        btn.addClass("is-active");
+      });
+      priorityButtons.push(btn);
+    }
+
+    // ─── 4. Parent Task Selector (Hierarchy) ───
+    const parentGroup = fields.createDiv({ cls: "ticktick-form-group" });
+    const parentLabel = parentGroup.createDiv({ cls: "ticktick-field-label" });
+    const ptIcon = parentLabel.createSpan({ cls: "ticktick-field-icon" });
+    setIcon(ptIcon, "git-branch");
+    parentLabel.createSpan({ text: "تسک والد (سلسله‌مراتب)" });
+
+    const parentControl = parentGroup.createDiv({ cls: "ticktick-parent-task-control" });
 
     const renderParentTaskUI = () => {
       parentControl.empty();
       if (parentId) {
         const parentTask = this.availableTasks.find(t => String(t.id) === parentId);
         const parentChip = parentControl.createSpan({ cls: "ticktick-parent-task-chip" });
-        const iconSpan = parentChip.createSpan({ cls: "ticktick-pill-icon" });
-        setIcon(iconSpan, "corner-down-left");
+        const iconSpanEl = parentChip.createSpan({ cls: "ticktick-pill-icon" });
+        setIcon(iconSpanEl, "corner-down-left");
         parentChip.createSpan({
           cls: "ticktick-parent-name",
           text: parentTask?.title ? `والد: ${cleanTaskTitle(parentTask.title)}` : `والد #${parentId}`
@@ -196,8 +330,8 @@ export class TaskEditorModal extends Modal {
           text: "+ تبدیل به زیرتسک (انتخاب والد)",
           attr: { type: "button" }
         });
-        const pIcon = pickParentBtn.createSpan({ cls: "ticktick-btn-icon" });
-        setIcon(pIcon, "list-tree");
+        const pIconEl = pickParentBtn.createSpan({ cls: "ticktick-btn-icon" });
+        setIcon(pIconEl, "list-tree");
 
         pickParentBtn.addEventListener("click", (e) => {
           e.preventDefault();
@@ -223,8 +357,7 @@ export class TaskEditorModal extends Modal {
                     if (cand.projectId) {
                       projectId = String(cand.projectId);
                       columnId = null;
-                      const projBtn = fields.querySelector<HTMLButtonElement>(".ticktick-project-picker");
-                      if (projBtn) projBtn.textContent = selectedProjectName();
+                      prBtnText.setText(selectedProjectName());
                       void renderColumnUI();
                     }
                     renderParentTaskUI();
@@ -238,49 +371,7 @@ export class TaskEditorModal extends Modal {
     };
     renderParentTaskUI();
 
-    const dateSetting = new Setting(fields)
-      .setName("📅 تاریخ سررسید (شمسی)")
-      .setDesc("انتخاب تاریخ از تقویم شمسی یا تایپ دستی.");
-    new JalaliDatePicker(dateSetting.controlEl, "", dueDate, value => dueDate = value);
-    new Setting(fields).setName("⏰ یادآوری").setDesc("اختیاری؛ در ساعت انتخاب‌شده در همان روز یادآوری می‌شود.").addText(input => {
-      input.inputEl.type = "time";
-      input.setValue(reminderTime).onChange(value => reminderTime = value);
-      input.inputEl.dir = "ltr";
-    });
-
-    // ─── Priority Selector ───
-    const prioritySetting = new Setting(fields)
-      .setName("🚩 اولویت")
-      .setDesc("اولویت تسک را برای برنامه‌ریزی مشخص کن.");
-
-    const priorityControl = prioritySetting.controlEl.createDiv({ cls: "ticktick-priority-selector" });
-    const priorityLevels: Array<{ value: number; label: string; icon: string; cls: string }> = [
-      { value: 0, label: "عادی", icon: "circle", cls: "prio-none" },
-      { value: 1, label: "کم", icon: "flag", cls: "prio-low" },
-      { value: 3, label: "متوسط", icon: "flag", cls: "prio-med" },
-      { value: 5, label: "بالا", icon: "flag", cls: "prio-high" },
-    ];
-
-    const priorityButtons: HTMLElement[] = [];
-    for (const lvl of priorityLevels) {
-      const btn = priorityControl.createEl("button", {
-        cls: `ticktick-priority-btn ${lvl.cls} ${priority === lvl.value ? "is-active" : ""}`,
-        attr: { type: "button", "aria-label": `اولویت: ${lvl.label}` }
-      });
-      const iconSpan = btn.createSpan({ cls: "ticktick-priority-icon" });
-      setIcon(iconSpan, lvl.icon);
-      btn.createSpan({ text: lvl.label, cls: "ticktick-priority-label" });
-
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        priority = lvl.value;
-        for (const b of priorityButtons) b.removeClass("is-active");
-        btn.addClass("is-active");
-      });
-      priorityButtons.push(btn);
-    }
-
-    // ─── Tags State & Selector ───
+    // ─── 5. Tags Section ───
     const rawInitialTags = Array.isArray(this.initial.tags)
       ? this.initial.tags
       : (Array.isArray(this.initial.tagNames) ? this.initial.tagNames : []);
@@ -291,11 +382,13 @@ export class TaskEditorModal extends Modal {
       ...selectedTags
     ])].sort((a, b) => a.localeCompare(b, "fa"));
 
-    const tagsSetting = new Setting(fields)
-      .setName("🏷️ برچسب‌ها")
-      .setDesc("انتخاب از برچسب‌های موجود یا افزودن برچسب جدید.");
+    const tagsGroup = fields.createDiv({ cls: "ticktick-form-group" });
+    const tagsLabel = tagsGroup.createDiv({ cls: "ticktick-field-label" });
+    const tagIcon = tagsLabel.createSpan({ cls: "ticktick-field-icon" });
+    setIcon(tagIcon, "tag");
+    tagsLabel.createSpan({ text: "برچسب‌ها" });
 
-    const tagsContainer = tagsSetting.controlEl.createDiv({ cls: "ticktick-editor-tags-container" });
+    const tagsContainer = tagsGroup.createDiv({ cls: "ticktick-editor-tags-container" });
     const selectedTagsList = tagsContainer.createDiv({ cls: "ticktick-selected-tags-list" });
 
     const addTagRow = tagsContainer.createDiv({ cls: "ticktick-add-tag-row" });
@@ -315,7 +408,6 @@ export class TaskEditorModal extends Modal {
     const availableWrap = tagsContainer.createDiv({ cls: "ticktick-available-tags-wrap" });
 
     const renderTagsUI = () => {
-      // 1. Selected tags list
       selectedTagsList.empty();
       if (selectedTags.length === 0) {
         selectedTagsList.createSpan({ cls: "ticktick-no-tags-hint", text: "بدون برچسب" });
@@ -336,10 +428,9 @@ export class TaskEditorModal extends Modal {
         }
       }
 
-      // 2. Available tags pool
       availableWrap.empty();
       if (allAvailableTags.length > 0) {
-        availableWrap.createSpan({ cls: "ticktick-available-tags-title", text: "برچسب‌های موجود:" });
+        availableWrap.createSpan({ cls: "ticktick-available-tags-title", text: "برچسب‌های آماده:" });
         const availableList = availableWrap.createDiv({ cls: "ticktick-available-tags-list" });
         for (const tag of allAvailableTags) {
           const isSelected = selectedTags.includes(tag);
@@ -348,8 +439,8 @@ export class TaskEditorModal extends Modal {
             cls: `ticktick-tag-pill ${isSelected ? "is-selected" : ""}`,
             attr: { "aria-pressed": isSelected ? "true" : "false" }
           });
-          const iconSpan = pill.createSpan({ cls: "ticktick-pill-icon" });
-          setIcon(iconSpan, isSelected ? "check" : "tag");
+          const iconSpanTag = pill.createSpan({ cls: "ticktick-pill-icon" });
+          setIcon(iconSpanTag, isSelected ? "check" : "tag");
           pill.createSpan({ text: `#${tag}` });
           pill.addEventListener("click", (e) => {
             e.preventDefault();
@@ -393,35 +484,275 @@ export class TaskEditorModal extends Modal {
 
     renderTagsUI();
 
-    // ─── Description Section (Full-width, Markdown Preview & Edit) ───
+    // ─── 6. Description & Markdown Toolbar Section ───
     const descSection = fields.createDiv({ cls: "ticktick-desc-section" });
     const descHeader = descSection.createDiv({ cls: "ticktick-desc-header" });
-    const descHeaderInfo = descHeader.createDiv({ cls: "ticktick-desc-header-info" });
-    descHeaderInfo.createSpan({ text: "📋 توضیحات (Markdown)", cls: "ticktick-desc-label" });
+    const descLabel = descHeader.createDiv({ cls: "ticktick-field-label" });
+    const dlIcon = descLabel.createSpan({ cls: "ticktick-field-icon" });
+    setIcon(dlIcon, "file-text");
+    descLabel.createSpan({ text: "توضیحات و چک‌لیست" });
 
     const tabsWrap = descHeader.createDiv({ cls: "ticktick-desc-tabs" });
+    const editTabBtn = tabsWrap.createEl("button", {
+      cls: "ticktick-tab-btn is-active",
+      attr: { type: "button" }
+    });
+    const etIcon = editTabBtn.createSpan({ cls: "ticktick-tab-icon" });
+    setIcon(etIcon, "edit-3");
+    editTabBtn.createSpan({ text: "ویرایش متن" });
+
     const previewTabBtn = tabsWrap.createEl("button", {
       cls: "ticktick-tab-btn",
-      text: "👁️ پیش‌نمایش"
+      attr: { type: "button" }
     });
-    const editTabBtn = tabsWrap.createEl("button", {
-      cls: "ticktick-tab-btn",
-      text: "✏️ ویرایش متن"
-    });
+    const pvIcon = previewTabBtn.createSpan({ cls: "ticktick-tab-icon" });
+    setIcon(pvIcon, "eye");
+    previewTabBtn.createSpan({ text: "پیش‌نمایش زنده" });
+
+    // Markdown Toolbar (Quick Formatting Buttons)
+    const mdToolbar = descSection.createDiv({ cls: "ticktick-md-toolbar" });
 
     const descContainer = descSection.createDiv({ cls: "ticktick-desc-container" });
-    const previewEl = descContainer.createDiv({ cls: "ticktick-desc-preview" });
+    const previewEl = descContainer.createDiv({ cls: "ticktick-desc-preview is-hidden" });
     const descTextarea = descContainer.createEl("textarea", {
       cls: "ticktick-desc-textarea",
-      placeholder: "توضیحات و یادداشت‌های تسک را وارد کن... (پشتیبانی کامل از Markdown)"
+      placeholder: "توضیحات، یادداشت یا چک‌لیست تسک را بنویسید... (پشتیبانی کامل از Markdown)"
     });
     descTextarea.value = description;
-    descTextarea.oninput = () => { description = descTextarea.value; };
+    descTextarea.addEventListener("input", () => {
+      description = descTextarea.value;
+    });
+
+    // ── Tablet Virtual Keyboard Avoidance ──
+    const ensureTextareaVisible = () => {
+      window.setTimeout(() => {
+        descTextarea.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 180);
+    };
+
+    descTextarea.addEventListener("focus", () => {
+      fields.addClass("is-desc-focused");
+      ensureTextareaVisible();
+    });
+    descTextarea.addEventListener("blur", () => {
+      fields.removeClass("is-desc-focused");
+    });
+    descTextarea.addEventListener("click", ensureTextareaVisible);
+
+    // Obsidian-native Markdown Editing UX: Smart Enter, Tab/Shift-Tab indent, and Formatting Shortcuts
+    descTextarea.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const start = descTextarea.selectionStart;
+        const end = descTextarea.selectionEnd;
+        const val = descTextarea.value;
+
+        if (e.shiftKey) {
+          // Un-indent: remove up to 2 spaces (or tab) at line start
+          const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+          const linePrefix = val.slice(lineStart, lineStart + 2);
+          let removeCount = 0;
+          if (linePrefix.startsWith("\t")) removeCount = 1;
+          else if (linePrefix === "  ") removeCount = 2;
+          else if (linePrefix.startsWith(" ")) removeCount = 1;
+
+          if (removeCount > 0) {
+            descTextarea.value = val.slice(0, lineStart) + val.slice(lineStart + removeCount);
+            descTextarea.selectionStart = Math.max(lineStart, start - removeCount);
+            descTextarea.selectionEnd = Math.max(lineStart, end - removeCount);
+          }
+        } else {
+          // Indent: insert 2 spaces
+          descTextarea.setRangeText("  ", start, end, "end");
+        }
+        description = descTextarea.value;
+        return;
+      }
+
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+        const start = descTextarea.selectionStart;
+        const val = descTextarea.value;
+        const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+        const lineText = val.slice(lineStart, start);
+
+        // Check for Markdown list patterns
+        const cbMatch = lineText.match(/^([ \t]*)([-*+] \[(?: |x|X)\] )(.*)$/);
+        const bulletMatch = !cbMatch && lineText.match(/^([ \t]*)([-*+] )(.*)$/);
+        const numMatch = !cbMatch && !bulletMatch && lineText.match(/^([ \t]*)(\d+)\. (.*)$/);
+
+        if (cbMatch) {
+          const [_, indent, prefix, content] = cbMatch;
+          if (!content.trim()) {
+            // Empty checklist item: terminate list
+            e.preventDefault();
+            descTextarea.value = val.slice(0, lineStart) + val.slice(start);
+            descTextarea.selectionStart = descTextarea.selectionEnd = lineStart;
+          } else {
+            // Auto-continue checklist item
+            e.preventDefault();
+            const nextItem = `\n${indent}- [ ] `;
+            descTextarea.setRangeText(nextItem, start, start, "end");
+          }
+          description = descTextarea.value;
+          return;
+        }
+
+        if (bulletMatch) {
+          const [_, indent, prefix, content] = bulletMatch;
+          if (!content.trim()) {
+            // Empty bullet item: terminate list
+            e.preventDefault();
+            descTextarea.value = val.slice(0, lineStart) + val.slice(start);
+            descTextarea.selectionStart = descTextarea.selectionEnd = lineStart;
+          } else {
+            // Auto-continue bullet item
+            e.preventDefault();
+            const nextItem = `\n${indent}${prefix}`;
+            descTextarea.setRangeText(nextItem, start, start, "end");
+          }
+          description = descTextarea.value;
+          return;
+        }
+
+        if (numMatch) {
+          const [_, indent, numStr, content] = numMatch;
+          if (!content.trim()) {
+            // Empty numbered item: terminate list
+            e.preventDefault();
+            descTextarea.value = val.slice(0, lineStart) + val.slice(start);
+            descTextarea.selectionStart = descTextarea.selectionEnd = lineStart;
+          } else {
+            // Auto-increment numbered item
+            e.preventDefault();
+            const nextNum = parseInt(numStr, 10) + 1;
+            const nextItem = `\n${indent}${nextNum}. `;
+            descTextarea.setRangeText(nextItem, start, start, "end");
+          }
+          description = descTextarea.value;
+          return;
+        }
+      }
+
+      // Formatting shortcuts: Ctrl+B / Cmd+B (Bold), Ctrl+I / Cmd+I (Italic), Ctrl+K (Link)
+      if ((e.ctrlKey || e.metaKey) && (e.key === "b" || e.key === "B")) {
+        e.preventDefault();
+        insertMarkdownWrap(descTextarea, "**", "**", "متن");
+        description = descTextarea.value;
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "i" || e.key === "I")) {
+        e.preventDefault();
+        insertMarkdownWrap(descTextarea, "*", "*", "متن");
+        description = descTextarea.value;
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        insertMarkdownWrap(descTextarea, "[", "](https://)", "عنوان");
+        description = descTextarea.value;
+        return;
+      }
+    });
+
+    if (window.visualViewport) {
+      const onViewportResize = () => {
+        if (document.activeElement === descTextarea) {
+          ensureTextareaVisible();
+        }
+      };
+      window.visualViewport.addEventListener("resize", onViewportResize);
+      this.comp.register(() => window.visualViewport?.removeEventListener("resize", onViewportResize));
+    }
+
+    // Markdown Formatting Toolbar Buttons
+    const toolbarButtons: Array<{ icon: string; title: string; action: () => void }> = [
+      {
+        icon: "bold",
+        title: "بولد / پررنگ (**متن**)",
+        action: () => insertMarkdownWrap(descTextarea, "**", "**", "متن")
+      },
+      {
+        icon: "italic",
+        title: "ایتالیک / مورب (*متن*)",
+        action: () => insertMarkdownWrap(descTextarea, "*", "*", "متن")
+      },
+      {
+        icon: "strikethrough",
+        title: "خط‌خورده (~~متن~~)",
+        action: () => insertMarkdownWrap(descTextarea, "~~", "~~", "متن")
+      },
+      {
+        icon: "heading",
+        title: "سرتیتر (### عنوان)",
+        action: () => insertMarkdownLinePrefix(descTextarea, "### ")
+      },
+      {
+        icon: "check-square",
+        title: "مورد چک‌لیست (- [ ] مورد)",
+        action: () => insertMarkdownLinePrefix(descTextarea, "- [ ] ")
+      },
+      {
+        icon: "list",
+        title: "لیست بالت (- آیتم)",
+        action: () => insertMarkdownLinePrefix(descTextarea, "- ")
+      },
+      {
+        icon: "list-ordered",
+        title: "لیست شماره‌دار (1. آیتم)",
+        action: () => insertMarkdownLinePrefix(descTextarea, "1. ")
+      },
+      {
+        icon: "code",
+        title: "کد (`کد`)",
+        action: () => insertMarkdownWrap(descTextarea, "`", "`", "کد")
+      },
+      {
+        icon: "quote",
+        title: "نقل‌قول (> متن)",
+        action: () => insertMarkdownLinePrefix(descTextarea, "> ")
+      },
+      {
+        icon: "link",
+        title: "پیوند ([عنوان](آدرس))",
+        action: () => insertMarkdownWrap(descTextarea, "[", "](https://)", "عنوان")
+      },
+      {
+        icon: "minus",
+        title: "خط جداکننده (---)",
+        action: () => insertMarkdownWrap(descTextarea, "\n---\n", "", "")
+      }
+    ];
+
+    for (const btnInfo of toolbarButtons) {
+      const btn = mdToolbar.createEl("button", {
+        cls: "ticktick-md-btn",
+        attr: { type: "button", title: btnInfo.title, "aria-label": btnInfo.title }
+      });
+      setIcon(btn, btnInfo.icon);
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        btnInfo.action();
+      });
+    }
 
     const renderPreview = async () => {
       previewEl.empty();
-      const content = description.trim() || "*هنوز توضیحی برای این تسک ثبت نشده است. برای نوشتن، روی دکمه «ویرایش متن» در بالا کلیک کنید.*";
+      const content = description.trim() || "*توضیحی برای این تسک ثبت نشده است. برای نوشتن یا تغییر، روی «ویرایش متن» کلیک کنید.*";
       await MarkdownRenderer.render(this.app, content, previewEl, "", this.comp);
+
+      // Make markdown checkboxes interactive and sync with description
+      const checkboxes = previewEl.querySelectorAll<HTMLInputElement>("input[type='checkbox']");
+      checkboxes.forEach((cb, index) => {
+        cb.disabled = false;
+        cb.removeAttribute("disabled");
+        cb.style.cursor = "pointer";
+        cb.addEventListener("change", (e) => {
+          e.stopPropagation();
+          description = toggleMarkdownCheckboxAtIndex(description, index);
+          descTextarea.value = description;
+          void renderPreview();
+        });
+      });
     };
 
     const setTab = (tab: "preview" | "edit", autoFocus = false) => {
@@ -430,6 +761,7 @@ export class TaskEditorModal extends Modal {
         editTabBtn.removeClass("is-active");
         previewEl.removeClass("is-hidden");
         descTextarea.addClass("is-hidden");
+        mdToolbar.addClass("is-hidden");
         description = descTextarea.value;
         void renderPreview();
       } else {
@@ -437,19 +769,20 @@ export class TaskEditorModal extends Modal {
         previewTabBtn.removeClass("is-active");
         previewEl.addClass("is-hidden");
         descTextarea.removeClass("is-hidden");
+        mdToolbar.removeClass("is-hidden");
         if (autoFocus) {
           descTextarea.focus();
+          ensureTextareaVisible();
         }
       }
     };
 
-    previewTabBtn.onclick = (e) => { e.preventDefault(); setTab("preview"); };
-    editTabBtn.onclick = (e) => { e.preventDefault(); setTab("edit", true); };
+    previewTabBtn.addEventListener("click", (e) => { e.preventDefault(); setTab("preview"); });
+    editTabBtn.addEventListener("click", (e) => { e.preventDefault(); setTab("edit", true); });
 
-    const initialTab = description.trim() ? "preview" : "edit";
-    setTab(initialTab, false);
+    setTab("edit", false);
 
-    // ─── Subtasks Management Section (If editing an existing task) ───
+    // ─── 7. Subtasks Management Section (If editing an existing task) ───
     if (this.initial.id) {
       const currentTaskId = String(this.initial.id);
       const existingSubtasks = this.availableTasks.filter(t => String(t.parentId) === currentTaskId);
@@ -459,17 +792,120 @@ export class TaskEditorModal extends Modal {
       subHeader.createSpan({ text: `📑 زیرتسک‌ها (${existingSubtasks.length})`, cls: "ticktick-subtasks-title" });
 
       const subtasksList = subtasksSection.createDiv({ cls: "ticktick-editor-subtasks-list" });
+
+      const renderSubtaskItem = (st: TickTickTask) => {
+        const itemRow = subtasksList.createDiv({ cls: "ticktick-editor-subtask-item" });
+        let isDone = Number(st.status ?? 0) !== 0;
+
+        // Checkbox
+        const cb = itemRow.createEl("input", {
+          type: "checkbox",
+          cls: "ticktick-subtask-checkbox",
+          attr: { title: isDone ? "علامت‌گذاری به عنوان انجام نشده" : "علامت‌گذاری به عنوان تکمیل شده" }
+        });
+        cb.checked = isDone;
+
+        const titleSpan = itemRow.createSpan({
+          text: cleanTaskTitle(st.title) || "بدون عنوان",
+          cls: `ticktick-subtask-title-text${isDone ? " is-completed" : ""}`
+        });
+
+        cb.addEventListener("change", async (e) => {
+          e.stopPropagation();
+          const targetState = cb.checked;
+          cb.disabled = true;
+          try {
+            if (this.subtaskActions?.onToggle) {
+              await this.subtaskActions.onToggle(st, targetState);
+            }
+            st.status = targetState ? 2 : 0;
+            isDone = targetState;
+            titleSpan.toggleClass("is-completed", isDone);
+            cb.title = isDone ? "علامت‌گذاری به عنوان انجام نشده" : "علامت‌گذاری به عنوان تکمیل شده";
+          } catch (err) {
+            cb.checked = !targetState;
+            new Notice(err instanceof Error ? err.message : "تغییر وضعیت زیرتسک ناموفق بود.");
+          } finally {
+            cb.disabled = false;
+          }
+        });
+
+        // Subtask Actions (Edit & Delete)
+        const actionsDiv = itemRow.createDiv({ cls: "ticktick-subtask-actions" });
+
+        // Edit button: Opens the full TaskEditorModal for this subtask
+        const editBtn = actionsDiv.createEl("button", {
+          cls: "ticktick-subtask-action-btn mod-edit",
+          attr: { type: "button", title: "ویرایش کامل زیرتسک" }
+        });
+        setIcon(editBtn, "pencil");
+
+        editBtn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (this.subtaskActions?.onEdit) {
+            editBtn.disabled = true;
+            try {
+              const updated = await this.subtaskActions.onEdit(st);
+              if (updated && typeof updated === "object") {
+                Object.assign(st, updated);
+              }
+              const fresh = this.availableTasks.find(t => String(t.id) === String(st.id));
+              if (fresh) {
+                Object.assign(st, fresh);
+              }
+              const isUpdatedDone = Number(st.status ?? 0) !== 0;
+              cb.checked = isUpdatedDone;
+              titleSpan.setText(cleanTaskTitle(st.title) || "بدون عنوان");
+              titleSpan.toggleClass("is-completed", isUpdatedDone);
+            } catch (err) {
+              new Notice(err instanceof Error ? err.message : "ویرایش زیرتسک ناموفق بود.");
+            } finally {
+              editBtn.disabled = false;
+            }
+          }
+        });
+
+        // Delete button
+        const delBtn = actionsDiv.createEl("button", {
+          cls: "ticktick-subtask-action-btn mod-delete",
+          attr: { type: "button", title: "حذف زیرتسک" }
+        });
+        setIcon(delBtn, "trash-2");
+
+        delBtn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const confirmed = await confirmDelete(this.app, st.title || "زیرتسک");
+          if (!confirmed) return;
+
+          delBtn.disabled = true;
+          try {
+            if (this.subtaskActions?.onDelete) {
+              await this.subtaskActions.onDelete(st);
+            }
+            itemRow.remove();
+            new Notice(`زیرتسک «${st.title}» حذف شد.`);
+            const count = subtasksList.querySelectorAll(".ticktick-editor-subtask-item").length;
+            if (count === 0) {
+              subtasksList.createSpan({ cls: "ticktick-no-tags-hint", text: "بدون زیرتسک" });
+            }
+            subHeader.querySelector(".ticktick-subtasks-title")?.setText(`📑 زیرتسک‌ها (${count})`);
+          } catch (err) {
+            new Notice(err instanceof Error ? err.message : "حذف زیرتسک ناموفق بود.");
+            delBtn.disabled = false;
+          }
+        });
+      };
+
       if (existingSubtasks.length === 0) {
         subtasksList.createSpan({ cls: "ticktick-no-tags-hint", text: "بدون زیرتسک" });
       } else {
         for (const st of existingSubtasks) {
-          const itemRow = subtasksList.createDiv({ cls: "ticktick-editor-subtask-item" });
-          itemRow.createSpan({ text: Number(st.status ?? 0) !== 0 ? "☑" : "☐", cls: "ticktick-subtask-check-icon" });
-          itemRow.createSpan({ text: cleanTaskTitle(st.title) || "بدون عنوان", cls: "ticktick-subtask-title-text" });
+          renderSubtaskItem(st);
         }
       }
 
-      // Quick inline input to add a new subtask
       const addSubRow = subtasksSection.createDiv({ cls: "ticktick-add-subtask-row" });
       const subInput = addSubRow.createEl("input", {
         type: "text",
@@ -490,14 +926,23 @@ export class TaskEditorModal extends Modal {
         addSubBtn.disabled = true;
         try {
           if (this.onCreateSubtask) {
-            await this.onCreateSubtask(currentTaskId, subTitle);
+            const res = await this.onCreateSubtask(currentTaskId, subTitle) as TickTickTask | undefined;
             new Notice(`زیرتسک «${subTitle}» ایجاد شد.`);
             const hint = subtasksList.querySelector(".ticktick-no-tags-hint");
             if (hint) hint.remove();
-            const newSubRow = subtasksList.createDiv({ cls: "ticktick-editor-subtask-item" });
-            newSubRow.createSpan({ text: "☐", cls: "ticktick-subtask-check-icon" });
-            newSubRow.createSpan({ text: subTitle, cls: "ticktick-subtask-title-text" });
+
+            const newSt: TickTickTask = res && typeof res === "object" && res.id ? res : {
+              id: `temp-${Date.now()}`,
+              title: subTitle,
+              parentId: currentTaskId,
+              projectId: projectId,
+              status: 0
+            } as any;
+
+            renderSubtaskItem(newSt);
             subInput.value = "";
+            const count = subtasksList.querySelectorAll(".ticktick-editor-subtask-item").length;
+            subHeader.querySelector(".ticktick-subtasks-title")?.setText(`📑 زیرتسک‌ها (${count})`);
           }
         } catch (err) {
           new Notice(err instanceof Error ? err.message : "ایجاد زیرتسک ناموفق بود.");
@@ -522,7 +967,7 @@ export class TaskEditorModal extends Modal {
 
     const onSave = () => {
       description = descTextarea.value;
-      if (!title.trim() || !projectId) return new Notice("عنوان و پروژه را وارد کن.");
+      if (!title.trim() || !projectId) return new Notice("لطفاً عنوان و پروژه تسک را مشخص کنید.");
       if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return new Notice("تاریخ باید به شکل YYYY-MM-DD باشد.");
       this.finish({
         ...this.initial,
@@ -539,12 +984,25 @@ export class TaskEditorModal extends Modal {
       });
     };
 
-    // ─── Action buttons ───
+    // ─── 8. Sticky Action Buttons Footer ───
     const actions = contentEl.createDiv({ cls: "ticktick-editor-actions" });
-    actions.createEl("button", { text: "❌ انصراف" }).addEventListener("click", () => this.finish(null));
-    actions.createEl("button", { text: "💾 ذخیره", cls: "mod-cta" }).addEventListener("click", () => onSave());
+    const cancelBtn = actions.createEl("button", {
+      cls: "ticktick-action-btn mod-cancel",
+      text: "انصراف",
+      attr: { type: "button" }
+    });
+    cancelBtn.addEventListener("click", () => this.finish(null));
 
-    // ─── Ensure scroll starts at the top and focus title input ───
+    const saveBtn = actions.createEl("button", {
+      cls: "ticktick-action-btn mod-cta mod-save",
+      attr: { type: "button" }
+    });
+    const sIcon = saveBtn.createSpan({ cls: "ticktick-btn-icon" });
+    setIcon(sIcon, "check");
+    saveBtn.createSpan({ text: this.initial.id ? "ذخیره تغییرات" : "ایجاد تسک" });
+    saveBtn.addEventListener("click", () => onSave());
+
+    // Scroll reset and auto-focus
     const resetScrollToTop = () => {
       fields.scrollTop = 0;
       contentEl.scrollTop = 0;
@@ -610,10 +1068,11 @@ export function openTaskEditor(
   existingTags: string[] = [],
   availableTasks: TickTickTask[] = [],
   onCreateSubtask?: (parentId: string, title: string) => Promise<unknown>,
-  getProjectColumns?: (projectId: string) => Array<{ id: string; name: string }> | Promise<Array<{ id: string; name: string }>>
+  getProjectColumns?: (projectId: string) => Array<{ id: string; name: string }> | Promise<Array<{ id: string; name: string }>>,
+  subtaskActions?: SubtaskActions
 ) {
   const allProjects = [{ id: "inbox", name: "صندوق ورودی" }, ...projects.filter(p => p.id !== "inbox")];
-  return new TaskEditorModal(app, allProjects, initial, existingTags, availableTasks, onCreateSubtask, getProjectColumns).openAndWait();
+  return new TaskEditorModal(app, allProjects, initial, existingTags, availableTasks, onCreateSubtask, getProjectColumns, subtaskActions).openAndWait();
 }
 
 export function confirmDelete(app: App, title: string) {

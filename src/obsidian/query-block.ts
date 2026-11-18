@@ -113,7 +113,9 @@ export class QueryBlockRenderer {
           },
           complete: async () => {
             await this.host.complete(task);
-          }
+          },
+          updateTask: this.host.updateTask ? (m) => this.host.updateTask!(m as any) : undefined,
+          allTasks: () => this.host.tasks()
         }).open();
       });
 

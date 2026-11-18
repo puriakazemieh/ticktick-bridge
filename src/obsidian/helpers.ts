@@ -237,11 +237,12 @@ export function persianMonthSegments(start: string, due: string) {
 
 export async function addDescriptionToggle(app: App, component: Component, body: HTMLElement, actions: HTMLElement, task: TaskDraft) {
   const description = cleanTaskDescription(task.desc || task.content);
+  if (!description || !description.trim()) return;
   const button = actions.createEl("button", { cls: "mod-icon", attr: { "aria-label": "توضیحات" } });
   setIcon(button, "file-text");
   const panel = body.createDiv({ cls: "ticktick-bridge-description" });
   panel.addClass("is-hidden");
-  await MarkdownRenderer.render(app, description || "توضیحی برای این تسک ثبت نشده است.", panel, "", component);
+  await MarkdownRenderer.render(app, description, panel, "", component);
   button.addEventListener("click", () => panel.classList.toggle("is-hidden"));
 }
 
@@ -257,6 +258,21 @@ export function reminderTimeFromTask(task: TaskDraft) {
     if (match) return `${match[1].padStart(2, "0")}:${match[2].padStart(2, "0")}`;
   }
   return "";
+}
+
+/** Toggles the i-th markdown checkbox in text from [ ] to [x] or vice versa */
+export function toggleMarkdownCheckboxAtIndex(markdown: string, index: number): string {
+  let count = 0;
+  const regex = /^([ \t]*[-*+]\s+\[)([ xX])(\].*)$/gm;
+  return markdown.replace(regex, (match, prefix, checkChar, suffix) => {
+    if (count === index) {
+      count++;
+      const nextChar = checkChar.trim().toLowerCase() === "x" ? " " : "x";
+      return `${prefix}${nextChar}${suffix}`;
+    }
+    count++;
+    return match;
+  });
 }
 
 export function toTaskPayload(draft: TaskDraft, timeZone: string) {

@@ -124,7 +124,6 @@
 .ticktick-project-check,
 .ticktick-task-check,
 .ticktick-month-check,
-.ticktick-range-check,
 .ticktick-overflow-check {
   appearance: none !important;
   -webkit-appearance: none !important;
@@ -135,6 +134,26 @@
   margin: 0 !important;
   border: 2px solid color-mix(in srgb, var(--interactive-accent) 65%, var(--background-modifier-border)) !important;
   border-radius: var(--tb-radius-xs, 0.28rem) !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 140ms ease !important;
+  position: relative !important;
+  flex-shrink: 0 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
+}
+
+.ticktick-range-check {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 1rem !important;
+  height: 1rem !important;
+  min-width: 1rem !important;
+  min-height: 1rem !important;
+  margin: 0 !important;
+  border: 1.5px solid color-mix(in srgb, var(--interactive-accent) 70%, var(--background-modifier-border)) !important;
+  border-radius: var(--tb-radius-xs, 0.22rem) !important;
   background: transparent !important;
   cursor: pointer !important;
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 140ms ease !important;

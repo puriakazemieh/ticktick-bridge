@@ -125,61 +125,83 @@
 .ticktick-jalali-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
   text-align: center;
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-muted);
-  margin-bottom: 0.35rem;
-  padding-bottom: 0.25rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 50%, transparent);
+  margin-bottom: 0.45rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
 }
 
 .ticktick-jalali-weekdays span {
-  padding: 0.15rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0;
+  user-select: none;
 }
 
 .ticktick-jalali-days-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 3px;
+  gap: 4px;
+  width: 100%;
 }
 
 .ticktick-jalali-day-cell {
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8rem;
-  border-radius: 6px;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  color: var(--text-normal);
-  transition: all 0.15s ease;
-  padding: 0;
-  margin: 0;
-  min-height: 28px;
+  aspect-ratio: 1 / 1 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 34px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.85rem !important;
+  font-variant-numeric: tabular-nums !important;
+  border-radius: var(--tb-radius-m, 8px) !important;
+  cursor: pointer !important;
+  border: 1px solid transparent !important;
+  background: color-mix(in srgb, var(--background-primary) 65%, var(--background-secondary)) !important;
+  color: var(--text-normal) !important;
+  box-shadow: none !important;
+  transition: all 0.15s ease !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
 }
 
-.ticktick-jalali-day-cell:hover:not(.is-empty) {
-  background: var(--background-modifier-hover);
-  color: var(--text-accent);
+.ticktick-jalali-day-cell:hover {
+  background: var(--background-modifier-hover) !important;
+  color: var(--text-accent) !important;
+  border-color: var(--interactive-accent) !important;
+}
+
+.ticktick-jalali-day-cell.is-other-month {
+  color: var(--text-faint) !important;
+  opacity: 0.42 !important;
+  background: transparent !important;
+  font-weight: normal !important;
+}
+
+.ticktick-jalali-day-cell.is-other-month:hover {
+  opacity: 0.85 !important;
+  background: var(--background-modifier-hover) !important;
+}
+
+.ticktick-jalali-day-cell.is-today {
+  border-color: var(--interactive-accent) !important;
+  font-weight: 700 !important;
+  color: var(--interactive-accent) !important;
 }
 
 .ticktick-jalali-day-cell.is-selected {
   background: var(--interactive-accent) !important;
   color: var(--text-on-accent) !important;
-  font-weight: bold;
-}
-
-.ticktick-jalali-day-cell.is-today {
-  border: 1px solid var(--interactive-accent);
-  font-weight: 700;
-}
-
-.ticktick-jalali-day-cell.is-empty {
-  cursor: default;
-  background: transparent !important;
+  border-color: var(--interactive-accent) !important;
+  font-weight: bold !important;
+  box-shadow: 0 2px 8px rgba(124, 77, 255, 0.35) !important;
 }
 
 .ticktick-jalali-cal-footer {

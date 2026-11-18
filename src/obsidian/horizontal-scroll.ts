@@ -110,27 +110,11 @@ export function enhanceHorizontalScroll(element: HTMLElement) {
 
 /** Ensure a horizontally scrollable container starts scrolled all the way to its start (far-right for RTL). */
 export function scrollToStart(element: HTMLElement) {
-  const align = () => {
-    const isRtl = getComputedStyle(element).direction === "rtl";
-    if (!isRtl) {
-      element.scrollLeft = 0;
-      return;
-    }
-    // In Chromium / Blink (Obsidian / Electron), RTL scrollLeft is 0 at the right edge.
+  const isRtl = getComputedStyle(element).direction === "rtl";
+  if (!isRtl) {
     element.scrollLeft = 0;
-    // Fallback if environment uses positive RTL scroll (0 at left, max at right):
-    if (element.scrollLeft === 0 && element.scrollWidth > element.clientWidth) {
-      element.scrollLeft = 1;
-      if (element.scrollLeft > 0) {
-        element.scrollLeft = element.scrollWidth - element.clientWidth;
-      } else {
-        element.scrollLeft = 0;
-      }
-    }
-  };
-
-  align();
-  if (typeof requestAnimationFrame === "function") {
-    requestAnimationFrame(align);
+    return;
   }
+  // In Chromium / Blink (Obsidian / Electron), RTL scrollLeft is 0 at the right edge.
+  element.scrollLeft = 0;
 }

@@ -374,7 +374,9 @@ export default class TickTickBridgePlugin extends Plugin {
       binding: (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task: TickTickTask) => this.loadTaskDetails(task),
       edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
+      deleteTask: async (task: TickTickTask) => this.deleteTask(task),
       create: async (initial: TaskDraft | Partial<TickTickTask>) => this.createTaskFromSurface(initial),
+      updateTask: async (mutation: Partial<TickTickTask>) => this.updateTask(mutation),
       habits: (day: string) => this.cachedHabitsForDay(day),
       checkInHabit: async (habit: TickTickHabit, day: string) => {
         const goal = Math.max(1, Number(habit.checkin?.goal ?? habit.goal ?? habit.target ?? 1));
@@ -391,6 +393,7 @@ export default class TickTickBridgePlugin extends Plugin {
       showHabits: () => this.settings.plannerShowHabits,
       setShowHabits: async (value: boolean) => { this.settings.plannerShowHabits = value; await this.saveSettings(); },
       openHabitEditor: (habit?: TickTickHabit) => this.openHabitEditor(habit),
+      onEditHabit: (habit: TickTickHabit) => { void this.openHabitEditor(habit); },
       savedViews: () => this.settings.savedViews || [],
       saveSavedViews: async (views: SavedView[]) => { this.settings.savedViews = views; await this.saveSettings(); },
       executeBulkOperation: async (taskIds: string[], op: string, params: any) => this.executeBulkOperation(taskIds, op, params),
@@ -433,6 +436,9 @@ export default class TickTickBridgePlugin extends Plugin {
       binding: (task: TickTickTask) => this.markdownSync.bindingForTask(String(task.id)),
       load: async (task: TickTickTask) => this.loadTaskDetails(task),
       edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
+      deleteTask: async (task: TickTickTask) => this.deleteTask(task),
+      create: async (initial: TaskDraft | Partial<TickTickTask>) => this.createTaskFromSurface(initial),
+      updateTask: async (mutation: Partial<TickTickTask>) => this.updateTask(mutation),
       moveToColumn: async (task: TickTickTask, columnId: string) => this.moveTaskToBoardColumn(task, columnId),
       showCompleted: () => this.settings.plannerShowCompleted,
       preferences: () => ({ selected: this.settings.boardLastProjectId, collapsed: this.settings.boardCollapsedGroups, sidebarCollapsed: this.settings.boardSidebarCollapsed, sidebarPreferenceInitialized: this.settings.boardSidebarPreferenceInitialized, smartViewGrouping: this.settings.boardSmartViewGrouping }),
@@ -480,6 +486,7 @@ export default class TickTickBridgePlugin extends Plugin {
       refresh: async () => { await this.syncNow(); },
       load: async (task: TickTickTask) => this.loadTaskDetails(task),
       edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
+      deleteTask: async (task: TickTickTask) => this.deleteTask(task),
       complete: async (task: TickTickTask) => {
         if (this.markdownSync.bindingForTask(String(task.id))) {
           await this.markdownSync.completeBoundTask(String(task.id));
@@ -509,6 +516,7 @@ export default class TickTickBridgePlugin extends Plugin {
       },
       load: async (task: TickTickTask) => this.loadTaskDetails(task),
       edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
+      deleteTask: async (task: TickTickTask) => this.deleteTask(task),
       executeBulkOperation: async (taskIds: string[], op: string, params: any) => this.executeBulkOperation(taskIds, op, params),
     };
   }
@@ -532,6 +540,7 @@ export default class TickTickBridgePlugin extends Plugin {
       },
       load: async (task: TickTickTask) => this.loadTaskDetails(task),
       edit: async (task: TickTickTask) => this.editTaskFromSurface(task),
+      deleteTask: async (task: TickTickTask) => this.deleteTask(task),
       executeBulkOperation: async (taskIds: string[], op: string, params: any) => this.executeBulkOperation(taskIds, op, params),
     };
   }
@@ -1304,6 +1313,24 @@ export default class TickTickBridgePlugin extends Plugin {
     return [];
   }
 
+  private subtaskActionsForEditor() {
+    return {
+      onToggle: async (st: TickTickTask, completed: boolean) => {
+        if (completed) {
+          await this.completeTask(st);
+        } else {
+          await this.updateTask({ ...st, status: 0 });
+        }
+      },
+      onEdit: async (st: TickTickTask) => {
+        await this.editTaskFromSurface(st);
+      },
+      onDelete: async (st: TickTickTask) => {
+        await this.deleteTask(st);
+      }
+    };
+  }
+
   async createTaskFromSurface(initial: TaskDraft = {}) {
     const projects = this.cache.projects.length ? this.cache.projects : await this.client().listProjects();
     const draft = await openTaskEditor(
@@ -1320,7 +1347,8 @@ export default class TickTickBridgePlugin extends Plugin {
           projectId: pTask?.projectId ?? projects[0]?.id
         });
       },
-      (projId: string) => this.getProjectColumns(projId)
+      (projId: string) => this.getProjectColumns(projId),
+      this.subtaskActionsForEditor()
     );
     if (!draft) return null;
     return this.createTask(toTaskPayload(draft, this.settings.timeZone));
@@ -1359,7 +1387,8 @@ export default class TickTickBridgePlugin extends Plugin {
           projectId: pTask?.projectId ?? current.projectId ?? projects[0]?.id
         });
       },
-      (projId: string) => this.getProjectColumns(projId)
+      (projId: string) => this.getProjectColumns(projId),
+      this.subtaskActionsForEditor()
     );
     if (!draft) return null;
     const payload = toTaskPayload({ ...current, ...draft }, this.settings.timeZone);
@@ -2096,7 +2125,7 @@ export default class TickTickBridgePlugin extends Plugin {
         addButton.disabled = true;
         try {
           const projects = await client.listProjects();
-          const draft = await openTaskEditor(this.app, projects, { dueDate: day }, this.availableTags(), this.cache.tasks, undefined, (projId) => this.getProjectColumns(projId));
+          const draft = await openTaskEditor(this.app, projects, { dueDate: day }, this.availableTags(), this.cache.tasks, undefined, (projId) => this.getProjectColumns(projId), this.subtaskActionsForEditor());
           if (!draft) return;
           await this.createTask(toTaskPayload(draft, this.settings.timeZone));
           new Notice("تسک به TickTick اضافه شد.");
@@ -2121,22 +2150,28 @@ export default class TickTickBridgePlugin extends Plugin {
         const body = row.createDiv({ cls: "daily-task-main" });
         body.createSpan({ cls: "daily-task-title", text: title });
         appendChecklistSummary(body, task, this.settings.experimentalChecklistReadOnly);
-        const description = body.createDiv({ cls: "daily-task-description is-hidden" });
-        await MarkdownRenderer.renderMarkdown(cleanTaskDescription(task.desc || task.content) || "توضیحی برای این تسک ثبت نشده است.", description, "", this);
+        const taskDesc = cleanTaskDescription(task.desc || task.content);
+        let description: HTMLElement | null = null;
+        if (taskDesc && taskDesc.trim()) {
+          description = body.createDiv({ cls: "daily-task-description is-hidden" });
+          await MarkdownRenderer.renderMarkdown(taskDesc, description, "", this);
+        }
         const due = toDateKey(task.dueDate, task.timeZone || this.settings.timeZone) ?? "";
         const start = toDateKey(task.startDate, task.timeZone || this.settings.timeZone) ?? "";
         row.createSpan({ cls: `daily-task-date${due && due < day ? " is-overdue" : ""}`, text: formatTaskSchedule(start, due, day) });
         const actions = row.createDiv({ cls: "daily-task-actions" });
-        const descriptionButton = actions.createEl("button", { cls: "daily-task-action mod-icon", attr: { "aria-label": "توضیحات" } });
-        setIcon(descriptionButton, "file-text");
+        if (description) {
+          const descriptionButton = actions.createEl("button", { cls: "daily-task-action mod-icon", attr: { "aria-label": "توضیحات" } });
+          setIcon(descriptionButton, "file-text");
+          descriptionButton.addEventListener("click", () => {
+            const hidden = description!.hasClass("is-hidden");
+            description!.toggleClass("is-hidden", !hidden);
+          });
+        }
         const edit = actions.createEl("button", { cls: "daily-task-action mod-icon", attr: { "aria-label": "ویرایش" } });
         setIcon(edit, "pencil");
         const remove = actions.createEl("button", { cls: "daily-task-action is-danger mod-icon", attr: { "aria-label": "حذف" } });
         setIcon(remove, "trash-2");
-        descriptionButton.addEventListener("click", () => {
-          const hidden = description.hasClass("is-hidden");
-          description.toggleClass("is-hidden", !hidden);
-        });
         check.addEventListener("change", async () => {
           check.disabled = true;
           row.addClass("is-completed");
@@ -2164,7 +2199,7 @@ export default class TickTickBridgePlugin extends Plugin {
         edit.addEventListener("click", async () => {
           try {
             const projects = await client.listProjects();
-            const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks, undefined, (projId) => this.getProjectColumns(projId));
+            const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks, undefined, (projId) => this.getProjectColumns(projId), this.subtaskActionsForEditor());
             if (!draft) return;
             await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
             new Notice("تسک در TickTick ویرایش شد.");
@@ -2328,14 +2363,14 @@ export default class TickTickBridgePlugin extends Plugin {
                 await this.checkInHabit(String(habitItem.id), dayKey, { value: Math.max(0, val), goal: Math.max(1, goalVal), status: val >= goalVal ? 2 : undefined });
                 await this.renderHabitBlock(element, dashboard, dayOverride);
               },
-              onEditHabit: dashboard ? (habitItem) => {
+              onEditHabit: (habitItem) => {
                 void this.openHabitEditor(habitItem);
-              } : undefined
+              }
             }, d).open();
           },
-          onEditHabit: dashboard ? (h) => {
+          onEditHabit: (h) => {
             void this.openHabitEditor(h);
-          } : undefined
+          }
         });
       }
     } catch (error) {
@@ -2390,7 +2425,7 @@ export default class TickTickBridgePlugin extends Plugin {
             card.disabled = true;
             try {
               const projects = await this.client().listProjects();
-              const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks, undefined, (projId) => this.getProjectColumns(projId));
+              const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks, undefined, (projId) => this.getProjectColumns(projId), this.subtaskActionsForEditor());
               if (!draft) return;
               await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
               new Notice("تسک تکرارشونده در TickTick ویرایش شد.");

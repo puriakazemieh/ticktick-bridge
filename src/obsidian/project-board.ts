@@ -42,6 +42,7 @@ export type ProjectBoardHost = {
   deleteProject: (projectId: string) => Promise<unknown>;
   createTask: (initial: Partial<TickTickTask>) => Promise<unknown>;
   updateTask?: (mutation: Partial<TickTickTask>) => Promise<unknown>;
+  deleteTask?: (task: TickTickTask) => Promise<any>;
   tasks: () => TickTickTask[];
   habits: () => TickTickHabit[];
   checkInHabit: (habit: TickTickHabit, day: string) => Promise<unknown>;
@@ -1276,6 +1277,9 @@ export class ProjectBoard {
           },
           load: item => this.host.load(item),
           edit: item => this.host.edit(item),
+          updateTask: this.host.updateTask ? (m) => this.host.updateTask!(m) : undefined,
+          deleteTask: this.host.deleteTask ? (t) => this.host.deleteTask!(t) : undefined,
+          createTask: (d) => this.host.createTask(d),
           changed: async () => {
             await this.host.refresh();
             await this.render();
@@ -1317,6 +1321,9 @@ export class ProjectBoard {
           },
           load: item => this.host.load(item),
           edit: item => this.host.edit(item),
+          updateTask: this.host.updateTask ? (m) => this.host.updateTask!(m) : undefined,
+          deleteTask: this.host.deleteTask ? (t) => this.host.deleteTask!(t) : undefined,
+          createTask: (d) => this.host.createTask(d),
           changed: async () => {
             await this.host.refresh();
             await this.render();

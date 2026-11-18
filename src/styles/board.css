@@ -132,7 +132,13 @@
   color: var(--interactive-accent) !important;
 }
 
-.ticktick-project-card.is-note { border-inline-start-color: var(--color-blue, var(--interactive-accent)); background: color-mix(in srgb, var(--background-secondary) 88%, var(--color-blue) 12%); }
+.ticktick-project-card.is-note {
+  border-color: color-mix(in srgb, var(--color-blue, var(--interactive-accent)) 35%, var(--background-modifier-border)) !important;
+  background: color-mix(in srgb, var(--background-secondary) 88%, var(--color-blue) 12%) !important;
+}
+.ticktick-project-card.is-note::before {
+  background: var(--color-blue, var(--interactive-accent)) !important;
+}
 .ticktick-project-note-icon, .ticktick-project-pin { display: inline-flex; color: var(--text-muted); margin-inline-start: .25rem; }
 .ticktick-project-pin { color: var(--color-yellow, #d49a2a); }
 .ticktick-conflict-card { border: 1px solid var(--background-modifier-border); border-radius: .55rem; padding: .65rem; margin: .6rem 0; display: grid; gap: .35rem; direction: rtl; text-align: right; }
@@ -709,7 +715,7 @@
   display: flex;
   gap: 1rem;
   overflow-x: auto;
-  padding-bottom: 1rem;
+  padding: 0.25rem 0.75rem 1rem 0.75rem;
   min-height: 25rem;
   align-items: flex-start;
   direction: rtl !important;
@@ -862,20 +868,21 @@
 
 /* Kanban Cards */
 .ticktick-project-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  padding: 0.7rem 0.85rem;
+  padding: 0.7rem 0.95rem 0.7rem 0.85rem;
   border-radius: var(--tb-radius-l, 0.75rem);
   background: var(--background-secondary) !important;
   border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 25%, var(--background-modifier-border)) !important;
-  border-inline-start: 4px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
   box-shadow: var(--tb-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08)) !important;
   cursor: pointer;
   min-width: 0;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  overflow: hidden;
   overflow-wrap: anywhere;
   word-break: break-word;
   transition:
@@ -883,6 +890,20 @@
     background 160ms ease,
     border-color 160ms ease,
     box-shadow 160ms ease;
+}
+
+.ticktick-project-card::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--ticktick-task-tone, var(--interactive-accent));
+  pointer-events: none;
+  border-start-start-radius: inherit;
+  border-end-start-radius: inherit;
+  z-index: 1;
 }
 
 .ticktick-project-card:hover {

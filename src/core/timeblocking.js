@@ -118,7 +118,7 @@ export function computeDayTimeSlots(tasks = [], targetDay, options = {}) {
   for (const task of tasks) {
     if (!task) continue;
     const isCompleted = Number(task.status ?? 0) !== 0;
-    if (isCompleted) continue; // Exclude completed from active agenda
+    if (isCompleted && !options.showCompleted) continue;
 
     const dueDay = toDateKey(task.dueDate, task.timeZone || timeZone);
     const startDay = toDateKey(task.startDate, task.timeZone || timeZone);

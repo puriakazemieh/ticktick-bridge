@@ -26,6 +26,7 @@ export interface EisenhowerMatrixHost {
   refresh: () => Promise<void>;
   updateTask: (mutation: Partial<TickTickTask>) => Promise<any>;
   createTask?: (initial: Partial<TickTickTask>) => Promise<any>;
+  deleteTask?: (task: TickTickTask) => Promise<any>;
   complete: (task: TickTickTask) => Promise<any>;
   load: (task: TickTickTask) => Promise<TickTickTask | undefined>;
   edit: (task: TickTickTask) => Promise<any>;
@@ -290,6 +291,10 @@ export class EisenhowerMatrix {
             await this.host.complete(t);
             await this.render();
           },
+          updateTask: (m) => this.host.updateTask(m),
+          deleteTask: this.host.deleteTask ? (task) => this.host.deleteTask!(task) : undefined,
+          createTask: this.host.createTask ? (d) => this.host.createTask!(d) : undefined,
+          allTasks: () => this.host.tasks(),
           changed: async () => {
             await this.render();
           }

@@ -43,76 +43,252 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-height: 88vh;
+  max-height: 90vh;
   overflow: hidden;
   padding: 0;
   margin: 0;
   direction: rtl;
+  position: relative;
 }
 
-/* ─── Decorative header ─── */
+/* ─── Modern Refined Header ─── */
 .ticktick-editor-header {
-  position: relative;
-  padding: 1.3rem 1.6rem 0.95rem;
-  background: linear-gradient(145deg,
-    color-mix(in srgb, var(--interactive-accent) 18%, var(--background-primary)),
-    color-mix(in srgb, var(--interactive-accent) 6%, var(--background-primary)));
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.4rem;
+  background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary));
+  border-bottom: 1px solid var(--background-modifier-border);
   flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.ticktick-editor-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.ticktick-editor-header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--interactive-accent) 20%, transparent);
+  color: var(--interactive-accent);
+}
+
+.ticktick-editor-header-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .ticktick-task-editor-modal h2 {
-  margin: 0 0 0.15rem;
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.ticktick-task-editor-subtitle {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  line-height: 1.5;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-normal);
 }
 
-/* Gradient divider between header and fields */
-.ticktick-editor-divider {
-  height: 2px;
-  background: linear-gradient(to left,
-    transparent,
-    color-mix(in srgb, var(--interactive-accent) 55%, transparent) 20%,
-    var(--interactive-accent) 50%,
-    color-mix(in srgb, var(--interactive-accent) 55%, transparent) 80%,
-    transparent);
-  flex-shrink: 0;
+.ticktick-editor-header-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.22rem 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  color: var(--interactive-accent);
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 28%, transparent);
 }
 
 /* ─── Fields container ─── */
 .ticktick-editor-fields {
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: 0.6rem 1.6rem 1rem;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  padding: 1.1rem 1.4rem clamp(200px, 40vh, 360px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
 }
 
-.ticktick-task-editor-modal .setting-item {
-  align-items: flex-start;
-  gap: 0.8rem;
-  padding: 0.78rem 0;
-  border-color: color-mix(in srgb, var(--background-modifier-border) 55%, transparent);
+/* ─── Modern Form Groups & Grid ─── */
+.ticktick-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
 }
 
-.ticktick-task-editor-modal .setting-item-info { min-width: 7.5rem; }
-
-.ticktick-task-editor-modal .setting-item-name {
-  font-weight: var(--font-semibold);
-  font-size: 0.84rem;
+.ticktick-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.85rem;
+  width: 100%;
 }
 
-.ticktick-task-editor-modal .setting-item-description {
-  margin-top: 0.2rem;
-  line-height: 1.45;
-  font-size: 0.72rem;
+.ticktick-field-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.ticktick-field-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.ticktick-field-icon svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+  opacity: 0.85;
+}
+
+.ticktick-field-required {
+  color: var(--text-error, #ef4444);
+  font-size: 0.85rem;
+}
+
+/* ─── Title Input (Prominent) ─── */
+.ticktick-title-input {
+  width: 100% !important;
+  height: 42px !important;
+  font-size: 1.05rem !important;
+  font-weight: 600 !important;
+  padding: 0 0.85rem !important;
+  border-radius: var(--tb-radius-m, 10px) !important;
+  background: var(--background-primary) !important;
+  border: 1.5px solid var(--background-modifier-border) !important;
+  color: var(--text-normal) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+  transition: all 160ms ease !important;
+}
+
+.ticktick-title-input:focus {
+  border-color: var(--interactive-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 25%, transparent) !important;
+  outline: none !important;
+}
+
+/* ─── Select Triggers (Project & Column) ─── */
+.ticktick-select-trigger {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  height: 38px !important;
+  padding: 0 0.75rem !important;
+  border-radius: var(--tb-radius-m, 8px) !important;
+  background: var(--background-secondary) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  color: var(--text-normal) !important;
+  font-size: 0.84rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 140ms ease !important;
+  direction: rtl !important;
+  text-align: right !important;
+}
+
+.ticktick-select-trigger:hover {
+  border-color: var(--interactive-accent) !important;
+  background: var(--background-modifier-hover) !important;
+}
+
+.ticktick-select-trigger-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticktick-select-trigger-chevron {
+  display: inline-flex;
+  align-items: center;
   color: var(--text-faint);
+  margin-inline-start: 0.4rem;
+  flex-shrink: 0;
+}
+
+.ticktick-select-trigger-chevron svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+
+/* Kanban Column Control Row & Clear Button */
+.ticktick-column-picker-control {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  width: 100% !important;
+  flex-wrap: nowrap !important;
+}
+
+.ticktick-column-picker-control .ticktick-select-trigger {
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+
+.ticktick-column-clear-btn {
+  flex: 0 0 38px !important;
+  width: 38px !important;
+  height: 38px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: var(--tb-radius-m, 8px) !important;
+  background: var(--background-secondary) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  color: var(--text-normal) !important;
+  cursor: pointer !important;
+  transition: all 130ms ease !important;
+  box-sizing: border-box !important;
+}
+
+.ticktick-column-clear-btn svg {
+  width: 16px !important;
+  height: 16px !important;
+  stroke: var(--text-normal) !important;
+  stroke-width: 2.2px !important;
+  display: block !important;
+}
+
+.ticktick-column-clear-btn:hover {
+  background: color-mix(in srgb, var(--text-error) 15%, var(--background-secondary)) !important;
+  border-color: var(--text-error) !important;
+}
+
+.ticktick-column-clear-btn:hover svg {
+  stroke: var(--text-error) !important;
+}
+
+.ticktick-time-input {
+  width: 100% !important;
+  height: 38px !important;
+  padding: 0 0.75rem !important;
+  border-radius: var(--tb-radius-m, 8px) !important;
+  background: var(--background-secondary) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  font-size: 0.85rem !important;
+  color: var(--text-normal) !important;
+}
+
+.ticktick-date-control-wrap {
+  width: 100%;
 }
 
 .ticktick-task-editor-modal .setting-item-control { flex: 1; min-width: 0; }
@@ -437,14 +613,100 @@
 }
 
 .ticktick-editor-subtask-item {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.82rem;
-  color: var(--text-normal);
-  padding: 0.25rem 0.4rem;
-  background: color-mix(in srgb, var(--background-secondary) 60%, transparent);
-  border-radius: 0.35rem;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.6rem !important;
+  font-size: 0.84rem !important;
+  color: var(--text-normal) !important;
+  padding: 0.4rem 0.65rem !important;
+  background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary)) !important;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent) !important;
+  border-radius: var(--tb-radius-m, 8px) !important;
+  transition: all 120ms ease !important;
+}
+
+.ticktick-editor-subtask-item:hover {
+  border-color: color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
+  background: var(--background-modifier-hover) !important;
+}
+
+.ticktick-subtask-checkbox {
+  appearance: auto !important;
+  width: 17px !important;
+  height: 17px !important;
+  cursor: pointer !important;
+  accent-color: var(--interactive-accent) !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+.ticktick-subtask-title-text {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  line-height: 1.4 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  transition: color 140ms ease, text-decoration 140ms ease !important;
+}
+
+.ticktick-subtask-title-text.is-completed {
+  text-decoration: line-through !important;
+  color: var(--text-faint) !important;
+  opacity: 0.7 !important;
+}
+
+.ticktick-subtask-inline-edit {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  font-size: 0.84rem !important;
+  padding: 0.2rem 0.45rem !important;
+  height: 28px !important;
+  background: var(--background-primary) !important;
+  border: 1px solid var(--interactive-accent) !important;
+  border-radius: 6px !important;
+  color: var(--text-normal) !important;
+}
+
+.ticktick-subtask-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+  flex-shrink: 0 !important;
+  margin-inline-start: auto !important;
+}
+
+.ticktick-subtask-action-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 26px !important;
+  height: 26px !important;
+  padding: 0 !important;
+  border-radius: 5px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  cursor: pointer !important;
+  transition: all 120ms ease !important;
+}
+
+.ticktick-subtask-action-btn svg {
+  width: 14px !important;
+  height: 14px !important;
+  display: block !important;
+}
+
+.ticktick-subtask-action-btn.mod-edit:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 20%, transparent) !important;
+  color: var(--interactive-accent) !important;
+  border-color: color-mix(in srgb, var(--interactive-accent) 40%, transparent) !important;
+}
+
+.ticktick-subtask-action-btn.mod-delete:hover {
+  background: color-mix(in srgb, var(--text-error) 20%, transparent) !important;
+  color: var(--text-error) !important;
+  border-color: color-mix(in srgb, var(--text-error) 40%, transparent) !important;
 }
 
 .ticktick-subtask-check-icon {
@@ -486,13 +748,13 @@
   display: block;
 }
 
-/* Dedicated Description Section (Full-width, Markdown Preview & Edit) */
+/* Dedicated Description Section (Full-width, Markdown Toolbar, Preview & Edit) */
 .ticktick-desc-section {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-  margin-top: 0.9rem;
-  padding-top: 0.9rem;
+  gap: 0.55rem;
+  margin-top: 0.6rem;
+  padding-top: 0.85rem;
   border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
 }
 
@@ -502,12 +764,6 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.6rem;
-}
-
-.ticktick-desc-label {
-  font-weight: var(--font-semibold);
-  font-size: 0.88rem;
-  color: var(--text-normal);
 }
 
 .ticktick-desc-tabs {
@@ -524,13 +780,22 @@
   background: transparent;
   border: none;
   color: var(--text-muted);
-  padding: 0.32rem 0.9rem;
-  font-size: 0.82rem;
+  padding: 0.28rem 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   font-family: inherit;
   border-radius: 999px;
   cursor: pointer;
   transition: all 160ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ticktick-tab-btn .ticktick-tab-icon svg {
+  width: 12px;
+  height: 12px;
+  display: block;
 }
 
 .ticktick-tab-btn:hover {
@@ -540,8 +805,54 @@
 
 .ticktick-tab-btn.is-active {
   background: var(--interactive-accent);
-  color: var(--text-on-accent);
+  color: var(--text-on-accent, #ffffff);
   box-shadow: 0 2px 6px color-mix(in srgb, var(--interactive-accent) 35%, transparent);
+}
+
+/* ─── Markdown Toolbar ─── */
+.ticktick-md-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 5px 8px;
+  background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary));
+  border: 1px solid var(--background-modifier-border);
+  border-bottom: none;
+  border-radius: 9px 9px 0 0;
+}
+
+.ticktick-md-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  border-radius: 6px !important;
+  color: var(--text-muted) !important;
+  cursor: pointer !important;
+  transition: all 120ms ease !important;
+}
+
+.ticktick-md-btn:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-modifier-hover)) !important;
+  color: var(--interactive-accent) !important;
+  transform: scale(1.1);
+}
+
+.ticktick-md-btn:active {
+  transform: scale(0.95);
+}
+
+.ticktick-md-btn svg {
+  width: 14px;
+  height: 14px;
+  display: block;
 }
 
 .ticktick-desc-container {
@@ -551,35 +862,46 @@
 
 .ticktick-desc-textarea {
   width: 100% !important;
-  min-height: 190px !important;
-  max-height: 45vh !important;
+  min-height: 160px !important;
+  max-height: 38vh !important;
   resize: vertical !important;
-  line-height: 1.8 !important;
-  direction: rtl !important;
-  text-align: right !important;
+  line-height: 1.7 !important;
+  direction: auto !important;
+  unicode-bidi: plaintext !important;
+  text-align: start !important;
+  tab-size: 2 !important;
+  -moz-tab-size: 2 !important;
   font-family: var(--font-text, inherit) !important;
-  font-size: 0.95rem !important;
-  padding: 0.9rem 1.15rem !important;
+  font-size: 0.94rem !important;
+  padding: 0.85rem 1rem !important;
   background: var(--background-secondary) !important;
   border: 1px solid var(--background-modifier-border) !important;
-  border-radius: 0.65rem !important;
+  border-radius: 0 0 9px 9px !important;
   box-sizing: border-box !important;
+  transition: border-color 160ms ease, box-shadow 160ms ease !important;
+}
+
+.ticktick-desc-textarea:focus {
+  border-color: var(--interactive-accent) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 20%, transparent) !important;
+  outline: none !important;
 }
 
 .ticktick-desc-preview {
-  min-height: 190px;
-  max-height: 45vh;
+  min-height: 160px;
+  max-height: 38vh;
   overflow-y: auto;
-  direction: rtl;
-  text-align: right;
-  padding: 1.15rem 1.35rem;
-  background: color-mix(in srgb, var(--background-secondary) 55%, var(--background-primary));
+  direction: auto;
+  unicode-bidi: plaintext;
+  text-align: start;
+  padding: 1rem 1.25rem;
+  background: color-mix(in srgb, var(--background-secondary) 60%, var(--background-primary));
   border: 1px solid var(--background-modifier-border);
-  border-radius: 0.65rem;
-  line-height: 1.9;
+  border-radius: 9px;
+  line-height: 1.85;
   color: var(--text-normal);
-  font-size: 0.96rem;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
+  font-size: 0.94rem;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 /* Markdown preview typography */
@@ -588,202 +910,141 @@
 .ticktick-desc-preview h3 {
   color: var(--text-normal);
   font-weight: 700;
-  margin-top: 1.1rem;
-  margin-bottom: 0.45rem;
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
 }
 
-.ticktick-desc-preview h1 { font-size: 1.3rem; border-bottom: 1px solid var(--background-modifier-border); padding-bottom: 0.35rem; }
-.ticktick-desc-preview h2 { font-size: 1.15rem; color: var(--interactive-accent); }
-.ticktick-desc-preview h3 { font-size: 1.02rem; }
-.ticktick-desc-preview p { margin: 0.4rem 0 0.6rem; }
-.ticktick-desc-preview ul, .ticktick-desc-preview ol { padding-inline-start: 1.5rem; padding-inline-end: 0; margin: 0.5rem 0; }
-.ticktick-desc-preview li { margin-bottom: 0.3rem; }
-.ticktick-desc-preview hr { border: none; height: 1px; background: color-mix(in srgb, var(--background-modifier-border) 80%, transparent); margin: 1.2rem 0; }
-.ticktick-desc-preview input[type="checkbox"] { margin-inline-end: 0.45rem; cursor: pointer; accent-color: var(--interactive-accent); }
-.ticktick-desc-preview .task-list-item { list-style-type: none; display: flex; align-items: flex-start; }
+.ticktick-desc-preview h1 { font-size: 1.25rem; border-bottom: 1px solid var(--background-modifier-border); padding-bottom: 0.3rem; }
+.ticktick-desc-preview h2 { font-size: 1.12rem; color: var(--interactive-accent); }
+.ticktick-desc-preview h3 { font-size: 1rem; }
+.ticktick-desc-preview p { margin: 0.35rem 0 0.55rem; }
+.ticktick-desc-preview ul, .ticktick-desc-preview ol { padding-inline-start: 1.4rem; padding-inline-end: 0; margin: 0.45rem 0; }
+.ticktick-desc-preview li { margin-bottom: 0.28rem; }
+.ticktick-desc-preview hr { border: none; height: 1px; background: color-mix(in srgb, var(--background-modifier-border) 80%, transparent); margin: 1rem 0; }
+
+/* ── Checklists in Markdown Preview (RTL Perfect Alignment & Interactive) ── */
+.ticktick-desc-preview .contains-task-list {
+  list-style-type: none !important;
+  padding-inline-start: 0.2rem !important;
+  padding-inline-end: 0 !important;
+  margin: 0.45rem 0 !important;
+}
+
+.ticktick-desc-preview .task-list-item {
+  list-style-type: none !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.65rem !important;
+  margin-bottom: 0.45rem !important;
+  line-height: 1.6 !important;
+  position: relative !important;
+}
+
+.ticktick-desc-preview .task-list-item-checkbox,
+.ticktick-desc-preview input[type="checkbox"] {
+  position: relative !important;
+  top: 0.18rem !important;
+  left: auto !important;
+  right: auto !important;
+  float: none !important;
+  margin: 0 !important;
+  width: 17px !important;
+  height: 17px !important;
+  min-width: 17px !important;
+  min-height: 17px !important;
+  cursor: pointer !important;
+  accent-color: var(--interactive-accent) !important;
+  border-radius: 4px !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  flex-shrink: 0 !important;
+  transition: transform 120ms ease;
+}
+
+.ticktick-desc-preview input[type="checkbox"]:hover {
+  transform: scale(1.15);
+}
 
 .is-hidden {
   display: none !important;
 }
 
-/* Project picker button */
-.ticktick-task-editor-modal .ticktick-project-picker {
-  width: 100%;
-  min-height: 2.45rem;
-  justify-content: flex-start;
-  padding: 0.5rem 0.75rem;
-  direction: rtl;
-  text-align: right;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 0.55rem;
-  transition: border-color 200ms ease, box-shadow 200ms ease;
-}
-
-.ticktick-task-editor-modal .ticktick-project-picker:hover {
-  border-color: var(--interactive-accent-hover);
-}
-
-.ticktick-task-editor-modal .ticktick-project-picker::after {
-  content: "▾";
-  margin-inline-start: auto; margin-inline-end: 0.4rem;
-  color: var(--text-faint);
-  font-size: 0.75rem;
-}
-
-/* Kanban column picker in task editor */
-.ticktick-column-picker-control {
+/* ─── Sticky Action buttons Footer ─── */
+.ticktick-task-editor-modal .ticktick-editor-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 25;
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  width: 100%;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding: 0.85rem 1.4rem;
+  background: color-mix(in srgb, var(--background-secondary) 94%, var(--background-primary));
+  border-top: 1px solid var(--background-modifier-border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  flex-shrink: 0;
+  margin: 0;
 }
 
-.ticktick-task-editor-modal .ticktick-column-picker-btn {
-  flex: 1 1 auto;
-  min-height: 2.45rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  direction: rtl;
-  text-align: right;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 0.55rem;
-  transition: border-color 200ms ease, box-shadow 200ms ease;
-  cursor: pointer;
+.ticktick-action-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.45rem !important;
+  min-width: 6.5rem !important;
+  height: 38px !important;
+  padding: 0 1.15rem !important;
+  border-radius: var(--tb-radius-m, 8px) !important;
+  font-size: 0.84rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 150ms ease !important;
 }
 
-.ticktick-task-editor-modal .ticktick-column-picker-btn:hover {
-  border-color: var(--interactive-accent-hover);
+.ticktick-action-btn.mod-cancel {
+  background: transparent !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  color: var(--text-muted) !important;
 }
 
-.ticktick-task-editor-modal .ticktick-column-picker-btn::after {
-  content: "▾";
-  margin-inline-start: auto;
-  margin-inline-end: 0.2rem;
-  color: var(--text-faint);
-  font-size: 0.75rem;
+.ticktick-action-btn.mod-cancel:hover {
+  background: var(--background-modifier-hover) !important;
+  color: var(--text-normal) !important;
+  border-color: color-mix(in srgb, var(--interactive-accent) 30%, var(--background-modifier-border)) !important;
 }
 
-.ticktick-column-clear-btn {
-  width: 2.1rem;
-  height: 2.1rem;
-  min-width: 2.1rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.45rem;
-  background: color-mix(in srgb, var(--background-modifier-error) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--background-modifier-error) 30%, transparent);
-  color: var(--text-error, #e53935);
-  cursor: pointer;
-  transition: all 120ms ease;
+.ticktick-action-btn.mod-save {
+  background: linear-gradient(135deg, var(--interactive-accent), color-mix(in srgb, var(--interactive-accent) 80%, #7c3aed)) !important;
+  color: var(--text-on-accent, #ffffff) !important;
+  border: 1px solid var(--interactive-accent) !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 35%, transparent) !important;
 }
 
-.ticktick-column-clear-btn:hover {
-  background: var(--background-modifier-error);
-  color: var(--text-on-accent, #fff);
-}
-
-/* ─── Form inputs ─── */
-.ticktick-task-editor-modal input,
-.ticktick-task-editor-modal textarea,
-.ticktick-task-editor-modal select {
-  width: 100%;
-  min-height: 2.45rem;
-  padding: 0.5rem 0.7rem;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 0.55rem;
-  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--background-primary) 35%, transparent);
-  transition: border-color 200ms ease, box-shadow 200ms ease;
-}
-
-.ticktick-task-editor-modal textarea {
-  min-height: 7.5rem;
-  padding: 0.65rem 0.75rem;
-  line-height: 1.7;
-  resize: vertical;
-}
-
-.ticktick-task-editor-modal input:hover,
-.ticktick-task-editor-modal textarea:hover,
-.ticktick-task-editor-modal select:hover {
-  border-color: color-mix(in srgb, var(--interactive-accent) 55%, var(--background-modifier-border));
-}
-
-.ticktick-task-editor-modal input:focus-visible,
-.ticktick-task-editor-modal textarea:focus-visible,
-.ticktick-task-editor-modal select:focus-visible {
-  border-color: var(--interactive-accent);
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--interactive-accent) 18%, transparent),
-    inset 0 1px 2px color-mix(in srgb, var(--background-primary) 25%, transparent);
-  outline: none;
-}
-
-/* ─── Action buttons ─── */
-.ticktick-task-editor-modal .ticktick-editor-actions,
-.ticktick-task-editor-modal .modal-button-container {
-  display: flex;
-  gap: 0.6rem;
-  margin: 1.3rem 1.1rem 0.2rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
-}
-
-.ticktick-task-editor-modal .ticktick-editor-actions button,
-.ticktick-task-editor-modal .modal-button-container button {
-  min-width: 6rem;
-  min-height: 2.4rem;
-  padding: 0.45rem 1.1rem;
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: var(--font-semibold);
-  cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, opacity 160ms ease;
-}
-
-/* Save/CTA button */
-.ticktick-task-editor-modal .ticktick-editor-actions button.mod-cta,
-.ticktick-task-editor-modal .modal-button-container button.mod-cta {
-  background: linear-gradient(135deg, var(--interactive-accent), color-mix(in srgb, var(--interactive-accent) 78%, #7c3aed));
-  color: var(--text-on-accent);
-  border: none;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 30%, transparent);
-}
-
-.ticktick-task-editor-modal .ticktick-editor-actions button.mod-cta:hover,
-.ticktick-task-editor-modal .modal-button-container button.mod-cta:hover {
+.ticktick-action-btn.mod-save:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--interactive-accent) 45%, transparent) !important;
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--interactive-accent) 40%, transparent);
 }
 
-/* Cancel/ghost button */
-.ticktick-task-editor-modal .ticktick-editor-actions button:not(.mod-cta):not(.mod-warning),
-.ticktick-task-editor-modal .modal-button-container button:not(.mod-cta):not(.mod-warning) {
-  background: transparent;
-  color: var(--text-muted);
-  border: 1px solid var(--background-modifier-border);
+.ticktick-action-btn.mod-save .ticktick-btn-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  stroke: var(--text-on-accent, #ffffff) !important;
 }
 
-.ticktick-task-editor-modal .ticktick-editor-actions button:not(.mod-cta):not(.mod-warning):hover,
-.ticktick-task-editor-modal .modal-button-container button:not(.mod-cta):not(.mod-warning):hover {
-  color: var(--text-normal);
-  background: var(--background-secondary);
-  border-color: color-mix(in srgb, var(--interactive-accent) 35%, var(--background-modifier-border));
+/* ── Tablet & Keyboard Avoidance Media Queries ── */
+@media (max-width: 900px), (max-height: 700px) {
+  .modal.ticktick-modal {
+    max-height: 94vh !important;
+    top: 10px !important;
+    margin-top: 0 !important;
+  }
+  .ticktick-editor-fields {
+    padding-bottom: 280px !important;
+  }
 }
-
-.ticktick-task-editor-modal .ticktick-editor-actions button:active,
-.ticktick-task-editor-modal .modal-button-container button:active { transform: translateY(1px); }
 
 @media (prefers-reduced-motion: reduce) {
   .ticktick-task-grid .ticktick-task-card,
@@ -882,131 +1143,293 @@
 /* ─── Task Details Modal Suite ─── */
 .ticktick-task-details-modal .modal-content {
   direction: rtl;
-  padding: 1.25rem 1.6rem 1.5rem;
+  padding: 1.5rem 1.6rem 1.5rem;
   overflow-y: auto;
 }
 
 .ticktick-task-details-modal .modal-header {
-  position: relative;
-  display: block;
-  min-height: 2.6rem;
-  padding: 1.1rem 1.6rem 0.6rem;
-  direction: rtl;
-  border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 40%, transparent);
+  display: none !important;
 }
 
-.ticktick-task-details-modal .modal-title {
-  display: block;
+/* ── Modern Modal Header with Circular Completion Button ── */
+.ticktick-modal-header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1.5px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
+}
+
+.ticktick-modal-complete-btn {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  max-width: 28px !important;
+  max-height: 28px !important;
+  border-radius: 50% !important;
+  border: 2px solid color-mix(in srgb, var(--interactive-accent) 80%, var(--background-modifier-border)) !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+  transition: all 160ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  box-sizing: border-box !important;
+}
+
+.ticktick-modal-complete-btn:hover {
+  border-color: var(--interactive-accent) !important;
+  background: color-mix(in srgb, var(--interactive-accent) 22%, transparent) !important;
+  transform: scale(1.12);
+}
+
+.ticktick-modal-complete-btn.is-completed {
+  background: var(--interactive-accent) !important;
+  border-color: var(--interactive-accent) !important;
+  color: var(--text-on-accent, #ffffff) !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 45%, transparent);
+}
+
+.ticktick-modal-complete-btn svg {
+  stroke: var(--text-on-accent, #ffffff) !important;
+}
+
+.ticktick-modal-task-title {
   margin: 0;
-  direction: rtl;
-  text-align: right;
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   font-weight: 700;
   color: var(--text-normal);
+  line-height: 1.35;
+  text-align: right;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+  transition: opacity 150ms ease, text-decoration 150ms ease;
 }
 
-.ticktick-task-details-meta,
-.ticktick-task-details-tags {
+.ticktick-modal-task-title.is-completed {
+  text-decoration: line-through;
+  color: var(--text-muted);
+  opacity: 0.65;
+}
+
+/* ── Metadata Chips Grid ── */
+.ticktick-task-details-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
-  color: var(--text-muted);
-  font-size: 0.76rem;
-  margin-bottom: 0.85rem;
-}
-
-.ticktick-task-details-meta span,
-.ticktick-task-details-tags {
-  display: inline-flex;
+  gap: 0.5rem;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.65rem;
-  border-radius: var(--tb-radius-full, 9999px);
-  background: var(--background-secondary);
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  margin-bottom: 1.15rem;
 }
 
-.ticktick-task-details-description {
+.ticktick-modal-meta-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary)) !important;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent) !important;
+  color: var(--text-muted) !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+}
+
+.ticktick-modal-meta-chip .ticktick-chip-icon svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.ticktick-modal-meta-chip.is-project {
+  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-secondary)) !important;
+  color: var(--interactive-accent) !important;
+  border-color: color-mix(in srgb, var(--interactive-accent) 30%, transparent) !important;
+}
+
+.ticktick-modal-meta-chip.is-date {
+  background: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-secondary)) !important;
+  color: var(--text-normal) !important;
+  border-color: color-mix(in srgb, var(--interactive-accent) 25%, transparent) !important;
+}
+
+.ticktick-modal-meta-chip.is-tag {
+  background: color-mix(in srgb, var(--text-muted) 10%, var(--background-secondary)) !important;
+  color: var(--text-normal) !important;
+}
+
+.ticktick-modal-meta-chip.is-priority.prio-3 {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: var(--tb-color-red, #ef4444) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+}
+
+.ticktick-modal-meta-chip.is-priority.prio-2 {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: var(--tb-color-orange, #f59e0b) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+.ticktick-modal-meta-chip.is-priority.prio-1 {
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: var(--tb-color-blue, #3b82f6) !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+}
+
+/* ── Section Headers & Boxes ── */
+.ticktick-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0.65rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.ticktick-section-header .mod-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.ticktick-task-details-description,
+.ticktick-task-details-checklist,
+.ticktick-task-details-deps,
+.ticktick-details-subtasks {
   padding: 1rem 1.15rem;
   margin: 0.85rem 0;
-  line-height: 1.8;
+  line-height: 1.7;
   overflow-wrap: anywhere;
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 55%, transparent);
+  border-radius: var(--tb-radius-m, 0.65rem);
+  background: var(--background-secondary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.ticktick-task-details-description,
+.ticktick-details-subtasks {
   border-inline-start: 3.5px solid var(--interactive-accent);
-  border-radius: var(--tb-radius-m, 0.55rem);
-  background: var(--background-secondary);
-  box-shadow: var(--tb-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08));
 }
 
-.ticktick-task-details-description > strong {
-  display: block;
-  margin-bottom: 0.45rem;
-  font-size: 0.82rem;
+.ticktick-desc-empty {
   color: var(--text-muted);
-}
-
-.ticktick-task-details-description .markdown-rendered {
-  direction: rtl;
-  text-align: right;
-  font-size: 0.88rem;
-  color: var(--text-normal);
-}
-
-.ticktick-task-details-checklist {
-  margin: 0.85rem 0;
-  padding: 0.95rem 1.15rem;
-  border-radius: var(--tb-radius-m, 0.55rem);
-  background: var(--background-secondary);
-  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
-}
-
-.ticktick-task-details-checklist strong {
-  display: block;
-  margin-bottom: 0.55rem;
   font-size: 0.84rem;
-  font-weight: 700;
-  color: var(--text-normal);
+  font-style: italic;
+  opacity: 0.7;
 }
 
-.ticktick-task-details-checklist div {
-  padding: 0.25rem 0;
-  color: var(--text-normal);
-  font-size: 0.82rem;
-  line-height: 1.5;
+/* Interactive Checklist Inside Markdown */
+.ticktick-rendered-desc input[type="checkbox"] {
+  cursor: pointer !important;
+  width: 15px !important;
+  height: 15px !important;
+  min-width: 15px !important;
+  min-height: 15px !important;
+  margin: 0 0 0 6px !important;
+  vertical-align: middle;
+  accent-color: var(--interactive-accent);
 }
 
+/* Structured Checklist */
+.ticktick-structured-checklist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ticktick-checklist-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background 120ms ease;
+}
+
+.ticktick-checklist-item-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.ticktick-checklist-item-checkbox {
+  cursor: pointer !important;
+  width: 16px !important;
+  height: 16px !important;
+  accent-color: var(--interactive-accent);
+}
+
+.ticktick-checklist-item-text {
+  font-size: 0.85rem;
+  color: var(--text-normal);
+  flex: 1;
+}
+
+.ticktick-checklist-item-row.is-done .ticktick-checklist-item-text {
+  text-decoration: line-through;
+  color: var(--text-muted);
+  opacity: 0.65;
+}
+
+/* ── Modern Modal Action Buttons ── */
 .ticktick-task-details-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
   margin-top: 1.35rem;
-  padding-top: 0.85rem;
+  padding-top: 1rem;
   border-top: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
 }
 
-.ticktick-task-details-actions button {
-  min-width: 6.5rem;
-  min-height: 2.35rem;
-  padding: 0.42rem 1.1rem;
-  border-radius: var(--tb-radius-full, 9999px);
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease;
+.ticktick-modal-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 0.45rem 1rem !important;
+  border-radius: var(--tb-radius-m, 8px) !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 65%, transparent) !important;
+  background: var(--background-secondary) !important;
+  color: var(--text-normal) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  transition: all 150ms ease !important;
 }
 
-.ticktick-task-details-actions button.mod-cta {
-  background: linear-gradient(135deg, var(--interactive-accent), color-mix(in srgb, var(--interactive-accent) 78%, #7c3aed));
-  color: var(--text-on-accent);
-  border: none;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 30%, transparent);
+.ticktick-modal-btn .mod-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
 }
 
-.ticktick-task-details-actions button.mod-cta:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+.ticktick-modal-btn:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12) !important;
+  border-color: var(--interactive-accent) !important;
+}
+
+.ticktick-modal-btn.mod-edit {
+  background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)) !important;
+  border-color: color-mix(in srgb, var(--interactive-accent) 35%, transparent) !important;
+  color: var(--interactive-accent) !important;
+}
+
+.ticktick-modal-btn.mod-edit:hover {
+  background: var(--interactive-accent) !important;
+  color: var(--text-on-accent, #ffffff) !important;
+}
+
+.ticktick-modal-btn.mod-refresh:hover {
+  color: var(--interactive-accent) !important;
+  border-color: var(--interactive-accent) !important;
 }
 
 .ticktick-task-details-loading {

@@ -316,6 +316,11 @@
   border-radius: var(--tb-radius-l, 14px);
 }
 
+.ticktick-planner-filters .ticktick-planner-toggle-btn {
+  height: 30px;
+  box-shadow: none !important;
+}
+
 .ticktick-filter-select-wrapper {
   position: relative;
   display: inline-flex;
@@ -467,15 +472,15 @@
 /* ── 4. Day & Week View Shell & Columns ── */
 .ticktick-planner-days {
   display: block;
-  overflow-x: auto;
+  overflow-x: hidden;
   direction: rtl;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x pan-y !important;
-  overscroll-behavior-x: contain !important;
+  width: 100%;
+  max-width: 100%;
 }
 
 .ticktick-planner-days-shell {
-  min-width: 56rem;
+  min-width: 0;
+  width: 100%;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--background-modifier-border) 55%, transparent);
   border-radius: 0.85rem;
@@ -486,9 +491,10 @@
 .ticktick-planner-days-headers,
 .ticktick-planner-day-columns {
   display: grid;
-  grid-template-columns: repeat(7, minmax(8rem, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0;
   min-width: 0;
+  width: 100%;
 }
 
 .ticktick-planner-days-1 .ticktick-planner-days-shell {
@@ -500,11 +506,44 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.ticktick-planner-days-1 .ticktick-planner-day-header {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0.75rem 1.25rem !important;
+  gap: 1.5rem !important;
+  min-height: 52px !important;
+}
+
+.ticktick-planner-days-1 .ticktick-planner-day-top {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  justify-content: flex-start !important;
+  min-width: 0;
+}
+
+.ticktick-planner-days-1 .ticktick-planner-day-date-wrap {
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.ticktick-planner-days-1 .ticktick-planner-day-bottom {
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
 .ticktick-planner-day-header {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.65rem 0.75rem;
+  gap: 0.25rem;
+  padding: 0.5rem 0.35rem;
+  min-width: 0;
+  overflow: hidden;
   background: color-mix(in srgb, var(--background-primary) 65%, var(--background-secondary));
   transition: background 150ms ease;
 }
@@ -521,12 +560,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 2px;
+  min-width: 0;
 }
 
 .ticktick-planner-day-name {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ticktick-planner-day-header.is-today .ticktick-planner-day-name {
@@ -534,90 +578,109 @@
 }
 
 .ticktick-today-pill {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 700;
-  padding: 0.12rem 0.55rem;
+  padding: 0.1rem 0.4rem;
   border-radius: var(--tb-radius-pill, 9999px);
   background: var(--tb-gradient-accent, var(--interactive-accent));
   color: var(--text-on-accent);
   box-shadow: 0 1px 6px color-mix(in srgb, var(--interactive-accent) 35%, transparent);
+  white-space: nowrap;
 }
 
 .ticktick-planner-day-date-wrap {
   display: flex;
   align-items: baseline;
-  gap: 0.35rem;
-  margin: 0.15rem 0;
+  gap: 0.25rem;
+  margin: 0.1rem 0;
+  min-width: 0;
 }
 
 .ticktick-day-num-badge {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 800;
   color: var(--text-normal);
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .ticktick-day-num-badge.is-today-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.85rem;
-  height: 1.85rem;
+  width: 1.65rem;
+  height: 1.65rem;
   border-radius: 50%;
   background: var(--interactive-accent);
   color: var(--text-on-accent);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 800;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 45%, transparent);
+  flex-shrink: 0;
 }
 
 .ticktick-month-name {
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   font-weight: 500;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .ticktick-planner-day-bottom {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 0.2rem;
+  gap: 2px;
+  margin-top: 0.15rem;
+  min-width: 0;
 }
 
 .ticktick-planner-counter {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 600;
   color: var(--text-muted);
   background: color-mix(in srgb, var(--background-secondary) 80%, var(--background-primary));
-  padding: 0.12rem 0.45rem;
+  padding: 0.1rem 0.35rem;
   border-radius: 999px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ticktick-planner-add {
   display: inline-flex;
   align-items: center;
-  gap: 0.2rem;
-  font-size: 0.68rem;
-  font-weight: 600;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  max-width: 22px !important;
+  max-height: 22px !important;
+  padding: 0 !important;
+  border-radius: var(--tb-radius-m, 6px);
+  background: color-mix(in srgb, var(--background-secondary) 80%, var(--background-primary)) !important;
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent) !important;
   color: var(--text-muted);
-  border: 1px dashed color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
-  padding: 0.12rem 0.5rem;
-  border-radius: 999px;
-  background: transparent;
   cursor: pointer;
   transition: all 140ms ease;
-  opacity: 0.65;
+  opacity: 0.7;
+  box-shadow: none !important;
 }
 
-.ticktick-planner-day-header:hover .ticktick-planner-add {
-  opacity: 1;
-  border-color: var(--interactive-accent);
-  color: var(--interactive-accent);
+.ticktick-planner-day-header:hover .ticktick-planner-add,
+.ticktick-planner-month-header:hover .ticktick-planner-add,
+.ticktick-planner-add:hover {
+  opacity: 1 !important;
+  border-color: var(--interactive-accent) !important;
+  color: var(--interactive-accent) !important;
+  background: var(--background-modifier-hover) !important;
+  transform: scale(1.08);
 }
 
 .ticktick-planner-add svg {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: 11px;
+  height: 11px;
   display: block;
 }
 
@@ -632,10 +695,11 @@
 
 .ticktick-planner-day {
   min-height: 14rem;
-  padding: 0.6rem;
+  padding: 0.35rem 0.25rem;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 2px;
   background: color-mix(in srgb, var(--background-primary) 85%, var(--background-secondary));
   transition: background 150ms ease, outline 150ms ease;
 }
@@ -668,19 +732,35 @@
   position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 0.45rem;
-  padding: 0.6rem 0.75rem;
+  gap: 0.35rem;
+  padding: 0.45rem 0.5rem 0.45rem 0.65rem;
+  min-width: 0;
+  box-sizing: border-box;
+  width: 100%;
   border-radius: var(--tb-radius-l, 12px);
   border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 22%, var(--background-modifier-border)) !important;
-  border-inline-start: 4px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
   background: var(--background-secondary) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  overflow: hidden;
   transition:
     transform 160ms cubic-bezier(.22,1,.36,1),
     box-shadow 160ms cubic-bezier(.22,1,.36,1),
     border-color 160ms ease,
     background 160ms ease;
   cursor: pointer;
+}
+
+.ticktick-planner-task::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--ticktick-task-tone, var(--interactive-accent));
+  pointer-events: none;
+  border-start-start-radius: inherit;
+  border-end-start-radius: inherit;
 }
 
 .ticktick-planner-task:hover {
@@ -804,10 +884,10 @@
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-normal);
-  line-height: 1.5;
-  white-space: normal !important;
-  word-break: break-word !important;
-  overflow-wrap: anywhere !important;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
   width: 100%;
   cursor: pointer;
   transition: color 140ms ease;
@@ -827,15 +907,155 @@
   color: var(--text-muted);
 }
 
-/* ── 6. Multi-day Range Tasks ── */
+/* ── 5b. Ultra-Clean Calendar Task Pills (TickTick Style) ── */
+.is-calendar-pill,
+.ticktick-planner-task.is-calendar-pill,
+.ticktick-planner-month-task {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 5px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  max-height: 24px !important;
+  padding: 1px 6px !important;
+  margin: 0 0 2px 0 !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  border-radius: 4px !important;
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 85%, transparent) !important;
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 82%, var(--background-secondary, #1e1e1e)) !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18) !important;
+  cursor: pointer !important;
+  overflow: hidden !important;
+  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease !important;
+}
+
+.is-calendar-pill::before,
+.ticktick-planner-task.is-calendar-pill::before,
+.ticktick-planner-month-task::before {
+  display: none !important;
+  content: none !important;
+}
+
+.is-calendar-pill:hover,
+.ticktick-planner-task.is-calendar-pill:hover,
+.ticktick-planner-month-task:hover {
+  transform: translateY(-1px) !important;
+  filter: brightness(1.14) !important;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 50%, rgba(0, 0, 0, 0.35)) !important;
+  z-index: 2;
+}
+
+.is-calendar-pill .ticktick-task-check,
+.is-calendar-pill .ticktick-month-check {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 12px !important;
+  height: 12px !important;
+  min-width: 12px !important;
+  max-width: 12px !important;
+  min-height: 12px !important;
+  max-height: 12px !important;
+  border-radius: 50% !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.78) !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 120ms ease !important;
+  box-sizing: border-box !important;
+}
+
+.is-calendar-pill .ticktick-task-check:hover,
+.is-calendar-pill .ticktick-month-check:hover {
+  border-color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.3) !important;
+  transform: scale(1.15) !important;
+}
+
+.is-calendar-pill .ticktick-task-check:checked,
+.is-calendar-pill .ticktick-month-check:checked {
+  background: #ffffff !important;
+  border-color: #ffffff !important;
+}
+
+.is-calendar-pill .ticktick-task-time-badge,
+.is-calendar-pill .ticktick-month-time {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  background: rgba(0, 0, 0, 0.22) !important;
+  padding: 1px 4px !important;
+  border-radius: 3px !important;
+  border: none !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+}
+
+.is-calendar-pill .ticktick-time-icon svg {
+  width: 9px !important;
+  height: 9px !important;
+  stroke: rgba(255, 255, 255, 0.9) !important;
+  display: block !important;
+}
+
+.is-calendar-pill .ticktick-task-title,
+.is-calendar-pill .ticktick-month-task-title {
+  flex: 1 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  color: #ffffff !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3) !important;
+  cursor: pointer !important;
+}
+
+.is-calendar-pill.is-completed,
+.ticktick-planner-month-task.is-completed {
+  opacity: 0.55 !important;
+  filter: grayscale(0.25) !important;
+}
+
+.is-calendar-pill.is-completed .ticktick-task-title,
+.is-calendar-pill.is-completed .ticktick-month-task-title {
+  text-decoration: line-through !important;
+  opacity: 0.85 !important;
+}
+
+/* ── 6. Multi-day Range Tasks (TickTick Horizontal Span Bars) ── */
 .ticktick-planner-range-lanes,
 .ticktick-planner-month-range-lanes {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(7, minmax(8rem, 1fr));
-  gap: 0.35rem 0.45rem;
-  min-width: 56rem;
-  padding: 0.4rem 0.55rem;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.25rem 0;
+  min-width: 0;
+  width: 100%;
+  padding: 0.35rem 0.25rem;
   border-bottom: 1px solid color-mix(in srgb, var(--background-modifier-border) 45%, transparent);
 }
 
@@ -848,68 +1068,113 @@
 }
 
 .ticktick-planner-range-task {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-width: 0;
-  min-height: 1.95rem;
-  padding: 0.2rem 0.65rem;
-  border-radius: var(--tb-radius-pill, 9999px);
-  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 35%, transparent);
-  border-inline-start: 4px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
-  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 10%, var(--background-secondary)) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
-  transition: transform var(--tb-motion-bounce), background var(--tb-motion-smooth), box-shadow var(--tb-motion-smooth), border-color var(--tb-motion-smooth);
-  cursor: pointer;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  min-width: 0 !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  max-height: 24px !important;
+  padding: 1px 8px !important;
+  margin: 0 2px !important;
+  border-radius: 4px !important;
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 85%, transparent) !important;
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 82%, var(--background-secondary, #1e1e1e)) !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22) !important;
+  cursor: pointer !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease !important;
 }
 
 .ticktick-planner-range-task:hover {
-  transform: translateY(-1.5px);
-  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 16%, var(--background-secondary)) !important;
-  border-color: var(--ticktick-task-tone, var(--interactive-accent)) !important;
-  box-shadow: 0 4px 10px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 25%, transparent) !important;
+  transform: translateY(-1px) !important;
+  filter: brightness(1.14) !important;
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 45%, rgba(0, 0, 0, 0.35)) !important;
+  z-index: 2;
 }
 
 .ticktick-range-check {
-  width: 0.95rem;
-  height: 0.95rem;
-  margin: 0;
-  cursor: pointer;
-  accent-color: var(--interactive-accent);
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 12px !important;
+  height: 12px !important;
+  min-width: 12px !important;
+  max-width: 12px !important;
+  min-height: 12px !important;
+  max-height: 12px !important;
+  border-radius: 50% !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.78) !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 120ms ease !important;
+  box-sizing: border-box !important;
+}
+
+.ticktick-range-check:hover {
+  border-color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.3) !important;
+  transform: scale(1.15) !important;
+}
+
+.ticktick-range-check:checked {
+  background: #ffffff !important;
+  border-color: #ffffff !important;
 }
 
 .ticktick-range-indicator svg {
-  width: 0.85rem;
-  height: 0.85rem;
-  color: var(--text-muted);
-  display: block;
+  width: 11px !important;
+  height: 11px !important;
+  stroke: rgba(255, 255, 255, 0.95) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  display: block !important;
+  flex-shrink: 0 !important;
 }
 
 .ticktick-range-title {
-  min-width: 0;
+  flex: 1 !important;
+  min-width: 0 !important;
   padding: 0 !important;
+  margin: 0 !important;
   border: none !important;
   background: transparent !important;
-  background-color: transparent !important;
-  box-shadow: none !important;
-  outline: none !important;
-  color: var(--text-normal);
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-align: right;
-  white-space: normal;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  cursor: pointer;
-  flex: 1;
+  color: #ffffff !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3) !important;
+  cursor: pointer !important;
 }
 
 .ticktick-planner-range-task.is-completed {
-  opacity: 0.55;
+  opacity: 0.55 !important;
+  filter: grayscale(0.25) !important;
 }
 
 .ticktick-planner-range-task.is-completed .ticktick-range-title {
-  text-decoration: line-through;
+  text-decoration: line-through !important;
+  opacity: 0.85 !important;
+}
+
+.theme-light .is-calendar-pill,
+.theme-light .ticktick-planner-task.is-calendar-pill,
+.theme-light .ticktick-planner-month-task,
+.theme-light .ticktick-planner-range-task {
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 88%, black 12%) !important;
+  color: #ffffff !important;
 }
 
 /* ── 7. Month View ── */
@@ -917,17 +1182,17 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  overflow-x: auto;
+  overflow-x: hidden;
   direction: rtl;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x pan-y !important;
-  overscroll-behavior-x: contain !important;
+  width: 100%;
+  max-width: 100%;
 }
 
 .ticktick-planner-month-weekdays-bar {
-  min-width: 56rem;
+  min-width: 0;
+  width: 100%;
   display: grid;
-  grid-template-columns: repeat(7, minmax(8rem, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary));
   border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
   border-radius: 0.75rem;
@@ -948,7 +1213,8 @@
 }
 
 .ticktick-planner-month-week {
-  min-width: 56rem;
+  min-width: 0;
+  width: 100%;
   border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
   border-radius: 0.85rem;
   background: var(--background-secondary);
@@ -958,8 +1224,9 @@
 
 .ticktick-planner-month-headers {
   display: grid;
-  grid-template-columns: repeat(7, minmax(8rem, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0;
+  width: 100%;
   background: color-mix(in srgb, var(--background-secondary) 85%, var(--background-primary));
   border-bottom: 1.5px solid color-mix(in srgb, var(--background-modifier-border) 55%, transparent);
 }
@@ -968,8 +1235,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.45rem 0.65rem;
-  min-height: 2.35rem;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  min-height: 2.1rem;
+}
+
+.ticktick-planner-month-header .ticktick-planner-add {
+  width: 20px;
+  height: 20px;
+  min-width: 20px !important;
+  min-height: 20px !important;
+}
+
+.ticktick-planner-month-header .ticktick-planner-counter {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.35rem;
 }
 
 .ticktick-planner-month-header:not(:last-child) {
@@ -991,8 +1271,9 @@
 
 .ticktick-planner-month-cells {
   display: grid;
-  grid-template-columns: repeat(7, minmax(8rem, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0;
+  width: 100%;
 }
 
 .ticktick-planner-month-cell {
@@ -1024,18 +1305,35 @@
 }
 
 .ticktick-planner-month-task {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 0.35rem;
-  padding: 0.28rem 0.5rem;
+  padding: 0.28rem 0.4rem 0.28rem 0.55rem;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   border-radius: var(--tb-radius-s, 6px);
-  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 30%, transparent);
-  border-inline-start: 3.5px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 30%, transparent) !important;
   background: color-mix(in srgb, var(--background-secondary) 70%, var(--background-primary)) !important;
   font-size: 0.74rem;
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
   transition: transform var(--tb-motion-bounce), background var(--tb-motion-smooth), border-color var(--tb-motion-smooth), box-shadow var(--tb-motion-smooth);
+}
+
+.ticktick-planner-month-task::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  bottom: 0;
+  width: 3.5px;
+  background: var(--ticktick-task-tone, var(--interactive-accent));
+  pointer-events: none;
+  border-start-start-radius: inherit;
+  border-end-start-radius: inherit;
 }
 
 .ticktick-planner-month-task:hover {
@@ -1255,17 +1553,31 @@
 }
 
 .ticktick-overflow-task {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.55rem 0.85rem;
+  padding: 0.55rem 0.85rem 0.55rem 0.95rem;
   border-radius: 0.65rem;
   background: transparent !important;
-  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 35%, transparent);
-  border-inline-start: 4px solid var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 35%, transparent) !important;
   box-shadow: none !important;
+  overflow: hidden;
   transition: all 140ms ease;
   cursor: pointer;
+}
+
+.ticktick-overflow-task::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--ticktick-task-tone, var(--interactive-accent));
+  pointer-events: none;
+  border-start-start-radius: inherit;
+  border-end-start-radius: inherit;
 }
 
 .ticktick-overflow-task:hover {
@@ -1470,13 +1782,15 @@
 }
 
 .ticktick-planner-backlog-cards {
-  padding: 0.6rem;
+  padding: 0.5rem 0.5rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 4px;
   overflow-y: auto;
-  flex: 1;
+  overflow-x: hidden;
+  flex: 1 1 auto;
   min-height: 12rem;
+  scrollbar-gutter: stable;
   transition: background-color 150ms ease, border-color 150ms ease;
 }
 
@@ -1484,6 +1798,149 @@
   background: color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)) !important;
   outline: 2px dashed var(--interactive-accent);
   outline-offset: -3px;
+}
+
+/* Backlog Single-Row Sleek Task Items */
+.ticktick-backlog-task-item,
+.ticktick-planner-backlog-cards .ticktick-planner-task {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  flex-shrink: 0 !important;
+  padding: 0 8px 0 10px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  border-radius: var(--tb-radius-m, 6px) !important;
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 25%, var(--background-modifier-border)) !important;
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 6%, var(--background-secondary)) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  cursor: grab !important;
+  overflow: hidden !important;
+  direction: rtl !important;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, box-shadow 120ms ease !important;
+}
+
+.ticktick-backlog-task-item::before,
+.ticktick-planner-backlog-cards .ticktick-planner-task::before {
+  content: "" !important;
+  position: absolute !important;
+  inset-inline-start: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 3.5px !important;
+  background: var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  pointer-events: none !important;
+  border-start-start-radius: inherit !important;
+  border-end-start-radius: inherit !important;
+  display: block !important;
+}
+
+.ticktick-backlog-task-item:hover,
+.ticktick-planner-backlog-cards .ticktick-planner-task:hover {
+  transform: translateY(-1px) !important;
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 12%, var(--background-secondary)) !important;
+  border-color: var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 20%, transparent) !important;
+}
+
+.ticktick-backlog-task-item.is-completed {
+  opacity: 0.55 !important;
+  filter: grayscale(0.5) !important;
+}
+
+.ticktick-backlog-task-item.is-completed .ticktick-backlog-task-title {
+  text-decoration: line-through !important;
+  color: var(--text-muted) !important;
+}
+
+.ticktick-backlog-task-item .ticktick-task-check,
+.ticktick-planner-backlog-cards .ticktick-task-check {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+  max-width: 14px !important;
+  min-height: 14px !important;
+  max-height: 14px !important;
+  border-radius: 50% !important;
+  border: 1.5px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 60%, var(--text-muted)) !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 120ms ease !important;
+  box-sizing: border-box !important;
+}
+
+.ticktick-backlog-task-item .ticktick-task-check:hover,
+.ticktick-planner-backlog-cards .ticktick-task-check:hover {
+  border-color: var(--interactive-accent) !important;
+  background: color-mix(in srgb, var(--interactive-accent) 20%, transparent) !important;
+  transform: scale(1.15) !important;
+}
+
+.ticktick-backlog-task-item .ticktick-task-check:checked,
+.ticktick-planner-backlog-cards .ticktick-task-check:checked {
+  background: var(--interactive-accent) !important;
+  border-color: var(--interactive-accent) !important;
+}
+
+.ticktick-backlog-task-title,
+.ticktick-planner-backlog-cards .ticktick-task-title {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--text-normal) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  cursor: pointer !important;
+}
+
+.ticktick-backlog-project-badge,
+.ticktick-planner-backlog-cards .ticktick-task-project-chip {
+  font-size: 9.5px !important;
+  font-weight: 600 !important;
+  color: var(--ticktick-task-tone, var(--interactive-accent)) !important;
+  background: color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 10%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--ticktick-task-tone, var(--interactive-accent)) 30%, transparent) !important;
+  padding: 1px 6px !important;
+  border-radius: 999px !important;
+  max-width: 80px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+}
+
+.ticktick-backlog-subtask-chip,
+.ticktick-planner-backlog-cards .ticktick-task-subtask-chip {
+  font-size: 11px !important;
+  color: var(--text-muted) !important;
+  flex-shrink: 0 !important;
+  margin: 0 1px !important;
 }
 
 /* Time Grid Styles */
@@ -1587,18 +2044,25 @@
     padding-bottom: 2px;
   }
 
-  .ticktick-planner-days-headers,
-  .ticktick-planner-day-columns {
-    grid-template-columns: repeat(7, minmax(13rem, 1fr));
+  .ticktick-planner-day-header {
+    padding: 0.35rem 0.2rem;
   }
-
-  .ticktick-planner-days {
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
+  .ticktick-planner-day-name {
+    font-size: 0.72rem;
   }
-
-  .ticktick-planner-day {
-    scroll-snap-align: start;
+  .ticktick-day-num-badge {
+    font-size: 0.85rem;
+  }
+  .ticktick-month-name {
+    font-size: 0.62rem;
+  }
+  .ticktick-today-pill {
+    font-size: 0.55rem;
+    padding: 1px 3px;
+  }
+  .ticktick-planner-day-bottom .ticktick-planner-counter {
+    font-size: 0.6rem;
+    padding: 0 2px;
   }
 
   .ticktick-planner-filters {
@@ -1606,5 +2070,241 @@
     overflow-x: auto;
     scrollbar-width: none;
     flex-wrap: nowrap;
+  }
+}
+
+/* ── Day Mode Timeblocking Integration ── */
+.ticktick-planner-workspace .ticktick-planner-day-timeblock-root {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+}
+
+.ticktick-day-timeblock-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--tb-surface-glass, var(--background-secondary));
+  backdrop-filter: var(--tb-backdrop-blur-subtle, blur(8px));
+  -webkit-backdrop-filter: var(--tb-backdrop-blur-subtle, blur(8px));
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-container, 14px);
+  box-shadow: var(--tb-shadow-card);
+  direction: rtl;
+  min-height: 52px;
+  box-sizing: border-box;
+}
+
+.ticktick-day-timeblock-header-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ticktick-day-timeblock-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+  border: 1px solid var(--tb-border-subtle);
+  flex-shrink: 0;
+}
+
+.ticktick-day-timeblock-badge.is-today-badge {
+  background: var(--tb-gradient-accent, var(--interactive-accent));
+  color: var(--text-on-accent);
+  border-color: transparent;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive-accent) 40%, transparent);
+}
+
+.ticktick-day-timeblock-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-normal);
+  white-space: nowrap;
+}
+
+.ticktick-day-timeblock-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ticktick-day-stat-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--tb-radius-pill, 9999px);
+  background: var(--background-primary);
+  color: var(--text-muted);
+  border: 1px solid var(--tb-border-subtle);
+  white-space: nowrap;
+}
+
+.ticktick-day-stat-pill.is-timed {
+  background: var(--tb-palette-cobalt-tint, rgba(59, 130, 246, 0.12));
+  color: var(--tb-palette-cobalt, #3b82f6);
+  border-color: var(--tb-palette-cobalt-border, rgba(59, 130, 246, 0.25));
+}
+
+.ticktick-day-stat-pill.is-untimed {
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  color: var(--interactive-accent);
+  border-color: color-mix(in srgb, var(--interactive-accent) 25%, transparent);
+}
+
+.ticktick-day-timeblock-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ticktick-day-add-task-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: 1px solid transparent;
+  border-radius: var(--tb-radius-pill, 9999px);
+  height: 32px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ticktick-day-add-task-btn:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 85%, black);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--interactive-accent) 35%, transparent);
+}
+
+.ticktick-day-add-task-btn .ticktick-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
+
+.ticktick-planner-day-range-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--tb-surface-inset);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-container, 14px);
+  padding: 8px 12px;
+}
+
+.ticktick-planner-day-range-header {
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-normal);
+}
+
+.ticktick-planner-day-range-header .ticktick-range-header-icon {
+  color: var(--interactive-accent);
+}
+
+.ticktick-planner-day-range-section .ticktick-planner-range-lanes.is-day-view {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+}
+
+.ticktick-planner-day-range-section .ticktick-planner-range-task {
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ticktick-range-dates-badge {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-inline-start: auto;
+  padding: 2px 8px;
+  background: var(--background-secondary);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-pill, 9999px);
+  white-space: nowrap;
+}
+
+.ticktick-planner-day-timeblock-root .ticktick-timeblock-content {
+  display: flex;
+  flex: 1;
+  min-height: 480px;
+  height: calc(100vh - 250px);
+  gap: 12px;
+  overflow: hidden;
+}
+
+.ticktick-planner-day-timeblock-root .ticktick-timeblock-drawer {
+  width: 290px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--tb-surface-inset);
+  border: 1px solid var(--tb-border-subtle);
+  border-radius: var(--tb-radius-container, 16px);
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.ticktick-untimed-check {
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--interactive-accent);
+}
+
+.ticktick-untimed-project-pill {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: var(--tb-radius-pill, 9999px);
+  background: var(--background-secondary);
+  border: 1px solid var(--tb-border-subtle);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .ticktick-planner-day-timeblock-root .ticktick-timeblock-content {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+  .ticktick-planner-day-timeblock-root .ticktick-timeblock-drawer {
+    width: 100%;
+    max-height: 240px;
   }
 }

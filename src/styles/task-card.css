@@ -99,7 +99,7 @@
   overflow-wrap: anywhere;
   white-space: normal;
   transition: color var(--tb-duration-fast) ease;
-  padding-left: 20px;
+  padding-inline-end: 20px;
 }
 
 .tb-task-card:hover .tb-card-title {
@@ -202,7 +202,7 @@
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.4;
-  margin-right: 26px; /* Align with title next to checkbox */
+  margin-inline-start: 26px; /* Align with title next to checkbox */
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -217,7 +217,7 @@
   align-items: center;
   gap: var(--tb-space-1);
   margin-top: 4px;
-  margin-right: 26px; /* Align with title */
+  margin-inline-start: 26px; /* Align with title */
 }
 
 .tb-chip {
@@ -305,63 +305,93 @@
   flex-shrink: 0;
 }
 
-/* ── Hover Action Bar (Zero-Layout Shift) ── */
+/* ── Hover Action Bar (Zero-Layout Shift & Featherweight Glass Capsule) ── */
 .tb-card-hover-actions {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 7px;
+  left: 7px;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   padding: 2px 4px;
-  border-radius: var(--tb-radius-pill);
-  background: var(--tb-surface-glass);
-  backdrop-filter: var(--tb-backdrop-blur-subtle);
-  -webkit-backdrop-filter: var(--tb-backdrop-blur-subtle);
-  border: 1px solid var(--tb-surface-glass-border);
-  box-shadow: var(--tb-shadow-s);
+  height: 24px;
+  box-sizing: border-box;
+  border-radius: var(--tb-radius-pill, 9999px);
+  background: color-mix(in srgb, var(--background-primary) 85%, var(--background-secondary));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 60%, transparent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-2px);
-  transition: opacity var(--tb-duration-fast) ease,
-              transform var(--tb-duration-fast) var(--tb-ease-smooth);
-  z-index: 5;
+  transform: translateY(-2px) scale(0.96);
+  transition:
+    opacity 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 160ms ease;
+  z-index: 10;
 }
 
 .tb-task-card:hover .tb-card-hover-actions,
 .tb-task-card:focus-within .tb-card-hover-actions {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 /* On touch-first mobile/tablet devices, ensure action buttons are reachable */
 @media (hover: none) and (pointer: coarse) {
   .tb-card-hover-actions {
-    opacity: 0.75;
+    opacity: 0.8;
     pointer-events: auto;
     transform: translateY(0);
   }
 }
 
 .tb-card-action-btn {
-  padding: 4px;
-  border-radius: var(--tb-radius-s);
-  color: var(--text-muted);
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  cursor: pointer !important;
+  transition: all 140ms ease !important;
+  box-sizing: border-box !important;
+  box-shadow: none !important;
 }
+
 .tb-card-action-btn:hover {
-  color: var(--interactive-accent);
-  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+  color: var(--interactive-accent) !important;
+  background: color-mix(in srgb, var(--interactive-accent) 20%, transparent) !important;
+  transform: scale(1.15) !important;
 }
+
+.tb-card-action-btn:active {
+  transform: scale(0.95) !important;
+}
+
 .tb-card-action-btn:focus-visible {
   outline: 2px solid var(--interactive-accent) !important;
   outline-offset: 1px !important;
   color: var(--interactive-accent) !important;
 }
+
 .tb-card-action-btn svg {
-  width: 13px;
-  height: 13px;
-  display: block;
+  width: 12px !important;
+  height: 12px !important;
+  stroke-width: 2.2px !important;
+  display: block !important;
+  stroke: currentColor !important;
 }
 
 /* ── Compact Variant ── */

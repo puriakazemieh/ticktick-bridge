@@ -52,6 +52,7 @@
   scrollbar-gutter: stable;
   overscroll-behavior: contain !important;
   -webkit-overflow-scrolling: touch !important;
+  overflow-anchor: none !important;
 }
 
 /* ── 3. Workspace Header Structure (Two Tiers) ── */

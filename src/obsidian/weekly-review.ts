@@ -28,6 +28,7 @@ export interface WeeklyReviewHost {
   load: (task: TickTickTask) => Promise<TickTickTask | undefined>;
   edit: (task: TickTickTask) => Promise<any>;
   complete: (task: TickTickTask) => Promise<any>;
+  deleteTask?: (task: TickTickTask) => Promise<any>;
 }
 
 export type ReviewTab = "completed" | "overdue" | "scheduled" | "moved" | "unscheduled";
@@ -411,6 +412,7 @@ export class WeeklyReview {
       complete: () => this.host.complete(task),
       load: item => this.host.load(item),
       edit: item => this.host.edit(item),
+      deleteTask: this.host.deleteTask ? (t) => this.host.deleteTask!(t) : undefined,
       changed: async () => {
         await this.render();
       },

@@ -25,6 +25,7 @@ export interface TimeblockingPlannerHost {
   refresh: () => Promise<void>;
   updateTask: (mutation: Partial<TickTickTask>) => Promise<any>;
   createTask?: (initial: Partial<TickTickTask>) => Promise<any>;
+  deleteTask?: (task: TickTickTask) => Promise<any>;
   complete: (task: TickTickTask) => Promise<any>;
   load: (task: TickTickTask) => Promise<TickTickTask | undefined>;
   edit: (task: TickTickTask) => Promise<any>;
@@ -313,6 +314,10 @@ export class TimeblockingPlanner {
           await this.host.complete(item.task);
           await this.render();
         },
+        updateTask: (m) => this.host.updateTask(m),
+        deleteTask: this.host.deleteTask ? (t) => this.host.deleteTask!(t) : undefined,
+        createTask: this.host.createTask ? (d) => this.host.createTask!(d) : undefined,
+        allTasks: () => this.host.tasks(),
         changed: async () => {
           await this.render();
         }
@@ -423,6 +428,10 @@ export class TimeblockingPlanner {
           await this.host.complete(task);
           await this.render();
         },
+        updateTask: (m) => this.host.updateTask(m),
+        deleteTask: this.host.deleteTask ? (t) => this.host.deleteTask!(t) : undefined,
+        createTask: this.host.createTask ? (d) => this.host.createTask!(d) : undefined,
+        allTasks: () => this.host.tasks(),
         changed: async () => {
           await this.render();
         }

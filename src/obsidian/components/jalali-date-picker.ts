@@ -232,21 +232,46 @@ export class JalaliDatePicker {
     const weekdaysRow = this.cardEl.createDiv({ cls: "ticktick-jalali-weekdays" });
     JALALI_WEEKDAYS.forEach(w => weekdaysRow.createSpan({ text: w }));
 
-    // 3. Days Grid
+    // 3. Days Grid (Unified 7x5 or 7x6 Matrix with filler days for perfect consistency)
     const grid = this.cardEl.createDiv({ cls: "ticktick-jalali-days-grid" });
 
     const { gy, gm, gd } = jalaali.toGregorian(this.viewYear, this.viewMonth, 1);
     const gDate = new Date(Date.UTC(gy, gm - 1, gd, 12, 0, 0));
     const startWeekday = (gDate.getUTCDay() + 1) % 7; // 0=Shanbe, ..., 6=Jomeh
 
-    for (let i = 0; i < startWeekday; i++) {
-      grid.createDiv({ cls: "ticktick-jalali-day-cell is-empty" });
-    }
-
     const monthLength = jalaali.jalaaliMonthLength(this.viewYear, this.viewMonth);
+    const totalCells = (startWeekday + monthLength <= 35) ? 35 : 42;
     const selectedJ = isoToJalali(this.currentIso);
     const todayJ = getTodayJalali();
 
+    // Previous month filler days
+    const prevMonth = this.viewMonth === 1 ? 12 : this.viewMonth - 1;
+    const prevYear = this.viewMonth === 1 ? this.viewYear - 1 : this.viewYear;
+    const prevMonthLength = jalaali.jalaaliMonthLength(prevYear, prevMonth);
+
+    for (let i = 0; i < startWeekday; i++) {
+      const prevD = prevMonthLength - (startWeekday - 1 - i);
+      const isSelected = selectedJ && selectedJ.jy === prevYear && selectedJ.jm === prevMonth && selectedJ.jd === prevD;
+      const isToday = todayJ.jy === prevYear && todayJ.jm === prevMonth && todayJ.jd === prevD;
+
+      const cell = grid.createEl("button", {
+        type: "button",
+        text: String(prevD),
+        cls: `ticktick-jalali-day-cell is-other-month${isSelected ? " is-selected" : ""}${isToday ? " is-today" : ""}`,
+        title: `${prevD} ${JALALI_MONTHS[prevMonth - 1]} ${prevYear}`
+      });
+
+      cell.onclick = e => {
+        e.preventDefault();
+        const g = jalaali.toGregorian(prevYear, prevMonth, prevD);
+        const iso = toIso(g);
+        this.setValue(iso);
+        this.onChange(iso);
+        this.closeCalendar();
+      };
+    }
+
+    // Current month days
     for (let d = 1; d <= monthLength; d++) {
       const isSelected = selectedJ && selectedJ.jy === this.viewYear && selectedJ.jm === this.viewMonth && selectedJ.jd === d;
       const isToday = todayJ.jy === this.viewYear && todayJ.jm === this.viewMonth && todayJ.jd === d;
@@ -254,12 +279,39 @@ export class JalaliDatePicker {
       const cell = grid.createEl("button", {
         type: "button",
         text: String(d),
-        cls: `ticktick-jalali-day-cell${isSelected ? " is-selected" : ""}${isToday ? " is-today" : ""}`
+        cls: `ticktick-jalali-day-cell${isSelected ? " is-selected" : ""}${isToday ? " is-today" : ""}`,
+        title: `${d} ${JALALI_MONTHS[this.viewMonth - 1]} ${this.viewYear}`
       });
 
       cell.onclick = e => {
         e.preventDefault();
         const g = jalaali.toGregorian(this.viewYear, this.viewMonth, d);
+        const iso = toIso(g);
+        this.setValue(iso);
+        this.onChange(iso);
+        this.closeCalendar();
+      };
+    }
+
+    // Next month filler days
+    const nextMonth = this.viewMonth === 12 ? 1 : this.viewMonth + 1;
+    const nextYear = this.viewMonth === 12 ? this.viewYear + 1 : this.viewYear;
+    const trailingCount = totalCells - (startWeekday + monthLength);
+
+    for (let d = 1; d <= trailingCount; d++) {
+      const isSelected = selectedJ && selectedJ.jy === nextYear && selectedJ.jm === nextMonth && selectedJ.jd === d;
+      const isToday = todayJ.jy === nextYear && todayJ.jm === nextMonth && todayJ.jd === d;
+
+      const cell = grid.createEl("button", {
+        type: "button",
+        text: String(d),
+        cls: `ticktick-jalali-day-cell is-other-month${isSelected ? " is-selected" : ""}${isToday ? " is-today" : ""}`,
+        title: `${d} ${JALALI_MONTHS[nextMonth - 1]} ${nextYear}`
+      });
+
+      cell.onclick = e => {
+        e.preventDefault();
+        const g = jalaali.toGregorian(nextYear, nextMonth, d);
         const iso = toIso(g);
         this.setValue(iso);
         this.onChange(iso);
