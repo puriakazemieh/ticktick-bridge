@@ -767,6 +767,11 @@ export default class TickTickBridgePlugin extends Plugin {
         if (!quiet) new Notice("⚠️ نیاز به اتصال مجدد: لطفاً ابتدا API Token را در تنظیمات افزونه وارد کنید.", 8000);
         return;
       }
+      if (!navigator.onLine) {
+        if (!quiet) new Notice("آفلاین هستید؛ از نسخهٔ کش محلی استفاده می‌شود.");
+        await this.refreshLocalSurfaces();
+        return;
+      }
       const day = todayInZone(this.settings.timeZone);
       // A queued write that is being rate-limited must not be followed by a
       // second burst of project-data reads. The optimistic cache is already
@@ -1331,8 +1336,36 @@ export default class TickTickBridgePlugin extends Plugin {
     };
   }
 
+  async getAvailableProjects(): Promise<TickTickProject[]> {
+    if (this.cache.projects && this.cache.projects.length > 0) {
+      return this.cache.projects;
+    }
+    if (navigator.onLine) {
+      try {
+        const remote = await this.client().listProjects();
+        if (Array.isArray(remote) && remote.length > 0) {
+          this.cache.projects = remote;
+          await this.saveSettings();
+          return remote;
+        }
+      } catch {
+        // network error / offline fallback
+      }
+    }
+    const projectMap = new Map<string, string>();
+    for (const t of this.cache.tasks) {
+      if (t.projectId) {
+        projectMap.set(String(t.projectId), String(t.projectName || "پروژه"));
+      }
+    }
+    if (projectMap.size > 0) {
+      return [...projectMap.entries()].map(([id, name]) => ({ id, name } as TickTickProject));
+    }
+    return [{ id: "inbox", name: "صندوق ورودی" } as TickTickProject];
+  }
+
   async createTaskFromSurface(initial: TaskDraft = {}) {
-    const projects = this.cache.projects.length ? this.cache.projects : await this.client().listProjects();
+    const projects = await this.getAvailableProjects();
     const draft = await openTaskEditor(
       this.app,
       projects,
@@ -1353,26 +1386,28 @@ export default class TickTickBridgePlugin extends Plugin {
     if (!draft) return null;
     return this.createTask(toTaskPayload(draft, this.settings.timeZone));
   }
+
   async loadTaskDetails(task: TickTickTask): Promise<TickTickTask | undefined> {
-    const cached = this.cache.tasks.find(item => String(item?.id) === String(task?.id) && String(item?.projectId ?? "") === String(task?.projectId ?? ""));
+    if (!task?.id) return task;
+    const cached = this.cache.tasks.find(item => String(item?.id) === String(task.id));
     if (cached && taskDescription(cached)) return mergeTaskDetails(task, cached) as TickTickTask;
-    const projectId = String(task?.projectId ?? "");
-    if (!projectId || !task?.id) return task;
+    if (!navigator.onLine) return cached ? (mergeTaskDetails(task, cached) as TickTickTask) : task;
+    const projectId = String(task.projectId || cached?.projectId || "");
+    if (!projectId) return cached ? (mergeTaskDetails(task, cached) as TickTickTask) : task;
     const client = this.client();
     let direct = task;
     try { direct = await client.getTask(projectId, String(task.id)); } catch { /* Notes may not support the task-detail route. */ }
     if (taskDescription(direct)) return direct;
-    // Notes can be returned without their content by the single-task endpoint.
-    // The project document contains the full record in that case.
     try {
       const project = await client.getProjectData(projectId);
       const record = (project?.tasks ?? []).find((item: TickTickTask) => String(item?.id) === String(task.id));
       return (record ? mergeTaskDetails(direct, record) : direct) as TickTickTask;
-    } catch { return direct; }
+    } catch { return cached ? (mergeTaskDetails(direct, cached) as TickTickTask) : direct; }
   }
+
   async editTaskFromSurface(task: TickTickTask) {
     const current = (await this.loadTaskDetails(task)) ?? task;
-    const projects = await this.client().listProjects();
+    const projects = await this.getAvailableProjects();
     const draft = await openTaskEditor(
       this.app,
       projects,
@@ -2124,12 +2159,11 @@ export default class TickTickBridgePlugin extends Plugin {
       addButton.addEventListener("click", async () => {
         addButton.disabled = true;
         try {
-          const projects = await client.listProjects();
-          const draft = await openTaskEditor(this.app, projects, { dueDate: day }, this.availableTags(), this.cache.tasks, undefined, (projId) => this.getProjectColumns(projId), this.subtaskActionsForEditor());
-          if (!draft) return;
-          await this.createTask(toTaskPayload(draft, this.settings.timeZone));
-          new Notice("تسک به TickTick اضافه شد.");
-          await this.renderTodayBlock(element, dayOverride);
+          const res = await this.createTaskFromSurface({ dueDate: day });
+          if (res) {
+            new Notice("تسک به TickTick اضافه شد.");
+            await this.renderTodayBlock(element, dayOverride);
+          }
         } catch (error) {
           new Notice(error instanceof Error ? error.message : "افزودن تسک ناموفق بود.");
         } finally {
@@ -2198,12 +2232,11 @@ export default class TickTickBridgePlugin extends Plugin {
         });
         edit.addEventListener("click", async () => {
           try {
-            const projects = await client.listProjects();
-            const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks, undefined, (projId) => this.getProjectColumns(projId), this.subtaskActionsForEditor());
-            if (!draft) return;
-            await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
-            new Notice("تسک در TickTick ویرایش شد.");
-            await this.renderTodayBlock(element, dayOverride);
+            const res = await this.editTaskFromSurface(task);
+            if (res) {
+              new Notice("تسک در TickTick ویرایش شد.");
+              await this.renderTodayBlock(element, dayOverride);
+            }
           } catch (error) {
             new Notice(error instanceof Error ? error.message : "ویرایش تسک ناموفق بود.");
           }
@@ -2424,12 +2457,11 @@ export default class TickTickBridgePlugin extends Plugin {
           card.addEventListener("click", async () => {
             card.disabled = true;
             try {
-              const projects = await this.client().listProjects();
-              const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks, undefined, (projId) => this.getProjectColumns(projId), this.subtaskActionsForEditor());
-              if (!draft) return;
-              await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
-              new Notice("تسک تکرارشونده در TickTick ویرایش شد.");
-              await this.renderRecurringBlock(element);
+              const res = await this.editTaskFromSurface(task);
+              if (res) {
+                new Notice("تسک تکرارشونده در TickTick ویرایش شد.");
+                await this.renderRecurringBlock(element);
+              }
             } catch (error) {
               new Notice(error instanceof Error ? error.message : "ویرایش تسک ناموفق بود.");
             } finally { card.disabled = false; }

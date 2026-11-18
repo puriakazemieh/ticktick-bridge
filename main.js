@@ -16731,6 +16731,11 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
         if (!quiet) new import_obsidian47.Notice("\u26A0\uFE0F \u0646\u06CC\u0627\u0632 \u0628\u0647 \u0627\u062A\u0635\u0627\u0644 \u0645\u062C\u062F\u062F: \u0644\u0637\u0641\u0627\u064B \u0627\u0628\u062A\u062F\u0627 API Token \u0631\u0627 \u062F\u0631 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0627\u0641\u0632\u0648\u0646\u0647 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F.", 8e3);
         return;
       }
+      if (!navigator.onLine) {
+        if (!quiet) new import_obsidian47.Notice("\u0622\u0641\u0644\u0627\u06CC\u0646 \u0647\u0633\u062A\u06CC\u062F\u061B \u0627\u0632 \u0646\u0633\u062E\u0647\u0654 \u06A9\u0634 \u0645\u062D\u0644\u06CC \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F.");
+        await this.refreshLocalSurfaces();
+        return;
+      }
       const day = todayInZone(this.settings.timeZone);
       const pendingFlushed = await this.flushPendingMutations();
       if (!pendingFlushed) {
@@ -17252,8 +17257,34 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
       }
     };
   }
+  async getAvailableProjects() {
+    if (this.cache.projects && this.cache.projects.length > 0) {
+      return this.cache.projects;
+    }
+    if (navigator.onLine) {
+      try {
+        const remote = await this.client().listProjects();
+        if (Array.isArray(remote) && remote.length > 0) {
+          this.cache.projects = remote;
+          await this.saveSettings();
+          return remote;
+        }
+      } catch {
+      }
+    }
+    const projectMap = /* @__PURE__ */ new Map();
+    for (const t of this.cache.tasks) {
+      if (t.projectId) {
+        projectMap.set(String(t.projectId), String(t.projectName || "\u067E\u0631\u0648\u0698\u0647"));
+      }
+    }
+    if (projectMap.size > 0) {
+      return [...projectMap.entries()].map(([id, name]) => ({ id, name }));
+    }
+    return [{ id: "inbox", name: "\u0635\u0646\u062F\u0648\u0642 \u0648\u0631\u0648\u062F\u06CC" }];
+  }
   async createTaskFromSurface(initial = {}) {
-    const projects = this.cache.projects.length ? this.cache.projects : await this.client().listProjects();
+    const projects = await this.getAvailableProjects();
     const draft = await openTaskEditor(
       this.app,
       projects,
@@ -17275,10 +17306,12 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
     return this.createTask(toTaskPayload(draft, this.settings.timeZone));
   }
   async loadTaskDetails(task) {
-    const cached = this.cache.tasks.find((item) => String(item?.id) === String(task?.id) && String(item?.projectId ?? "") === String(task?.projectId ?? ""));
+    if (!task?.id) return task;
+    const cached = this.cache.tasks.find((item) => String(item?.id) === String(task.id));
     if (cached && taskDescription(cached)) return mergeTaskDetails(task, cached);
-    const projectId = String(task?.projectId ?? "");
-    if (!projectId || !task?.id) return task;
+    if (!navigator.onLine) return cached ? mergeTaskDetails(task, cached) : task;
+    const projectId = String(task.projectId || cached?.projectId || "");
+    if (!projectId) return cached ? mergeTaskDetails(task, cached) : task;
     const client = this.client();
     let direct = task;
     try {
@@ -17291,12 +17324,12 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
       const record = (project?.tasks ?? []).find((item) => String(item?.id) === String(task.id));
       return record ? mergeTaskDetails(direct, record) : direct;
     } catch {
-      return direct;
+      return cached ? mergeTaskDetails(direct, cached) : direct;
     }
   }
   async editTaskFromSurface(task) {
     const current = await this.loadTaskDetails(task) ?? task;
-    const projects = await this.client().listProjects();
+    const projects = await this.getAvailableProjects();
     const draft = await openTaskEditor(
       this.app,
       projects,
@@ -17976,12 +18009,11 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
       addButton.addEventListener("click", async () => {
         addButton.disabled = true;
         try {
-          const projects = await client.listProjects();
-          const draft = await openTaskEditor(this.app, projects, { dueDate: day }, this.availableTags(), this.cache.tasks, void 0, (projId) => this.getProjectColumns(projId), this.subtaskActionsForEditor());
-          if (!draft) return;
-          await this.createTask(toTaskPayload(draft, this.settings.timeZone));
-          new import_obsidian47.Notice("\u062A\u0633\u06A9 \u0628\u0647 TickTick \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.");
-          await this.renderTodayBlock(element, dayOverride);
+          const res = await this.createTaskFromSurface({ dueDate: day });
+          if (res) {
+            new import_obsidian47.Notice("\u062A\u0633\u06A9 \u0628\u0647 TickTick \u0627\u0636\u0627\u0641\u0647 \u0634\u062F.");
+            await this.renderTodayBlock(element, dayOverride);
+          }
         } catch (error) {
           new import_obsidian47.Notice(error instanceof Error ? error.message : "\u0627\u0641\u0632\u0648\u062F\u0646 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
         } finally {
@@ -18050,12 +18082,11 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
         });
         edit.addEventListener("click", async () => {
           try {
-            const projects = await client.listProjects();
-            const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks, void 0, (projId) => this.getProjectColumns(projId), this.subtaskActionsForEditor());
-            if (!draft) return;
-            await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
-            new import_obsidian47.Notice("\u062A\u0633\u06A9 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
-            await this.renderTodayBlock(element, dayOverride);
+            const res = await this.editTaskFromSurface(task);
+            if (res) {
+              new import_obsidian47.Notice("\u062A\u0633\u06A9 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
+              await this.renderTodayBlock(element, dayOverride);
+            }
           } catch (error) {
             new import_obsidian47.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
           }
@@ -18267,12 +18298,11 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
           card.addEventListener("click", async () => {
             card.disabled = true;
             try {
-              const projects = await this.client().listProjects();
-              const draft = await openTaskEditor(this.app, projects, task, this.availableTags(), this.cache.tasks, void 0, (projId) => this.getProjectColumns(projId), this.subtaskActionsForEditor());
-              if (!draft) return;
-              await this.updateTask(toTaskPayload({ ...task, ...draft }, this.settings.timeZone));
-              new import_obsidian47.Notice("\u062A\u0633\u06A9 \u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
-              await this.renderRecurringBlock(element);
+              const res = await this.editTaskFromSurface(task);
+              if (res) {
+                new import_obsidian47.Notice("\u062A\u0633\u06A9 \u062A\u06A9\u0631\u0627\u0631\u0634\u0648\u0646\u062F\u0647 \u062F\u0631 TickTick \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0634\u062F.");
+                await this.renderRecurringBlock(element);
+              }
             } catch (error) {
               new import_obsidian47.Notice(error instanceof Error ? error.message : "\u0648\u06CC\u0631\u0627\u06CC\u0634 \u062A\u0633\u06A9 \u0646\u0627\u0645\u0648\u0641\u0642 \u0628\u0648\u062F.");
             } finally {
