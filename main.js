@@ -9709,13 +9709,21 @@ var ProjectTimeline = class {
   windowStart = null;
   windowEnd = null;
   filterBarInstance = null;
-  isSyncing = false;
   scrollAreaEl = null;
+  savedScrollLeft = null;
+  hasInitialScrolled = false;
+  isProgrammaticScroll = false;
+  // Backlog panel internal filter state
+  backlogSearch = "";
+  backlogTab = "all";
   // Active drag state
   activeDrag = null;
   wasDraggedRecently = false;
   bulkActionBar = null;
-  async render(autoScrollToToday = true) {
+  async render() {
+    if (this.scrollAreaEl) {
+      this.savedScrollLeft = this.scrollAreaEl.scrollLeft;
+    }
     this.element.empty();
     this.element.addClass("ticktick-timeline-workspace");
     const allTasks = this.host.tasks();
@@ -9735,12 +9743,14 @@ var ProjectTimeline = class {
       showCompleted: this.host.showCompleted()
     });
     this.ensureWindowBounds();
-    this.renderToolbar(partitioned.backlogTasks.length + partitioned.pointTasks.length);
-    this.renderFilterBar(projects, enrichedTasks);
-    const canvas = this.element.createDiv({ cls: "ticktick-timeline-canvas" });
-    this.renderTimelineGrid(canvas, partitioned.rangeTasks, partitioned.pointTasks, projectMap, autoScrollToToday);
+    this.renderToolbar();
+    const totalBacklogCount = partitioned.backlogTasks.length + partitioned.pointTasks.length;
+    this.renderFilterBar(projects, enrichedTasks, totalBacklogCount);
+    const bodyContainer = this.element.createDiv({ cls: "ticktick-timeline-body" });
+    const canvas = bodyContainer.createDiv({ cls: "ticktick-timeline-canvas" });
+    this.renderTimelineGrid(canvas, partitioned.rangeTasks, projectMap);
     if (this.showBacklog) {
-      this.renderBacklogDrawer(partitioned.pointTasks, partitioned.backlogTasks);
+      this.renderBacklogPanel(bodyContainer, partitioned.pointTasks, partitioned.backlogTasks, projectMap);
     }
     this.bulkActionBar ??= new BulkActionBar(this.element, {
       app: this.host.app,
@@ -9750,7 +9760,7 @@ var ProjectTimeline = class {
       executeBulkOperation: async (ids, op, params) => this.host.executeBulkOperation ? this.host.executeBulkOperation(ids, op, params) : null,
       onChanged: async () => {
         await this.host.refresh();
-        await this.render(false);
+        await this.render();
       }
     });
     void this.bulkActionBar.render();
@@ -9774,9 +9784,10 @@ var ProjectTimeline = class {
     const amount = this.zoom === "month" ? direction * 90 : this.zoom === "week" ? direction * 28 : direction * 14;
     this.windowStart = shiftCalendarDay(this.windowStart, amount);
     this.windowEnd = shiftCalendarDay(this.windowEnd, amount);
-    void this.render(false);
+    this.savedScrollLeft = null;
+    void this.render();
   }
-  renderToolbar(backlogCount) {
+  renderToolbar() {
     const toolbar = this.element.createDiv({ cls: "ticktick-planner-controls ticktick-timeline-toolbar" });
     const modesContainer = toolbar.createDiv({ cls: "ticktick-planner-modes" });
     for (const [mode, label, icon] of [
@@ -9796,7 +9807,9 @@ var ProjectTimeline = class {
           this.zoom = mode;
           this.windowStart = null;
           this.windowEnd = null;
-          void this.render(true);
+          this.savedScrollLeft = null;
+          this.hasInitialScrolled = false;
+          void this.render();
         }
       });
     }
@@ -9815,7 +9828,9 @@ var ProjectTimeline = class {
     todayBtn.addEventListener("click", () => {
       this.windowStart = null;
       this.windowEnd = null;
-      void this.render(true);
+      this.savedScrollLeft = null;
+      this.hasInitialScrolled = false;
+      void this.render();
     });
     const nextBtn = nav.createEl("button", {
       cls: "ticktick-nav-btn mod-icon",
@@ -9827,14 +9842,46 @@ var ProjectTimeline = class {
     if (this.windowStart && this.windowEnd) {
       titleDiv.setText(`${formatPersianDate(this.windowStart, this.host.timeZone)} \u062A\u0627 ${formatPersianDate(this.windowEnd, this.host.timeZone)}`);
     }
-    const actions = toolbar.createDiv({ cls: "ticktick-planner-actions" });
+  }
+  renderFilterBar(projects, tasks, backlogCount) {
+    const filterContainer = this.element.createDiv({ cls: "ticktick-timeline-filter-container" });
+    const filterSlot = filterContainer.createDiv({ cls: "ticktick-timeline-filter-slot" });
+    const filterHost = {
+      app: this.host.app,
+      scope: "timeline",
+      projects: () => projects.map((p) => ({ id: String(p.id), name: p.name })),
+      tags: () => [...new Set(tasks.flatMap((t) => t.tags ?? []).map(String))],
+      savedViews: () => this.host.savedViews ? this.host.savedViews() : [],
+      saveSavedViews: async (views) => {
+        if (this.host.saveSavedViews) await this.host.saveSavedViews(views);
+      },
+      filterState: () => this.filterState,
+      onFilterChange: (state) => {
+        this.filterState = state;
+        void this.render();
+      }
+    };
+    this.filterBarInstance = new FilterBar(filterSlot, filterHost);
+    this.filterBarInstance.render();
+    const actionsSlot = filterContainer.createDiv({ cls: "ticktick-timeline-filter-actions" });
+    const backlogBtn = actionsSlot.createEl("button", {
+      cls: `ticktick-planner-toggle-btn ${this.showBacklog ? "is-active" : ""}`,
+      attr: { type: "button", "aria-label": "\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0628\u0627\u0632\u0647 \u0648 \u0646\u0642\u0637\u0647\u200C\u0627\u06CC" }
+    });
+    const backlogIcon = backlogBtn.createSpan({ cls: "mod-icon" });
+    (0, import_obsidian17.setIcon)(backlogIcon, "layers");
+    backlogBtn.createSpan({ text: `\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0628\u0627\u0632\u0647 (${backlogCount})` });
+    backlogBtn.addEventListener("click", () => {
+      this.showBacklog = !this.showBacklog;
+      void this.render();
+    });
     const colorLabels = {
       project: "\u0631\u0646\u06AF: \u067E\u0631\u0648\u0698\u0647",
       tag: "\u0631\u0646\u06AF: \u0628\u0631\u0686\u0633\u0628",
       priority: "\u0631\u0646\u06AF: \u0627\u0648\u0644\u0648\u06CC\u062A",
       uniform: "\u0631\u0646\u06AF: \u06CC\u06A9\u062F\u0633\u062A"
     };
-    const colorBtn = actions.createEl("button", {
+    const colorBtn = actionsSlot.createEl("button", {
       cls: "ticktick-planner-toggle-btn",
       attr: { type: "button", "aria-label": "\u067E\u0627\u0644\u062A \u0631\u0646\u06AF\u200C\u0628\u0646\u062F\u06CC" }
     });
@@ -9852,62 +9899,14 @@ var ProjectTimeline = class {
         menu.addItem((item) => {
           item.setTitle(label).setChecked(this.colorMode === mode).onClick(() => {
             this.colorMode = mode;
-            void this.render(false);
+            void this.render();
           });
         });
       }
       menu.showAtMouseEvent(event);
     });
-    const backlogBtn = actions.createEl("button", {
-      cls: `ticktick-planner-toggle-btn ${this.showBacklog ? "is-active" : ""}`,
-      attr: { type: "button", "aria-label": "\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0628\u0627\u0632\u0647 \u0648 \u0646\u0642\u0637\u0647\u200C\u0627\u06CC" }
-    });
-    const backlogIcon = backlogBtn.createSpan({ cls: "mod-icon" });
-    (0, import_obsidian17.setIcon)(backlogIcon, "layers");
-    backlogBtn.createSpan({ text: `\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0628\u0627\u0632\u0647 (${backlogCount})` });
-    backlogBtn.addEventListener("click", () => {
-      this.showBacklog = !this.showBacklog;
-      void this.render(false);
-    });
-    const refreshBtn = actions.createEl("button", {
-      cls: `ticktick-planner-sync-btn mod-icon ${this.isSyncing ? "is-syncing" : ""}`,
-      attr: { type: "button", "aria-label": "\u0647\u0645\u06AF\u0627\u0645\u200C\u0633\u0627\u0632\u06CC \u0627\u0632 \u0633\u0631\u0648\u0631" }
-    });
-    (0, import_obsidian17.setIcon)(refreshBtn, "refresh-cw");
-    refreshBtn.addEventListener("click", async () => {
-      if (this.isSyncing) return;
-      this.isSyncing = true;
-      refreshBtn.addClass("is-syncing");
-      try {
-        await this.host.refresh();
-      } finally {
-        this.isSyncing = false;
-        refreshBtn.removeClass("is-syncing");
-        await this.render(false);
-      }
-    });
   }
-  renderFilterBar(projects, tasks) {
-    const filterContainer = this.element.createDiv({ cls: "ticktick-timeline-filter-container" });
-    const filterHost = {
-      app: this.host.app,
-      scope: "timeline",
-      projects: () => projects.map((p) => ({ id: String(p.id), name: p.name })),
-      tags: () => [...new Set(tasks.flatMap((t) => t.tags ?? []).map(String))],
-      savedViews: () => this.host.savedViews ? this.host.savedViews() : [],
-      saveSavedViews: async (views) => {
-        if (this.host.saveSavedViews) await this.host.saveSavedViews(views);
-      },
-      filterState: () => this.filterState,
-      onFilterChange: (state) => {
-        this.filterState = state;
-        void this.render(false);
-      }
-    };
-    this.filterBarInstance = new FilterBar(filterContainer, filterHost);
-    this.filterBarInstance.render();
-  }
-  renderTimelineGrid(canvas, rangeItems, pointItems, projectMap, autoScrollToToday) {
+  renderTimelineGrid(canvas, rangeItems, projectMap) {
     if (!this.windowStart || !this.windowEnd) return;
     const grid = generateTimelineGrid(this.windowStart, this.windowEnd, this.zoom, this.host.firstWeekday);
     const totalDays = grid.days.length;
@@ -9959,6 +9958,11 @@ var ProjectTimeline = class {
       todayStripe.style.gridColumn = `${todayIndex + 1} / span 1`;
       todayStripe.style.gridRow = `1 / -1`;
     }
+    scrollArea.addEventListener("scroll", () => {
+      if (!this.isProgrammaticScroll) {
+        this.savedScrollLeft = scrollArea.scrollLeft;
+      }
+    }, { passive: true });
     scrollArea.addEventListener("wheel", (e) => {
       if (e.ctrlKey || scrollArea.scrollWidth <= scrollArea.clientWidth) return;
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
@@ -9966,6 +9970,21 @@ var ProjectTimeline = class {
       scrollArea.scrollBy({ left: -e.deltaY * 1.5, behavior: "auto" });
     }, { passive: false });
     this.bindCanvasPan(scrollArea);
+    if (!this.hasInitialScrolled) {
+      this.scrollToToday(false);
+      this.hasInitialScrolled = true;
+    } else if (this.savedScrollLeft !== null) {
+      this.isProgrammaticScroll = true;
+      scrollArea.scrollLeft = this.savedScrollLeft;
+      requestAnimationFrame(() => {
+        if (this.scrollAreaEl && this.savedScrollLeft !== null) {
+          this.scrollAreaEl.scrollLeft = this.savedScrollLeft;
+        }
+        setTimeout(() => {
+          this.isProgrammaticScroll = false;
+        }, 60);
+      });
+    }
     const visibleRangeItems = rangeItems.filter((item) => {
       return item.range.end >= this.windowStart && item.range.start <= this.windowEnd;
     });
@@ -9982,9 +10001,6 @@ var ProjectTimeline = class {
         cls: "ticktick-empty-desc",
         text: "\u0647\u06CC\u0686 \u062A\u0633\u06A9 \u0632\u0645\u0627\u0646\u200C\u062F\u0627\u0631\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u0627\u0632\u0647 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F. \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u06CC\u062F \u0628\u0627 \u062F\u06A9\u0645\u0647\u200C\u0647\u0627\u06CC \xAB\u2039\xBB \u0648 \xAB\u203A\xBB \u062F\u0631 \u0632\u0645\u0627\u0646 \u062C\u0627\u0628\u062C\u0627 \u0634\u0648\u06CC\u062F \u06CC\u0627 \u0627\u0632 \xAB\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0628\u0627\u0632\u0647\xBB \u062A\u0633\u06A9\u200C\u0647\u0627 \u0631\u0627 \u0627\u0636\u0627\u0641\u0647 \u06A9\u0646\u06CC\u062F."
       });
-      if (autoScrollToToday) {
-        this.scrollToToday(false);
-      }
       return;
     }
     for (const [projectId, items] of byProject.entries()) {
@@ -10009,9 +10025,6 @@ var ProjectTimeline = class {
           this.renderRangeBar(laneRow, assignment.task, assignment.range, grid.days[0], totalDays, colWidthPx);
         }
       }
-    }
-    if (autoScrollToToday) {
-      this.scrollToToday(false);
     }
   }
   bindCanvasPan(scrollArea) {
@@ -10062,6 +10075,11 @@ var ProjectTimeline = class {
           inline: "center",
           block: "nearest"
         });
+        setTimeout(() => {
+          if (this.scrollAreaEl) {
+            this.savedScrollLeft = this.scrollAreaEl.scrollLeft;
+          }
+        }, 120);
       }
     });
   }
@@ -10099,7 +10117,7 @@ var ProjectTimeline = class {
     check.addEventListener("pointerdown", (e) => e.stopPropagation());
     check.addEventListener("change", async () => {
       await this.host.complete(task);
-      await this.render(false);
+      await this.render();
     });
     bar.createSpan({
       cls: "ticktick-range-title",
@@ -10122,13 +10140,13 @@ var ProjectTimeline = class {
       new TaskDetailsModal(this.host.app, task, {
         complete: async () => {
           await this.host.complete(task);
-          await this.render(false);
+          await this.render();
         },
         load: (item) => this.host.load(item),
         edit: (item) => this.host.edit(item),
         changed: async () => {
           await this.host.refresh();
-          await this.render(false);
+          await this.render();
         },
         allTasks: () => this.host.tasks()
       }).open();
@@ -10224,10 +10242,10 @@ var ProjectTimeline = class {
             new import_obsidian17.Notice(`\u062F\u0631 \u062D\u0627\u0644 \u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0628\u0627\u0632\u0647\u0654 \u062A\u0633\u06A9 \u0628\u0647 ${pStart} \u062A\u0627 ${pDue}...`);
             await this.host.rescheduleRange(task, nextStart, nextDue);
             new import_obsidian17.Notice("\u0628\u0627\u0632\u0647 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u062A\u0646\u0638\u06CC\u0645 \u0634\u062F.");
-            await this.render(false);
+            await this.render();
           } catch (err) {
             new import_obsidian17.Notice(`\u062E\u0637\u0627 \u062F\u0631 \u0630\u062E\u06CC\u0631\u0647\u0654 \u0628\u0627\u0632\u0647: ${err instanceof Error ? err.message : String(err)}`);
-            await this.render(false);
+            await this.render();
           }
         }
       };
@@ -10250,78 +10268,186 @@ var ProjectTimeline = class {
     handleStart.addEventListener("pointerdown", (e) => onPointerDown(e, "start"));
     handleDue.addEventListener("pointerdown", (e) => onPointerDown(e, "due"));
   }
-  renderBacklogDrawer(pointTasks, backlogTasks) {
-    const drawer = this.element.createDiv({ cls: "ticktick-timeline-backlog-drawer" });
-    const header = drawer.createDiv({ cls: "ticktick-backlog-header" });
-    header.createSpan({ cls: "ticktick-backlog-title", text: "\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0628\u0627\u0632\u0647 \u0648 \u0646\u0642\u0637\u0647\u200C\u0627\u06CC" });
-    const closeBtn = header.createEl("button", { cls: "ticktick-backlog-close mod-icon" });
+  renderBacklogPanel(container, pointTasks, backlogTasks, projectMap) {
+    const totalCount = pointTasks.length + backlogTasks.length;
+    const panel = container.createDiv({ cls: "ticktick-timeline-backlog-panel" });
+    const header = panel.createDiv({ cls: "ticktick-backlog-header" });
+    const titleArea = header.createDiv({ cls: "ticktick-backlog-title-area" });
+    const iconSpan = titleArea.createSpan({ cls: "mod-icon" });
+    (0, import_obsidian17.setIcon)(iconSpan, "layers");
+    titleArea.createSpan({ cls: "ticktick-backlog-title", text: "\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0628\u0627\u0632\u0647" });
+    titleArea.createSpan({ cls: "ticktick-backlog-badge", text: String(totalCount) });
+    const closeBtn = header.createEl("button", {
+      cls: "ticktick-backlog-close mod-icon",
+      attr: { type: "button", "aria-label": "\u0628\u0633\u062A\u0646 \u067E\u0646\u0644" }
+    });
     (0, import_obsidian17.setIcon)(closeBtn, "x");
     closeBtn.addEventListener("click", () => {
       this.showBacklog = false;
-      void this.render(false);
+      void this.render();
     });
-    const cardsContainer = drawer.createDiv({ cls: "ticktick-backlog-cards" });
-    for (const item of pointTasks) {
-      const card = cardsContainer.createDiv({ cls: "ticktick-backlog-card is-point" });
-      card.dataset.taskId = String(item.task.id);
-      if (bulkSelectionStore.isSelected(String(item.task.id))) {
-        card.addClass("is-bulk-selected");
-      }
-      card.addEventListener("click", (e) => {
-        if (e.shiftKey || e.ctrlKey || e.metaKey) {
-          e.preventDefault();
-          e.stopPropagation();
-          bulkSelectionStore.toggle(String(item.task.id));
+    const searchWrapper = panel.createDiv({ cls: "ticktick-backlog-search-wrapper" });
+    const searchIcon = searchWrapper.createSpan({ cls: "mod-icon search-icon" });
+    (0, import_obsidian17.setIcon)(searchIcon, "search");
+    const searchInput = searchWrapper.createEl("input", {
+      type: "search",
+      cls: "ticktick-backlog-search-input",
+      placeholder: "\u062C\u0633\u062A\u200C\u0648\u062C\u0648 \u062F\u0631 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0628\u0627\u0632\u0647\u2026"
+    });
+    searchInput.value = this.backlogSearch;
+    const clearSearchBtn = searchWrapper.createEl("button", {
+      cls: `ticktick-backlog-search-clear mod-icon ${this.backlogSearch ? "is-visible" : ""}`,
+      attr: { type: "button", "aria-label": "\u067E\u0627\u06A9 \u06A9\u0631\u062F\u0646 \u0645\u062A\u0646" }
+    });
+    (0, import_obsidian17.setIcon)(clearSearchBtn, "x");
+    clearSearchBtn.addEventListener("click", () => {
+      this.backlogSearch = "";
+      searchInput.value = "";
+      clearSearchBtn.removeClass("is-visible");
+      renderCards();
+    });
+    searchInput.addEventListener("input", () => {
+      this.backlogSearch = searchInput.value.trim().toLowerCase();
+      clearSearchBtn.toggleClass("is-visible", Boolean(this.backlogSearch));
+      renderCards();
+    });
+    const tabsRow = panel.createDiv({ cls: "ticktick-backlog-tabs" });
+    const tabs = [
+      { id: "all", label: "\u0647\u0645\u0647", count: totalCount },
+      { id: "point", label: "\u0646\u0642\u0637\u0647\u200C\u0627\u06CC", count: pointTasks.length },
+      { id: "unscheduled", label: "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E", count: backlogTasks.length }
+    ];
+    const tabButtons = /* @__PURE__ */ new Map();
+    for (const tab of tabs) {
+      const tabBtn = tabsRow.createEl("button", {
+        cls: `ticktick-backlog-tab-btn ${this.backlogTab === tab.id ? "is-active" : ""}`,
+        text: `${tab.label} (${tab.count})`,
+        attr: { type: "button" }
+      });
+      tabButtons.set(tab.id, tabBtn);
+      tabBtn.addEventListener("click", () => {
+        this.backlogTab = tab.id;
+        for (const [id, btn] of tabButtons) {
+          btn.toggleClass("is-active", id === tab.id);
         }
-      });
-      card.createDiv({ cls: "ticktick-card-title", text: cleanTaskTitle(item.task.title) });
-      const pDue = formatPersianDate(item.range.end, this.host.timeZone);
-      card.createDiv({ cls: "ticktick-card-date", text: `\u0633\u0631\u0631\u0633\u06CC\u062F: ${pDue}` });
-      const planBtn = card.createEl("button", {
-        cls: "ticktick-card-plan-btn",
-        text: "\u0627\u06CC\u062C\u0627\u062F \u0628\u0627\u0632\u0647\u0654 \u06F3 \u0631\u0648\u0632\u0647"
-      });
-      planBtn.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const start = item.range.end;
-        const due = shiftCalendarDay(start, 3);
-        await this.host.rescheduleRange(item.task, start, due);
-        await this.render(false);
+        renderCards();
       });
     }
-    for (const task of backlogTasks) {
-      const card = cardsContainer.createDiv({ cls: "ticktick-backlog-card is-unscheduled" });
-      card.dataset.taskId = String(task.id);
-      if (bulkSelectionStore.isSelected(String(task.id))) {
-        card.addClass("is-bulk-selected");
-      }
-      card.addEventListener("click", (e) => {
-        if (e.shiftKey || e.ctrlKey || e.metaKey) {
-          e.preventDefault();
-          e.stopPropagation();
-          bulkSelectionStore.toggle(String(task.id));
+    const listContainer = panel.createDiv({ cls: "ticktick-backlog-list" });
+    const renderCards = () => {
+      listContainer.empty();
+      const itemsToRender = [];
+      if (this.backlogTab === "all" || this.backlogTab === "point") {
+        for (const item of pointTasks) {
+          itemsToRender.push({ task: item.task, type: "point", pointRange: item.range });
         }
-      });
-      card.createDiv({ cls: "ticktick-card-title", text: cleanTaskTitle(task.title) });
-      card.createDiv({ cls: "ticktick-card-badge", text: "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E" });
-      const planBtn = card.createEl("button", {
-        cls: "ticktick-card-plan-btn",
-        text: "\u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC \u0627\u0632 \u0627\u0645\u0631\u0648\u0632"
-      });
-      planBtn.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const today = todayInZone(this.host.timeZone);
-        const due = shiftCalendarDay(today, 2);
-        await this.host.rescheduleRange(task, today, due);
-        await this.render(false);
-      });
-    }
-    if (pointTasks.length === 0 && backlogTasks.length === 0) {
-      cardsContainer.createDiv({
-        cls: "ticktick-backlog-empty",
-        text: "\u062A\u0645\u0627\u0645 \u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0627\u06CC\u0646 \u0641\u06CC\u0644\u062A\u0631 \u062F\u0627\u0631\u0627\u06CC \u0628\u0627\u0632\u0647\u0654 \u0632\u0645\u0627\u0646\u06CC \u0631\u0648\u06CC \u062A\u0627\u06CC\u0645\u200C\u0644\u0627\u06CC\u0646 \u0647\u0633\u062A\u0646\u062F."
-      });
-    }
+      }
+      if (this.backlogTab === "all" || this.backlogTab === "unscheduled") {
+        for (const task of backlogTasks) {
+          itemsToRender.push({ task, type: "unscheduled" });
+        }
+      }
+      const filtered = this.backlogSearch ? itemsToRender.filter((it) => (it.task.title || "").toLowerCase().includes(this.backlogSearch)) : itemsToRender;
+      if (filtered.length === 0) {
+        const emptyEl = listContainer.createDiv({ cls: "ticktick-backlog-empty" });
+        emptyEl.setText(this.backlogSearch ? "\u0647\u06CC\u0686 \u062A\u0633\u06A9\u06CC \u0628\u0627 \u0627\u06CC\u0646 \u0639\u0646\u0648\u0627\u0646 \u06CC\u0627\u0641\u062A \u0646\u0634\u062F." : "\u0647\u06CC\u0686 \u062A\u0633\u06A9\u06CC \u062F\u0631 \u0627\u06CC\u0646 \u0628\u062E\u0634 \u0648\u062C\u0648\u062F \u0646\u062F\u0627\u0631\u062F.");
+        return;
+      }
+      for (const item of filtered) {
+        const { task, type, pointRange } = item;
+        const project = projectMap.get(String(task.projectId));
+        const projName = project?.name ?? (String(task.projectId) === "inbox" ? "\u0635\u0646\u062F\u0648\u0642 \u0648\u0631\u0648\u062F\u06CC" : "\u067E\u0631\u0648\u0698\u0647");
+        const projColor = project?.color ?? "#7c6cff";
+        const card = listContainer.createDiv({
+          cls: `ticktick-backlog-card is-${type}`,
+          attr: { role: "button", tabindex: "0" }
+        });
+        card.dataset.taskId = String(task.id);
+        if (bulkSelectionStore.isSelected(String(task.id))) {
+          card.addClass("is-bulk-selected");
+        }
+        const metaRow = card.createDiv({ cls: "ticktick-backlog-card-meta" });
+        const projPill = metaRow.createSpan({ cls: "ticktick-backlog-proj-pill" });
+        const dot = projPill.createSpan({ cls: "ticktick-project-dot" });
+        dot.style.backgroundColor = projColor;
+        projPill.createSpan({ text: projName });
+        if (task.priority && task.priority > 0) {
+          const prio = taskPriority(task.priority);
+          const prioBadge = metaRow.createSpan({ cls: `ticktick-backlog-prio-badge prio-${prio.value}` });
+          prioBadge.setText(prio.label);
+        }
+        card.createDiv({
+          cls: "ticktick-backlog-card-title",
+          text: cleanTaskTitle(task.title || "\u0628\u062F\u0648\u0646 \u0639\u0646\u0648\u0627\u0646")
+        });
+        const dateRow = card.createDiv({ cls: "ticktick-backlog-card-date-row" });
+        if (type === "point" && pointRange?.end) {
+          const calIcon = dateRow.createSpan({ cls: "mod-icon" });
+          (0, import_obsidian17.setIcon)(calIcon, "calendar");
+          dateRow.createSpan({
+            cls: "ticktick-backlog-date-text",
+            text: `\u0633\u0631\u0631\u0633\u06CC\u062F: ${formatPersianDate(pointRange.end, this.host.timeZone)}`
+          });
+        } else {
+          dateRow.createSpan({
+            cls: "ticktick-backlog-nodate-text",
+            text: "\u0628\u062F\u0648\u0646 \u062A\u0627\u0631\u06CC\u062E \u0633\u0631\u0631\u0633\u06CC\u062F"
+          });
+        }
+        const planBtn = card.createEl("button", {
+          cls: "ticktick-backlog-plan-btn",
+          attr: { type: "button" }
+        });
+        const btnIcon = planBtn.createSpan({ cls: "mod-icon" });
+        (0, import_obsidian17.setIcon)(btnIcon, "calendar-plus");
+        if (type === "point" && pointRange?.end) {
+          planBtn.createSpan({ text: "\u0627\u06CC\u062C\u0627\u062F \u0628\u0627\u0632\u0647\u0654 \u06F3 \u0631\u0648\u0632\u0647" });
+          planBtn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const start = pointRange.end;
+            const due = shiftCalendarDay(start, 3);
+            await this.host.rescheduleRange(task, start, due);
+            new import_obsidian17.Notice(`\u0628\u0627\u0632\u0647\u0654 \u06F3 \u0631\u0648\u0632\u0647 \u0628\u0631\u0627\u06CC \xAB${cleanTaskTitle(task.title)}\xBB \u0627\u06CC\u062C\u0627\u062F \u0634\u062F.`);
+            await this.render();
+          });
+        } else {
+          planBtn.createSpan({ text: "\u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC \u0627\u0632 \u0627\u0645\u0631\u0648\u0632" });
+          planBtn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const today = todayInZone(this.host.timeZone);
+            const due = shiftCalendarDay(today, 2);
+            await this.host.rescheduleRange(task, today, due);
+            new import_obsidian17.Notice(`\u062A\u0633\u06A9 \xAB${cleanTaskTitle(task.title)}\xBB \u0627\u0632 \u0627\u0645\u0631\u0648\u0632 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC \u0634\u062F.`);
+            await this.render();
+          });
+        }
+        card.addEventListener("click", (e) => {
+          const target = e.target;
+          if (target.closest("button, input")) return;
+          if (e.shiftKey || e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            const sel = bulkSelectionStore.toggle(String(task.id));
+            card.toggleClass("is-bulk-selected", sel);
+            return;
+          }
+          new TaskDetailsModal(this.host.app, task, {
+            complete: async () => {
+              await this.host.complete(task);
+              await this.render();
+            },
+            load: (item2) => this.host.load(item2),
+            edit: (item2) => this.host.edit(item2),
+            changed: async () => {
+              await this.host.refresh();
+              await this.render();
+            },
+            allTasks: () => this.host.tasks()
+          }).open();
+        });
+      }
+    };
+    renderCards();
   }
 };
 
