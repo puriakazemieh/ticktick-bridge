@@ -60,9 +60,12 @@ export class ProjectTimeline {
   private windowEnd: string | null = null;
   private filterBarInstance: FilterBar | null = null;
   private scrollAreaEl: HTMLElement | null = null;
+  private backlogListEl: HTMLElement | null = null;
   private savedScrollLeft: number | null = null;
+  private savedBacklogScrollTop = 0;
   private hasInitialScrolled = false;
   private isProgrammaticScroll = false;
+  private lastRenderSignature = "";
 
   // Backlog panel internal filter state
   private backlogSearch = "";
@@ -85,18 +88,35 @@ export class ProjectTimeline {
 
   constructor(private element: HTMLElement, private host: TimelineHost) {}
 
-  async render() {
-    // Preserve scroll position across re-renders
+  private computeRenderSignature(tasks: TickTickTask[]): string {
+    const tasksSig = tasks.map(t => `${t.id}:${t.status}:${t.startDate ?? ""}:${t.dueDate ?? ""}:${t.title ?? ""}:${t.priority ?? 0}`).join(";");
+    const filterSig = JSON.stringify(this.filterState);
+    return `${tasksSig}|${filterSig}|${this.zoom}|${this.colorMode}|${this.showBacklog}|${this.windowStart ?? ""}|${this.windowEnd ?? ""}`;
+  }
+
+  async render(force = false) {
+    const allTasks = this.host.tasks();
+    const rawProjects = await this.host.projects();
+    const projects = Array.isArray(rawProjects) ? rawProjects : [];
+
+    const currentSig = this.computeRenderSignature(allTasks);
+    if (!force && this.lastRenderSignature === currentSig && this.element.childElementCount > 0) {
+      // Data and state haven't changed! Prevent unnecessary DOM rebuilding and avoid resetting scroll.
+      return;
+    }
+    this.lastRenderSignature = currentSig;
+
+    // Capture latest scroll positions before DOM teardown
     if (this.scrollAreaEl) {
       this.savedScrollLeft = this.scrollAreaEl.scrollLeft;
+    }
+    if (this.backlogListEl) {
+      this.savedBacklogScrollTop = this.backlogListEl.scrollTop;
     }
 
     this.element.empty();
     this.element.addClass("ticktick-timeline-workspace");
 
-    const allTasks = this.host.tasks();
-    const rawProjects = await this.host.projects();
-    const projects = Array.isArray(rawProjects) ? rawProjects : [];
     const projectMap = new Map(projects.map(p => [String(p.id), p]));
 
     // Attach project names and colors to tasks
@@ -114,13 +134,13 @@ export class ProjectTimeline {
       showCompleted: this.host.showCompleted()
     });
 
-    // Ensure focused window bounds around today for the current zoom
+    // Ensure focused window bounds around today for current zoom
     this.ensureWindowBounds();
 
-    // Row 2: Top Modes & Navigation Toolbar (Cleaned up: sync, backlog, and color moved)
+    // Row 2: Top Modes & Navigation Toolbar (Cleaned up: sync, backlog, and color removed)
     this.renderToolbar();
 
-    // Row 3: Filter Bar + Action Buttons (Color mode & Backlog button added here)
+    // Row 3: Filter Bar with Custom Actions embedded right in the search section!
     const totalBacklogCount = partitioned.backlogTasks.length + partitioned.pointTasks.length;
     this.renderFilterBar(projects, enrichedTasks, totalBacklogCount);
 
@@ -143,7 +163,7 @@ export class ProjectTimeline {
       executeBulkOperation: async (ids, op, params) => this.host.executeBulkOperation ? this.host.executeBulkOperation(ids, op, params) : null,
       onChanged: async () => {
         await this.host.refresh();
-        await this.render();
+        await this.render(true);
       }
     });
     void this.bulkActionBar.render();
@@ -153,15 +173,12 @@ export class ProjectTimeline {
     if (this.windowStart && this.windowEnd) return;
     const today = todayInZone(this.host.timeZone);
     if (this.zoom === "day") {
-      // 60-day window centered on today: 14 days in the past, 45 days in the future
       this.windowStart = shiftCalendarDay(today, -14);
       this.windowEnd = shiftCalendarDay(today, 45);
     } else if (this.zoom === "week") {
-      // 16-week window (112 days): 4 weeks in the past, 12 weeks in the future
       this.windowStart = shiftCalendarDay(today, -28);
       this.windowEnd = shiftCalendarDay(today, 84);
     } else {
-      // 12-month window: 2 months in the past, 10 months in the future
       this.windowStart = shiftCalendarDay(today, -60);
       this.windowEnd = shiftCalendarDay(today, 305);
     }
@@ -173,7 +190,7 @@ export class ProjectTimeline {
     this.windowStart = shiftCalendarDay(this.windowStart, amount);
     this.windowEnd = shiftCalendarDay(this.windowEnd, amount);
     this.savedScrollLeft = null;
-    void this.render();
+    void this.render(true);
   }
 
   private renderToolbar() {
@@ -200,7 +217,7 @@ export class ProjectTimeline {
           this.windowEnd = null;
           this.savedScrollLeft = null;
           this.hasInitialScrolled = false;
-          void this.render();
+          void this.render(true);
         }
       });
     }
@@ -225,7 +242,7 @@ export class ProjectTimeline {
       this.windowEnd = null;
       this.savedScrollLeft = null;
       this.hasInitialScrolled = false;
-      void this.render();
+      void this.render(true);
     });
 
     const nextBtn = nav.createEl("button", {
@@ -244,8 +261,6 @@ export class ProjectTimeline {
   private renderFilterBar(projects: TickTickProject[], tasks: TickTickTask[], backlogCount: number) {
     const filterContainer = this.element.createDiv({ cls: "ticktick-timeline-filter-container" });
 
-    // Filter Bar Slot (Search, Projects, Tags, Priorities, Status, Saved Views)
-    const filterSlot = filterContainer.createDiv({ cls: "ticktick-timeline-filter-slot" });
     const filterHost: FilterBarHost = {
       app: this.host.app,
       scope: "timeline",
@@ -258,64 +273,63 @@ export class ProjectTimeline {
       filterState: () => this.filterState,
       onFilterChange: (state) => {
         this.filterState = state;
-        void this.render();
-      }
-    };
+        void this.render(true);
+      },
+      // Place action buttons inside the search row of the filter bar!
+      customActions: (actionsSlot) => {
+        // Backlog Toggle Button
+        const backlogBtn = actionsSlot.createEl("button", {
+          cls: `ticktick-planner-toggle-btn ${this.showBacklog ? "is-active" : ""}`,
+          attr: { type: "button", "aria-label": "تسک‌های بدون بازه و نقطه‌ای" }
+        });
+        const backlogIcon = backlogBtn.createSpan({ cls: "mod-icon" });
+        setIcon(backlogIcon, "layers");
+        backlogBtn.createSpan({ text: `تسک‌های بدون بازه (${backlogCount})` });
+        backlogBtn.addEventListener("click", () => {
+          this.showBacklog = !this.showBacklog;
+          void this.render(true);
+        });
 
-    this.filterBarInstance = new FilterBar(filterSlot, filterHost);
-    this.filterBarInstance.render();
+        // Color Mode Menu Button
+        const colorLabels: Record<TimelineColorMode, string> = {
+          project: "رنگ: پروژه",
+          tag: "رنگ: برچسب",
+          priority: "رنگ: اولویت",
+          uniform: "رنگ: یکدست"
+        };
 
-    // Actions Slot: "تسک‌های بدون بازه" and "رنگ: پروژه"
-    const actionsSlot = filterContainer.createDiv({ cls: "ticktick-timeline-filter-actions" });
+        const colorBtn = actionsSlot.createEl("button", {
+          cls: "ticktick-planner-toggle-btn",
+          attr: { type: "button", "aria-label": "پالت رنگ‌بندی" }
+        });
+        const paletteIcon = colorBtn.createSpan({ cls: "mod-icon" });
+        setIcon(paletteIcon, "palette");
+        colorBtn.createSpan({ text: colorLabels[this.colorMode] });
 
-    // Backlog Toggle Button
-    const backlogBtn = actionsSlot.createEl("button", {
-      cls: `ticktick-planner-toggle-btn ${this.showBacklog ? "is-active" : ""}`,
-      attr: { type: "button", "aria-label": "تسک‌های بدون بازه و نقطه‌ای" }
-    });
-    const backlogIcon = backlogBtn.createSpan({ cls: "mod-icon" });
-    setIcon(backlogIcon, "layers");
-    backlogBtn.createSpan({ text: `تسک‌های بدون بازه (${backlogCount})` });
-    backlogBtn.addEventListener("click", () => {
-      this.showBacklog = !this.showBacklog;
-      void this.render();
-    });
-
-    // Color Mode Menu Button
-    const colorLabels: Record<TimelineColorMode, string> = {
-      project: "رنگ: پروژه",
-      tag: "رنگ: برچسب",
-      priority: "رنگ: اولویت",
-      uniform: "رنگ: یکدست"
-    };
-
-    const colorBtn = actionsSlot.createEl("button", {
-      cls: "ticktick-planner-toggle-btn",
-      attr: { type: "button", "aria-label": "پالت رنگ‌بندی" }
-    });
-    const paletteIcon = colorBtn.createSpan({ cls: "mod-icon" });
-    setIcon(paletteIcon, "palette");
-    colorBtn.createSpan({ text: colorLabels[this.colorMode] });
-
-    colorBtn.addEventListener("click", (event) => {
-      const menu = new Menu();
-      for (const [mode, label] of [
-        ["project", "بر اساس پروژه"],
-        ["tag", "بر اساس برچسب"],
-        ["priority", "بر اساس اولویت"],
-        ["uniform", "رنگ یکدست"]
-      ] as Array<[TimelineColorMode, string]>) {
-        menu.addItem(item => {
-          item.setTitle(label)
-            .setChecked(this.colorMode === mode)
-            .onClick(() => {
-              this.colorMode = mode;
-              void this.render();
+        colorBtn.addEventListener("click", (event) => {
+          const menu = new Menu();
+          for (const [mode, label] of [
+            ["project", "بر اساس پروژه"],
+            ["tag", "بر اساس برچسب"],
+            ["priority", "بر اساس اولویت"],
+            ["uniform", "رنگ یکدست"]
+          ] as Array<[TimelineColorMode, string]>) {
+            menu.addItem(item => {
+              item.setTitle(label)
+                .setChecked(this.colorMode === mode)
+                .onClick(() => {
+                  this.colorMode = mode;
+                  void this.render(true);
+                });
             });
+          }
+          menu.showAtMouseEvent(event);
         });
       }
-      menu.showAtMouseEvent(event);
-    });
+    };
+
+    this.filterBarInstance = new FilterBar(filterContainer, filterHost);
+    this.filterBarInstance.render();
   }
 
   private renderTimelineGrid(
@@ -329,7 +343,6 @@ export class ProjectTimeline {
     const totalDays = grid.days.length;
     const today = todayInZone(this.host.timeZone);
 
-    // Column width in pixels: generous space for day/week/month
     const colWidthPx = this.zoom === "day" ? 54 : this.zoom === "week" ? 22 : 8;
 
     const scrollArea = canvas.createDiv({ cls: "ticktick-timeline-scroll-area" });
@@ -359,7 +372,7 @@ export class ProjectTimeline {
         const jsDate = new Date(`${col.date ?? colKey}T12:00:00Z`);
         const weekdayName = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "narrow" }).format(jsDate);
         const dayNum = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(jsDate);
-        const isWeekend = jsDate.getUTCDay() === 5; // Friday in Iran
+        const isWeekend = jsDate.getUTCDay() === 5;
         if (isWeekend) colHeader.addClass("is-weekend");
         colHeader.createDiv({ cls: "ticktick-col-weekday", text: weekdayName });
         const dayNumEl = colHeader.createDiv({ cls: "ticktick-col-daynum", text: dayNum });
@@ -385,7 +398,22 @@ export class ProjectTimeline {
       todayStripe.style.gridRow = `1 / -1`;
     }
 
-    // 3. Scroll preservation and wheel horizontal listeners
+    // 3. Restore Scroll position immediately or perform initial scroll
+    if (this.savedScrollLeft !== null) {
+      this.isProgrammaticScroll = true;
+      scrollArea.scrollLeft = this.savedScrollLeft;
+      requestAnimationFrame(() => {
+        if (this.scrollAreaEl && this.savedScrollLeft !== null) {
+          this.scrollAreaEl.scrollLeft = this.savedScrollLeft;
+        }
+        setTimeout(() => { this.isProgrammaticScroll = false; }, 80);
+      });
+    } else if (!this.hasInitialScrolled) {
+      this.scrollToToday(false);
+      this.hasInitialScrolled = true;
+    }
+
+    // 4. Scroll listener after restoring scroll
     scrollArea.addEventListener("scroll", () => {
       if (!this.isProgrammaticScroll) {
         this.savedScrollLeft = scrollArea.scrollLeft;
@@ -394,28 +422,13 @@ export class ProjectTimeline {
 
     scrollArea.addEventListener("wheel", (e: WheelEvent) => {
       if (e.ctrlKey || scrollArea.scrollWidth <= scrollArea.clientWidth) return;
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // Native horizontal scroll
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
       e.preventDefault();
       scrollArea.scrollBy({ left: -e.deltaY * 1.5, behavior: "auto" });
     }, { passive: false });
 
-    // 4. Pointer Drag-to-Pan on Canvas
+    // 5. Pointer Drag-to-Pan on Canvas
     this.bindCanvasPan(scrollArea);
-
-    // 5. Restore scroll or perform initial scroll to today
-    if (!this.hasInitialScrolled) {
-      this.scrollToToday(false);
-      this.hasInitialScrolled = true;
-    } else if (this.savedScrollLeft !== null) {
-      this.isProgrammaticScroll = true;
-      scrollArea.scrollLeft = this.savedScrollLeft;
-      requestAnimationFrame(() => {
-        if (this.scrollAreaEl && this.savedScrollLeft !== null) {
-          this.scrollAreaEl.scrollLeft = this.savedScrollLeft;
-        }
-        setTimeout(() => { this.isProgrammaticScroll = false; }, 60);
-      });
-    }
 
     // 6. Project Grouping & Packed Lanes
     const visibleRangeItems = rangeItems.filter(item => {
@@ -444,7 +457,6 @@ export class ProjectTimeline {
       const projName = project?.name ?? (projectId === "inbox" ? "صندوق ورودی" : "پروژه");
       const projColor = project?.color ?? "#7c6cff";
 
-      // Project Header Bar spanning full width
       const projHeader = gridEl.createDiv({ cls: "ticktick-timeline-project-row" });
       projHeader.style.gridColumn = `1 / span ${totalDays}`;
       const colorDot = projHeader.createSpan({ cls: "ticktick-project-dot" });
@@ -452,7 +464,6 @@ export class ProjectTimeline {
       projHeader.createSpan({ cls: "ticktick-project-name", text: projName });
       projHeader.createSpan({ cls: "ticktick-project-count", text: `(${items.length})` });
 
-      // Pack overlapping tasks into non-overlapping tracks/lanes
       const packed = packTimelineLanes(items);
 
       for (let laneIdx = 0; laneIdx < packed.totalLanes; laneIdx++) {
@@ -572,7 +583,7 @@ export class ProjectTimeline {
     check.addEventListener("pointerdown", e => e.stopPropagation());
     check.addEventListener("change", async () => {
       await this.host.complete(task);
-      await this.render();
+      await this.render(true);
     });
 
     // Title
@@ -603,13 +614,13 @@ export class ProjectTimeline {
       new TaskDetailsModal(this.host.app, task, {
         complete: async () => {
           await this.host.complete(task);
-          await this.render();
+          await this.render(true);
         },
         load: item => this.host.load(item),
         edit: item => this.host.edit(item),
         changed: async () => {
           await this.host.refresh();
-          await this.render();
+          await this.render(true);
         },
         allTasks: () => this.host.tasks(),
       }).open();
@@ -656,7 +667,7 @@ export class ProjectTimeline {
     colWidthPx: number
   ) {
     const onPointerDown = (event: PointerEvent, edge: "both" | "start" | "due") => {
-      if (event.button !== 0) return; // Only primary mouse button
+      if (event.button !== 0) return;
       event.stopPropagation();
       event.preventDefault();
 
@@ -687,13 +698,10 @@ export class ProjectTimeline {
       const onPointerMove = (moveEvent: PointerEvent) => {
         if (!this.activeDrag) return;
 
-        // In RTL: moving pointer to the Left (moveEvent.clientX < startX) advances forward in time (positive days)
-        // moving pointer to the Right (moveEvent.clientX > startX) goes backward in time (negative days)
         const dx = startX - moveEvent.clientX;
         deltaDays = Math.round(dx / colWidthPx);
         this.activeDrag.deltaDays = deltaDays;
 
-        // Compute candidate dates preview
         const shifted = shiftTimelineEndpoints(task, deltaDays, edge, this.host.timeZone);
         const newStart = toDateKey(shifted.startDate, this.host.timeZone);
         const newDue = toDateKey(shifted.dueDate, this.host.timeZone);
@@ -706,7 +714,7 @@ export class ProjectTimeline {
         previewEl.style.top = `${moveEvent.clientY + 16}px`;
       };
 
-      const onPointerUp = async (upEvent: PointerEvent) => {
+      const onPointerUp = async () => {
         window.removeEventListener("pointermove", onPointerMove);
         window.removeEventListener("pointerup", onPointerUp);
         window.removeEventListener("keydown", onKeyDown);
@@ -733,10 +741,10 @@ export class ProjectTimeline {
             new Notice(`در حال بروزرسانی بازهٔ تسک به ${pStart} تا ${pDue}...`);
             await this.host.rescheduleRange(task, nextStart, nextDue);
             new Notice("بازه با موفقیت تنظیم شد.");
-            await this.render();
+            await this.render(true);
           } catch (err) {
             new Notice(`خطا در ذخیرهٔ بازه: ${err instanceof Error ? err.message : String(err)}`);
-            await this.render();
+            await this.render(true);
           }
         }
       };
@@ -791,7 +799,7 @@ export class ProjectTimeline {
     setIcon(closeBtn, "x");
     closeBtn.addEventListener("click", () => {
       this.showBacklog = false;
-      void this.render();
+      void this.render(true);
     });
 
     // 2. Search input
@@ -848,8 +856,13 @@ export class ProjectTimeline {
       });
     }
 
-    // 4. Vertical Scrollable List
+    // 4. Vertical Scrollable List with preserved scroll position
     const listContainer = panel.createDiv({ cls: "ticktick-backlog-list" });
+    this.backlogListEl = listContainer;
+
+    listContainer.addEventListener("scroll", () => {
+      this.savedBacklogScrollTop = listContainer.scrollTop;
+    }, { passive: true });
 
     const renderCards = () => {
       listContainer.empty();
@@ -951,7 +964,7 @@ export class ProjectTimeline {
             const due = shiftCalendarDay(start, 3);
             await this.host.rescheduleRange(task, start, due);
             new Notice(`بازهٔ ۳ روزه برای «${cleanTaskTitle(task.title)}» ایجاد شد.`);
-            await this.render();
+            await this.render(true);
           });
         } else {
           planBtn.createSpan({ text: "برنامه‌ریزی از امروز" });
@@ -961,7 +974,7 @@ export class ProjectTimeline {
             const due = shiftCalendarDay(today, 2);
             await this.host.rescheduleRange(task, today, due);
             new Notice(`تسک «${cleanTaskTitle(task.title)}» از امروز برنامه‌ریزی شد.`);
-            await this.render();
+            await this.render(true);
           });
         }
 
@@ -979,16 +992,26 @@ export class ProjectTimeline {
           new TaskDetailsModal(this.host.app, task, {
             complete: async () => {
               await this.host.complete(task);
-              await this.render();
+              await this.render(true);
             },
             load: item => this.host.load(item),
             edit: item => this.host.edit(item),
             changed: async () => {
               await this.host.refresh();
-              await this.render();
+              await this.render(true);
             },
             allTasks: () => this.host.tasks(),
           }).open();
+        });
+      }
+
+      // Restore vertical scroll position of the backlog list
+      if (this.savedBacklogScrollTop > 0) {
+        listContainer.scrollTop = this.savedBacklogScrollTop;
+        requestAnimationFrame(() => {
+          if (this.backlogListEl && this.savedBacklogScrollTop > 0) {
+            this.backlogListEl.scrollTop = this.savedBacklogScrollTop;
+          }
         });
       }
     };

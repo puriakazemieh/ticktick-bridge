@@ -19,6 +19,7 @@ export interface FilterBarHost {
   onFilterChange: (state: TaskFilterState) => void;
   sortMode?: () => string;
   onSortChange?: (mode: string) => void;
+  customActions?: (container: HTMLElement) => void;
 }
 
 export class MultiChoiceModal extends Modal {
@@ -235,7 +236,13 @@ export class FilterBar {
       }
     });
 
-    // 2. Chips Container (Projects, Tags, Priority, Status, Saved Views, Reset)
+    // 2. Custom actions inside the search row (e.g. Backlog & Color Mode in Timeline)
+    if (this.host.customActions) {
+      const actionsSlot = this.element.createDiv({ cls: "ticktick-filter-custom-actions" });
+      this.host.customActions(actionsSlot);
+    }
+
+    // 3. Chips Container (Projects, Tags, Priority, Status, Saved Views, Reset)
     this.chipsContainer = this.element.createDiv({ cls: "ticktick-filter-chips-container" });
     this.renderChips();
 

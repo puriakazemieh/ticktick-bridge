@@ -7382,6 +7382,10 @@ var FilterBar = class {
         this.renderChips();
       }
     });
+    if (this.host.customActions) {
+      const actionsSlot = this.element.createDiv({ cls: "ticktick-filter-custom-actions" });
+      this.host.customActions(actionsSlot);
+    }
     this.chipsContainer = this.element.createDiv({ cls: "ticktick-filter-chips-container" });
     this.renderChips();
     if (wasSearchFocused && this.searchInput) {
@@ -9710,9 +9714,12 @@ var ProjectTimeline = class {
   windowEnd = null;
   filterBarInstance = null;
   scrollAreaEl = null;
+  backlogListEl = null;
   savedScrollLeft = null;
+  savedBacklogScrollTop = 0;
   hasInitialScrolled = false;
   isProgrammaticScroll = false;
+  lastRenderSignature = "";
   // Backlog panel internal filter state
   backlogSearch = "";
   backlogTab = "all";
@@ -9720,15 +9727,28 @@ var ProjectTimeline = class {
   activeDrag = null;
   wasDraggedRecently = false;
   bulkActionBar = null;
-  async render() {
-    if (this.scrollAreaEl) {
-      this.savedScrollLeft = this.scrollAreaEl.scrollLeft;
-    }
-    this.element.empty();
-    this.element.addClass("ticktick-timeline-workspace");
+  computeRenderSignature(tasks) {
+    const tasksSig = tasks.map((t) => `${t.id}:${t.status}:${t.startDate ?? ""}:${t.dueDate ?? ""}:${t.title ?? ""}:${t.priority ?? 0}`).join(";");
+    const filterSig = JSON.stringify(this.filterState);
+    return `${tasksSig}|${filterSig}|${this.zoom}|${this.colorMode}|${this.showBacklog}|${this.windowStart ?? ""}|${this.windowEnd ?? ""}`;
+  }
+  async render(force = false) {
     const allTasks = this.host.tasks();
     const rawProjects = await this.host.projects();
     const projects = Array.isArray(rawProjects) ? rawProjects : [];
+    const currentSig = this.computeRenderSignature(allTasks);
+    if (!force && this.lastRenderSignature === currentSig && this.element.childElementCount > 0) {
+      return;
+    }
+    this.lastRenderSignature = currentSig;
+    if (this.scrollAreaEl) {
+      this.savedScrollLeft = this.scrollAreaEl.scrollLeft;
+    }
+    if (this.backlogListEl) {
+      this.savedBacklogScrollTop = this.backlogListEl.scrollTop;
+    }
+    this.element.empty();
+    this.element.addClass("ticktick-timeline-workspace");
     const projectMap = new Map(projects.map((p) => [String(p.id), p]));
     const enrichedTasks = allTasks.map((t) => {
       const proj = projectMap.get(String(t.projectId));
@@ -9760,7 +9780,7 @@ var ProjectTimeline = class {
       executeBulkOperation: async (ids, op, params) => this.host.executeBulkOperation ? this.host.executeBulkOperation(ids, op, params) : null,
       onChanged: async () => {
         await this.host.refresh();
-        await this.render();
+        await this.render(true);
       }
     });
     void this.bulkActionBar.render();
@@ -9785,7 +9805,7 @@ var ProjectTimeline = class {
     this.windowStart = shiftCalendarDay(this.windowStart, amount);
     this.windowEnd = shiftCalendarDay(this.windowEnd, amount);
     this.savedScrollLeft = null;
-    void this.render();
+    void this.render(true);
   }
   renderToolbar() {
     const toolbar = this.element.createDiv({ cls: "ticktick-planner-controls ticktick-timeline-toolbar" });
@@ -9809,7 +9829,7 @@ var ProjectTimeline = class {
           this.windowEnd = null;
           this.savedScrollLeft = null;
           this.hasInitialScrolled = false;
-          void this.render();
+          void this.render(true);
         }
       });
     }
@@ -9830,7 +9850,7 @@ var ProjectTimeline = class {
       this.windowEnd = null;
       this.savedScrollLeft = null;
       this.hasInitialScrolled = false;
-      void this.render();
+      void this.render(true);
     });
     const nextBtn = nav.createEl("button", {
       cls: "ticktick-nav-btn mod-icon",
@@ -9845,7 +9865,6 @@ var ProjectTimeline = class {
   }
   renderFilterBar(projects, tasks, backlogCount) {
     const filterContainer = this.element.createDiv({ cls: "ticktick-timeline-filter-container" });
-    const filterSlot = filterContainer.createDiv({ cls: "ticktick-timeline-filter-slot" });
     const filterHost = {
       app: this.host.app,
       scope: "timeline",
@@ -9858,53 +9877,55 @@ var ProjectTimeline = class {
       filterState: () => this.filterState,
       onFilterChange: (state) => {
         this.filterState = state;
-        void this.render();
-      }
-    };
-    this.filterBarInstance = new FilterBar(filterSlot, filterHost);
-    this.filterBarInstance.render();
-    const actionsSlot = filterContainer.createDiv({ cls: "ticktick-timeline-filter-actions" });
-    const backlogBtn = actionsSlot.createEl("button", {
-      cls: `ticktick-planner-toggle-btn ${this.showBacklog ? "is-active" : ""}`,
-      attr: { type: "button", "aria-label": "\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0628\u0627\u0632\u0647 \u0648 \u0646\u0642\u0637\u0647\u200C\u0627\u06CC" }
-    });
-    const backlogIcon = backlogBtn.createSpan({ cls: "mod-icon" });
-    (0, import_obsidian17.setIcon)(backlogIcon, "layers");
-    backlogBtn.createSpan({ text: `\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0628\u0627\u0632\u0647 (${backlogCount})` });
-    backlogBtn.addEventListener("click", () => {
-      this.showBacklog = !this.showBacklog;
-      void this.render();
-    });
-    const colorLabels = {
-      project: "\u0631\u0646\u06AF: \u067E\u0631\u0648\u0698\u0647",
-      tag: "\u0631\u0646\u06AF: \u0628\u0631\u0686\u0633\u0628",
-      priority: "\u0631\u0646\u06AF: \u0627\u0648\u0644\u0648\u06CC\u062A",
-      uniform: "\u0631\u0646\u06AF: \u06CC\u06A9\u062F\u0633\u062A"
-    };
-    const colorBtn = actionsSlot.createEl("button", {
-      cls: "ticktick-planner-toggle-btn",
-      attr: { type: "button", "aria-label": "\u067E\u0627\u0644\u062A \u0631\u0646\u06AF\u200C\u0628\u0646\u062F\u06CC" }
-    });
-    const paletteIcon = colorBtn.createSpan({ cls: "mod-icon" });
-    (0, import_obsidian17.setIcon)(paletteIcon, "palette");
-    colorBtn.createSpan({ text: colorLabels[this.colorMode] });
-    colorBtn.addEventListener("click", (event) => {
-      const menu = new import_obsidian17.Menu();
-      for (const [mode, label] of [
-        ["project", "\u0628\u0631 \u0627\u0633\u0627\u0633 \u067E\u0631\u0648\u0698\u0647"],
-        ["tag", "\u0628\u0631 \u0627\u0633\u0627\u0633 \u0628\u0631\u0686\u0633\u0628"],
-        ["priority", "\u0628\u0631 \u0627\u0633\u0627\u0633 \u0627\u0648\u0644\u0648\u06CC\u062A"],
-        ["uniform", "\u0631\u0646\u06AF \u06CC\u06A9\u062F\u0633\u062A"]
-      ]) {
-        menu.addItem((item) => {
-          item.setTitle(label).setChecked(this.colorMode === mode).onClick(() => {
-            this.colorMode = mode;
-            void this.render();
-          });
+        void this.render(true);
+      },
+      // Place action buttons inside the search row of the filter bar!
+      customActions: (actionsSlot) => {
+        const backlogBtn = actionsSlot.createEl("button", {
+          cls: `ticktick-planner-toggle-btn ${this.showBacklog ? "is-active" : ""}`,
+          attr: { type: "button", "aria-label": "\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0628\u0627\u0632\u0647 \u0648 \u0646\u0642\u0637\u0647\u200C\u0627\u06CC" }
+        });
+        const backlogIcon = backlogBtn.createSpan({ cls: "mod-icon" });
+        (0, import_obsidian17.setIcon)(backlogIcon, "layers");
+        backlogBtn.createSpan({ text: `\u062A\u0633\u06A9\u200C\u0647\u0627\u06CC \u0628\u062F\u0648\u0646 \u0628\u0627\u0632\u0647 (${backlogCount})` });
+        backlogBtn.addEventListener("click", () => {
+          this.showBacklog = !this.showBacklog;
+          void this.render(true);
+        });
+        const colorLabels = {
+          project: "\u0631\u0646\u06AF: \u067E\u0631\u0648\u0698\u0647",
+          tag: "\u0631\u0646\u06AF: \u0628\u0631\u0686\u0633\u0628",
+          priority: "\u0631\u0646\u06AF: \u0627\u0648\u0644\u0648\u06CC\u062A",
+          uniform: "\u0631\u0646\u06AF: \u06CC\u06A9\u062F\u0633\u062A"
+        };
+        const colorBtn = actionsSlot.createEl("button", {
+          cls: "ticktick-planner-toggle-btn",
+          attr: { type: "button", "aria-label": "\u067E\u0627\u0644\u062A \u0631\u0646\u06AF\u200C\u0628\u0646\u062F\u06CC" }
+        });
+        const paletteIcon = colorBtn.createSpan({ cls: "mod-icon" });
+        (0, import_obsidian17.setIcon)(paletteIcon, "palette");
+        colorBtn.createSpan({ text: colorLabels[this.colorMode] });
+        colorBtn.addEventListener("click", (event) => {
+          const menu = new import_obsidian17.Menu();
+          for (const [mode, label] of [
+            ["project", "\u0628\u0631 \u0627\u0633\u0627\u0633 \u067E\u0631\u0648\u0698\u0647"],
+            ["tag", "\u0628\u0631 \u0627\u0633\u0627\u0633 \u0628\u0631\u0686\u0633\u0628"],
+            ["priority", "\u0628\u0631 \u0627\u0633\u0627\u0633 \u0627\u0648\u0644\u0648\u06CC\u062A"],
+            ["uniform", "\u0631\u0646\u06AF \u06CC\u06A9\u062F\u0633\u062A"]
+          ]) {
+            menu.addItem((item) => {
+              item.setTitle(label).setChecked(this.colorMode === mode).onClick(() => {
+                this.colorMode = mode;
+                void this.render(true);
+              });
+            });
+          }
+          menu.showAtMouseEvent(event);
         });
       }
-      menu.showAtMouseEvent(event);
-    });
+    };
+    this.filterBarInstance = new FilterBar(filterContainer, filterHost);
+    this.filterBarInstance.render();
   }
   renderTimelineGrid(canvas, rangeItems, projectMap) {
     if (!this.windowStart || !this.windowEnd) return;
@@ -9958,6 +9979,21 @@ var ProjectTimeline = class {
       todayStripe.style.gridColumn = `${todayIndex + 1} / span 1`;
       todayStripe.style.gridRow = `1 / -1`;
     }
+    if (this.savedScrollLeft !== null) {
+      this.isProgrammaticScroll = true;
+      scrollArea.scrollLeft = this.savedScrollLeft;
+      requestAnimationFrame(() => {
+        if (this.scrollAreaEl && this.savedScrollLeft !== null) {
+          this.scrollAreaEl.scrollLeft = this.savedScrollLeft;
+        }
+        setTimeout(() => {
+          this.isProgrammaticScroll = false;
+        }, 80);
+      });
+    } else if (!this.hasInitialScrolled) {
+      this.scrollToToday(false);
+      this.hasInitialScrolled = true;
+    }
     scrollArea.addEventListener("scroll", () => {
       if (!this.isProgrammaticScroll) {
         this.savedScrollLeft = scrollArea.scrollLeft;
@@ -9970,21 +10006,6 @@ var ProjectTimeline = class {
       scrollArea.scrollBy({ left: -e.deltaY * 1.5, behavior: "auto" });
     }, { passive: false });
     this.bindCanvasPan(scrollArea);
-    if (!this.hasInitialScrolled) {
-      this.scrollToToday(false);
-      this.hasInitialScrolled = true;
-    } else if (this.savedScrollLeft !== null) {
-      this.isProgrammaticScroll = true;
-      scrollArea.scrollLeft = this.savedScrollLeft;
-      requestAnimationFrame(() => {
-        if (this.scrollAreaEl && this.savedScrollLeft !== null) {
-          this.scrollAreaEl.scrollLeft = this.savedScrollLeft;
-        }
-        setTimeout(() => {
-          this.isProgrammaticScroll = false;
-        }, 60);
-      });
-    }
     const visibleRangeItems = rangeItems.filter((item) => {
       return item.range.end >= this.windowStart && item.range.start <= this.windowEnd;
     });
@@ -10117,7 +10138,7 @@ var ProjectTimeline = class {
     check.addEventListener("pointerdown", (e) => e.stopPropagation());
     check.addEventListener("change", async () => {
       await this.host.complete(task);
-      await this.render();
+      await this.render(true);
     });
     bar.createSpan({
       cls: "ticktick-range-title",
@@ -10140,13 +10161,13 @@ var ProjectTimeline = class {
       new TaskDetailsModal(this.host.app, task, {
         complete: async () => {
           await this.host.complete(task);
-          await this.render();
+          await this.render(true);
         },
         load: (item) => this.host.load(item),
         edit: (item) => this.host.edit(item),
         changed: async () => {
           await this.host.refresh();
-          await this.render();
+          await this.render(true);
         },
         allTasks: () => this.host.tasks()
       }).open();
@@ -10218,7 +10239,7 @@ var ProjectTimeline = class {
         previewEl.style.left = `${moveEvent.clientX + 16}px`;
         previewEl.style.top = `${moveEvent.clientY + 16}px`;
       };
-      const onPointerUp = async (upEvent) => {
+      const onPointerUp = async () => {
         window.removeEventListener("pointermove", onPointerMove);
         window.removeEventListener("pointerup", onPointerUp);
         window.removeEventListener("keydown", onKeyDown);
@@ -10242,10 +10263,10 @@ var ProjectTimeline = class {
             new import_obsidian17.Notice(`\u062F\u0631 \u062D\u0627\u0644 \u0628\u0631\u0648\u0632\u0631\u0633\u0627\u0646\u06CC \u0628\u0627\u0632\u0647\u0654 \u062A\u0633\u06A9 \u0628\u0647 ${pStart} \u062A\u0627 ${pDue}...`);
             await this.host.rescheduleRange(task, nextStart, nextDue);
             new import_obsidian17.Notice("\u0628\u0627\u0632\u0647 \u0628\u0627 \u0645\u0648\u0641\u0642\u06CC\u062A \u062A\u0646\u0638\u06CC\u0645 \u0634\u062F.");
-            await this.render();
+            await this.render(true);
           } catch (err) {
             new import_obsidian17.Notice(`\u062E\u0637\u0627 \u062F\u0631 \u0630\u062E\u06CC\u0631\u0647\u0654 \u0628\u0627\u0632\u0647: ${err instanceof Error ? err.message : String(err)}`);
-            await this.render();
+            await this.render(true);
           }
         }
       };
@@ -10284,7 +10305,7 @@ var ProjectTimeline = class {
     (0, import_obsidian17.setIcon)(closeBtn, "x");
     closeBtn.addEventListener("click", () => {
       this.showBacklog = false;
-      void this.render();
+      void this.render(true);
     });
     const searchWrapper = panel.createDiv({ cls: "ticktick-backlog-search-wrapper" });
     const searchIcon = searchWrapper.createSpan({ cls: "mod-icon search-icon" });
@@ -10334,6 +10355,10 @@ var ProjectTimeline = class {
       });
     }
     const listContainer = panel.createDiv({ cls: "ticktick-backlog-list" });
+    this.backlogListEl = listContainer;
+    listContainer.addEventListener("scroll", () => {
+      this.savedBacklogScrollTop = listContainer.scrollTop;
+    }, { passive: true });
     const renderCards = () => {
       listContainer.empty();
       const itemsToRender = [];
@@ -10408,7 +10433,7 @@ var ProjectTimeline = class {
             const due = shiftCalendarDay(start, 3);
             await this.host.rescheduleRange(task, start, due);
             new import_obsidian17.Notice(`\u0628\u0627\u0632\u0647\u0654 \u06F3 \u0631\u0648\u0632\u0647 \u0628\u0631\u0627\u06CC \xAB${cleanTaskTitle(task.title)}\xBB \u0627\u06CC\u062C\u0627\u062F \u0634\u062F.`);
-            await this.render();
+            await this.render(true);
           });
         } else {
           planBtn.createSpan({ text: "\u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC \u0627\u0632 \u0627\u0645\u0631\u0648\u0632" });
@@ -10418,7 +10443,7 @@ var ProjectTimeline = class {
             const due = shiftCalendarDay(today, 2);
             await this.host.rescheduleRange(task, today, due);
             new import_obsidian17.Notice(`\u062A\u0633\u06A9 \xAB${cleanTaskTitle(task.title)}\xBB \u0627\u0632 \u0627\u0645\u0631\u0648\u0632 \u0628\u0631\u0646\u0627\u0645\u0647\u200C\u0631\u06CC\u0632\u06CC \u0634\u062F.`);
-            await this.render();
+            await this.render(true);
           });
         }
         card.addEventListener("click", (e) => {
@@ -10434,16 +10459,24 @@ var ProjectTimeline = class {
           new TaskDetailsModal(this.host.app, task, {
             complete: async () => {
               await this.host.complete(task);
-              await this.render();
+              await this.render(true);
             },
             load: (item2) => this.host.load(item2),
             edit: (item2) => this.host.edit(item2),
             changed: async () => {
               await this.host.refresh();
-              await this.render();
+              await this.render(true);
             },
             allTasks: () => this.host.tasks()
           }).open();
+        });
+      }
+      if (this.savedBacklogScrollTop > 0) {
+        listContainer.scrollTop = this.savedBacklogScrollTop;
+        requestAnimationFrame(() => {
+          if (this.backlogListEl && this.savedBacklogScrollTop > 0) {
+            this.backlogListEl.scrollTop = this.savedBacklogScrollTop;
+          }
         });
       }
     };

@@ -526,27 +526,23 @@
 }
 
 .ticktick-timeline-filter-container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
   padding: 0.4rem 0.8rem;
   background: var(--background-primary);
   border-bottom: 1px solid var(--background-modifier-border);
-  flex-wrap: wrap;
   z-index: 15;
 }
 
-.ticktick-timeline-filter-slot {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.ticktick-timeline-filter-actions {
-  display: flex;
+.ticktick-filter-custom-actions {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.ticktick-filter-custom-actions .ticktick-planner-toggle-btn {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 11px;
 }
 
 .ticktick-timeline-body {
@@ -571,7 +567,6 @@
   flex: 1;
   overflow: auto;
   position: relative;
-  scroll-behavior: smooth;
   cursor: grab;
 }
 
