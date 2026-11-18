@@ -18,6 +18,7 @@ import { taskPriority } from "./task-priority";
 import { TaskDetailsModal } from "./task-details-modal";
 import { bulkSelectionStore } from "./selection-store";
 import { BulkActionBar } from "./bulk-action-bar";
+import { cleanTaskTitle } from "./helpers";
 import type { TickTickTask, TickTickProject, SavedView, TaskFilterState } from "./types";
 
 export type TimelineZoom = "day" | "week" | "month";
@@ -59,6 +60,7 @@ export class ProjectTimeline {
   private windowEnd: string | null = null;
   private filterBarInstance: FilterBar | null = null;
   private isSyncing = false;
+  private scrollAreaEl: HTMLElement | null = null;
 
   // Active drag state
   private activeDrag: {
@@ -77,7 +79,7 @@ export class ProjectTimeline {
 
   constructor(private element: HTMLElement, private host: TimelineHost) {}
 
-  async render() {
+  async render(autoScrollToToday = true) {
     this.element.empty();
     this.element.addClass("ticktick-timeline-workspace");
 
@@ -101,17 +103,10 @@ export class ProjectTimeline {
       showCompleted: this.host.showCompleted()
     });
 
-    // Compute or reuse window bounds
-    if (!this.windowStart || !this.windowEnd) {
-      const bounds = computeTimelineBounds(enrichedTasks, {
-        timeZone: this.host.timeZone,
-        marginDays: this.zoom === "month" ? 30 : this.zoom === "week" ? 14 : 7
-      });
-      this.windowStart = bounds.startDate;
-      this.windowEnd = bounds.endDate;
-    }
+    // Ensure focused window bounds around today for the current zoom
+    this.ensureWindowBounds();
 
-    // Top Controls & Navigation Toolbar
+    // Top Controls & Navigation Toolbar (Unified with Calendar Suite)
     this.renderToolbar(partitioned.backlogTasks.length + partitioned.pointTasks.length);
 
     // Shared Filter Bar
@@ -119,7 +114,7 @@ export class ProjectTimeline {
 
     // Main Timeline Surface (Canvas)
     const canvas = this.element.createDiv({ cls: "ticktick-timeline-canvas" });
-    this.renderTimelineGrid(canvas, partitioned.rangeTasks, partitioned.pointTasks, projectMap);
+    this.renderTimelineGrid(canvas, partitioned.rangeTasks, partitioned.pointTasks, projectMap, autoScrollToToday);
 
     // Optional Non-range / Backlog Lane
     if (this.showBacklog) {
@@ -135,70 +130,101 @@ export class ProjectTimeline {
       executeBulkOperation: async (ids, op, params) => this.host.executeBulkOperation ? this.host.executeBulkOperation(ids, op, params) : null,
       onChanged: async () => {
         await this.host.refresh();
-        await this.render();
+        await this.render(false);
       }
     });
     void this.bulkActionBar.render();
   }
 
+  private ensureWindowBounds() {
+    if (this.windowStart && this.windowEnd) return;
+    const today = todayInZone(this.host.timeZone);
+    if (this.zoom === "day") {
+      // 60-day window centered on today: 14 days in the past, 45 days in the future
+      this.windowStart = shiftCalendarDay(today, -14);
+      this.windowEnd = shiftCalendarDay(today, 45);
+    } else if (this.zoom === "week") {
+      // 16-week window (112 days): 4 weeks in the past, 12 weeks in the future
+      this.windowStart = shiftCalendarDay(today, -28);
+      this.windowEnd = shiftCalendarDay(today, 84);
+    } else {
+      // 12-month window: 2 months in the past, 10 months in the future
+      this.windowStart = shiftCalendarDay(today, -60);
+      this.windowEnd = shiftCalendarDay(today, 305);
+    }
+  }
+
+  private shiftWindow(direction: number) {
+    if (!this.windowStart || !this.windowEnd) return;
+    const amount = this.zoom === "month" ? direction * 90 : this.zoom === "week" ? direction * 28 : direction * 14;
+    this.windowStart = shiftCalendarDay(this.windowStart, amount);
+    this.windowEnd = shiftCalendarDay(this.windowEnd, amount);
+    void this.render(false);
+  }
+
   private renderToolbar(backlogCount: number) {
-    const toolbar = this.element.createDiv({ cls: "ticktick-timeline-toolbar" });
+    const toolbar = this.element.createDiv({ cls: "ticktick-planner-controls ticktick-timeline-toolbar" });
 
-    // Right side: View modes & Navigation
-    const navGroup = toolbar.createDiv({ cls: "ticktick-timeline-tool-group" });
-
-    // Zoom Toggle (Day / Week / Month)
-    const zoomSelector = navGroup.createDiv({ cls: "ticktick-timeline-zoom-group" });
-    for (const [mode, label] of [["day", "روز"], ["week", "هفته"], ["month", "ماه"]] as Array<[TimelineZoom, string]>) {
-      const btn = zoomSelector.createEl("button", {
-        cls: `ticktick-timeline-zoom-btn ${this.zoom === mode ? "is-active" : ""}`,
-        text: label
+    // 1. Mode Segmented Control (Unified with PlanningCalendar)
+    const modesContainer = toolbar.createDiv({ cls: "ticktick-planner-modes" });
+    for (const [mode, label, icon] of [
+      ["day", "روز", "calendar"],
+      ["week", "هفته", "calendar-days"],
+      ["month", "ماه", "calendar-range"]
+    ] as Array<[TimelineZoom, string, string]>) {
+      const button = modesContainer.createEl("button", {
+        cls: `ticktick-planner-mode-btn ${this.zoom === mode ? "is-active" : ""}`,
+        attr: { type: "button" }
       });
-      btn.addEventListener("click", () => {
-        this.zoom = mode;
-        this.windowStart = null;
-        this.windowEnd = null;
-        void this.render();
+      const iconSpan = button.createSpan({ cls: "ticktick-mode-icon" });
+      setIcon(iconSpan, icon);
+      button.createSpan({ text: label });
+      button.addEventListener("click", () => {
+        if (this.zoom !== mode) {
+          this.zoom = mode;
+          this.windowStart = null;
+          this.windowEnd = null;
+          void this.render(true);
+        }
       });
     }
 
-    // Date Navigation (Previous, Today, Next)
-    const navButtons = navGroup.createDiv({ cls: "ticktick-timeline-nav-group" });
-    
-    const prevBtn = navButtons.createEl("button", {
-      cls: "ticktick-timeline-nav-btn mod-icon",
-      attr: { "aria-label": "دورهٔ قبل" }
+    // 2. Date Navigation Controls (‹, امروز, ›, Date Title)
+    const nav = toolbar.createDiv({ cls: "ticktick-planner-nav" });
+
+    const prevBtn = nav.createEl("button", {
+      cls: "ticktick-nav-btn mod-icon",
+      text: "‹",
+      attr: { type: "button", "aria-label": "دورهٔ قبل" }
     });
-    setIcon(prevBtn, "chevron-right"); // RTL: chevron-right navigates to previous
     prevBtn.addEventListener("click", () => this.shiftWindow(-1));
 
-    const todayBtn = navButtons.createEl("button", {
-      cls: "ticktick-timeline-nav-btn",
-      text: "امروز"
+    const todayBtn = nav.createEl("button", {
+      cls: "ticktick-nav-today-btn",
+      text: "امروز",
+      attr: { type: "button" }
     });
     todayBtn.addEventListener("click", () => {
       this.windowStart = null;
       this.windowEnd = null;
-      void this.render();
+      void this.render(true);
     });
 
-    const nextBtn = navButtons.createEl("button", {
-      cls: "ticktick-timeline-nav-btn mod-icon",
-      attr: { "aria-label": "دورهٔ بعد" }
+    const nextBtn = nav.createEl("button", {
+      cls: "ticktick-nav-btn mod-icon",
+      text: "›",
+      attr: { type: "button", "aria-label": "دورهٔ بعد" }
     });
-    setIcon(nextBtn, "chevron-left"); // RTL: chevron-left navigates to next
     nextBtn.addEventListener("click", () => this.shiftWindow(1));
 
-    // Center: Date Range Title
-    const titleSpan = toolbar.createDiv({ cls: "ticktick-timeline-title-span" });
+    const titleDiv = nav.createDiv({ cls: "ticktick-planner-date-title" });
     if (this.windowStart && this.windowEnd) {
-      titleSpan.setText(`${formatPersianDate(this.windowStart, this.host.timeZone)} تا ${formatPersianDate(this.windowEnd, this.host.timeZone)}`);
+      titleDiv.setText(`${formatPersianDate(this.windowStart, this.host.timeZone)} تا ${formatPersianDate(this.windowEnd, this.host.timeZone)}`);
     }
 
-    // Left side: Color Mode, Backlog Toggle, Sync
-    const actionsGroup = toolbar.createDiv({ cls: "ticktick-timeline-tool-group" });
+    // 3. Action Buttons (Color, Backlog, Sync)
+    const actions = toolbar.createDiv({ cls: "ticktick-planner-actions" });
 
-    // Color Mode Menu
     const colorLabels: Record<TimelineColorMode, string> = {
       project: "رنگ: پروژه",
       tag: "رنگ: برچسب",
@@ -206,9 +232,9 @@ export class ProjectTimeline {
       uniform: "رنگ: یکدست"
     };
 
-    const colorBtn = actionsGroup.createEl("button", {
-      cls: "ticktick-timeline-tool-btn",
-      attr: { "aria-label": "پالت رنگ‌بندی" }
+    const colorBtn = actions.createEl("button", {
+      cls: "ticktick-planner-toggle-btn",
+      attr: { type: "button", "aria-label": "پالت رنگ‌بندی" }
     });
     const paletteIcon = colorBtn.createSpan({ cls: "mod-icon" });
     setIcon(paletteIcon, "palette");
@@ -224,45 +250,43 @@ export class ProjectTimeline {
       ] as Array<[TimelineColorMode, string]>) {
         menu.addItem(item => {
           item.setTitle(label)
-              .setChecked(this.colorMode === mode)
-              .onClick(() => {
-                this.colorMode = mode;
-                void this.render();
-              });
+            .setChecked(this.colorMode === mode)
+            .onClick(() => {
+              this.colorMode = mode;
+              void this.render(false);
+            });
         });
       }
       menu.showAtMouseEvent(event);
     });
 
-    // Backlog / Point Tasks Toggle
-    const backlogBtn = actionsGroup.createEl("button", {
-      cls: `ticktick-timeline-tool-btn ${this.showBacklog ? "is-active" : ""}`,
-      attr: { "aria-label": "تسک‌های بدون بازه و نقطه‌ای" }
+    const backlogBtn = actions.createEl("button", {
+      cls: `ticktick-planner-toggle-btn ${this.showBacklog ? "is-active" : ""}`,
+      attr: { type: "button", "aria-label": "تسک‌های بدون بازه و نقطه‌ای" }
     });
     const backlogIcon = backlogBtn.createSpan({ cls: "mod-icon" });
     setIcon(backlogIcon, "layers");
     backlogBtn.createSpan({ text: `تسک‌های بدون بازه (${backlogCount})` });
     backlogBtn.addEventListener("click", () => {
       this.showBacklog = !this.showBacklog;
-      void this.render();
+      void this.render(false);
     });
 
-    // Manual Refresh Button
-    const refreshBtn = actionsGroup.createEl("button", {
-      cls: `ticktick-timeline-tool-btn mod-icon ${this.isSyncing ? "is-loading" : ""}`,
-      attr: { "aria-label": "همگام‌سازی از سرور" }
+    const refreshBtn = actions.createEl("button", {
+      cls: `ticktick-planner-sync-btn mod-icon ${this.isSyncing ? "is-syncing" : ""}`,
+      attr: { type: "button", "aria-label": "همگام‌سازی از سرور" }
     });
     setIcon(refreshBtn, "refresh-cw");
     refreshBtn.addEventListener("click", async () => {
       if (this.isSyncing) return;
       this.isSyncing = true;
-      refreshBtn.addClass("is-loading");
+      refreshBtn.addClass("is-syncing");
       try {
         await this.host.refresh();
       } finally {
         this.isSyncing = false;
-        refreshBtn.removeClass("is-loading");
-        await this.render();
+        refreshBtn.removeClass("is-syncing");
+        await this.render(false);
       }
     });
   }
@@ -281,7 +305,7 @@ export class ProjectTimeline {
       filterState: () => this.filterState,
       onFilterChange: (state) => {
         this.filterState = state;
-        void this.render();
+        void this.render(false);
       }
     };
 
@@ -293,7 +317,8 @@ export class ProjectTimeline {
     canvas: HTMLElement,
     rangeItems: Array<{ task: TickTickTask; range: { start: string; end: string } }>,
     pointItems: Array<{ task: TickTickTask; range: { start: string; end: string } }>,
-    projectMap: Map<string, TickTickProject>
+    projectMap: Map<string, TickTickProject>,
+    autoScrollToToday: boolean
   ) {
     if (!this.windowStart || !this.windowEnd) return;
 
@@ -301,12 +326,15 @@ export class ProjectTimeline {
     const totalDays = grid.days.length;
     const today = todayInZone(this.host.timeZone);
 
-    // Calculate column width in pixels based on zoom (daily precision across all modes)
-    const colWidthPx = this.zoom === "day" ? 38 : this.zoom === "week" ? 18 : 7;
+    // Column width in pixels: generous space for day/week/month
+    const colWidthPx = this.zoom === "day" ? 54 : this.zoom === "week" ? 22 : 8;
 
     const scrollArea = canvas.createDiv({ cls: "ticktick-timeline-scroll-area" });
+    this.scrollAreaEl = scrollArea;
+
     const gridEl = scrollArea.createDiv({ cls: "ticktick-timeline-grid" });
     gridEl.style.direction = "rtl";
+    gridEl.style.setProperty("--grid-col-width", `${colWidthPx}px`);
     gridEl.style.gridTemplateColumns = `repeat(${totalDays}, ${colWidthPx}px)`;
 
     // 1. Header Row
@@ -319,34 +347,53 @@ export class ProjectTimeline {
     for (const rawCol of grid.columns) {
       const col = rawCol as any;
       const colKey = String(col.key ?? "");
+      const isColToday = colKey === today;
       const colHeader = headerRow.createDiv({
-        cls: `ticktick-timeline-col-header ${colKey === today ? "is-today" : ""}`
+        cls: `ticktick-timeline-col-header ${isColToday ? "is-today" : ""}`
       });
       colHeader.style.gridColumn = `${col.colStart} / span ${col.colSpan}`;
       if (this.zoom === "day") {
         const jsDate = new Date(`${col.date ?? colKey}T12:00:00Z`);
         const weekdayName = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { weekday: "narrow" }).format(jsDate);
         const dayNum = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { day: "numeric" }).format(jsDate);
+        const isWeekend = jsDate.getUTCDay() === 5; // Friday in Iran
+        if (isWeekend) colHeader.addClass("is-weekend");
         colHeader.createDiv({ cls: "ticktick-col-weekday", text: weekdayName });
-        colHeader.createDiv({ cls: "ticktick-col-daynum", text: dayNum });
+        const dayNumEl = colHeader.createDiv({ cls: "ticktick-col-daynum", text: dayNum });
+        if (isColToday) dayNumEl.addClass("is-today-badge");
       } else if (this.zoom === "week") {
-        colHeader.createDiv({ cls: "ticktick-col-week-title", text: String(col.label ?? "") });
+        const startDay = col.start ?? colKey;
+        const endDay = col.end ?? colKey;
+        const pStart = formatPersianDate(startDay, this.host.timeZone).replace(/\s*\d{4}$/, "");
+        const pEnd = formatPersianDate(endDay, this.host.timeZone).replace(/\s*\d{4}$/, "");
+        colHeader.createDiv({ cls: "ticktick-col-week-title", text: `${pStart} تا ${pEnd}` });
       } else {
         const jsDate = new Date(`${col.start ?? colKey}T12:00:00Z`);
-        const monthName = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { month: "long", year: "2-digit" }).format(jsDate);
+        const monthName = new Intl.DateTimeFormat("fa-IR-u-ca-persian", { month: "long", year: "numeric" }).format(jsDate);
         colHeader.createDiv({ cls: "ticktick-col-month-title", text: monthName });
       }
     }
 
-    // 2. Today Indicator Line
+    // 2. Today Indicator Column Stripe
     const todayIndex = grid.days.indexOf(today);
     if (todayIndex >= 0) {
-      const todayMarker = gridEl.createDiv({ cls: "ticktick-timeline-today-line" });
-      todayMarker.style.gridColumnStart = `${todayIndex + 1}`;
+      const todayStripe = gridEl.createDiv({ cls: "ticktick-timeline-today-stripe" });
+      todayStripe.style.gridColumn = `${todayIndex + 1} / span 1`;
+      todayStripe.style.gridRow = `1 / -1`;
     }
 
-    // 3. Project Grouping & Packed Lanes
-    // Filter to tasks that intersect the visible window
+    // 3. Mouse Wheel Horizontal Scroll Listener
+    scrollArea.addEventListener("wheel", (e: WheelEvent) => {
+      if (e.ctrlKey || scrollArea.scrollWidth <= scrollArea.clientWidth) return;
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // Native horizontal scroll
+      e.preventDefault();
+      scrollArea.scrollBy({ left: -e.deltaY * 1.5, behavior: "auto" });
+    }, { passive: false });
+
+    // 4. Pointer Drag-to-Pan on Canvas
+    this.bindCanvasPan(scrollArea);
+
+    // 5. Project Grouping & Packed Lanes
     const visibleRangeItems = rangeItems.filter(item => {
       return item.range.end >= this.windowStart! && item.range.start <= this.windowEnd!;
     });
@@ -363,8 +410,11 @@ export class ProjectTimeline {
       emptyState.style.gridColumn = `1 / span ${totalDays}`;
       emptyState.createDiv({
         cls: "ticktick-empty-desc",
-        text: "هیچ تسک زمان‌داری با فیلترهای فعلی یافت نشد. می‌توانید از پنل «تسک‌های بدون بازه» تسک‌ها را اضافه کنید."
+        text: "هیچ تسک زمان‌داری در این بازه یافت نشد. می‌توانید با دکمه‌های «‹» و «›» در زمان جابجا شوید یا از «تسک‌های بدون بازه» تسک‌ها را اضافه کنید."
       });
+      if (autoScrollToToday) {
+        this.scrollToToday(false);
+      }
       return;
     }
 
@@ -397,6 +447,61 @@ export class ProjectTimeline {
         }
       }
     }
+
+    if (autoScrollToToday) {
+      this.scrollToToday(false);
+    }
+  }
+
+  private bindCanvasPan(scrollArea: HTMLElement) {
+    let isPanning = false;
+    let startX = 0;
+    let initialScrollLeft = 0;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      const target = e.target as HTMLElement;
+      if (target.closest(".ticktick-timeline-bar, .ticktick-timeline-handle, button, input, .ticktick-backlog-card")) {
+        return;
+      }
+      isPanning = true;
+      startX = e.clientX;
+      initialScrollLeft = scrollArea.scrollLeft;
+      scrollArea.addClass("is-panning");
+      try { scrollArea.setPointerCapture(e.pointerId); } catch {}
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!isPanning) return;
+      const dx = e.clientX - startX;
+      scrollArea.scrollLeft = initialScrollLeft - dx;
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (!isPanning) return;
+      isPanning = false;
+      scrollArea.removeClass("is-panning");
+      try { scrollArea.releasePointerCapture(e.pointerId); } catch {}
+    };
+
+    scrollArea.addEventListener("pointerdown", onPointerDown);
+    scrollArea.addEventListener("pointermove", onPointerMove);
+    scrollArea.addEventListener("pointerup", onPointerUp);
+    scrollArea.addEventListener("pointercancel", onPointerUp);
+  }
+
+  private scrollToToday(smooth = false) {
+    requestAnimationFrame(() => {
+      if (!this.scrollAreaEl) return;
+      const todayMarker = this.scrollAreaEl.querySelector(".ticktick-timeline-col-header.is-today, .ticktick-timeline-today-stripe");
+      if (todayMarker && typeof (todayMarker as HTMLElement).scrollIntoView === "function") {
+        (todayMarker as HTMLElement).scrollIntoView({
+          behavior: smooth ? "smooth" : "auto",
+          inline: "center",
+          block: "nearest"
+        });
+      }
+    });
   }
 
   private renderRangeBar(
@@ -413,15 +518,14 @@ export class ProjectTimeline {
     const isCompleted = Number(task.status ?? 0) !== 0;
 
     const bar = container.createDiv({
-      cls: `ticktick-timeline-bar priority-${priority.value} ${isCompleted ? "is-completed" : ""}`,
+      cls: `ticktick-timeline-bar ticktick-planner-range-task priority-${priority.value} ${isCompleted ? "is-completed" : ""}`,
       attr: {
         role: "button",
         tabindex: "0",
-        title: `${task.title} · ${range.start} تا ${range.end}`
+        title: `${task.title} · ${formatPersianDate(range.start, this.host.timeZone)} تا ${formatPersianDate(range.end, this.host.timeZone)}`
       }
     });
     bar.dataset.taskId = String(task.id);
-
     bar.style.gridColumn = placement.gridColumn;
     if (bulkSelectionStore.isSelected(String(task.id))) {
       bar.addClass("is-bulk-selected");
@@ -434,12 +538,10 @@ export class ProjectTimeline {
       attr: { "data-edge": "start", title: "تغییر تاریخ شروع" }
     });
 
-    // Content: Checkbox + Title + Date Chip
-    const contentWrapper = bar.createDiv({ cls: "ticktick-timeline-bar-content" });
-
-    const check = contentWrapper.createEl("input", {
+    // Checkbox (circular, unified with planning calendar)
+    const check = bar.createEl("input", {
       type: "checkbox",
-      cls: "ticktick-timeline-bar-check",
+      cls: "ticktick-range-check",
       attr: { "aria-label": `تکمیل ${task.title}` }
     });
     check.checked = isCompleted;
@@ -448,18 +550,25 @@ export class ProjectTimeline {
     check.addEventListener("pointerdown", e => e.stopPropagation());
     check.addEventListener("change", async () => {
       await this.host.complete(task);
-      await this.render();
+      await this.render(false);
     });
 
-    const titleEl = contentWrapper.createSpan({
-      cls: "ticktick-timeline-bar-title",
-      text: String(task.title || "بدون عنوان")
+    // Title
+    bar.createSpan({
+      cls: "ticktick-range-title",
+      text: cleanTaskTitle(task.title || "بدون عنوان")
     });
 
-    const dateChip = contentWrapper.createSpan({
-      cls: "ticktick-timeline-bar-date-chip",
-      text: `${range.start.slice(5)} → ${range.end.slice(5)}`
-    });
+    // Date Badge (only when bar has sufficient width to avoid overflow)
+    const minSpanForBadge = this.zoom === "day" ? 3 : this.zoom === "week" ? 6 : 14;
+    if (placement.colSpan >= minSpanForBadge) {
+      const pStart = formatPersianDate(range.start, this.host.timeZone);
+      const pEnd = formatPersianDate(range.end, this.host.timeZone);
+      bar.createSpan({
+        cls: "ticktick-range-dates-badge",
+        text: `${pStart} تا ${pEnd}`
+      });
+    }
 
     // Right Handle (Due Date in RTL)
     const handleDue = bar.createDiv({
@@ -472,20 +581,22 @@ export class ProjectTimeline {
       new TaskDetailsModal(this.host.app, task, {
         complete: async () => {
           await this.host.complete(task);
-          await this.render();
+          await this.render(false);
         },
         load: item => this.host.load(item),
         edit: item => this.host.edit(item),
         changed: async () => {
           await this.host.refresh();
-          await this.render();
+          await this.render(false);
         },
         allTasks: () => this.host.tasks(),
       }).open();
     };
 
-    contentWrapper.addEventListener("click", (e) => {
+    bar.addEventListener("click", (e) => {
       if (this.activeDrag || this.wasDraggedRecently) return;
+      const target = e.target as HTMLElement;
+      if (target.closest(".ticktick-range-check, .ticktick-timeline-handle")) return;
       if (e.shiftKey || e.ctrlKey || e.metaKey) {
         e.preventDefault();
         e.stopPropagation();
@@ -532,7 +643,9 @@ export class ProjectTimeline {
 
       // Create floating preview tooltip
       const previewEl = document.body.createDiv({ cls: "ticktick-timeline-drag-preview" });
-      previewEl.setText(`بازه: ${range.start} تا ${range.end}`);
+      const pInitStart = formatPersianDate(range.start, this.host.timeZone);
+      const pInitDue = formatPersianDate(range.end, this.host.timeZone);
+      previewEl.setText(`بازه: ${pInitStart} تا ${pInitDue}`);
       previewEl.style.left = `${event.clientX + 16}px`;
       previewEl.style.top = `${event.clientY + 16}px`;
 
@@ -563,8 +676,10 @@ export class ProjectTimeline {
         const newStart = toDateKey(shifted.startDate, this.host.timeZone);
         const newDue = toDateKey(shifted.dueDate, this.host.timeZone);
 
-        const edgeLabel = edge === "both" ? "جابجایی کل بازه" : edge === "start" ? "تنظیم تاریخ شروع" : "تنظیم سررسید";
-        previewEl.setText(`${edgeLabel}: ${newStart ?? "—"} تا ${newDue ?? "—"} (${deltaDays >= 0 ? `+${deltaDays}` : deltaDays} روز)`);
+        const edgeLabel = edge === "both" ? "جابجایی بازه" : edge === "start" ? "تنظیم تاریخ شروع" : "تنظیم سررسید";
+        const pStart = newStart ? formatPersianDate(newStart, this.host.timeZone) : "—";
+        const pDue = newDue ? formatPersianDate(newDue, this.host.timeZone) : "—";
+        previewEl.setText(`${edgeLabel}: ${pStart} تا ${pDue} (${deltaDays >= 0 ? `+${deltaDays}` : deltaDays} روز)`);
         previewEl.style.left = `${moveEvent.clientX + 16}px`;
         previewEl.style.top = `${moveEvent.clientY + 16}px`;
       };
@@ -591,13 +706,15 @@ export class ProjectTimeline {
           const nextDue = toDateKey(shifted.dueDate, this.host.timeZone);
 
           try {
-            new Notice(`در حال بروزرسانی بازهٔ تسک به ${nextStart} تا ${nextDue}...`);
+            const pStart = nextStart ? formatPersianDate(nextStart, this.host.timeZone) : "—";
+            const pDue = nextDue ? formatPersianDate(nextDue, this.host.timeZone) : "—";
+            new Notice(`در حال بروزرسانی بازهٔ تسک به ${pStart} تا ${pDue}...`);
             await this.host.rescheduleRange(task, nextStart, nextDue);
             new Notice("بازه با موفقیت تنظیم شد.");
-            await this.render();
+            await this.render(false);
           } catch (err) {
             new Notice(`خطا در ذخیرهٔ بازه: ${err instanceof Error ? err.message : String(err)}`);
-            await this.render();
+            await this.render(false);
           }
         }
       };
@@ -634,13 +751,13 @@ export class ProjectTimeline {
   ) {
     const drawer = this.element.createDiv({ cls: "ticktick-timeline-backlog-drawer" });
     const header = drawer.createDiv({ cls: "ticktick-backlog-header" });
-    header.createSpan({ cls: "ticktick-backlog-title", text: "تسک‌های نقطه‌ای و بدون بازهٔ مشخص" });
+    header.createSpan({ cls: "ticktick-backlog-title", text: "تسک‌های بدون بازه و نقطه‌ای" });
 
     const closeBtn = header.createEl("button", { cls: "ticktick-backlog-close mod-icon" });
     setIcon(closeBtn, "x");
     closeBtn.addEventListener("click", () => {
       this.showBacklog = false;
-      void this.render();
+      void this.render(false);
     });
 
     const cardsContainer = drawer.createDiv({ cls: "ticktick-backlog-cards" });
@@ -661,8 +778,9 @@ export class ProjectTimeline {
         }
       });
 
-      card.createDiv({ cls: "ticktick-card-title", text: item.task.title });
-      card.createDiv({ cls: "ticktick-card-date", text: `سررسید: ${item.range.end}` });
+      card.createDiv({ cls: "ticktick-card-title", text: cleanTaskTitle(item.task.title) });
+      const pDue = formatPersianDate(item.range.end, this.host.timeZone);
+      card.createDiv({ cls: "ticktick-card-date", text: `سررسید: ${pDue}` });
       
       const planBtn = card.createEl("button", {
         cls: "ticktick-card-plan-btn",
@@ -673,7 +791,7 @@ export class ProjectTimeline {
         const start = item.range.end;
         const due = shiftCalendarDay(start, 3);
         await this.host.rescheduleRange(item.task, start, due);
-        await this.render();
+        await this.render(false);
       });
     }
 
@@ -693,7 +811,7 @@ export class ProjectTimeline {
         }
       });
 
-      card.createDiv({ cls: "ticktick-card-title", text: task.title });
+      card.createDiv({ cls: "ticktick-card-title", text: cleanTaskTitle(task.title) });
       card.createDiv({ cls: "ticktick-card-badge", text: "بدون تاریخ" });
 
       const planBtn = card.createEl("button", {
@@ -705,7 +823,7 @@ export class ProjectTimeline {
         const today = todayInZone(this.host.timeZone);
         const due = shiftCalendarDay(today, 2);
         await this.host.rescheduleRange(task, today, due);
-        await this.render();
+        await this.render(false);
       });
     }
 
@@ -715,13 +833,5 @@ export class ProjectTimeline {
         text: "تمام تسک‌های این فیلتر دارای بازهٔ زمانی روی تایم‌لاین هستند."
       });
     }
-  }
-
-  private shiftWindow(direction: number) {
-    if (!this.windowStart || !this.windowEnd) return;
-    const amount = this.zoom === "month" ? direction * 30 : this.zoom === "week" ? direction * 7 : direction * 14;
-    this.windowStart = shiftCalendarDay(this.windowStart, amount);
-    this.windowEnd = shiftCalendarDay(this.windowEnd, amount);
-    void this.render();
   }
 }
