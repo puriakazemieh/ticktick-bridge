@@ -26,7 +26,12 @@ export class TodayHabitsView extends ItemView {
     const refresh = toolbar.createEl("button", { text: "به‌روزرسانی" });
     refresh.addEventListener("click", async () => {
       refresh.disabled = true;
-      try { await this.render(); } finally { refresh.disabled = false; }
+      try {
+        await this.plugin.syncNow();
+        await this.render();
+      } finally {
+        refresh.disabled = false;
+      }
     });
     const panel = contentEl.createDiv({ cls: "ticktick-bridge-habit-panel" });
     await this.plugin.renderHabitBlock(panel, true);

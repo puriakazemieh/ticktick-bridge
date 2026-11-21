@@ -1,4 +1,5 @@
-import { isHabitScheduledForDay, isScheduledForDay, toHabitStamp } from "./date.js";
+import { isHabitScheduledForDay, isScheduledForDay, toDateKey, toHabitStamp } from "./date.js";
+import { shiftCalendarDay } from "./calendar-range.js";
 
 export class TickTickApiError extends Error {
   constructor(message, { status, body, retryAfter } = {}) {
@@ -89,10 +90,15 @@ export class TickTickClient {
   listHabitSections() { return this.request("/habit/sections"); }
   getHabit(habitId) { return this.request(`/habit/${encodeURIComponent(habitId)}`); }
   getHabitCheckins(habitIds, fromDay, toDay) {
+    const toKey = toDateKey(toDay);
+    if (!toKey) throw new Error("A valid toDay date is required.");
+    // TickTick's OpenAPI interprets `to` as exclusive (< to).
+    // Advance toDay by +1 day so that toDay itself is included.
+    const toInclusive = shiftCalendarDay(toKey, 1);
     const params = new URLSearchParams({
       habitIds: habitIds.join(","),
       from: String(toHabitStamp(fromDay)),
-      to: String(toHabitStamp(toDay)),
+      to: String(toHabitStamp(toInclusive)),
     });
     return this.request(`/habit/checkins?${params}`);
   }

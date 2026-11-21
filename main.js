@@ -23,9 +23,11 @@ var __toCommonJS = (mod2) => __copyProps(__defProp({}, "__esModule", { value: tr
 // src/core/date.js
 function toDateKey(value, timeZone = "Asia/Tehran") {
   if (!value) return null;
-  const raw = String(value);
+  const raw = String(value).trim();
   const dateOnly = raw.match(/^(\d{4}-\d{2}-\d{2})$/)?.[1];
   if (dateOnly) return dateOnly;
+  const stampMatch = raw.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (stampMatch) return `${stampMatch[1]}-${stampMatch[2]}-${stampMatch[3]}`;
   const instant = new Date(raw);
   if (!Number.isNaN(instant.getTime())) return todayInZone(timeZone, instant);
   return raw.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
@@ -801,6 +803,7 @@ init_date();
 
 // src/core/ticktick-client.js
 init_date();
+init_calendar_range();
 var TickTickApiError = class extends Error {
   constructor(message, { status, body, retryAfter } = {}) {
     super(message);
@@ -907,10 +910,13 @@ var TickTickClient = class {
     return this.request(`/habit/${encodeURIComponent(habitId)}`);
   }
   getHabitCheckins(habitIds, fromDay, toDay) {
+    const toKey = toDateKey(toDay);
+    if (!toKey) throw new Error("A valid toDay date is required.");
+    const toInclusive = shiftCalendarDay(toKey, 1);
     const params = new URLSearchParams({
       habitIds: habitIds.join(","),
       from: String(toHabitStamp(fromDay)),
-      to: String(toHabitStamp(toDay))
+      to: String(toHabitStamp(toInclusive))
     });
     return this.request(`/habit/checkins?${params}`);
   }
@@ -11945,6 +11951,7 @@ var TodayHabitsView = class extends import_obsidian23.ItemView {
     refresh.addEventListener("click", async () => {
       refresh.disabled = true;
       try {
+        await this.plugin.syncNow();
         await this.render();
       } finally {
         refresh.disabled = false;
@@ -17086,7 +17093,7 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
     const webTasks = await this.webOpenTasks();
     const shouldRefreshProjects = !cacheAvailable || refreshRemoteMetadata || webTasks === null && Date.now() - this.lastFullOfficialSync > 6e4;
     const projects = !cacheAvailable || refreshRemoteMetadata || shouldRefreshProjects ? await client.listProjects() : this.cache.projects;
-    let habits = !cacheAvailable || refreshRemoteMetadata ? await client.listHabits() : this.cache.habits;
+    let habits = !cacheAvailable || refreshRemoteMetadata || shouldRefreshProjects || !this.cache.habits.length ? await client.listHabits() : this.cache.habits;
     const sections = cacheAvailable ? [] : await client.listHabitSections();
     const projectBoards = {};
     const taskIndex = /* @__PURE__ */ new Map();
@@ -17182,17 +17189,54 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
       board.tasks = tasks.filter((task) => projectId === "inbox" ? Boolean(task.isInbox) : String(task?.projectId ?? "") === projectId).map((task) => mergeTaskDetails(prior.get(String(task.id)), task));
     }
     const activeHabits = habits.filter((habit) => habit.status === void 0 || habit.status === 0);
-    const fromDay = shiftIsoDay(today, -90);
-    const officialDocuments = (!cacheAvailable || refreshRemoteMetadata) && activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit) => habit.id), fromDay, today) : [];
     const checkins = { ...this.cache.habitCheckins };
-    for (const document2 of officialDocuments ?? []) {
-      const habitId = String(document2?.habitId ?? "");
-      if (!habitId) continue;
-      checkins[habitId] = (document2.checkins ?? []).map((entry) => ({ stamp: Number(entry.stamp), value: Number(entry.value ?? 0), goal: Number(entry.goal ?? 1), status: Number(entry.status ?? 0) }));
-    }
     const webCheckins = await this.webHabitCheckins(activeHabits.map((habit) => habit.id), today, 91);
-    if (webCheckins) for (const [habitId, entries] of webCheckins) checkins[habitId] = entries;
+    const hasCachedCheckins = Object.keys(checkins).length > 0;
+    const shouldFetchOfficialCheckins = !cacheAvailable || refreshRemoteMetadata || !hasCachedCheckins || webCheckins === null;
+    if (shouldFetchOfficialCheckins && activeHabits.length) {
+      const historyRangeDays = !cacheAvailable || refreshRemoteMetadata || !hasCachedCheckins ? 90 : 14;
+      const fromDay = shiftIsoDay(today, -historyRangeDays);
+      try {
+        const officialDocuments = await client.getHabitCheckins(activeHabits.map((habit) => habit.id), fromDay, today);
+        for (const document2 of officialDocuments ?? []) {
+          const habitId = String(document2?.habitId ?? "");
+          if (!habitId) continue;
+          const existing = checkins[habitId] ?? [];
+          const byStamp = new Map(existing.map((entry) => [Number(entry.stamp), entry]));
+          for (const entry of document2.checkins ?? []) {
+            const stamp = Number(entry.stamp);
+            if (Number.isFinite(stamp)) {
+              byStamp.set(stamp, {
+                stamp,
+                value: Number(entry.value ?? 0),
+                goal: Number(entry.goal ?? 1),
+                status: Number(entry.status ?? 0)
+              });
+            }
+          }
+          checkins[habitId] = [...byStamp.values()].sort((a, b) => b.stamp - a.stamp);
+        }
+      } catch (err) {
+        console.warn("[TickTick Bridge] Error fetching habit checkins via token API:", err);
+      }
+    }
     if (webCheckins) {
+      for (const [habitId, entries] of webCheckins) {
+        const existing = checkins[habitId] ?? [];
+        const byStamp = new Map(existing.map((entry) => [Number(entry.stamp), entry]));
+        for (const entry of entries) {
+          const stamp = Number(entry.stamp);
+          if (Number.isFinite(stamp)) {
+            byStamp.set(stamp, {
+              stamp,
+              value: Number(entry.value ?? 0),
+              goal: Number(entry.goal ?? 1),
+              status: Number(entry.status ?? 0)
+            });
+          }
+        }
+        checkins[habitId] = [...byStamp.values()].sort((a, b) => b.stamp - a.stamp);
+      }
       habits = habits.map((habit) => {
         const recent = (webCheckins.get(String(habit.id)) ?? []).at(-1);
         const goal = Number(recent?.goal ?? 0);

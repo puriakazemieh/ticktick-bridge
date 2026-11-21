@@ -1,8 +1,10 @@
 export function toDateKey(value, timeZone = "Asia/Tehran") {
   if (!value) return null;
-  const raw = String(value);
+  const raw = String(value).trim();
   const dateOnly = raw.match(/^(\d{4}-\d{2}-\d{2})$/)?.[1];
   if (dateOnly) return dateOnly;
+  const stampMatch = raw.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (stampMatch) return `${stampMatch[1]}-${stampMatch[2]}-${stampMatch[3]}`;
   const instant = new Date(raw);
   if (!Number.isNaN(instant.getTime())) return todayInZone(timeZone, instant);
   return raw.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? null;

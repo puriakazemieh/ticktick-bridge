@@ -893,7 +893,7 @@ export default class TickTickBridgePlugin extends Plugin {
     // keep TickTick's request volume low. An explicit Sync, however, must
     // discover projects created, renamed, or removed in TickTick itself.
     const projects = (!cacheAvailable || refreshRemoteMetadata || shouldRefreshProjects) ? await client.listProjects() : this.cache.projects;
-    let habits = (!cacheAvailable || refreshRemoteMetadata) ? await client.listHabits() : this.cache.habits;
+    let habits = (!cacheAvailable || refreshRemoteMetadata || shouldRefreshProjects || !this.cache.habits.length) ? await client.listHabits() : this.cache.habits;
     const sections = cacheAvailable ? [] : await client.listHabitSections();
     const projectBoards: Record<string, ProjectBoardData> = {};
     const taskIndex = new Map<string, TickTickTask>();
@@ -992,24 +992,62 @@ export default class TickTickBridgePlugin extends Plugin {
         .map(task => mergeTaskDetails(prior.get(String(task.id)), task) as TickTickTask);
     }
     const activeHabits = habits.filter((habit: { status?: number }) => habit.status === undefined || habit.status === 0);
-    const fromDay = shiftIsoDay(today, -90);
-    // The cache already holds the history. Avoid an additional token API read
-    // during normal refreshes; the web endpoint below updates the recent
-    // check-ins and is intentionally best-effort.
-    const officialDocuments = (!cacheAvailable || refreshRemoteMetadata) && activeHabits.length ? await client.getHabitCheckins(activeHabits.map((habit: { id: string }) => habit.id), fromDay, today) : [];
     const checkins: Record<string, CachedHabitCheckin[]> = { ...this.cache.habitCheckins };
-    for (const document of officialDocuments ?? []) {
-      const habitId = String(document?.habitId ?? "");
-      if (!habitId) continue;
-      checkins[habitId] = (document.checkins ?? []).map((entry: CachedHabitCheckin) => ({ stamp: Number(entry.stamp), value: Number(entry.value ?? 0), goal: Number(entry.goal ?? 1), status: Number(entry.status ?? 0) }));
-    }
-    // The web feed is the most up-to-date source for today's habit state.
+
+    // 1. The web feed is queried if an unofficial web session exists.
     const webCheckins = await this.webHabitCheckins(activeHabits.map((habit: { id: string }) => habit.id), today, 91);
-    if (webCheckins) for (const [habitId, entries] of webCheckins) checkins[habitId] = entries;
-    // The habit check-in record carries TickTick's current goal. Prefer that
-    // fresh value over a stale cache so a 3-step habit is never written back
-    // as 2 steps by a subsequent local check-in.
+
+    // 2. If web checkins are unavailable (session expired/absent), or on full/manual sync,
+    // or if the local cache has no checkins yet: fetch reliably from the official Token API.
+    const hasCachedCheckins = Object.keys(checkins).length > 0;
+    const shouldFetchOfficialCheckins = !cacheAvailable || refreshRemoteMetadata || !hasCachedCheckins || (webCheckins === null);
+
+    if (shouldFetchOfficialCheckins && activeHabits.length) {
+      const historyRangeDays = (!cacheAvailable || refreshRemoteMetadata || !hasCachedCheckins) ? 90 : 14;
+      const fromDay = shiftIsoDay(today, -historyRangeDays);
+      try {
+        const officialDocuments = await client.getHabitCheckins(activeHabits.map((habit: { id: string }) => habit.id), fromDay, today);
+        for (const document of officialDocuments ?? []) {
+          const habitId = String(document?.habitId ?? "");
+          if (!habitId) continue;
+          const existing = checkins[habitId] ?? [];
+          const byStamp = new Map(existing.map(entry => [Number(entry.stamp), entry]));
+          for (const entry of (document.checkins ?? [])) {
+            const stamp = Number(entry.stamp);
+            if (Number.isFinite(stamp)) {
+              byStamp.set(stamp, {
+                stamp,
+                value: Number(entry.value ?? 0),
+                goal: Number(entry.goal ?? 1),
+                status: Number(entry.status ?? 0)
+              });
+            }
+          }
+          checkins[habitId] = [...byStamp.values()].sort((a, b) => b.stamp - a.stamp);
+        }
+      } catch (err) {
+        console.warn("[TickTick Bridge] Error fetching habit checkins via token API:", err);
+      }
+    }
+
+    // 3. If web checkins succeeded, merge them as well (freshest for today)
     if (webCheckins) {
+      for (const [habitId, entries] of webCheckins) {
+        const existing = checkins[habitId] ?? [];
+        const byStamp = new Map(existing.map(entry => [Number(entry.stamp), entry]));
+        for (const entry of entries) {
+          const stamp = Number(entry.stamp);
+          if (Number.isFinite(stamp)) {
+            byStamp.set(stamp, {
+              stamp,
+              value: Number(entry.value ?? 0),
+              goal: Number(entry.goal ?? 1),
+              status: Number(entry.status ?? 0)
+            });
+          }
+        }
+        checkins[habitId] = [...byStamp.values()].sort((a, b) => b.stamp - a.stamp);
+      }
       habits = habits.map((habit: TickTickHabit) => {
         const recent = (webCheckins.get(String(habit.id)) ?? []).at(-1);
         const goal = Number(recent?.goal ?? 0);

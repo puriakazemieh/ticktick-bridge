@@ -70,3 +70,20 @@ test("habit check-ins returned with a string stamp are recognized", async () => 
   const habits = await client.habitsForDay("2026-10-04");
   assert.equal(habits[0].checkin.status, 2);
 });
+
+test("getHabitCheckins shifts toDay by +1 day so toDay is included in TickTick exclusive query", async () => {
+  const calls = [];
+  const client = new TickTickClient({
+    token: "test",
+    transport: async (url, init) => {
+      calls.push({ url, init });
+      return { status: 200, text: "[]" };
+    },
+  });
+  await client.getHabitCheckins(["habit-1", "habit-2"], "2026-11-20", "2026-11-21");
+  assert.equal(calls.length, 1);
+  const parsedUrl = new URL(calls[0].url);
+  assert.equal(parsedUrl.searchParams.get("habitIds"), "habit-1,habit-2");
+  assert.equal(parsedUrl.searchParams.get("from"), "20261120");
+  assert.equal(parsedUrl.searchParams.get("to"), "20261122");
+});
