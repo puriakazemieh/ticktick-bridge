@@ -1,11 +1,14 @@
-name: Publish release assets
+name: Release
 
 on:
+  push:
+    tags:
+      - "*"
   workflow_dispatch:
     inputs:
       tag:
         description: Existing release tag to package
-        required: true
+        required: false
         type: string
 
 permissions:
@@ -16,8 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag }}
 
       - uses: actions/setup-node@v4
         with:
@@ -26,6 +27,9 @@ jobs:
 
       - run: npm ci
       - run: npm run build
-      - run: gh release upload "${{ inputs.tag }}" main.js manifest.json styles.css --clobber
+      - name: Create or update GitHub release
+        run: |
+          TAG_NAME="${{ github.event.inputs.tag || github.ref_name }}"
+          gh release create "$TAG_NAME" main.js manifest.json styles.css --title "$TAG_NAME" --generate-notes || gh release upload "$TAG_NAME" main.js manifest.json styles.css --clobber
         env:
           GH_TOKEN: ${{ github.token }}
