@@ -42,7 +42,6 @@ export class EisenhowerMatrix {
 
   constructor(private element: HTMLElement, private host: EisenhowerMatrixHost) {
     this.element.addClass("ticktick-matrix-root");
-    this.element.style.direction = "rtl";
 
     this.unsubscribeSelection = bulkSelectionStore.subscribe(() => {
       this.updateSelectionClasses();

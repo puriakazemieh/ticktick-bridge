@@ -91,8 +91,6 @@ export function renderUnifiedHabitCard(parent: HTMLElement, options: UnifiedHabi
     }
   });
   progressRing.style.setProperty("--ticktick-progress", `${Math.round(progress * 360)}deg`);
-  progressRing.style.aspectRatio = "1 / 1";
-  progressRing.style.borderRadius = "50%";
 
   const glyphSpan = progressRing.createSpan({
     cls: "ticktick-habit-glyph",

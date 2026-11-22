@@ -42,7 +42,6 @@ export class WeeklyReview {
 
   constructor(private element: HTMLElement, private host: WeeklyReviewHost) {
     this.element.addClass("ticktick-weekly-review-root");
-    this.element.style.direction = "rtl";
   }
 
   destroy() {

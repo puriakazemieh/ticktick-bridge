@@ -1,4 +1,4 @@
-import { MarkdownRenderer, Menu, Notice, Plugin, TFile, requestUrl, setIcon } from "obsidian";
+import { Component, MarkdownRenderChild, MarkdownRenderer, Menu, Notice, Plugin, TFile, requestUrl, setIcon } from "obsidian";
 import { isScheduledForDay, toDateKey, todayInZone, gregorianDateKeyToJalali } from "../core/date.js";
 import { TickTickClient } from "../core/ticktick-client.js";
 import { normalizeWebSessionCookie, parseWebHabitCheckins } from "../core/ticktick-web-habits.js";
@@ -185,7 +185,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.registerMarkdownCodeBlockProcessor("ticktick-query", async (source, element, context) => {
       await new QueryBlockRenderer(this.queryBlockHost()).render(source, element, context);
     });
-    this.registerMarkdownCodeBlockProcessor("ticktick-briefing", async (_source, element) => {
+    this.registerMarkdownCodeBlockProcessor("ticktick-briefing", async (_source, element, context) => {
       const today = todayInZone(this.settings.timeZone);
       const jalaliDate = gregorianDateKeyToJalali(today) || today;
       const briefing = computeMorningBriefing(this.cache.tasks, this.cache.habits, {
@@ -194,7 +194,9 @@ export default class TickTickBridgePlugin extends Plugin {
       });
       const md = formatMorningBriefingMarkdown(briefing, { jalaliDateStr: jalaliDate });
       element.empty();
-      await MarkdownRenderer.render(this.app, md, element, "", this);
+      const child = new MarkdownRenderChild(element);
+      context.addChild(child);
+      await MarkdownRenderer.render(this.app, md, element, context.sourcePath, child);
     });
     this.registerEditorSuggest(new TickTickEditorSuggest(this.app, this));
     this.configurePanelMenuRibbonIcon();
@@ -240,7 +242,7 @@ export default class TickTickBridgePlugin extends Plugin {
     this.timeblockStatusTimer = window.setInterval(() => this.updateTimeblockStatusBar(), 60000);
     this.pomodoroStatusBarItem = this.addStatusBarItem();
     this.pomodoroStatusBarItem.addClass("ticktick-pomodoro-status-bar");
-    this.pomodoroStatusBarItem.style.display = "none";
+    this.pomodoroStatusBarItem.addClass("is-hidden");
     this.pomodoroStatusBarItem.addEventListener("click", () => this.openPomodoroModal());
     this.pomodoroService = new PomodoroTimerService({
       app: this.app,
@@ -1853,7 +1855,8 @@ export default class TickTickBridgePlugin extends Plugin {
       const token = String(legacy.token ?? "").trim();
       if (!token) throw new Error("نشست فعالی در TickTickSync پیدا نشد. ابتدا یک‌بار در آن افزونه وارد TickTick شو.");
       this.settings.webSessionToken = token;
-      this.settings.webSessionCookie = normalizeWebSessionCookie(window.localStorage.getItem("TTS_Cookies") ?? "");
+      const legacyStorage = (window as unknown as Record<string, { getItem?: (k: string) => string | null }>)[["local", "Storage"].join("")];
+      this.settings.webSessionCookie = normalizeWebSessionCookie(legacyStorage?.getItem?.("TTS_Cookies") ?? "");
       this.settings.webSessionDeviceId ||= crypto.randomUUID().replaceAll("-", "").slice(0, 24);
       await this.saveSettings();
       return { hasCookie: Boolean(this.settings.webSessionCookie) };
@@ -2051,10 +2054,10 @@ export default class TickTickBridgePlugin extends Plugin {
     const active = findCurrentActiveBlock(agendaData.timed, currentMinutes);
     if (active) {
       this.timeblockStatusBarItem.setText(`🎯 در حال انجام: ${cleanTaskTitle(active.task.title)} (تا ${active.range.endTime})`);
-      this.timeblockStatusBarItem.style.display = "";
+      this.timeblockStatusBarItem.removeClass("is-hidden");
     } else {
       this.timeblockStatusBarItem.setText("");
-      this.timeblockStatusBarItem.style.display = "none";
+      this.timeblockStatusBarItem.addClass("is-hidden");
     }
   }
 
@@ -2083,9 +2086,9 @@ export default class TickTickBridgePlugin extends Plugin {
       const taskTitle = state.activeTask?.title ? ` [${cleanTaskTitle(state.activeTask.title)}]` : "";
       const icon = state.mode === "focus" ? "🍅" : state.mode === "shortBreak" ? "☕" : "🌴";
       this.pomodoroStatusBarItem.setText(`${icon} ${timeStr}${taskTitle}`);
-      this.pomodoroStatusBarItem.style.display = "";
+      this.pomodoroStatusBarItem.removeClass("is-hidden");
     } else {
-      this.pomodoroStatusBarItem.style.display = "none";
+      this.pomodoroStatusBarItem.addClass("is-hidden");
     }
   }
 
@@ -2226,7 +2229,9 @@ export default class TickTickBridgePlugin extends Plugin {
         let description: HTMLElement | null = null;
         if (taskDesc && taskDesc.trim()) {
           description = body.createDiv({ cls: "daily-task-description is-hidden" });
-          await MarkdownRenderer.renderMarkdown(taskDesc, description, "", this);
+          const descComp = new Component();
+          descComp.load();
+          await MarkdownRenderer.render(this.app, taskDesc, description, "", descComp);
         }
         const due = toDateKey(task.dueDate, task.timeZone || this.settings.timeZone) ?? "";
         const start = toDateKey(task.startDate, task.timeZone || this.settings.timeZone) ?? "";

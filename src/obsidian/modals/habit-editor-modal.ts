@@ -111,7 +111,6 @@ export class HabitEditorModal extends Modal {
 
   onOpen() {
     this.modalEl.addClass("ticktick-habit-editor-modal");
-    this.modalEl.style.direction = "rtl";
 
     this.titleEl.setText(this.options.habit ? "✏️ ویرایش عادت" : "✨ افزودن عادت جدید");
 

@@ -22,7 +22,6 @@ export class BulkTagModal extends Modal {
 
   onOpen() {
     this.modalEl.addClass("ticktick-bulk-input-modal");
-    this.modalEl.style.direction = "rtl";
 
     this.titleEl.setText(`مدیریت برچسب‌های ${this.count} تسک`);
 
@@ -96,7 +95,6 @@ export class BulkDateModal extends Modal {
 
   onOpen() {
     this.modalEl.addClass("ticktick-bulk-input-modal");
-    this.modalEl.style.direction = "rtl";
 
     this.titleEl.setText(`زمان‌بندی ${this.count} تسک`);
 

@@ -76,7 +76,7 @@ export class TaskDetailsModal extends Modal {
   private render() {
     this.contentEl.empty();
     this.titleEl.empty();
-    this.titleEl.style.display = "none";
+    this.titleEl.addClass("is-hidden");
 
     const isCompleted = Number(this.task.status ?? 0) !== 0;
 
@@ -200,7 +200,7 @@ export class TaskDetailsModal extends Modal {
         checkboxes.forEach((cb, index) => {
           cb.disabled = false;
           cb.removeAttribute("disabled");
-          cb.style.cursor = "pointer";
+          cb.addClass("ticktick-interactive-checkbox");
           cb.addEventListener("change", async (event) => {
             event.stopPropagation();
             const currentDesc = taskDescription(this.task);

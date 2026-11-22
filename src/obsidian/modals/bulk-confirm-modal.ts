@@ -33,7 +33,6 @@ export class BulkConfirmModal extends Modal {
 
   onOpen() {
     this.modalEl.addClass("ticktick-bulk-confirm-modal");
-    this.modalEl.style.direction = "rtl";
 
     this.titleEl.setText(this.options.title);
 

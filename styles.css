@@ -1765,6 +1765,52 @@
 .ticktick-checklist-readonly div {
   padding: .12rem .25rem;
 }
+.ticktick-timeblock-status-bar.is-hidden,
+.ticktick-pomodoro-status-bar.is-hidden,
+.ticktick-bulk-action-bar.is-hidden,
+.modal-title.is-hidden {
+  display: none !important;
+}
+.ticktick-heatmap-root,
+.ticktick-bulk-action-bar,
+.ticktick-matrix-root,
+.ticktick-timeblock-root,
+.ticktick-weekly-review-root,
+.ticktick-bulk-confirm-modal,
+.ticktick-bulk-input-modal,
+.ticktick-create-smart-view-modal,
+.ticktick-create-tag-modal,
+.ticktick-habit-editor-modal,
+.ticktick-timeline-grid {
+  direction: rtl;
+}
+.ticktick-bulk-action-bar {
+  display: flex;
+}
+.ticktick-interactive-checkbox {
+  cursor: pointer;
+}
+.ticktick-timeblock-stat-pill.is-overdue {
+  color: var(--text-error, #dc2626) !important;
+}
+.ticktick-untimed-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ticktick-habit-progress {
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+}
+.ticktick-timeline-header-row,
+.ticktick-timeline-lane-row {
+  display: grid;
+  direction: rtl;
+}
+.ticktick-timeline-today-stripe {
+  grid-row: 1 / -1;
+}
 
 /* src/styles/board.css */
 .ticktick-project-board {

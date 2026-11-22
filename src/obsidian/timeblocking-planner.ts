@@ -41,7 +41,6 @@ export class TimeblockingPlanner {
 
   constructor(private element: HTMLElement, private host: TimeblockingPlannerHost) {
     this.element.addClass("ticktick-timeblock-root");
-    this.element.style.direction = "rtl";
 
     this.unsubscribeSelection = bulkSelectionStore.subscribe(() => {
       this.updateSelectionClasses();
@@ -375,9 +374,8 @@ export class TimeblockingPlanner {
     if (overdue.length > 0) {
       const titleOverdue = drawer.createDiv({ cls: "ticktick-timeblock-drawer-title" });
       titleOverdue.createSpan({ text: "معوقه از قبل" });
-      const overdueBadge = titleOverdue.createSpan({ cls: "ticktick-timeblock-stat-pill" });
+      const overdueBadge = titleOverdue.createSpan({ cls: "ticktick-timeblock-stat-pill is-overdue" });
       overdueBadge.setText(String(overdue.length));
-      overdueBadge.style.color = "#dc2626";
 
       const overdueList = drawer.createDiv({ cls: "ticktick-timeblock-untimed-list" });
       for (const task of overdue) {
@@ -394,11 +392,7 @@ export class TimeblockingPlanner {
     const prio = taskPriority(task.priority);
     const prioDot = card.createSpan({ cls: `ticktick-matrix-priority-dot ${prio.className}` });
 
-    const titleEl = card.createSpan({ text: cleanTaskTitle(task.title) });
-    titleEl.style.flex = "1";
-    titleEl.style.overflow = "hidden";
-    titleEl.style.textOverflow = "ellipsis";
-    titleEl.style.whiteSpace = "nowrap";
+    const titleEl = card.createSpan({ text: cleanTaskTitle(task.title), cls: "ticktick-untimed-title" });
 
     if (isOverdue) {
       const due = toDateKey(task.dueDate, task.timeZone || this.host.timeZone);

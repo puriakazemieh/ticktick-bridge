@@ -745,7 +745,7 @@ export class TaskEditorModal extends Modal {
       checkboxes.forEach((cb, index) => {
         cb.disabled = false;
         cb.removeAttribute("disabled");
-        cb.style.cursor = "pointer";
+        cb.addClass("ticktick-interactive-checkbox");
         cb.addEventListener("change", (e) => {
           e.stopPropagation();
           description = toggleMarkdownCheckboxAtIndex(description, index);

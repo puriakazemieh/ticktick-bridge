@@ -1,12 +1,13 @@
 {
   "name": "@puria/ticktick-bridge",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "type": "module",
   "main": "main.js",
   "scripts": {
     "test": "node --test",
     "check": "tsc --noEmit",
+    "lint": "eslint src",
     "build:js": "esbuild src/obsidian/main.ts --bundle --platform=browser --target=es2022 --external:obsidian --format=cjs --outfile=main.js",
     "build:css": "esbuild src/styles/main.css --bundle --outfile=styles.css",
     "build": "npm run build:css && npm run build:js",
@@ -16,7 +17,11 @@
   "devDependencies": {
     "@types/jalaali-js": "^1.2.0",
     "@types/node": "^24.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.73.0",
+    "@typescript-eslint/parser": "^8.73.0",
     "esbuild": "^0.25.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-obsidianmd": "^0.6.0",
     "obsidian": "latest",
     "typescript": "^5.8.0"
   },

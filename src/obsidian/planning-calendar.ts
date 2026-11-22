@@ -1186,9 +1186,8 @@ export class PlanningCalendar {
     if (isToday && agendaData.overdue.length > 0) {
       const titleOverdue = drawer.createDiv({ cls: "ticktick-timeblock-drawer-title" });
       titleOverdue.createSpan({ text: "معوقه از قبل" });
-      const overdueBadge = titleOverdue.createSpan({ cls: "ticktick-timeblock-stat-pill" });
+      const overdueBadge = titleOverdue.createSpan({ cls: "ticktick-timeblock-stat-pill is-overdue" });
       overdueBadge.setText(String(agendaData.overdue.length));
-      overdueBadge.style.color = "#dc2626";
 
       const overdueList = drawer.createDiv({ cls: "ticktick-timeblock-untimed-list" });
       for (const task of agendaData.overdue) {
@@ -1349,10 +1348,6 @@ export class PlanningCalendar {
     check.addEventListener("change", () => void this.completeTask(task, check));
 
     const titleEl = card.createSpan({ text: cleanTaskTitle(task.title), cls: "ticktick-untimed-title" });
-    titleEl.style.flex = "1";
-    titleEl.style.overflow = "hidden";
-    titleEl.style.textOverflow = "ellipsis";
-    titleEl.style.whiteSpace = "nowrap";
 
     if (task.projectName) {
       card.createSpan({ cls: "ticktick-untimed-project-pill", text: task.projectName });

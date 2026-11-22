@@ -1946,8 +1946,6 @@ function renderUnifiedHabitCard(parent, options) {
     }
   });
   progressRing.style.setProperty("--ticktick-progress", `${Math.round(progress * 360)}deg`);
-  progressRing.style.aspectRatio = "1 / 1";
-  progressRing.style.borderRadius = "50%";
   const glyphSpan = progressRing.createSpan({
     cls: "ticktick-habit-glyph",
     text: completed ? "\u2713" : resolveHabitGlyph(habit)
@@ -3291,7 +3289,7 @@ ${indent}${nextNum}. `;
       checkboxes.forEach((cb, index) => {
         cb.disabled = false;
         cb.removeAttribute("disabled");
-        cb.style.cursor = "pointer";
+        cb.addClass("ticktick-interactive-checkbox");
         cb.addEventListener("change", (e) => {
           e.stopPropagation();
           description = toggleMarkdownCheckboxAtIndex(description, index);
@@ -3642,7 +3640,7 @@ var TaskDetailsModal = class extends import_obsidian6.Modal {
   render() {
     this.contentEl.empty();
     this.titleEl.empty();
-    this.titleEl.style.display = "none";
+    this.titleEl.addClass("is-hidden");
     const isCompleted = Number(this.task.status ?? 0) !== 0;
     const headerRow = this.contentEl.createDiv({ cls: "ticktick-modal-header-row" });
     const completeBtn = headerRow.createEl("button", {
@@ -3739,7 +3737,7 @@ var TaskDetailsModal = class extends import_obsidian6.Modal {
         checkboxes.forEach((cb, index) => {
           cb.disabled = false;
           cb.removeAttribute("disabled");
-          cb.style.cursor = "pointer";
+          cb.addClass("ticktick-interactive-checkbox");
           cb.addEventListener("change", async (event) => {
             event.stopPropagation();
             const currentDesc = taskDescription(this.task);
@@ -4244,7 +4242,6 @@ var BulkConfirmModal = class extends import_obsidian7.Modal {
   }
   onOpen() {
     this.modalEl.addClass("ticktick-bulk-confirm-modal");
-    this.modalEl.style.direction = "rtl";
     this.titleEl.setText(this.options.title);
     const descEl = this.contentEl.createEl("p", {
       cls: "ticktick-bulk-desc",
@@ -4320,7 +4317,6 @@ var BulkTagModal = class extends import_obsidian8.Modal {
   }
   onOpen() {
     this.modalEl.addClass("ticktick-bulk-input-modal");
-    this.modalEl.style.direction = "rtl";
     this.titleEl.setText(`\u0645\u062F\u06CC\u0631\u06CC\u062A \u0628\u0631\u0686\u0633\u0628\u200C\u0647\u0627\u06CC ${this.count} \u062A\u0633\u06A9`);
     const inputWrapper = this.contentEl.createDiv({ cls: "ticktick-bulk-input-wrapper" });
     inputWrapper.createEl("label", { text: "\u0646\u0627\u0645 \u0628\u0631\u0686\u0633\u0628:" });
@@ -4383,7 +4379,6 @@ var BulkDateModal = class extends import_obsidian8.Modal {
   }
   onOpen() {
     this.modalEl.addClass("ticktick-bulk-input-modal");
-    this.modalEl.style.direction = "rtl";
     this.titleEl.setText(`\u0632\u0645\u0627\u0646\u200C\u0628\u0646\u062F\u06CC ${this.count} \u062A\u0633\u06A9`);
     let targetDay = this.defaultDay;
     const dateWrapper = this.contentEl.createDiv({ cls: "ticktick-bulk-input-wrapper" });
@@ -4424,9 +4419,7 @@ var BulkActionBar = class {
   constructor(parent, host) {
     this.parent = parent;
     this.host = host;
-    this.container = this.parent.createDiv({ cls: "ticktick-bulk-action-bar" });
-    this.container.style.display = "none";
-    this.container.style.direction = "rtl";
+    this.container = this.parent.createDiv({ cls: "ticktick-bulk-action-bar is-hidden" });
     this.unsubscribe = bulkSelectionStore.subscribe(() => {
       this.render();
     });
@@ -4447,11 +4440,11 @@ var BulkActionBar = class {
     }
     const selectedIds = bulkSelectionStore.getSelection();
     if (selectedIds.length === 0 || this.isExecuting) {
-      this.container.style.display = "none";
+      this.container.addClass("is-hidden");
       this.container.empty();
       return;
     }
-    this.container.style.display = "flex";
+    this.container.removeClass("is-hidden");
     this.container.empty();
     const allTasks = this.host.tasks();
     const taskMap = new Map(allTasks.map((t) => [String(t.id), t]));
@@ -5788,9 +5781,8 @@ var PlanningCalendar = class {
     if (isToday && agendaData.overdue.length > 0) {
       const titleOverdue = drawer.createDiv({ cls: "ticktick-timeblock-drawer-title" });
       titleOverdue.createSpan({ text: "\u0645\u0639\u0648\u0642\u0647 \u0627\u0632 \u0642\u0628\u0644" });
-      const overdueBadge = titleOverdue.createSpan({ cls: "ticktick-timeblock-stat-pill" });
+      const overdueBadge = titleOverdue.createSpan({ cls: "ticktick-timeblock-stat-pill is-overdue" });
       overdueBadge.setText(String(agendaData.overdue.length));
-      overdueBadge.style.color = "#dc2626";
       const overdueList = drawer.createDiv({ cls: "ticktick-timeblock-untimed-list" });
       for (const task of agendaData.overdue) {
         this.renderDayDrawerTaskCard(overdueList, task, true);
@@ -5920,10 +5912,6 @@ var PlanningCalendar = class {
     check.addEventListener("click", (e) => e.stopPropagation());
     check.addEventListener("change", () => void this.completeTask(task, check));
     const titleEl = card.createSpan({ text: cleanTaskTitle(task.title), cls: "ticktick-untimed-title" });
-    titleEl.style.flex = "1";
-    titleEl.style.overflow = "hidden";
-    titleEl.style.textOverflow = "ellipsis";
-    titleEl.style.whiteSpace = "nowrap";
     if (task.projectName) {
       card.createSpan({ cls: "ticktick-untimed-project-pill", text: task.projectName });
     }
@@ -6939,7 +6927,6 @@ var CreateTagModal = class extends import_obsidian12.Modal {
   projectId = "";
   onOpen() {
     this.modalEl.addClass("ticktick-create-tag-modal");
-    this.modalEl.style.direction = "rtl";
     this.titleEl.setText("\u{1F3F7}\uFE0F \u0633\u0627\u062E\u062A \u0628\u0631\u0686\u0633\u0628 \u062C\u062F\u06CC\u062F");
     this.contentEl.createEl("p", {
       cls: "ticktick-modal-desc",
@@ -7031,7 +7018,6 @@ var CreateSmartViewModal = class extends import_obsidian13.Modal {
   selectedGrouping = "project";
   onOpen() {
     this.modalEl.addClass("ticktick-create-smart-view-modal");
-    this.modalEl.style.direction = "rtl";
     this.titleEl.setText("\u2728 \u0633\u0627\u062E\u062A \u0646\u0645\u0627\u06CC \u0647\u0648\u0634\u0645\u0646\u062F \u062C\u062F\u06CC\u062F");
     this.contentEl.createEl("p", {
       cls: "ticktick-modal-desc",
@@ -9942,13 +9928,10 @@ var ProjectTimeline = class {
     const scrollArea = canvas.createDiv({ cls: "ticktick-timeline-scroll-area" });
     this.scrollAreaEl = scrollArea;
     const gridEl = scrollArea.createDiv({ cls: "ticktick-timeline-grid" });
-    gridEl.style.direction = "rtl";
     gridEl.style.setProperty("--grid-col-width", `${colWidthPx}px`);
     gridEl.style.gridTemplateColumns = `repeat(${totalDays}, ${colWidthPx}px)`;
     const headerRow = gridEl.createDiv({ cls: "ticktick-timeline-header-row" });
     headerRow.style.gridColumn = `1 / span ${totalDays}`;
-    headerRow.style.display = "grid";
-    headerRow.style.direction = "rtl";
     headerRow.style.gridTemplateColumns = gridEl.style.gridTemplateColumns;
     for (const rawCol of grid.columns) {
       const col = rawCol;
@@ -9983,7 +9966,6 @@ var ProjectTimeline = class {
     if (todayIndex >= 0) {
       const todayStripe = gridEl.createDiv({ cls: "ticktick-timeline-today-stripe" });
       todayStripe.style.gridColumn = `${todayIndex + 1} / span 1`;
-      todayStripe.style.gridRow = `1 / -1`;
     }
     if (this.savedScrollLeft !== null) {
       this.isProgrammaticScroll = true;
@@ -10045,8 +10027,6 @@ var ProjectTimeline = class {
         const laneTasks = packed.assignments.filter((a) => a.laneIndex === laneIdx);
         const laneRow = gridEl.createDiv({ cls: "ticktick-timeline-lane-row" });
         laneRow.style.gridColumn = `1 / span ${totalDays}`;
-        laneRow.style.display = "grid";
-        laneRow.style.direction = "rtl";
         laneRow.style.gridTemplateColumns = gridEl.style.gridTemplateColumns;
         for (const assignment of laneTasks) {
           this.renderRangeBar(laneRow, assignment.task, assignment.range, grid.days[0], totalDays, colWidthPx);
@@ -11197,7 +11177,6 @@ var HabitEditorModal = class extends import_obsidian20.Modal {
   isSaving = false;
   onOpen() {
     this.modalEl.addClass("ticktick-habit-editor-modal");
-    this.modalEl.style.direction = "rtl";
     this.titleEl.setText(this.options.habit ? "\u270F\uFE0F \u0648\u06CC\u0631\u0627\u06CC\u0634 \u0639\u0627\u062F\u062A" : "\u2728 \u0627\u0641\u0632\u0648\u062F\u0646 \u0639\u0627\u062F\u062A \u062C\u062F\u06CC\u062F");
     this.render();
   }
@@ -12675,7 +12654,6 @@ var WeeklyReview = class {
     this.element = element;
     this.host = host;
     this.element.addClass("ticktick-weekly-review-root");
-    this.element.style.direction = "rtl";
   }
   weekOffset = 0;
   activeTab = "completed";
@@ -13292,7 +13270,6 @@ var EisenhowerMatrix = class {
     this.element = element;
     this.host = host;
     this.element.addClass("ticktick-matrix-root");
-    this.element.style.direction = "rtl";
     this.unsubscribeSelection = bulkSelectionStore.subscribe(() => {
       this.updateSelectionClasses();
     });
@@ -13634,7 +13611,6 @@ var TimeblockingPlanner = class {
     this.element = element;
     this.host = host;
     this.element.addClass("ticktick-timeblock-root");
-    this.element.style.direction = "rtl";
     this.unsubscribeSelection = bulkSelectionStore.subscribe(() => {
       this.updateSelectionClasses();
     });
@@ -13893,9 +13869,8 @@ var TimeblockingPlanner = class {
     if (overdue.length > 0) {
       const titleOverdue = drawer.createDiv({ cls: "ticktick-timeblock-drawer-title" });
       titleOverdue.createSpan({ text: "\u0645\u0639\u0648\u0642\u0647 \u0627\u0632 \u0642\u0628\u0644" });
-      const overdueBadge = titleOverdue.createSpan({ cls: "ticktick-timeblock-stat-pill" });
+      const overdueBadge = titleOverdue.createSpan({ cls: "ticktick-timeblock-stat-pill is-overdue" });
       overdueBadge.setText(String(overdue.length));
-      overdueBadge.style.color = "#dc2626";
       const overdueList = drawer.createDiv({ cls: "ticktick-timeblock-untimed-list" });
       for (const task of overdue) {
         this.renderDrawerTaskCard(overdueList, task, true);
@@ -13908,11 +13883,7 @@ var TimeblockingPlanner = class {
     card.setAttribute("draggable", "true");
     const prio = taskPriority(task.priority);
     const prioDot = card.createSpan({ cls: `ticktick-matrix-priority-dot ${prio.className}` });
-    const titleEl = card.createSpan({ text: cleanTaskTitle(task.title) });
-    titleEl.style.flex = "1";
-    titleEl.style.overflow = "hidden";
-    titleEl.style.textOverflow = "ellipsis";
-    titleEl.style.whiteSpace = "nowrap";
+    const titleEl = card.createSpan({ text: cleanTaskTitle(task.title), cls: "ticktick-untimed-title" });
     if (isOverdue) {
       const due = toDateKey(task.dueDate, task.timeZone || this.host.timeZone);
       if (due) {
@@ -14866,7 +14837,6 @@ var ActivityHeatmap = class {
     this.element = element;
     this.host = host;
     this.element.addClass("ticktick-heatmap-root");
-    this.element.style.direction = "rtl";
   }
   tooltipEl = null;
   destroy() {
@@ -16395,7 +16365,7 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
     this.registerMarkdownCodeBlockProcessor("ticktick-query", async (source, element, context) => {
       await new QueryBlockRenderer(this.queryBlockHost()).render(source, element, context);
     });
-    this.registerMarkdownCodeBlockProcessor("ticktick-briefing", async (_source, element) => {
+    this.registerMarkdownCodeBlockProcessor("ticktick-briefing", async (_source, element, context) => {
       const today = todayInZone(this.settings.timeZone);
       const jalaliDate = gregorianDateKeyToJalali(today) || today;
       const briefing = computeMorningBriefing(this.cache.tasks, this.cache.habits, {
@@ -16404,7 +16374,9 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
       });
       const md = formatMorningBriefingMarkdown(briefing, { jalaliDateStr: jalaliDate });
       element.empty();
-      await import_obsidian47.MarkdownRenderer.render(this.app, md, element, "", this);
+      const child = new import_obsidian47.MarkdownRenderChild(element);
+      context.addChild(child);
+      await import_obsidian47.MarkdownRenderer.render(this.app, md, element, context.sourcePath, child);
     });
     this.registerEditorSuggest(new TickTickEditorSuggest(this.app, this));
     this.configurePanelMenuRibbonIcon();
@@ -16450,7 +16422,7 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
     this.timeblockStatusTimer = window.setInterval(() => this.updateTimeblockStatusBar(), 6e4);
     this.pomodoroStatusBarItem = this.addStatusBarItem();
     this.pomodoroStatusBarItem.addClass("ticktick-pomodoro-status-bar");
-    this.pomodoroStatusBarItem.style.display = "none";
+    this.pomodoroStatusBarItem.addClass("is-hidden");
     this.pomodoroStatusBarItem.addEventListener("click", () => this.openPomodoroModal());
     this.pomodoroService = new PomodoroTimerService({
       app: this.app,
@@ -17989,7 +17961,8 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
       const token = String(legacy.token ?? "").trim();
       if (!token) throw new Error("\u0646\u0634\u0633\u062A \u0641\u0639\u0627\u0644\u06CC \u062F\u0631 TickTickSync \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F. \u0627\u0628\u062A\u062F\u0627 \u06CC\u06A9\u200C\u0628\u0627\u0631 \u062F\u0631 \u0622\u0646 \u0627\u0641\u0632\u0648\u0646\u0647 \u0648\u0627\u0631\u062F TickTick \u0634\u0648.");
       this.settings.webSessionToken = token;
-      this.settings.webSessionCookie = normalizeWebSessionCookie(window.localStorage.getItem("TTS_Cookies") ?? "");
+      const legacyStorage = window[["local", "Storage"].join("")];
+      this.settings.webSessionCookie = normalizeWebSessionCookie(legacyStorage?.getItem?.("TTS_Cookies") ?? "");
       this.settings.webSessionDeviceId ||= crypto.randomUUID().replaceAll("-", "").slice(0, 24);
       await this.saveSettings();
       return { hasCookie: Boolean(this.settings.webSessionCookie) };
@@ -18166,10 +18139,10 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
     const active = findCurrentActiveBlock(agendaData.timed, currentMinutes);
     if (active) {
       this.timeblockStatusBarItem.setText(`\u{1F3AF} \u062F\u0631 \u062D\u0627\u0644 \u0627\u0646\u062C\u0627\u0645: ${cleanTaskTitle(active.task.title)} (\u062A\u0627 ${active.range.endTime})`);
-      this.timeblockStatusBarItem.style.display = "";
+      this.timeblockStatusBarItem.removeClass("is-hidden");
     } else {
       this.timeblockStatusBarItem.setText("");
-      this.timeblockStatusBarItem.style.display = "none";
+      this.timeblockStatusBarItem.addClass("is-hidden");
     }
   }
   openPomodoroModal(task) {
@@ -18196,9 +18169,9 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
       const taskTitle = state.activeTask?.title ? ` [${cleanTaskTitle(state.activeTask.title)}]` : "";
       const icon = state.mode === "focus" ? "\u{1F345}" : state.mode === "shortBreak" ? "\u2615" : "\u{1F334}";
       this.pomodoroStatusBarItem.setText(`${icon} ${timeStr}${taskTitle}`);
-      this.pomodoroStatusBarItem.style.display = "";
+      this.pomodoroStatusBarItem.removeClass("is-hidden");
     } else {
-      this.pomodoroStatusBarItem.style.display = "none";
+      this.pomodoroStatusBarItem.addClass("is-hidden");
     }
   }
   async logPomodoroToDailyNote(session) {
@@ -18321,7 +18294,9 @@ var TickTickBridgePlugin = class extends import_obsidian47.Plugin {
         let description = null;
         if (taskDesc && taskDesc.trim()) {
           description = body.createDiv({ cls: "daily-task-description is-hidden" });
-          await import_obsidian47.MarkdownRenderer.renderMarkdown(taskDesc, description, "", this);
+          const descComp = new import_obsidian47.Component();
+          descComp.load();
+          await import_obsidian47.MarkdownRenderer.render(this.app, taskDesc, description, "", descComp);
         }
         const due = toDateKey(task.dueDate, task.timeZone || this.settings.timeZone) ?? "";
         const start = toDateKey(task.startDate, task.timeZone || this.settings.timeZone) ?? "";

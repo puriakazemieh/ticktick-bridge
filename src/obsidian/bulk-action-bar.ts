@@ -20,9 +20,7 @@ export class BulkActionBar {
   private isExecuting = false;
 
   constructor(private parent: HTMLElement, private host: BulkActionBarHost) {
-    this.container = this.parent.createDiv({ cls: "ticktick-bulk-action-bar" });
-    this.container.style.display = "none";
-    this.container.style.direction = "rtl";
+    this.container = this.parent.createDiv({ cls: "ticktick-bulk-action-bar is-hidden" });
 
     this.unsubscribe = bulkSelectionStore.subscribe(() => {
       this.render();
@@ -44,12 +42,12 @@ export class BulkActionBar {
 
     const selectedIds = bulkSelectionStore.getSelection();
     if (selectedIds.length === 0 || this.isExecuting) {
-      this.container.style.display = "none";
+      this.container.addClass("is-hidden");
       this.container.empty();
       return;
     }
 
-    this.container.style.display = "flex";
+    this.container.removeClass("is-hidden");
     this.container.empty();
 
     const allTasks = this.host.tasks();

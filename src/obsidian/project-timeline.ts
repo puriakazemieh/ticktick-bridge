@@ -349,15 +349,12 @@ export class ProjectTimeline {
     this.scrollAreaEl = scrollArea;
 
     const gridEl = scrollArea.createDiv({ cls: "ticktick-timeline-grid" });
-    gridEl.style.direction = "rtl";
     gridEl.style.setProperty("--grid-col-width", `${colWidthPx}px`);
     gridEl.style.gridTemplateColumns = `repeat(${totalDays}, ${colWidthPx}px)`;
 
     // 1. Header Row
     const headerRow = gridEl.createDiv({ cls: "ticktick-timeline-header-row" });
     headerRow.style.gridColumn = `1 / span ${totalDays}`;
-    headerRow.style.display = "grid";
-    headerRow.style.direction = "rtl";
     headerRow.style.gridTemplateColumns = gridEl.style.gridTemplateColumns;
 
     for (const rawCol of grid.columns) {
@@ -395,7 +392,6 @@ export class ProjectTimeline {
     if (todayIndex >= 0) {
       const todayStripe = gridEl.createDiv({ cls: "ticktick-timeline-today-stripe" });
       todayStripe.style.gridColumn = `${todayIndex + 1} / span 1`;
-      todayStripe.style.gridRow = `1 / -1`;
     }
 
     // 3. Restore Scroll position immediately or perform initial scroll
@@ -470,8 +466,6 @@ export class ProjectTimeline {
         const laneTasks = packed.assignments.filter(a => a.laneIndex === laneIdx);
         const laneRow = gridEl.createDiv({ cls: "ticktick-timeline-lane-row" });
         laneRow.style.gridColumn = `1 / span ${totalDays}`;
-        laneRow.style.display = "grid";
-        laneRow.style.direction = "rtl";
         laneRow.style.gridTemplateColumns = gridEl.style.gridTemplateColumns;
 
         for (const assignment of laneTasks) {

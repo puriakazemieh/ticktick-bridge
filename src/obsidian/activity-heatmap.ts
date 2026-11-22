@@ -34,7 +34,6 @@ export class ActivityHeatmap {
 
   constructor(private element: HTMLElement, private host: ActivityHeatmapHost) {
     this.element.addClass("ticktick-heatmap-root");
-    this.element.style.direction = "rtl";
   }
 
   destroy() {

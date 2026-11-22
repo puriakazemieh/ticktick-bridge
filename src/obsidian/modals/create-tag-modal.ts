@@ -21,7 +21,6 @@ export class CreateTagModal extends Modal {
 
   onOpen() {
     this.modalEl.addClass("ticktick-create-tag-modal");
-    this.modalEl.style.direction = "rtl";
 
     this.titleEl.setText("🏷️ ساخت برچسب جدید");
 

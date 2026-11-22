@@ -13,6 +13,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   upload-assets:
@@ -27,6 +29,15 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+
+      - name: Generate artifact attestations
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
+
       - name: Create or update GitHub release
         run: |
           TAG_NAME="${{ github.event.inputs.tag || github.ref_name }}"

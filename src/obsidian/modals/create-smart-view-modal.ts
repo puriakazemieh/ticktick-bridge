@@ -21,7 +21,6 @@ export class CreateSmartViewModal extends Modal {
 
   onOpen() {
     this.modalEl.addClass("ticktick-create-smart-view-modal");
-    this.modalEl.style.direction = "rtl";
 
     this.titleEl.setText("✨ ساخت نمای هوشمند جدید");
 
