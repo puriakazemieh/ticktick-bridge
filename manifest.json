@@ -1,7 +1,7 @@
 {
   "id": "ticktick-bridge",
   "name": "TickTick Bridge",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "minAppVersion": "1.6.0",
   "description": "A standalone TickTick task bridge for managing projects, tasks, habits, kanban, and calendar planning in your vault.",
   "author": "Puria",

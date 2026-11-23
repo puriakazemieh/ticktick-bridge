@@ -5227,7 +5227,7 @@ var PlanningCalendar = class {
     }
     const prevScrollHeight = bodySlot.scrollHeight;
     if (isSameView && prevScrollHeight > 0) {
-      bodySlot.style.minHeight = `${prevScrollHeight}px`;
+      bodySlot.style.setProperty("--slot-min-height", `${prevScrollHeight}px`);
     }
     this.isRendering = true;
     this.wasRecentlyRendering = true;
@@ -5349,10 +5349,12 @@ var PlanningCalendar = class {
     if (typeof requestAnimationFrame === "function") {
       requestAnimationFrame(() => {
         restoreScrolls();
-        bodySlot.style.minHeight = "";
+        bodySlot.style.removeProperty("--slot-min-height");
+        bodySlot.style.removeProperty("min-height");
       });
     } else {
-      bodySlot.style.minHeight = "";
+      bodySlot.style.removeProperty("--slot-min-height");
+      bodySlot.style.removeProperty("min-height");
     }
     setTimeout(() => restoreScrolls(), 50);
     setTimeout(() => restoreScrolls(), 150);
@@ -7390,7 +7392,7 @@ var FilterBar = class {
   updateSearchClearButton() {
     if (!this.searchClearBtn) return;
     const hasText = Boolean(this.searchInput?.value);
-    this.searchClearBtn.style.display = hasText ? "flex" : "none";
+    this.searchClearBtn.toggleClass("is-hidden", !hasText);
   }
   notifyFilterChange(nextState) {
     this.host.onFilterChange(nextState);
@@ -7786,7 +7788,7 @@ function renderTaskCard(parent, options) {
         (0, import_obsidian15.setIcon)(chevIcon, isSubtasksExpanded ? "chevron-down" : "chevron-left");
       }
       if (subtasksContainer) {
-        subtasksContainer.style.display = isSubtasksExpanded ? "flex" : "none";
+        subtasksContainer.toggleClass("is-hidden", !isSubtasksExpanded);
       }
       card.toggleClass("is-subtasks-collapsed", !isSubtasksExpanded);
     });

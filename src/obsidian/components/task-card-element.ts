@@ -180,7 +180,7 @@ export function renderTaskCard(parent: HTMLElement, options: TaskCardOptions): H
         setIcon(chevIcon, isSubtasksExpanded ? "chevron-down" : "chevron-left");
       }
       if (subtasksContainer) {
-        subtasksContainer.style.display = isSubtasksExpanded ? "flex" : "none";
+        subtasksContainer.toggleClass("is-hidden", !isSubtasksExpanded);
       }
       card.toggleClass("is-subtasks-collapsed", !isSubtasksExpanded);
     });

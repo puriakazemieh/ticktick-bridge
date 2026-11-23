@@ -257,7 +257,7 @@ export class FilterBar {
   private updateSearchClearButton() {
     if (!this.searchClearBtn) return;
     const hasText = Boolean(this.searchInput?.value);
-    this.searchClearBtn.style.display = hasText ? "flex" : "none";
+    this.searchClearBtn.toggleClass("is-hidden", !hasText);
   }
 
   private notifyFilterChange(nextState: TaskFilterState) {

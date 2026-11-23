@@ -533,7 +533,7 @@ export class PlanningCalendar {
     // Keep the slot height from collapsing to 0 during DOM rebuild so Chromium doesn't reset scrollTop to 0
     const prevScrollHeight = bodySlot.scrollHeight;
     if (isSameView && prevScrollHeight > 0) {
-      bodySlot.style.minHeight = `${prevScrollHeight}px`;
+      bodySlot.style.setProperty("--slot-min-height", `${prevScrollHeight}px`);
     }
 
     this.isRendering = true;
@@ -677,10 +677,12 @@ export class PlanningCalendar {
     if (typeof requestAnimationFrame === "function") {
       requestAnimationFrame(() => {
         restoreScrolls();
-        bodySlot.style.minHeight = "";
+        bodySlot.style.removeProperty("--slot-min-height");
+        bodySlot.style.removeProperty("min-height");
       });
     } else {
-      bodySlot.style.minHeight = "";
+      bodySlot.style.removeProperty("--slot-min-height");
+      bodySlot.style.removeProperty("min-height");
     }
     setTimeout(() => restoreScrolls(), 50);
     setTimeout(() => restoreScrolls(), 150);

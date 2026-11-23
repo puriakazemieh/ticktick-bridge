@@ -229,6 +229,8 @@
 .ticktick-timeblock-status-bar.is-hidden,
 .ticktick-pomodoro-status-bar.is-hidden,
 .ticktick-bulk-action-bar.is-hidden,
+.ticktick-filter-clear-search.is-hidden,
+.tb-card-subtasks-container.is-hidden,
 .modal-title.is-hidden {
   display: none !important;
 }
@@ -279,5 +281,10 @@
 
 .ticktick-timeline-today-stripe {
   grid-row: 1 / -1;
+}
+
+.ticktick-workspace-body-slot,
+.ticktick-planner {
+  min-height: var(--slot-min-height, auto);
 }
 
